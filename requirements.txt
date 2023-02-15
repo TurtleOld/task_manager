@@ -4,7 +4,7 @@ python-dotenv~=0.20.0
 whitenoise~=6.1.0
 psycopg2
 psycopg2-binary
-Django~=4.0.7
+Django>=4.0.7,<4.2.0
 dj-database-url
 django-bootstrap4
 django-filter
