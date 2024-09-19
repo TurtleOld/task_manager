@@ -1,7 +1,6 @@
 from django.urls import path
 
-from task_manager.labels.views import LabelsList, CreateLabel, UpdateLabel,\
-    DeleteLabel
+from task_manager.labels.views import LabelsList, CreateLabel, UpdateLabel, DeleteLabel
 
 app_name = 'labels'
 urlpatterns = [

@@ -37,6 +37,8 @@ jobs:
       # Run the flake lint
       - name: Flake8 action
         uses: suo/flake8-github-action@v1
+        with:
+          checkName: ''
 
       - name: Start linter
         run: make lint
