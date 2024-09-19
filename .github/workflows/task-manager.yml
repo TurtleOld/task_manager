@@ -30,6 +30,9 @@ jobs:
           pip install poetry
           make install
 
+      - name: Start linter
+        run: make lint
+
       - name: Test & publish code coverage
         uses: paambaati/codeclimate-action@v3.0.0
         env:
