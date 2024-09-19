@@ -32,7 +32,6 @@ DEBUG = os.getenv('DEBUG', 'true').lower() in {'yes', '1', 'true'}
 
 
 ALLOWED_HOSTS = [
-    'sleepy-taiga-46843.herokuapp.com',
     'localhost',
     '127.0.0.1',
     'webserver',

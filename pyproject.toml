@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "hexlet-code"
+name = "Task-Manager"
 version = "0.1.0"
 description = ""
 authors = ["TurtleOld <shurpo.alexander@gmail.com>"]
@@ -8,7 +8,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.11"
 gunicorn = "^20.1.0"
 Django = "^4.0.4"
 python-dotenv = "^0.20.0"
