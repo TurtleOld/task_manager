@@ -20,7 +20,7 @@ WORKDIR /app
 RUN poetry install --no-root
 
 # Копируем остальные файлы проекта
-COPY . /app
+COPY . /app/
 
 EXPOSE 8000
 
