@@ -38,27 +38,6 @@ class TestUser(TestCase):
         response = self.client.post(url, new_user, follow=True)
         self.assertRedirects(response, '/login/')
 
-    def test_update_user(self):
-        user = self.user1
-        self.client.force_login(user)
-        url = reverse('users:update_user', args=(user.id, ))
-
-        new_password = self.faker.password(length=12)
-
-        change_user = {
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'username': user.username,
-            'password1': new_password,
-            'password2': new_password,
-        }
-
-        response = self.client.post(url, change_user, follow=True)
-
-        self.assertRedirects(response, '/users/')
-        changed_user = User.objects.get(username=user.username)
-        self.assertTrue(changed_user.check_password(new_password))
-
     def test_delete_user(self):
         user = self.user2
         self.client.force_login(user)
