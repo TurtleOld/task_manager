@@ -1,0 +1,53 @@
+
+name: task_manager
+
+services:
+  db:
+    image: postgres:latest
+    volumes:
+      - ${LOCATION}/postgres:/var/lib/postgresql/data
+    env_file:
+      - .env
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_DB: ${DB_DATABASE_NAME}
+    ports:
+      - "5433:5432"
+    restart: always
+    networks:
+      - default
+  hlvm-server:
+    container_name: task_manager_server
+    image: ghcr.io/turtleold/task_manager:main
+    volumes:
+      - ${LOCATION}:/app
+    command: sh -c "python manage.py migrate && python manage.py collectstatic && daphne config.asgi:application --port ${PORT} --bind 0.0.0.0 -v2"
+    ports:
+      - "8001:8001"
+    expose:
+      - "8001"
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+    depends_on:
+      - db
+    restart: on-failure
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge
+    attachable: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.34.0.0/16
