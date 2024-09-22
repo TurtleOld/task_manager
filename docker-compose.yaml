@@ -17,7 +17,7 @@ services:
     restart: always
     networks:
       - default
-  hlvm-server:
+  task-manager-server:
     container_name: task_manager_server
     image: ghcr.io/turtleold/task_manager:main
     volumes:
