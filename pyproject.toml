@@ -18,6 +18,7 @@ whitenoise = "^6.1"
 django-filter = "^21.1"
 django-bootstrap4 = "^22.1"
 rollbar = "^0.16.2"
+daphne = "^4.1.2"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^4.0.1"
