@@ -10,7 +10,7 @@ RUN useradd -m superuser
 USER superuser
 WORKDIR /home/superuser
 COPY ../ .
-RUN chown -R 755 1000:1000 /home/superuser
+RUN chown -R superuser:superuser /home/superuser
 RUN pip install --upgrade pip || true
 ENV PATH="/home/superuser/.local/bin:$PATH"
 RUN curl -sSL https://install.python-poetry.org | python3 - && poetry --version \
