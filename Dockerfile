@@ -6,21 +6,14 @@ ENV PYTHONFAULTHANDLER=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# Устанавливаем Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
-
-# Обновляем переменные окружения для Poetry
-ENV PATH="/root/.local/bin:$PATH"
-
-# Копируем файлы проекта
-COPY pyproject.toml poetry.lock /app/
-
-# Устанавливаем зависимости с помощью Poetry
-WORKDIR /app
-RUN poetry install --no-root
-
-# Копируем остальные файлы проекта
-COPY . /app/
+RUN useradd -m superuser
+USER superuser
+WORKDIR /home/superuser
+COPY ../ .
+RUN pip install --upgrade pip || true
+RUN pip install poetry \
+&& poetry config virtualenvs.create false \
+&& poetry install
 
 EXPOSE 8000
 
