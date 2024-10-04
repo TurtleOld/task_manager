@@ -11,6 +11,7 @@ USER superuser
 WORKDIR /home/superuser
 COPY ../ .
 RUN pip install --upgrade pip || true
+ENV PATH="/home/superuser/.local/bin:$PATH"
 RUN pip install poetry \
 && poetry config virtualenvs.create false \
 && poetry install
