@@ -12,7 +12,7 @@ WORKDIR /home/superuser
 COPY ../ .
 RUN pip install --upgrade pip || true
 ENV PATH="/home/superuser/.local/bin:$PATH"
-RUN pip install poetry \
+RUN curl -sSL https://install.python-poetry.org | python3 - && poetry --version \
 && poetry config virtualenvs.create false \
 && poetry install
 
