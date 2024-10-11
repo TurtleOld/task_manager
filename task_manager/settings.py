@@ -33,6 +33,8 @@ DEBUG = os.getenv('DEBUG', 'true').lower() in {'yes', '1', 'true'}
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split() or []
 
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '').split() or []
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -100,7 +102,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'task_manager.urls'
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'task_manager/templates')
-print(TEMPLATE_DIR)
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -187,12 +189,3 @@ STATICFILES_DIRS = (os.path.join(BASE_DIR, 'task_manager/static'),)
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-ROLLBAR = {
-    'access_token': os.environ.get('ACCESS_TOKEN'),
-    'environment': 'development' if DEBUG else 'production',
-    'root': BASE_DIR,
-}
-import rollbar  # noqa 402
-
-rollbar.init(**ROLLBAR)
