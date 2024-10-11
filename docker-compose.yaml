@@ -5,7 +5,7 @@ services:
   db:
     image: postgres:latest
     volumes:
-      - ${LOCATION:-app_data}/postgres:/var/lib/postgresql/data
+      - ${LOCATION:-./app_data}/postgres:/var/lib/postgresql/data
     env_file:
       - .env
     environment:
@@ -21,10 +21,10 @@ services:
     container_name: task_manager_server
     image: ghcr.io/turtleold/task_manager:main
     volumes:
-      - ${LOCATION:-app_data}:/app
+      - ${LOCATION:-./app_data}:/app
     command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && daphne task_manager.asgi:application --port ${PORT:-8000} --bind 0.0.0.0 -v2"
-#    ports:
-#      - "8001:8001"
+    ports:
+      - "${PORT:-8000}:${PORT:-8000}"
 #    expose:
 #      - "8001"
     env_file:
@@ -47,3 +47,6 @@ networks:
       driver: default
       config:
         - subnet: 172.34.0.0/16
+
+volumes:
+  app_data:

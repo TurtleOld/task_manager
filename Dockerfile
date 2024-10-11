@@ -9,7 +9,7 @@ ENV PYTHONFAULTHANDLER=1 \
 RUN useradd -m superuser
 USER superuser
 WORKDIR /home/superuser
-COPY ../ .
+COPY . .
 USER root
 RUN chmod -R 755 /home/superuser
 RUN chown -R superuser:superuser /home/superuser
