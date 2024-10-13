@@ -27,6 +27,9 @@ PyYAML = "^6.0"
 Faker = "^13.7.0"
 coverage = "^6.3.2"
 
+[tool.poetry.group.dev.dependencies]
+black = "^24.10.0"
+
 [tool.black]
 line-length = 80
 skip-string-normalization = true
