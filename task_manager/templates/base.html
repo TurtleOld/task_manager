@@ -54,12 +54,7 @@
             {% endif %}
         </ul>
         <ul class="navbar-nav">
-            {% if not user.is_authenticated %}
-                <li>
-                    <a class="me-md-5 nav-link p-2" href="{% url 'login' %}" >{% translate 'Вход' %}</a>
-                </li>
-{#                <li><a class="nav-link" href="{% url 'users:create' %}" class="nav-link p-2 text-dark">{% translate 'Регистрация' %}</a></li>#}
-            {% else %}
+            {% if user.is_authenticated %}
                 <form action="/logout/" method="post">
                     {% csrf_token %}
                     <input type="submit" class="me-md-5 btn nav-link" value="{% translate 'Выход' %}">
