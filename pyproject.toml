@@ -8,28 +8,28 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.11"
-gunicorn = "^23.0.0"
-Django = "^4.0.4"
-python-dotenv = "^1.0.1"
-dj-database-url = "^0.5.0"
-psycopg2-binary = "^2.9.3"
-whitenoise = "^6.1"
-django-filter = "^21.1"
-django-bootstrap4 = "^22.1"
-rollbar = "^0.16.2"
-daphne = "^4.1.2"
-twisted = {extras = ["http2", "tls"], version = "^24.7.0"}
-pytelegrambotapi = "^4.23.0"
+python = ">=3.11"
+gunicorn = ">=23.0.0"
+Django = ">=5.1.2"
+python-dotenv = ">=1.0.1"
+dj-database-url = ">=0.5.0"
+psycopg2-binary = ">=2.9.3"
+whitenoise = ">=6.1"
+django-filter = ">=24.3"
+django-bootstrap4 = ">=22.1"
+rollbar = ">=0.16.2"
+daphne = ">=4.1.2"
+twisted = {extras = ["http2", "tls"], version = ">=22.2.0"}
+pytelegrambotapi = ">=4.23.0"
 
 [tool.poetry.dev-dependencies]
-flake8 = "^4.0.1"
-PyYAML = "^6.0"
-Faker = "^13.7.0"
-coverage = "^6.3.2"
+flake8 = ">=4.0.1"
+PyYAML = ">=6.0"
+Faker = ">=13.7.0"
+coverage = ">=6.3.2"
 
 [tool.poetry.group.dev.dependencies]
-black = "^24.10.0"
+black = ">=24.10.0"
 
 [tool.black]
 line-length = 80
