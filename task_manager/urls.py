@@ -19,6 +19,7 @@ from django.urls import path, include, re_path
 
 from task_manager import settings
 from task_manager.users.views import LoginUser, LogoutUser, IndexView
+from task_manager.users.webhooks import webhooks
 
 urlpatterns = [
     path('', IndexView.as_view(), name='index'),
@@ -40,4 +41,5 @@ urlpatterns = [
         name='logout',
     ),
     path('admin/', admin.site.urls),
+    path('webhooks/', webhooks, name='webhooks'),
 ]
