@@ -18,10 +18,10 @@ from django.urls import path, include, re_path
 from django.views.generic import TemplateView
 
 from task_manager import settings
-from task_manager.users.views import LoginUser, LogoutUser
+from task_manager.users.views import LoginUser, LogoutUser, IndexView
 
 urlpatterns = [
-    path('', TemplateView.as_view(template_name='index.html')),
+    path('', IndexView.as_view(), name='index'),
     path('users/', include('task_manager.users.urls'), name='users_list'),
     path('statuses/', include('task_manager.statuses.urls'),
          name='statuses_list'),

@@ -58,7 +58,9 @@ AUTH_USER_MODEL = 'users.User'
 
 LOGIN_REDIRECT_URL = '/'
 
-LOGOUT_REDIRECT_URL = '/'
+LOGIN_URL = '/login/'
+
+LOGOUT_REDIRECT_URL = '/login'
 
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
