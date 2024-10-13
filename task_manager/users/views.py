@@ -26,7 +26,7 @@ class IndexView(TemplateView):
         return redirect('login')
 
 
-class UsersList(ListView):
+class UsersList(LoginRequiredMixin, ListView):
     model = User
     template_name = 'users/users.html'
     context_object_name = 'users'
