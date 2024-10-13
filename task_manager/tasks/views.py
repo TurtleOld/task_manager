@@ -47,7 +47,11 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
         description = form.cleaned_data['description']
         bot_admin.send_message(
             chat_id=os.environ.get('CHAT_ID'),
-            text=f'Поступила новая задача: {task_name}\nПостановщик задачи: {form.instance.author}\nВ адрес: {executor}\nОписание: {description}',
+            text=(
+                f'Поступила новая задача: {task_name}\n'
+                f'Постановщик задачи: {form.instance.author}\n'
+                f'В адрес: {executor}\nОписание: {description}',
+            ),
         )
         return super().form_valid(form)
 
