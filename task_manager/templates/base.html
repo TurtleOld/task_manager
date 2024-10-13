@@ -35,14 +35,10 @@
   </head>
   <body class="d-flex flex-column min-vh-100">
     <nav class="navbar navbar-expand-lg navbar-light bg-light mb-3">
-        <a href="/" class="navbar-brand mr-md-3">{%  translate 'Менеджер задач' %}</a>
+        <a href="/" class="navbar-brand ms-md-3">{%  translate 'Менеджер задач' %}</a>
         <div id="navbarToggleExternalContent" class="collapse navbar-collapse">
         <ul class="navbar-nav mr-auto">
-            {% if not user.is_authenticated %}
-                <li>
-                    <a class="nav-link" href="{% url 'users:list' %}" class="nav-link p-2 text-dark my-0 mr-md-auto">{% translate 'Пользователи' %}</a>
-                </li>
-            {% else %}
+            {% if user.is_authenticated %}
                 <li>
                     <a class="nav-link" href="{% url 'users:list' %}" class="nav-link p-2 text-dark my-0 mr-md-auto">{% translate 'Пользователи' %}</a>
                 </li>
@@ -59,12 +55,14 @@
         </ul>
         <ul class="navbar-nav">
             {% if not user.is_authenticated %}
-                <li><a class="nav-link" href="{% url 'login' %}" class="nav-link p-2 text-dark">{% translate 'Вход' %}</a></li>
-                <li><a class="nav-link" href="{% url 'users:create' %}" class="nav-link p-2 text-dark">{% translate 'Регистрация' %}</a></li>
+                <li>
+                    <a class="me-md-5 nav-link p-2" href="{% url 'login' %}" >{% translate 'Вход' %}</a>
+                </li>
+{#                <li><a class="nav-link" href="{% url 'users:create' %}" class="nav-link p-2 text-dark">{% translate 'Регистрация' %}</a></li>#}
             {% else %}
                 <form action="/logout/" method="post">
                     {% csrf_token %}
-                    <input type="submit" class="btn nav-link" value="{% translate 'Выход' %}">
+                    <input type="submit" class="me-md-5 btn nav-link" value="{% translate 'Выход' %}">
                 </form>
             {% endif %}
         </ul>
