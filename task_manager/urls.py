@@ -28,8 +28,8 @@ urlpatterns = [
         'statuses/', include('task_manager.statuses.urls'), name='statuses_list'
     ),
     path('labels/', include('task_manager.labels.urls'), name='labels_list'),
-    re_path(
-        r'tasks/',
+    path(
+        'tasks/',
         include('task_manager.tasks.urls', namespace='task'),
         name='tasks_list',
     ),

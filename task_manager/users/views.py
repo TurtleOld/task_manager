@@ -22,7 +22,7 @@ from task_manager.mixins import HandleNoPermissionMixin
 class IndexView(TemplateView):
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
-            return redirect('users:list')
+            return redirect('tasks:list')
         return redirect('login')
 
 
