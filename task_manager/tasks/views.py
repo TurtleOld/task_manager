@@ -40,6 +40,11 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
     )
     no_permission_url = reverse_lazy('login')
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['request'] = self.request
+        return kwargs
+
     def form_valid(self, form):
         form.instance.author = User.objects.get(pk=self.request.user.pk)
         task = form.save()

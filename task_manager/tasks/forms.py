@@ -21,40 +21,41 @@ class TaskForm(ModelForm):
             'description': gettext_lazy('Описание'),
             'status': gettext_lazy('Статус'),
             'executor': gettext_lazy('Исполнитель'),
-            'labels': gettext_lazy('Метки')
+            'labels': gettext_lazy('Метки'),
         }
 
     def __init__(self, request, *args, **kwargs):
         self.request = request
         super().__init__(*args, **kwargs)
-        if self.instance and self.instance.author_id != self.request.user.pk:
+        if self.instance.pk and self.instance.author_id != self.request.user.pk:
             for field in self.fields:
                 if field != 'status':
                     self.fields[field].disabled = True
 
 
-
 class TasksFilter(django_filters.FilterSet):
     statuses = Status.objects.values_list('id', 'name', named=True).all()
-    status = django_filters.ChoiceFilter(label=gettext_lazy('Статус'),
-                                         choices=statuses)
+    status = django_filters.ChoiceFilter(
+        label=gettext_lazy('Статус'), choices=statuses
+    )
 
-    executors = User.objects.values_list('id', Concat('first_name',
-                                                      Value(' '),
-                                                      'last_name'),
-                                         named=True).all()
-    executor = django_filters.ChoiceFilter(label=gettext_lazy('Исполнитель'),
-                                           choices=executors)
+    executors = User.objects.values_list(
+        'id', Concat('first_name', Value(' '), 'last_name'), named=True
+    ).all()
+    executor = django_filters.ChoiceFilter(
+        label=gettext_lazy('Исполнитель'), choices=executors
+    )
 
     all_labels = Label.objects.values_list('id', 'name', named=True)
-    labels = django_filters.ChoiceFilter(label=gettext_lazy('Метка'),
-                                         choices=all_labels)
+    labels = django_filters.ChoiceFilter(
+        label=gettext_lazy('Метка'), choices=all_labels
+    )
 
     self_task = django_filters.BooleanFilter(
         label=gettext_lazy('Только свои задачи'),
         widget=forms.CheckboxInput(),
         method='filter_current_user',
-        field_name='self_task'
+        field_name='self_task',
     )
 
     def filter_current_user(self, queryset, name, value):
