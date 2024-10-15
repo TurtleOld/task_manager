@@ -42,15 +42,15 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.author = User.objects.get(pk=self.request.user.pk)
+        task_id = form.cleaned_data['id']
         task_name = form.cleaned_data['name']
-        executor = form.cleaned_data['executor']
         description = form.cleaned_data['description']
+        task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
         bot_admin.send_message(
             chat_id=os.environ.get('CHAT_ID'),
             text=(
-                f'Поступила новая задача: {task_name}\n'
-                f'Постановщик задачи: {form.instance.author}\n'
-                f'В адрес: {executor}\nОписание: {description}',
+                f'Создана новая задача: {task_name}\n'
+                f'Перейти к задаче: {task_url}'
             ),
         )
         return super().form_valid(form)
