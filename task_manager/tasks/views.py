@@ -40,11 +40,11 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
     )
     no_permission_url = reverse_lazy('login')
 
-    def form_valid(self, form):
+        def form_valid(self, form):
         form.instance.author = User.objects.get(pk=self.request.user.pk)
-        task_id = form.cleaned_data['id']
+        task = form.save()
+        task_id = task.pk
         task_name = form.cleaned_data['name']
-        description = form.cleaned_data['description']
         task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
         bot_admin.send_message(
             chat_id=os.environ.get('CHAT_ID'),
