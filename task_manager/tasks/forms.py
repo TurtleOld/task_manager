@@ -1,7 +1,7 @@
 from django import forms
 from django.db.models import Value
 from django.db.models.functions import Concat
-from django.forms import ModelForm
+from django.forms import ModelForm, DateTimeInput
 import django_filters
 
 from task_manager.labels.models import Label
@@ -15,13 +15,26 @@ from task_manager.users.models import User
 class TaskForm(ModelForm):
     class Meta:
         model = Task
-        fields = ('name', 'description', 'status', 'executor', 'labels')
+        fields = (
+            'name',
+            'description',
+            'status',
+            'deadline',
+            'executor',
+            'labels',
+        )
         labels = {
             'name': gettext_lazy('Имя'),
             'description': gettext_lazy('Описание'),
             'status': gettext_lazy('Статус'),
             'executor': gettext_lazy('Исполнитель'),
             'labels': gettext_lazy('Метки'),
+            'deadline': gettext_lazy('Крайний срок'),
+        }
+        widgets = {
+            'deadline': DateTimeInput(
+                attrs={'type': 'datetime-local', 'class': 'form-control'},
+            ),
         }
 
     def __init__(self, request, *args, **kwargs):

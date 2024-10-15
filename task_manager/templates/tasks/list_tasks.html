@@ -25,6 +25,7 @@
             <th scope="col">{% translate 'Автор' %}</th>
             <th scope="col">{% translate 'Исполнитель' %}</th>
             <th scope="col">{% translate 'Дата создания' %}</th>
+            <th scope="col">{% translate 'Крайний срок' %}</th>
             <th scope="col"></th>
         </tr>
         {% for task in tasks %}
@@ -35,6 +36,7 @@
             <td class="border p-2">{{ task.author }}</td>
             <td class="border p-2">{{ task.executor }}</td>
             <td class="border p-2">{{ task.created_at|date:"d.m.Y H:i" }}</td>
+            <td class="border p-2">{% if task.deadline %}{{ task.deadline|date:"d.m.Y H:i" }}{% else %} Бессрочно{% endif %}</td>
             <td class="d-flex justify-content-around">
                 <a class="btn btn-outline-warning" href="{% url 'tasks:update_task' task.id %}">{% translate 'Изменить' %}</a>
                 <a class="btn btn-outline-danger" href="{% url 'tasks:delete_task' task.id %}">{% translate 'Удалить' %}</a>
