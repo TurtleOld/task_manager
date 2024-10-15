@@ -24,6 +24,15 @@ class TaskForm(ModelForm):
             'labels': gettext_lazy('Метки')
         }
 
+    def __init__(self, request, *args, **kwargs):
+        self.request = request
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.author_id != self.request.user.pk:
+            for field in self.fields:
+                if field != 'status':
+                    self.fields[field].disabled = True
+
+
 
 class TasksFilter(django_filters.FilterSet):
     statuses = Status.objects.values_list('id', 'name', named=True).all()

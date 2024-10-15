@@ -40,19 +40,19 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
     )
     no_permission_url = reverse_lazy('login')
 
-        def form_valid(self, form):
-            form.instance.author = User.objects.get(pk=self.request.user.pk)
-            task = form.save()
-            task_id = task.pk
-            task_name = form.cleaned_data['name']
-            task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
-            bot_admin.send_message(
-                chat_id=os.environ.get('CHAT_ID'),
-                text=(
-                    f'Создана новая задача: {task_name}\n'
-                    f'Перейти к задаче: {task_url}'
-                ),
-            )
+    def form_valid(self, form):
+        form.instance.author = User.objects.get(pk=self.request.user.pk)
+        task = form.save()
+        task_id = task.pk
+        task_name = form.cleaned_data['name']
+        task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
+        bot_admin.send_message(
+            chat_id=os.environ.get('CHAT_ID'),
+            text=(
+                f'Создана новая задача: {task_name}\n'
+                f'Перейти к задаче: {task_url}'
+            ),
+        )
         return super().form_valid(form)
 
 
@@ -66,6 +66,11 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
         'У вас нет прав на просмотр данной страницы! ' 'Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['request'] = self.request
+        return kwargs
 
     def form_valid(self, form):
         task = form.save()
