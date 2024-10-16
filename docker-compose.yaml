@@ -51,9 +51,10 @@ services:
     environment:
       BROKER_URL: ${BROKER_URL:-redis://localhost:6379}
     depends_on:
-      - task-manager-server
       - redis
-
+    networks:
+      - default
+    restart: always
 
   redis:
     container_name: task_manager_redis
