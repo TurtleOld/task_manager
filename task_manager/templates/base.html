@@ -55,12 +55,17 @@
                 </li>
             {% endif %}
         </ul>
-        <ul class="navbar-nav">
+        <ul class="navbar-nav d-flex align-items-center">
             {% if user.is_authenticated %}
-                <form action="/logout/" method="post">
-                    {% csrf_token %}
-                    <input type="submit" class="me-md-5 btn nav-link" value="{% translate 'Выход' %}">
-                </form>
+                <li class="nav-link">
+                    {{ object.username }}
+                </li>
+                <li>
+                    <form action="/logout/" method="post">
+                        {% csrf_token %}
+                        <input type="submit" class="me-md-5 btn nav-link" value="{% translate 'Выход' %}">
+                    </form>
+                </li>
             {% endif %}
         </ul>
         </div>
