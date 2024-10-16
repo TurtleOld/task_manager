@@ -15,7 +15,7 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path, include, re_path
+from django.urls import path, include
 
 from task_manager import settings
 from task_manager.users.views import LoginUser, LogoutUser, IndexView
