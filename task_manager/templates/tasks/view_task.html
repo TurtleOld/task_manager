@@ -39,10 +39,10 @@
                         </ul>
                     </div>
                 </div>
-                <td class="border p-2">
-                    <a class="text-decoration-none" href="{% url 'tasks:update_task' task.id %}">{% translate 'Изменить' %}</a><br>
-                    <a class="text-decoration-none" href="{% url 'tasks:delete_task' task.id %}">{% translate 'Удалить' %}</a>
-                </td>
+                <div class="d-flex justify-content-center p-2">
+                    <a class="btn btn-outline-warning me-2" href="{% url 'tasks:update_task' task.id %}">{% translate 'Изменить' %}</a><br>
+                    <a class="btn btn-outline-danger" href="{% url 'tasks:delete_task' task.id %}">{% translate 'Удалить' %}</a>
+                </div>
             </div>
         </div>
     </div>

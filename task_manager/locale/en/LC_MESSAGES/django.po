@@ -19,14 +19,8 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: task_manager/views.py:6
-msgid "Привет, Хекслет!"
-msgstr "Hello, Hexlet!"
-
 msgid "Менеджер задач"
 msgstr "Task manager"
-
-msgid "Менеджер задач Hexlet"
-msgstr "Task manager Hexlet"
 
 msgid "Пользователи"
 msgstr "Users"
@@ -51,15 +45,6 @@ msgstr "Log In"
 
 msgid "Выход"
 msgstr "Log out"
-
-msgid "Привет от Хекслета!"
-msgstr "Greetings from Hexlet!"
-
-msgid "Практические курсы по программированию"
-msgstr "Practical programming courses"
-
-msgid "Узнать больше"
-msgstr "Learn more"
 
 msgid "Изменение пользователя"
 msgstr "Changing the user"

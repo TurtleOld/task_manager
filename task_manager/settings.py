@@ -31,12 +31,9 @@ DEBUG = os.getenv('DEBUG', 'true').lower() in {'yes', '1', 'true'}
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 
-ALLOWED_HOSTS = [
-    'sleepy-taiga-46843.herokuapp.com',
-    'localhost',
-    '127.0.0.1',
-    'webserver',
-]
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split() or []
+
+CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '').split() or []
 
 # Application definition
 
@@ -61,7 +58,9 @@ AUTH_USER_MODEL = 'users.User'
 
 LOGIN_REDIRECT_URL = '/'
 
-LOGOUT_REDIRECT_URL = '/'
+LOGIN_URL = '/login/'
+
+LOGOUT_REDIRECT_URL = '/login'
 
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
@@ -105,11 +104,13 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'task_manager.urls'
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'task_manager/templates')
-print(TEMPLATE_DIR)
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [TEMPLATE_DIR, ],
+        'DIRS': [
+            TEMPLATE_DIR,
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -127,7 +128,7 @@ WSGI_APPLICATION = 'task_manager.wsgi.application'
 REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
-        ...
+        ...,
     ),
 }
 
@@ -142,19 +143,19 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation'
-                '.UserAttributeSimilarityValidator',
+        '.UserAttributeSimilarityValidator',
     },
     {
         'NAME': 'django.contrib.auth.'
-                'password_validation.MinimumLengthValidator',
+        'password_validation.MinimumLengthValidator',
     },
     {
         'NAME': 'django.contrib.auth.password_validation'
-                '.CommonPasswordValidator',
+        '.CommonPasswordValidator',
     },
     {
         'NAME': 'django.contrib.auth.password_validation'
-                '.NumericPasswordValidator',
+        '.NumericPasswordValidator',
     },
 ]
 
@@ -184,19 +185,17 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'task_manager/staticfiles')
 STATIC_URL = '/static/'
 
 # Extra places for collectstatic to find static files.
-STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, 'task_manager/static'),
-)
+STATICFILES_DIRS = (os.path.join(BASE_DIR, 'task_manager/static'),)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-ROLLBAR = {
-    'access_token': os.environ.get('ACCESS_TOKEN'),
-    'environment': 'development' if DEBUG else 'production',
-    'root': BASE_DIR,
-}
-import rollbar # noqa 402
-rollbar.init(**ROLLBAR)
+
+# Celery Configuration Options
+CELERY_TIMEZONE = "Europa/Moscow"
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_BROKER_URL = os.environ.get('BROKER_URL')
+CELERY_RESULT_BACKEND = os.environ.get('BROKER_URL')

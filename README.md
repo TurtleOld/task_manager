@@ -1,6 +1,3 @@
-
-[![Actions Status](https://github.com/TurtleOld/python-project-lvl4/workflows/hexlet-check/badge.svg)](https://github.com/TurtleOld/python-project-lvl4/actions)
-[![Actions Status](https://github.com/TurtleOld/python-project-lvl4/workflows/task-manager/badge.svg)](https://github.com/TurtleOld/python-project-lvl4/actions)
 [![Maintainability](https://api.codeclimate.com/v1/badges/0e29a897d14dcdedfd13/maintainability)](https://codeclimate.com/github/TurtleOld/python-project-lvl4/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/0e29a897d14dcdedfd13/test_coverage)](https://codeclimate.com/github/TurtleOld/python-project-lvl4/test_coverage)
 
@@ -20,8 +17,3 @@ _[Инструкция по установке и запуску приложе�
 1. Выполнить `make transprepare` &mdash; подготовка файлов ***.po** в директории **locale/en/LC_MESSAGES**.
 2. Внести изменения в эти файлы.
 3. Выполнить `make transcompile`.
-
----
-
-View the work of the project on [Heroku](https://sleepy-taiga-46843.herokuapp.com/)
-

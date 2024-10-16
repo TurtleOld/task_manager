@@ -51,3 +51,11 @@ coverage:
 		@poetry run coverage run manage.py test
 		@poetry run coverage xml
 		@poetry run coverage report
+
+.PHONY: poetry-export-prod
+poetry-export-prod:
+		@poetry export -f requirements.txt -o requirements.txt --without-hashes
+
+.PHONY: poetry-export-dev
+poetry-export-dev: poetry-export-prod
+		@poetry export -f requirements.txt -o requirements.txt --with dev --without-hashes
