@@ -14,6 +14,8 @@ from task_manager.tasks.models import Task
 from task_manager.users.models import User
 from task_manager.mixins import HandleNoPermissionMixin
 from task_manager.users.bot import bot_admin
+from task_manager.tasks.tasks import send_message_about_adding_task, send_message_about_updating_task, \
+    send_message_about_deleting_task
 
 
 class TasksList(
@@ -51,13 +53,7 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
         task_id = task.pk
         task_name = form.cleaned_data['name']
         task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
-        bot_admin.send_message(
-            chat_id=os.environ.get('CHAT_ID'),
-            text=(
-                f'Создана новая задача: {task_name}\n'
-                f'Перейти к задаче: {task_url}'
-            ),
-        )
+        send_message_about_adding_task.delay(task_name, task_url)
         return super().form_valid(form)
 
 
@@ -82,13 +78,7 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
         task_id = task.pk
         task_name = form.cleaned_data['name']
         task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
-        bot_admin.send_message(
-            chat_id=os.environ.get('CHAT_ID'),
-            text=(
-                f'Задача {task_name} была изменена!\n'
-                f'Посмотреть подробнее: {task_url}'
-            ),
-        )
+        send_message_about_updating_task.delay(task_name, task_url)
         return super().form_valid(form)
 
 
@@ -105,12 +95,15 @@ class DeleteTask(
     no_permission_url = reverse_lazy('login')
 
     def form_valid(self, form):
+        task = self.get_object()
         if self.request.user != self.get_object().author:
             messages.error(
                 self.request,
                 gettext_lazy('Вы не можете удалить ' 'чужую задачу!'),
             )
         else:
+            task_name = task.name
+            send_message_about_deleting_task.delay(task_name)
             self.object.delete()
             messages.success(self.request, self.success_message)
         return redirect(self.success_url)
