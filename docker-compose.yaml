@@ -43,6 +43,19 @@ services:
     networks:
       - default
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A task_manager worker -l INFO
+    environment:
+      BROKER_URL: ${BROKER_URL:-redis://localhost:6379}
+    depends_on:
+      - redis
+    networks:
+      - default
+    restart: always
+
   redis:
     container_name: task_manager_redis
     image: redis:latest
