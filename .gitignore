@@ -213,6 +213,6 @@ ENV/
 
 task_manager/settings/development.py
 
-collectstatic/
+staticfiles/
 
 # End of https://www.gitignore.io/api/macos,linux,django,python,pycharm
