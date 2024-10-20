@@ -23,6 +23,8 @@ twisted = {extras = ["http2", "tls"], version = ">=22.2.0"}
 pytelegrambotapi = ">=4.23.0"
 celery = {extras = ["redis"], version = "^5.4.0"}
 
+flower = "^2.0.1"
+eventlet = "^0.37.0"
 [tool.poetry.dev-dependencies]
 flake8 = ">=4.0.1"
 PyYAML = ">=6.0"

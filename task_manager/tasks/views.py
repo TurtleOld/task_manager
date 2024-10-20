@@ -1,4 +1,5 @@
-import os
+from datetime import timedelta
+from django.utils.timezone import now
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -13,9 +14,12 @@ from task_manager.tasks.forms import TaskForm, TasksFilter
 from task_manager.tasks.models import Task
 from task_manager.users.models import User
 from task_manager.mixins import HandleNoPermissionMixin
-from task_manager.users.bot import bot_admin
-from task_manager.tasks.tasks import send_message_about_adding_task, send_message_about_updating_task, \
-    send_message_about_deleting_task
+from task_manager.tasks.tasks import (
+    send_message_about_adding_task,
+    send_message_about_updating_task,
+    send_message_about_deleting_task,
+    send_message_notification_about_task,
+)
 
 
 class TasksList(
@@ -51,9 +55,24 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
         form.instance.author = User.objects.get(pk=self.request.user.pk)
         task = form.save()
         task_id = task.pk
-        task_name = form.cleaned_data['name']
+        task_name = task.name
+        deadline = task.deadline
+
         task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
         send_message_about_adding_task.delay(task_name, task_url)
+        notify_time_hour = task.deadline - timedelta(hours=1)
+        notify_time_day = task.deadline - timedelta(days=1)
+
+        if deadline and notify_time_hour > now():
+            send_message_notification_about_task.apply_async(
+                (task_name,),
+                eta=notify_time_hour,
+            )
+        if deadline and notify_time_day > now():
+            send_message_notification_about_task.apply_async(
+                (task_name,),
+                eta=notify_time_day,
+            )
         return super().form_valid(form)
 
 
