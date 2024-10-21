@@ -27,65 +27,100 @@
 {% translate 'Создание задачи' as title_task_create %}
 {% translate 'Обновление задачи' as title_task_update %}
 
-<html lang="ru" >
-  <head>    
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-      <script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
-      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-      <script src="{% static 'js/script.js' %}"></script>
-  </head>
-  <body class="d-flex flex-column min-vh-100">
-    <nav class="navbar navbar-expand-lg navbar-light bg-light mb-3">
-        <a href="/" class="navbar-brand ms-md-3">{%  translate 'Менеджер задач' %}</a>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+          crossorigin="anonymous">
+    <script src="{% static 'js/jquery-3.7.1.min.js' %}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+            crossorigin="anonymous"></script>
+    <script src="{% static 'js/script.js' %}"></script>
+</head>
+<body class="d-flex flex-column min-vh-100">
+<nav class="navbar navbar-expand-lg navbar-light bg-light mb-3">
+    <div class="container-fluid">
+        <a href="/" class="navbar-brand ms-md-3">
+            {% translate 'Менеджер задач'%}
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#navbarSupportedContent"
+                aria-controls="navbarSupportedContent" aria-expanded="false"
+                aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
         <div id="navbarToggleExternalContent" class="collapse navbar-collapse">
-        <ul class="navbar-nav mr-auto">
-            {% if user.is_authenticated %}
-                <li>
-                    <a class="nav-link" href="{% url 'users:list' %}" class="nav-link p-2 text-dark my-0 mr-md-auto">{% translate 'Пользователи' %}</a>
+            <ul class="navbar-nav me-auto">
+                {% if user.is_authenticated %}
+                <li class="nav-item">
+                    <a href="{% url 'users:list' %}"
+                       class="nav-link text-dark my-0 mr-md-auto">
+                        {%translate 'Пользователи' %}
+                    </a>
                 </li>
-                <li>
-                    <a class="nav-link" href="{% url 'statuses:list' %}" class="nav-link p-2 text-dark my-0 mr-md-auto">{% translate 'Статусы' %}</a>
+                <li class="nav-item">
+                    <a href="{% url 'statuses:list' %}"
+                       class="nav-link text-dark my-0 mr-md-auto">
+                        {% translate 'Статусы' %}
+                    </a>
                 </li>
-                <li>
-                    <a class="nav-link" href="{% url 'labels:list' %}" class="nav-link p-2 text-dark my-0 mr-md-auto">{% translate 'Метки' %}</a>
+                <li class="nav-item">
+                    <a href="{% url 'labels:list' %}"
+                       class="nav-link text-dark my-0 mr-md-auto">
+                        {% translate 'Метки' %}
+                    </a>
                 </li>
-                <li>
-                    <a class="nav-link" href="{% url 'tasks:list' %}" class="nav-link p-2 text-dark my-0 mr-md-auto">{% translate 'Задачи' %}</a>
+                <li class="nav-item">
+                    <a href="{% url 'tasks:list' %}"
+                       class="nav-link text-dark my-0 mr-md-auto">
+                        {% translate 'Задачи' %}
+                    </a>
                 </li>
-            {% endif %}
-        </ul>
-        <ul class="navbar-nav d-flex align-items-center">
-            {% if user.is_authenticated %}
-                <li class="nav-link">
-                    {{ object.username }}
+                {% endif %}
+            </ul>
+            <ul class="navbar-nav d-flex align-items-center">
+                {% if user.is_authenticated %}
+                <li class="nav-item">
+                    {{ user.username }}
                 </li>
-                <li>
+                <li class="nav-item">
                     <form action="/logout/" method="post">
                         {% csrf_token %}
-                        <input type="submit" class="me-md-5 btn nav-link" value="{% translate 'Выход' %}">
+                        <input type="submit" class="me-md-5 btn nav-link"
+                               value="{% translate 'Выход' %}">
                     </form>
                 </li>
-            {% endif %}
-        </ul>
+                {% endif %}
+            </ul>
         </div>
-    </nav>
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert container position-absolute start-50 translate-middle mt-5 text-center {% if message.tags %}{{ message.tags }}{% endif %}">
-                <span{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</span>
-            </div>
-        {% endfor %}
-    {% endif %}
-    <div class="container wrapper flex-grow-1 mt-5">
-        {% block content %}
-        {% endblock %}
     </div>
-    <footer>
-        <div class="container my-5 pt-4 border-top">
-            <a class="text-decoration-none" target="_blank" href="https://task.pavlovteam.ru">Task Manager</a>
-        </div>
-    </footer>
-  </body>
+</nav>
+
+<!-- /.container-fluid -->
+
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert container position-absolute start-50 translate-middle mt-5 text-center {% if message.tags %}{{ message.tags }}{% endif %}">
+    <span{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message
+    }}</span>
+</div>
+{% endfor %}
+{% endif %}
+<div class="container wrapper flex-grow-1 mt-5">
+    {% block content %}
+    {% endblock %}
+</div>
+<footer>
+    <div class="container my-5 pt-4 border-top">
+        <a class="text-decoration-none" target="_blank"
+           href="https://task.pavlovteam.ru">Task Manager</a>
+    </div>
+</footer>
+</body>
 </html>
