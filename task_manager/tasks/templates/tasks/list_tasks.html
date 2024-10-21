@@ -7,7 +7,7 @@
 {% block content %}
     <title>{% translate 'Список задач' %}</title>
     <h1 class="my-4">{% translate 'Задачи' %}</h1>
-    <a class="text-decoration-none" href="{% url 'tasks:create' %}">{% translate 'Создать задачу' %}</a>
+    <a class="btn btn-outline-primary" href="{% url 'tasks:create' %}">{% translate 'Создать задачу' %}</a>
     <div class="card mb-3">
         <div class="card-body bg-light">
             <form method="get" class="form-inline justify-content-around">
