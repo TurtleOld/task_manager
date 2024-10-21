@@ -16,14 +16,17 @@ from task_manager.users.models import User
 from task_manager.mixins import HandleNoPermissionMixin
 from task_manager.tasks.tasks import (
     send_message_about_adding_task,
-    send_message_about_updating_task,
-    send_message_about_deleting_task,
-    send_message_notification_about_task,
+    send_about_updating_task,
+    send_about_deleting_task,
+    send_notification_about_task,
 )
 
 
 class TasksList(
-    LoginRequiredMixin, HandleNoPermissionMixin, SuccessMessageMixin, FilterView
+    LoginRequiredMixin,
+    HandleNoPermissionMixin,
+    SuccessMessageMixin,
+    FilterView,
 ):
     model = Task
     template_name = 'tasks/list_tasks.html'
@@ -33,6 +36,18 @@ class TasksList(
         'У вас нет прав на просмотр данной страницы! ' 'Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
+
+    def get_context_data(self, *, object_list=None, **kwargs):
+        context = super().get_context_data(object_list=None, **kwargs)
+
+        tasks = Task.objects.all()
+        context['deadline_overdue'] = False
+
+        for task in tasks:
+            if task.deadline and task.deadline < now():
+                context['deadline_overdue'] = True
+
+        return context
 
 
 class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
@@ -64,12 +79,12 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
         notify_time_day = task.deadline - timedelta(days=1)
 
         if deadline and notify_time_hour > now():
-            send_message_notification_about_task.apply_async(
+            send_notification_about_task.apply_async(
                 (task_name,),
                 eta=notify_time_hour,
             )
         if deadline and notify_time_day > now():
-            send_message_notification_about_task.apply_async(
+            send_notification_about_task.apply_async(
                 (task_name,),
                 eta=notify_time_day,
             )
@@ -102,17 +117,17 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
             notify_time_hour = task.deadline - timedelta(hours=1)
             notify_time_day = task.deadline - timedelta(days=1)
             if deadline and notify_time_hour > now():
-                send_message_notification_about_task.apply_async(
+                send_notification_about_task.apply_async(
                     (task_name,),
                     eta=notify_time_hour,
                 )
             if deadline and notify_time_day > now():
-                send_message_notification_about_task.apply_async(
+                send_notification_about_task.apply_async(
                     (task_name,),
                     eta=notify_time_day,
                 )
         task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
-        send_message_about_updating_task.delay(task_name, task_url)
+        send_about_updating_task.delay(task_name, task_url)
         return super().form_valid(form)
 
 
@@ -137,7 +152,7 @@ class DeleteTask(
             )
         else:
             task_name = task.name
-            send_message_about_deleting_task.delay(task_name)
+            send_about_deleting_task.delay(task_name)
             self.object.delete()
             messages.success(self.request, self.success_message)
         return redirect(self.success_url)

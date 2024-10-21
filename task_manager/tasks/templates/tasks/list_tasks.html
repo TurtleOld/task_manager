@@ -7,7 +7,6 @@
 {% block content %}
     <title>{% translate 'Список задач' %}</title>
     <h1 class="my-4">{% translate 'Задачи' %}</h1>
-    <a class="btn btn-outline-primary" href="{% url 'tasks:create' %}">{% translate 'Создать задачу' %}</a>
     <div class="card mb-3">
         <div class="card-body bg-light">
             <form method="get" class="form-inline justify-content-around">
@@ -17,6 +16,7 @@
             </form>
         </div>
     </div>
+    <a class="btn btn-outline-primary mb-1" href="{% url 'tasks:create' %}">{% translate 'Создать задачу' %}</a>
     <table class="bg-white mt-1 border table table-striped">
         <tr>
             <th scope="col">ID</th>
@@ -36,7 +36,11 @@
             <td class="border p-2">{{ task.author }}</td>
             <td class="border p-2">{{ task.executor }}</td>
             <td class="border p-2">{{ task.created_at|date:"d.m.Y H:i" }}</td>
-            <td class="border p-2">{% if task.deadline %}{{ task.deadline|date:"d.m.Y H:i" }}{% else %} Бессрочно{% endif %}</td>
+            <td class="border p-2
+                       {% if task.deadline%}
+                            {% if deadline_overdue %}text-danger{% endif %}
+                       {% else %}text-success
+                       {% endif %}">{% if task.deadline %}{{ task.deadline|date:"d.m.Y H:i" }}{% else %} Бессрочно{% endif %}</td>
             <td class="d-flex justify-content-around">
                 <a class="btn btn-outline-warning" href="{% url 'tasks:update_task' task.id %}">{% translate 'Изменить' %}</a>
                 <a class="btn btn-outline-danger" href="{% url 'tasks:delete_task' task.id %}">{% translate 'Удалить' %}</a>
