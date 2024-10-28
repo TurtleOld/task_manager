@@ -1,5 +1,4 @@
 from datetime import timedelta
-from django.http import HttpRequest, HttpResponse
 from django.utils.timezone import now
 
 from django.contrib import messages
@@ -14,7 +13,6 @@ from django.views.generic import (
     UpdateView,
     DeleteView,
     DetailView,
-    TemplateView,
 )
 from django_filters.views import FilterView
 
