@@ -44,6 +44,17 @@
             <td class="d-flex justify-content-around">
                 <a class="btn btn-outline-warning" href="{% url 'tasks:update_task' task.id %}">{% translate 'Изменить' %}</a>
                 <a class="btn btn-outline-danger" href="{% url 'tasks:delete_task' task.id %}">{% translate 'Удалить' %}</a>
+                {% if task.state %}
+                    <form action="{% url 'tasks:close_task' task.id %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-success">{% translate 'Переоткрыть' %}</button>
+                    </form>
+                {% else %}
+                    <form action="{% url 'tasks:close_task' task.id %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-dark">{% translate 'Закрыть' %}</button>
+                    </form>
+                {% endif %}
             </td>
         </tr>
         {% endfor %}

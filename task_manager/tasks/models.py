@@ -21,6 +21,7 @@ class Task(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     deadline = models.DateTimeField(blank=True, null=True)
     labels = models.ManyToManyField(Label, related_name='tasks', blank=True)
+    state = models.BooleanField(default=False)
 
     def __str__(self):
         return self.name

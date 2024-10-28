@@ -1,13 +1,21 @@
 from datetime import timedelta
+from django.http import HttpRequest, HttpResponse
 from django.utils.timezone import now
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils.translation import gettext, gettext_lazy
-from django.views.generic import CreateView, UpdateView, DeleteView, DetailView
+from django.views import View
+from django.views.generic import (
+    CreateView,
+    UpdateView,
+    DeleteView,
+    DetailView,
+    TemplateView,
+)
 from django_filters.views import FilterView
 
 from task_manager.tasks.forms import TaskForm, TasksFilter
@@ -156,6 +164,33 @@ class DeleteTask(
             self.object.delete()
             messages.success(self.request, self.success_message)
         return redirect(self.success_url)
+
+
+class CloseTask(View):
+    model = Task
+    template_name = 'tasks/list_tasks.html'
+    form_class = TaskForm
+
+    def post(self, request, pk):
+        task = get_object_or_404(Task, id=pk)
+        print(task)
+
+        if task.author == request.user or task.executor == request.user:
+            task.state = not task.state
+            task.save()
+            messages.success(
+                request,
+                gettext_lazy('Состояние задачи изменено.'),
+            )
+        else:
+            messages.error(
+                request,
+                gettext_lazy(
+                    'У вас нет прав для изменения состояния этой задачи.'
+                ),
+            )
+
+        return redirect('tasks:list')
 
 
 class TaskView(
