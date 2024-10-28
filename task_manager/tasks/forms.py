@@ -22,6 +22,7 @@ class TaskForm(ModelForm):
             'deadline',
             'executor',
             'labels',
+            'state',
         )
         labels = {
             'name': gettext_lazy('Имя'),
@@ -30,6 +31,7 @@ class TaskForm(ModelForm):
             'executor': gettext_lazy('Исполнитель'),
             'labels': gettext_lazy('Метки'),
             'deadline': gettext_lazy('Крайний срок'),
+            'state': gettext_lazy('Закрыта?'),
         }
         widgets = {
             'deadline': DateTimeInput(
@@ -40,10 +42,14 @@ class TaskForm(ModelForm):
     def __init__(self, request, *args, **kwargs):
         self.request = request
         super().__init__(*args, **kwargs)
-        if self.instance.pk and self.instance.author_id != self.request.user.pk:
-            for field in self.fields:
-                if field != 'status':
-                    self.fields[field].disabled = True
+        if self.instance.pk:
+            if (
+                self.instance.state
+                or self.instance.author_id != self.request.user.pk
+            ):
+                for field in self.fields:
+                    if field != 'status' or self.fields['state']:
+                        self.fields[field].disabled = True
 
 
 class TasksFilter(django_filters.FilterSet):

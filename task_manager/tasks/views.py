@@ -173,7 +173,6 @@ class CloseTask(View):
 
     def post(self, request, pk):
         task = get_object_or_404(Task, id=pk)
-        print(task)
 
         if task.author == request.user or task.executor == request.user:
             task.state = not task.state
