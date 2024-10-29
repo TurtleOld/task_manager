@@ -46,7 +46,7 @@
                 {% if task.state %}
                     <form action="{% url 'tasks:close_task' task.id %}" method="post">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-success">{% translate 'Переоткрыть' %}</button>
+                        <button type="submit" class="btn btn-outline-success {% if task.state and task.author != user %}disabled{% endif %}">{% translate 'Переоткрыть' %}</button>
                     </form>
                 {% else %}
                     <form action="{% url 'tasks:close_task' task.id %}" method="post">
