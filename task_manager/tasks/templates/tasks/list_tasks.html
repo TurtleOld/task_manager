@@ -42,7 +42,6 @@
                        {% else %}text-success
                        {% endif %}">{% if task.deadline %}{{ task.deadline|date:"d.m.Y H:i" }}{% else %} Бессрочно{% endif %}</td>
             <td class="d-flex justify-content-around">
-                
                 <a class="btn btn-outline-warning {% if task.state %}disabled{% endif %}"  href="{% url 'tasks:update_task' task.id %}">{% translate 'Изменить' %}</a>
                 <a class="btn btn-outline-danger" href="{% url 'tasks:delete_task' task.id %}">{% translate 'Удалить' %}</a>
                 {% if task.state %}

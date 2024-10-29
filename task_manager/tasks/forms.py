@@ -48,7 +48,7 @@ class TaskForm(ModelForm):
                 or self.instance.author_id != self.request.user.pk
             ):
                 for field in self.fields:
-                    if field != 'status' or self.fields['state']:
+                    if field != 'status':
                         self.fields[field].disabled = True
 
 
