@@ -1,8 +1,52 @@
 from django.db import models
+from django.utils.timezone import now
 
 from task_manager.labels.models import Label
 from task_manager.statuses.models import Status
 from task_manager.users.models import User
+
+PERIOD = {
+    10: '10 минут',
+    20: '20 минут',
+    30: '30 минут',
+    40: '40 минут',
+    50: '50 минут',
+    60: '1 час',
+    120: '2 часа',
+    180: '3 часа',
+    240: '4 часа',
+    300: '5 часов',
+    360: '6 часов',
+    420: '7 часов',
+    480: '8 часов',
+    540: '9 часов',
+    600: '10 часов',
+    660: '11 часов',
+    720: '12 часов',
+    780: '13 часов',
+    840: '14 часов',
+    900: '15 часов',
+    960: '16 часов',
+    1020: '17 часов',
+    1080: '18 часов',
+    1140: '19 часов',
+    1200: '20 часов',
+    1260: '21 час',
+    1320: '22 часа',
+    1380: '23 часа',
+    1440: '24 часа',
+}
+
+
+class ReminderPeriod(models.Model):
+    period = models.IntegerField(
+        blank=True,
+        null=True,
+        choices=[(key, value) for key, value in PERIOD.items()],
+    )
+
+    def __str__(self):
+        return PERIOD[self.period]
 
 
 class Task(models.Model):
@@ -10,18 +54,40 @@ class Task(models.Model):
     description = models.TextField()
 
     status = models.ForeignKey(
-        Status, on_delete=models.PROTECT, null=True, related_name='tasks'
+        Status,
+        on_delete=models.PROTECT,
+        null=True,
+        related_name='tasks',
     )
     author = models.ForeignKey(
-        User, on_delete=models.PROTECT, null=False, related_name='tasks'
+        User,
+        on_delete=models.PROTECT,
+        null=False,
+        related_name='tasks',
     )
     executor = models.ForeignKey(
-        User, null=True, on_delete=models.PROTECT, related_name='works'
+        User,
+        null=True,
+        on_delete=models.PROTECT,
+        related_name='works',
     )
     created_at = models.DateTimeField(auto_now_add=True)
     deadline = models.DateTimeField(blank=True, null=True)
-    labels = models.ManyToManyField(Label, related_name='tasks', blank=True)
     state = models.BooleanField(default=False)
+    reminder_periods = models.ManyToManyField(
+        ReminderPeriod,
+        related_name='tasks',
+        blank=True,
+    )
+    labels = models.ManyToManyField(Label, related_name='tasks', blank=True)
+
+    def is_deadline_overdue(self):
+        if self.deadline:
+            return self.deadline.astimezone() < now().astimezone()
+        return False
+
+    def get_reminder_period_display(self):
+        return ', '.join(str(period) for period in self.reminder_periods.all())
 
     def __str__(self):
         return self.name

@@ -43,18 +43,6 @@ class TasksList(
     )
     no_permission_url = reverse_lazy('login')
 
-    def get_context_data(self, *, object_list=None, **kwargs):
-        context = super().get_context_data(object_list=None, **kwargs)
-
-        tasks = Task.objects.all()
-        context['deadline_overdue'] = False
-
-        for task in tasks:
-            if task.deadline and task.deadline < now():
-                context['deadline_overdue'] = True
-
-        return context
-
 
 class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
     model = Task
@@ -78,22 +66,19 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
         task_id = task.pk
         task_name = task.name
         deadline = task.deadline
-
+        reminder_periods = form.cleaned_data['reminder_periods']
         task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
         send_message_about_adding_task.delay(task_name, task_url)
-        if deadline:
-            notify_time_hour = task.deadline - timedelta(hours=1)
-            notify_time_day = task.deadline - timedelta(days=1)
-            if notify_time_hour > now():
-                send_notification_about_task.apply_async(
-                    (task_name,),
-                    eta=notify_time_hour,
+        if deadline and reminder_periods:
+            for period in reminder_periods:
+                notify_time_hour = task.deadline - timedelta(
+                    minutes=period.period
                 )
-            if notify_time_day > now():
-                send_notification_about_task.apply_async(
-                    (task_name,),
-                    eta=notify_time_day,
-                )
+                if notify_time_hour > now():
+                    send_notification_about_task.apply_async(
+                        (task_name,),
+                        eta=notify_time_hour,
+                    )
         return super().form_valid(form)
 
 
@@ -118,20 +103,18 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
         task_id = task.pk
         task_name = task.name
         deadline = task.deadline
+        reminder_periods = form.cleaned_data['reminder_periods']
 
-        if deadline:
-            notify_time_hour = task.deadline - timedelta(hours=1)
-            notify_time_day = task.deadline - timedelta(days=1)
-            if deadline and notify_time_hour > now():
-                send_notification_about_task.apply_async(
-                    (task_name,),
-                    eta=notify_time_hour,
+        if deadline and reminder_periods:
+            for period in reminder_periods:
+                notify_time_hour = task.deadline - timedelta(
+                    minutes=period.period
                 )
-            if deadline and notify_time_day > now():
-                send_notification_about_task.apply_async(
-                    (task_name,),
-                    eta=notify_time_day,
-                )
+                if notify_time_hour > now():
+                    send_notification_about_task.apply_async(
+                        (task_name,),
+                        eta=notify_time_hour,
+                    )
         task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
         send_about_updating_task.delay(task_name, task_url)
         return super().form_valid(form)

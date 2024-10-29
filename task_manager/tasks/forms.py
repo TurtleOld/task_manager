@@ -1,24 +1,28 @@
 from django import forms
 from django.db.models import Value
 from django.db.models.functions import Concat
-from django.forms import ModelForm, DateTimeInput
+from django.forms import ModelForm, DateTimeInput, ModelMultipleChoiceField
 import django_filters
 
 from task_manager.labels.models import Label
 from task_manager.statuses.models import Status
-from task_manager.tasks.models import Task
+from task_manager.tasks.models import (
+    ReminderPeriod,
+    Task,
+)
 from django.utils.translation import gettext_lazy
-
 from task_manager.users.models import User
 
 
 class TaskForm(ModelForm):
+
     class Meta:
         model = Task
         fields = (
             'name',
             'description',
             'status',
+            'reminder_periods',
             'deadline',
             'executor',
             'labels',
@@ -28,6 +32,7 @@ class TaskForm(ModelForm):
             'name': gettext_lazy('Имя'),
             'description': gettext_lazy('Описание'),
             'status': gettext_lazy('Статус'),
+            'reminder_periods': gettext_lazy('Напоминание до'),
             'executor': gettext_lazy('Исполнитель'),
             'labels': gettext_lazy('Метки'),
             'deadline': gettext_lazy('Крайний срок'),

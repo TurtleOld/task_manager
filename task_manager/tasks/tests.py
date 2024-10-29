@@ -41,8 +41,8 @@ class TestTask(TestCase):
             'executor': 2,
             'status': 1,
             'labels': [1, 2],
-            'deadline': (datetime.now() + timedelta(days=1)).isoformat()
-
+            'deadline': (datetime.now() + timedelta(days=1)).isoformat(),
+            'reminder_periods': [60, 420],
         }
         response = self.client.post(
             reverse_lazy('tasks:create'),
@@ -74,7 +74,8 @@ class TestTask(TestCase):
             'executor': 1,
             'status': 2,
             'labels': [1, 2],
-            'deadline': (datetime.now() + timedelta(days=1)).isoformat()
+            'deadline': (datetime.now() + timedelta(days=1)).isoformat(),
+            'reminder_periods': [60, 420],
         }
 
         response = self.client.post(
