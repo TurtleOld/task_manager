@@ -24,7 +24,6 @@ pytelegrambotapi = ">=4.23.0"
 celery = {extras = ["redis"], version = "^5.4.0"}
 
 flower = "^2.0.1"
-eventlet = "^0.37.0"
 [tool.poetry.dev-dependencies]
 flake8 = ">=4.0.1"
 PyYAML = ">=6.0"
@@ -33,6 +32,17 @@ coverage = ">=6.3.2"
 
 [tool.poetry.group.dev.dependencies]
 black = ">=24.10.0"
+
+ruff = "^0.7.1"
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+docstring-code-format = true
+exclude = [
+    "migrations",
+    ".venv",
+    ".git"
+]
 
 [tool.black]
 line-length = 80

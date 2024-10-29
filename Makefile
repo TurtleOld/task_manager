@@ -1,5 +1,7 @@
 lint:
-		poetry run flake8 task_manager task_manager/users task_manager/statuses task_manager/tasks task_manager/labels
+		@cd ./task_manager && \
+			echo "Running ruff check..." && \
+			poetry run ruff check . --fix
 
 test-coverage:
 		@poetry run coverage run manage.py test
