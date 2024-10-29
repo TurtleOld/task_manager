@@ -105,15 +105,15 @@
 
 
 {% if messages %}
-{% for message in messages %}
-<div class="alert container position-absolute start-50 translate-middle mt-5 text-center {% if message.tags %}{{ message.tags }}{% endif %}">
-    <span
-        {% if message.tags %}
-            class="{{ message.tags }}"
-        {% endif %}>{{ message }}
-    </span>
-</div>
-{% endfor %}
+    {% for message in messages %}
+        <div class="alert container position-absolute start-50 translate-middle mt-5 text-center {% if message.tags == 'error' %}text-light bg-danger {% else %}text-light bg-success{% endif %} {% if message.tags %}{{ message.tags }}{% endif %}">
+            <span
+                {% if message.tags %}
+                    class="{{ message.tags }}"
+                {% endif %}>{{ message }}
+            </span>
+        </div>
+    {% endfor %}
 {% endif %}
 <div class="container wrapper flex-grow-1 mt-5">
     {% block content %}
