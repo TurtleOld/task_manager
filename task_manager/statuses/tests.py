@@ -24,7 +24,7 @@ class TestStatus(TestCase):
         response = self.client.get(reverse_lazy('statuses:list'))
         self.assertEqual(response.status_code, 200)
         statuses_list = list(response.context['statuses'])
-        self.assertQuerysetEqual(statuses_list, [self.status1, self.status2])
+        self.assertQuerySetEqual(statuses_list, [self.status1, self.status2])
 
     def test_create_status(self):
         self.client.force_login(self.user)

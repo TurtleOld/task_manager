@@ -81,19 +81,19 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
 
         task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
         send_message_about_adding_task.delay(task_name, task_url)
-        notify_time_hour = task.deadline - timedelta(hours=1)
-        notify_time_day = task.deadline - timedelta(days=1)
-
-        if deadline and notify_time_hour > now():
-            send_notification_about_task.apply_async(
-                (task_name,),
-                eta=notify_time_hour,
-            )
-        if deadline and notify_time_day > now():
-            send_notification_about_task.apply_async(
-                (task_name,),
-                eta=notify_time_day,
-            )
+        if deadline:
+            notify_time_hour = task.deadline - timedelta(hours=1)
+            notify_time_day = task.deadline - timedelta(days=1)
+            if notify_time_hour > now():
+                send_notification_about_task.apply_async(
+                    (task_name,),
+                    eta=notify_time_hour,
+                )
+            if notify_time_day > now():
+                send_notification_about_task.apply_async(
+                    (task_name,),
+                    eta=notify_time_day,
+                )
         return super().form_valid(form)
 
 

@@ -28,3 +28,18 @@
         date_joined: 2022-05-01 12:38:44.494467+00:00
         groups: []
         user_permissions: []
+-   model: users.user
+    pk: 3
+    fields:
+        password: pbkdf2_sha256$320000$T1aCzb6Fvwhps97anYpTdm$ML6nr7REHg8eXHvnfdmYUwYP9xJM7bCxnpJGt50tigk=
+        last_login: 2022-05-10 14:57:20.003257+00:00
+        is_superuser: false
+        username: turtleold
+        first_name: Alexander
+        last_name: Pavlov
+        email: ''
+        is_staff: false
+        is_active: true
+        date_joined: 2022-05-01 12:38:44.494467+00:00
+        groups: []
+        user_permissions: []
