@@ -60,14 +60,16 @@
         {% endfor %}
     </table>
     {% for task in tasks %}
-        <div class="card card-mobile">
-            <div class="card-header bg-secondary text-white">
-                <h6>{{ task.name }}</h6>
+        <a class="text-decoration-none" href="{% url 'tasks:view_task' task.id %}">
+            <div class="card-mobile card mt-2">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0">{{ task.name }}</h6>
+                </div>
+                <div class="card-body bg-light">
+                    Описание: {{ task.description }}<br>
+                    Статус: {{ task.status }}
+                </div>
             </div>
-            <div class="card-body bg-light">
-                {{ task.description }}
-                {{ task.status }}
-            </div>
-        </div>
+        </a>
     {% endfor %}
 {% endblock %}
