@@ -22,7 +22,6 @@
             <th scope="col">ID</th>
             <th scope="col">{% translate 'Имя' %}</th>
             <th scope="col">{% translate 'Статус' %}</th>
-            <th scope="col">{% translate 'Напоминание до' %}</th>
             <th scope="col">{% translate 'Автор' %}</th>
             <th scope="col">{% translate 'Исполнитель' %}</th>
             <th scope="col">{% translate 'Дата создания' %}</th>
@@ -34,7 +33,6 @@
             <td class="">{{ task.id }}</td>
             <td class="border p-2"><a class="text-decoration-none" href="{% url 'tasks:view_task' task.id %}">{{ task.name }}</a></td>
             <td class="border p-2">{{ task.status }}</td>
-            <td class="border p-2 text-center">{% for period in task.reminder_periods.all %} {{ period }}{% if not forloop.last %}, {% endif %} {% endfor %}</td>
             <td class="border p-2">{{ task.author }}</td>
             <td class="border p-2">{{ task.executor }}</td>
             <td class="border p-2">{{ task.created_at|date:"d.m.Y H:i" }}</td>

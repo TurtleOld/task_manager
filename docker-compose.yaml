@@ -50,8 +50,6 @@ services:
       context: .
       dockerfile: Dockerfile
     command: celery -A task_manager worker -l INFO
-    environment:
-      BROKER_URL: ${BROKER_URL:-redis://redis:6379}
     env_file:
       - .env
     volumes:
@@ -68,6 +66,19 @@ services:
     restart: on-failure
     networks:
       - default
+
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A task_manager flower --port=5555
+    environment:
+      BROKER_URL: ${BROKER_URL:-redis://localhost:6379}
+    depends_on:
+      - redis
+    networks:
+      - default
+    restart: always
 
   redis:
     container_name: task_manager_redis

@@ -1,17 +1,21 @@
 from django import forms
 from django.db.models import Value
 from django.db.models.functions import Concat
-from django.forms import ModelForm, DateTimeInput, ModelMultipleChoiceField
+from django.forms import ModelForm, DateTimeInput
 import django_filters
 
 from task_manager.labels.models import Label
 from task_manager.statuses.models import Status
+<<<<<<< HEAD
 from task_manager.tasks.models import (
     Checklist,
     ChecklistItem,
     ReminderPeriod,
     Task,
 )
+=======
+from task_manager.tasks.models import Task
+>>>>>>> cc789286ea8ef7dd7dec1f9621acf24903fc2760
 from django.utils.translation import gettext_lazy
 from task_manager.users.models import User
 
@@ -59,14 +63,13 @@ class TaskForm(ModelForm):
     def __init__(self, request, *args, **kwargs):
         self.request = request
         super().__init__(*args, **kwargs)
-        if self.instance.pk:
-            if (
-                self.instance.state
-                or self.instance.author_id != self.request.user.pk
-            ):
-                for field in self.fields:
-                    if field != 'status':
-                        self.fields[field].disabled = True
+        if self.instance.pk and (
+            self.instance.state
+            or self.instance.author_id != self.request.user.pk
+        ):
+            for field in self.fields:
+                if field != 'status':
+                    self.fields[field].disabled = True
 
     def save_checklist_items(self, task):
         items_text = self.cleaned_data.get('checklist_items')
