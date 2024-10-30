@@ -34,18 +34,25 @@
                     <div class="col">{% if task.deadline %}{{ task.deadline|date:"d.m.Y H:i" }}{% else %} Бессрочно{% endif %}</div>
                 </div>
                 <div class="row p-1">
+                    <div class="col">{% translate 'Чек-лист' %}</div>
+                    <div class="col">
+                        {% if checklist_items %}
+                            <ul class="list-group">
+                                {% for item in checklist_items %}
+                                    {% include 'tasks/checklist_item.html' with item=item %}
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p>Чеклист пуст.</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row p-1">
                     <div class="col">{% translate 'Дата создания' %}</div>
                     <div class="col">{{ task.created_at|date:'d.m.Y H:i' }}</div>
                 </div>
                 <div class="row p-1">
-                    <div class="col">
-                        {% translate 'Метки' %}
-                        <ul>
-                            {% for label in labels %}
-                                <li>{{ label.name }}</li>
-                            {% endfor %}
-                        </ul>
-                    </div>
+                    
                 </div>
                 <div class="d-flex justify-content-center p-2">
                     <a class="btn btn-outline-warning me-2 {% if task.state %}disabled{% endif %}" href="{% url 'tasks:update_task' task.id %}">{% translate 'Изменить' %}</a><br>

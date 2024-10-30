@@ -1,10 +1,11 @@
 from datetime import timedelta
+from django.http import JsonResponse
 from django.utils.timezone import now
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.translation import gettext, gettext_lazy
 from django.views import View
@@ -17,7 +18,7 @@ from django.views.generic import (
 from django_filters.views import FilterView
 
 from task_manager.tasks.forms import TaskForm, TasksFilter
-from task_manager.tasks.models import Task
+from task_manager.tasks.models import Checklist, ChecklistItem, Task
 from task_manager.users.models import User
 from task_manager.mixins import HandleNoPermissionMixin
 from task_manager.tasks.tasks import (
@@ -63,6 +64,7 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
     def form_valid(self, form):
         form.instance.author = User.objects.get(pk=self.request.user.pk)
         task = form.save()
+        form.save_checklist_items(task)
         task_id = task.pk
         task_name = task.name
         deadline = task.deadline
@@ -186,5 +188,30 @@ class TaskView(
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        task = self.get_object()
         context['labels'] = self.get_object().labels.all()
+
+        if hasattr(task, 'checklist'):
+            context['checklist_items'] = task.checklist.items.all()
+        else:
+            context['checklist_items'] = []
+
         return context
+
+
+class ChecklistItemToggle(View):
+    template_name = 'tasks/checklist_item.html'
+
+    def post(self, request, item_id):
+        checklist_item = get_object_or_404(ChecklistItem, id=item_id)
+        checklist_item.is_completed = not checklist_item.is_completed
+        checklist_item.save()
+
+        print(
+            f'Item ID: {checklist_item.id}, Completed: {checklist_item.is_completed}'
+        )  # Отладка
+
+        context = {
+            'item': checklist_item,
+        }
+        return render(request, self.template_name, context)

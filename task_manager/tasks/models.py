@@ -37,6 +37,21 @@ PERIOD = {
     1440: '24 часа',
 }
 
+class Checklist(models.Model):
+    task = models.OneToOneField('Task', on_delete=models.CASCADE, related_name='checklist')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def str(self):
+        return f'Чеклист для задачи: {self.task.name}'
+
+class ChecklistItem(models.Model):
+    checklist = models.ForeignKey(Checklist, on_delete=models.CASCADE, related_name='items')
+    description = models.CharField(max_length=255)
+    is_completed = models.BooleanField(default=False)
+
+    def str(self):
+        return self.description
+
 
 class ReminderPeriod(models.Model):
     period = models.IntegerField(

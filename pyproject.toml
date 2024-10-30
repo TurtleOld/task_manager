@@ -25,6 +25,7 @@ celery = {extras = ["redis"], version = "^5.4.0"}
 
 flower = "^2.0.1"
 eventlet = "^0.37.0"
+django-htmx = "^1.21.0"
 [tool.poetry.dev-dependencies]
 flake8 = ">=4.0.1"
 PyYAML = ">=6.0"

@@ -7,6 +7,8 @@ import django_filters
 from task_manager.labels.models import Label
 from task_manager.statuses.models import Status
 from task_manager.tasks.models import (
+    Checklist,
+    ChecklistItem,
     ReminderPeriod,
     Task,
 )
@@ -15,6 +17,15 @@ from task_manager.users.models import User
 
 
 class TaskForm(ModelForm):
+    checklist_items = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                'placeholder': 'Введите пункты чеклиста, разделяя их новой строкой'
+            }
+        ),
+        required=False,
+        label='Пункты чеклиста',
+    )
 
     class Meta:
         model = Task
@@ -37,6 +48,7 @@ class TaskForm(ModelForm):
             'labels': gettext_lazy('Метки'),
             'deadline': gettext_lazy('Крайний срок'),
             'state': gettext_lazy('Закрыта?'),
+            'checklist_items': gettext_lazy('Чеклист'),
         }
         widgets = {
             'deadline': DateTimeInput(
@@ -55,6 +67,17 @@ class TaskForm(ModelForm):
                 for field in self.fields:
                     if field != 'status':
                         self.fields[field].disabled = True
+
+    def save_checklist_items(self, task):
+        items_text = self.cleaned_data.get('checklist_items')
+        if items_text:
+            checklist, created = Checklist.objects.get_or_create(task=task)
+            for item_text in items_text.splitlines():
+                if item_text.strip():
+                    ChecklistItem.objects.create(
+                        checklist=checklist,
+                        description=item_text.strip()
+                    )
 
 
 class TasksFilter(django_filters.FilterSet):
