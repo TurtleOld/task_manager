@@ -17,7 +17,7 @@
         </div>
     </div>
     <a class="btn btn-outline-primary mb-1" href="{% url 'tasks:create' %}">{% translate 'Создать задачу' %}</a>
-    <table class="bg-white mt-1 border table table-striped">
+    <table class="bg-white mt-1 border table table-striped table-desktop">
         <tr>
             <th scope="col">ID</th>
             <th scope="col">{% translate 'Имя' %}</th>
@@ -59,4 +59,15 @@
         </tr>
         {% endfor %}
     </table>
+    {% for task in tasks %}
+        <div class="card card-mobile">
+            <div class="card-header bg-secondary text-white">
+                <h6>{{ task.name }}</h6>
+            </div>
+            <div class="card-body bg-light">
+                {{ task.description }}
+                {{ task.status }}
+            </div>
+        </div>
+    {% endfor %}
 {% endblock %}
