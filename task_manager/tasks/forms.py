@@ -6,16 +6,11 @@ import django_filters
 
 from task_manager.labels.models import Label
 from task_manager.statuses.models import Status
-<<<<<<< HEAD
 from task_manager.tasks.models import (
     Checklist,
     ChecklistItem,
-    ReminderPeriod,
     Task,
 )
-=======
-from task_manager.tasks.models import Task
->>>>>>> cc789286ea8ef7dd7dec1f9621acf24903fc2760
 from django.utils.translation import gettext_lazy
 from task_manager.users.models import User
 
