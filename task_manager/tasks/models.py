@@ -96,6 +96,9 @@ class Task(models.Model):
     )
     labels = models.ManyToManyField(Label, related_name='tasks', blank=True)
 
+    class Meta:
+        ordering = ['created_at']
+
     def is_deadline_overdue(self):
         if self.deadline:
             return self.deadline.astimezone() < now().astimezone()
