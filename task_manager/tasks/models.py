@@ -89,6 +89,7 @@ class Task(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     deadline = models.DateTimeField(blank=True, null=True)
     state = models.BooleanField(default=False)
+    files = models.FileField('Файл', upload_to='files', blank=True)
     reminder_periods = models.ManyToManyField(
         ReminderPeriod,
         related_name='tasks',

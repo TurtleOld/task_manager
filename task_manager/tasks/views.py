@@ -1,5 +1,14 @@
 from datetime import timedelta
-from django.http import JsonResponse
+import mimetypes
+import os
+from urllib.parse import quote
+from django.http import (
+    FileResponse,
+    Http404,
+    HttpRequest,
+    HttpResponse,
+    JsonResponse,
+)
 from django.utils.timezone import now
 
 from django.contrib import messages
@@ -215,3 +224,27 @@ class ChecklistItemToggle(View):
             'item': checklist_item,
         }
         return render(request, self.template_name, context)
+
+
+class DownloadFileView(DetailView):
+    model = Task
+
+    def get(self, request, pk):
+        task = self.get_object()
+        file_path = task.files.path
+        file_name = task.files.name
+        mime_type, _ = mimetypes.guess_type(file_name)
+        if not mime_type:
+            mime_type = 'application/octet-stream'
+        try:
+            response = FileResponse(
+                open(file_path, 'rb'),
+                content_type=mime_type,
+            )
+            quote_filename = quote(os.path.basename(file_name))
+            response['Content-Disposition'] = (
+                f"attachment; filename*=UTF-8''{quote_filename}"
+            )
+            return response
+        except FileNotFoundError:
+            raise Http404("Файл не найден")

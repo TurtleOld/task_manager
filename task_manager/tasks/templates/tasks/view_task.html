@@ -30,6 +30,12 @@
                     <div class="col">{% for period in task.reminder_periods.all %} {{ period}}<br/> {% endfor %}</div>
                 </div>
                 <div class="row p-1">
+                    <div class="col">{% translate 'Приложенные файлы' %}</div>
+                    <div class="col">
+                        <a href="{% url 'tasks:download' task.pk %}" download>Скачать файл</a>
+                    </div>
+                </div>
+                <div class="row p-1">
                     <div class="col">{% translate 'Крайний срок' %}</div>
                     <div class="col">{% if task.deadline %}{{ task.deadline|date:"d.m.Y H:i" }}{% else %} Бессрочно{% endif %}</div>
                 </div>
