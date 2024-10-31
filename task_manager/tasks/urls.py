@@ -3,6 +3,7 @@ from django.urls import path
 from task_manager.tasks.views import (
     ChecklistItemToggle,
     CloseTask,
+    DownloadFileView,
     TasksList,
     CreateTask,
     UpdateTask,
@@ -19,4 +20,5 @@ urlpatterns = [
     path('<int:pk>/close/', CloseTask.as_view(), name='close_task'),
     path('<int:pk>/', TaskView.as_view(), name='view_task'),
     path('toggle/<int:item_id>/', ChecklistItemToggle.as_view(), name='toggle'),
+    path('download/<int:pk>/', DownloadFileView.as_view(), name='download'),
 ]

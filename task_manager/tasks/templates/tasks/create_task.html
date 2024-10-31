@@ -5,9 +5,12 @@
 {% block content %}
     <title>{{ title_task_create }}</title>
     <h1 class="my-4">{% translate 'Создать задачу' %}</h1>
-    <form method="post">
+
+    <!-- Основная форма для создания задачи -->
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {% bootstrap_form form %}
         {% bootstrap_button button_text_create button_type="submit" button_class="btn btn-primary"  %}
     </form>
+
 {% endblock %}

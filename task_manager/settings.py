@@ -180,8 +180,11 @@ LOCALE_PATHS = (os.path.join(BASE_DIR, 'task_manager/locale'),)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'task_manager/staticfiles')
+STATIC_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'static')
 STATIC_URL = '/static/'
+
+MEDIA_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'media')
+MEDIA_URL = '/media/'
 
 # Extra places for collectstatic to find static files.
 STATICFILES_DIRS = (os.path.join(BASE_DIR, 'task_manager/static'),)
