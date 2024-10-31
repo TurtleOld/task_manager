@@ -5,9 +5,6 @@ from urllib.parse import quote
 from django.http import (
     FileResponse,
     Http404,
-    HttpRequest,
-    HttpResponse,
-    JsonResponse,
 )
 from django.utils.timezone import now
 
@@ -27,7 +24,7 @@ from django.views.generic import (
 from django_filters.views import FilterView
 
 from task_manager.tasks.forms import TaskForm, TasksFilter
-from task_manager.tasks.models import Checklist, ChecklistItem, Task
+from task_manager.tasks.models import ChecklistItem, Task
 from task_manager.users.models import User
 from task_manager.mixins import HandleNoPermissionMixin
 from task_manager.tasks.tasks import (
