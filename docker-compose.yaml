@@ -68,17 +68,13 @@ services:
       - default
 
   flower:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    command: celery -A task_manager flower --port=5555
-    environment:
-      BROKER_URL: ${BROKER_URL:-redis://localhost:6379}
+    image: mher/flower:latest
+    command: [ "flower", "--broker=redis://redis:6379/0" ]
+    ports:
+      - "5555:5555"
     depends_on:
       - redis
-    networks:
-      - default
-    restart: always
+      - celery
 
   redis:
     container_name: task_manager_redis
