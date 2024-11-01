@@ -203,5 +203,9 @@ CELERYD_TASK_TIME_LIMIT = 600
 CELERY_BROKER_URL = os.environ.get('BROKER_URL')
 CELERY_RESULT_BACKEND = os.environ.get('BROKER_URL')
 
+if 'test' in sys.argv or 'test_coverage' in sys.argv:
+    CELERY_TASK_ALWAYS_EAGER = True
+    BROKER_BACKEND = 'memory'
+
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

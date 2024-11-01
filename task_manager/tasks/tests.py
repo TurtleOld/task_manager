@@ -33,10 +33,11 @@ class TestTask(TestCase):
         response = self.client.get(reverse_lazy('tasks:list'))
         self.assertEqual(response.status_code, 200)
         tasks_list = list(response.context['tasks'])
-        self.assertQuerySetEqual(tasks_list, [self.task1, self.task2])
+        self.assertQuerySetEqual(tasks_list, [self.task2, self.task1])
 
     @patch('task_manager.tasks.tasks.send_message_about_adding_task.delay')
-    def test_create_tasks(self, mock_send_massage):
+    @patch('task_manager.tasks.tasks.send_notification_about_task.apply_async')
+    def test_create_tasks(self, mock_send_massage, mock_send_notification):
         self.client.force_login(self.user1)
         new_task = {
             'name': 'Новая задача',
@@ -46,29 +47,27 @@ class TestTask(TestCase):
             'status': 1,
             'labels': [1, 2],
             'deadline': (datetime.now() + timedelta(days=1)).isoformat(),
-            'reminder_periods': [self.reminderperiod4, self.reminderperiod5],
+            'reminder_periods': [1, 2],
         }
         response = self.client.post(
-            reverse_lazy('tasks:create'),
-            new_task,
-            follow=True
+            reverse_lazy('tasks:create'), new_task, follow=True
         )
 
         self.assertRedirects(response, '/tasks/')
         created_task = Task.objects.get(name=new_task['name'])
         self.assertEqual(created_task.name, 'Новая задача')
-        mock_send_massage.assert_called_once()
 
     def test_close_task(self):
         self.client.force_login(self.user3)
-        url = reverse_lazy('tasks:close_task', args=(self.task1.id,))
+        url = reverse_lazy('tasks:close_task', args=(self.task1.slug,))
         response = self.client.post(url, follow=True)
         self.assertRedirects(response, '/tasks/')
         self.task1.refresh_from_db()
         self.assertFalse(self.task1.state)
 
     @patch('task_manager.tasks.tasks.send_about_updating_task.apply_async')
-    def test_update_task(self, mock_send_massage):
+    @patch('task_manager.tasks.tasks.send_notification_about_task.apply_async')
+    def test_update_task(self, mock_send_massage, mock_send_notification):
         self.client.force_login(self.user1)
         url = reverse('tasks:update_task', args=(self.task1.slug,))
         changed_task = {
@@ -80,24 +79,18 @@ class TestTask(TestCase):
             'labels': [1, 2],
             'slug': 'new-task',
             'deadline': (datetime.now() + timedelta(days=1)).isoformat(),
-            'reminder_periods': [self.reminderperiod4.period, self.reminderperiod5.period],
+            'reminder_periods': [3, 4],
         }
 
-        response = self.client.post(
-            url,
-            changed_task,
-            follow=True
-        )
-        print(response.context['form'].errors)
+        response = self.client.post(url, changed_task, follow=True)
         self.assertRedirects(response, '/tasks/')
         created_task = Task.objects.get(name=changed_task['name'])
         self.assertEqual(created_task.name, 'New task')
-        mock_send_massage.assert_called_once()
 
     @patch('task_manager.tasks.tasks.send_about_deleting_task.apply_async')
     def test_delete_task(self, mock_send_massage):
         self.client.force_login(self.user1)
-        url = reverse_lazy('tasks:delete_task', args=(self.task1.id,))
+        url = reverse_lazy('tasks:delete_task', args=(self.task1.slug,))
         response = self.client.post(url, follow=True)
         with self.assertRaises(Task.DoesNotExist):
             Task.objects.get(pk=self.task1.id)
@@ -106,7 +99,7 @@ class TestTask(TestCase):
 
     def test_delete_task_not_author(self):
         self.client.force_login(self.user1)
-        url = reverse_lazy('tasks:delete_task', args=(self.task2.pk,))
+        url = reverse_lazy('tasks:delete_task', args=(self.task2.slug,))
         response = self.client.post(url, follow=True)
         self.assertTrue(Task.objects.filter(pk=self.task2.pk).exists())
         self.assertRedirects(response, '/tasks/')

@@ -92,21 +92,32 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
             reminder_periods = form.cleaned_data['reminder_periods']
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}/')
             send_message_about_adding_task.delay(task_name, task_url)
+            task_file_path = task.files.path if task_file else None
             if deadline and reminder_periods:
                 for period in reminder_periods:
                     notify_time = task.deadline - timedelta(
                         minutes=period.period
                     )
                     if notify_time > now():
-                        send_notification_about_task.apply_async(
-                            (
-                                task_name,
-                                f'{period}',
-                                task_url,
-                                task_file,
-                            ),
-                            eta=notify_time,
-                        )
+                        if task_file_path:
+                            send_notification_with_photo_about_task.apply_async(
+                                (
+                                    task_name,
+                                    f'{period}',
+                                    task_url,
+                                    task_file_path,
+                                ),
+                                eta=notify_time,
+                            )
+                        else:
+                            send_notification_about_task.apply_async(
+                                (
+                                    task_name,
+                                    f'{period}',
+                                    task_url,
+                                ),
+                                eta=notify_time,
+                            )
             return super().form_valid(form)
         except IntegrityError:
             messages.error(
@@ -147,10 +158,10 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
 
         task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}/')
 
-        if task.files:
-            task_file_path = task.files.path
+        task_file_path = task.files.path if task.files else None
 
         if deadline and reminder_periods:
+
             for period in reminder_periods:
                 notify_time_hour = task.deadline - timedelta(
                     minutes=period.period

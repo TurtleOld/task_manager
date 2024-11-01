@@ -1,6 +1,6 @@
 amqp==5.2.0 ; python_version >= "3.11"
 asgiref==3.8.1 ; python_version >= "3.11"
-async-timeout==4.0.3 ; python_full_version < "3.11.3" and python_version >= "3.11"
+async-timeout==5.0.0 ; python_full_version < "3.11.3" and python_version >= "3.11"
 attrs==24.2.0 ; python_version >= "3.11"
 autobahn==24.4.2 ; python_version >= "3.11"
 automat==24.8.1 ; python_version >= "3.11"
@@ -28,7 +28,7 @@ django-htmx==1.21.0 ; python_version >= "3.11"
 django==5.1.2 ; python_version >= "3.11"
 dnspython==2.7.0 ; python_version >= "3.11"
 eventlet==0.37.0 ; python_version >= "3.11"
-faker==30.8.1 ; python_version >= "3.11"
+faker==30.8.2 ; python_version >= "3.11"
 flake8==7.1.1 ; python_version >= "3.11"
 flower==2.0.1 ; python_version >= "3.11"
 greenlet==3.1.1 ; python_version >= "3.11"
@@ -64,13 +64,14 @@ pyyaml==6.0.2 ; python_version >= "3.11"
 redis==5.2.0 ; python_version >= "3.11"
 requests==2.32.3 ; python_version >= "3.11"
 rollbar==1.0.0 ; python_version >= "3.11"
-ruff==0.7.1 ; python_version >= "3.11"
+ruff==0.7.2 ; python_version >= "3.11"
 service-identity==24.2.0 ; python_version >= "3.11"
 setuptools==75.3.0 ; python_version >= "3.11"
 six==1.16.0 ; python_version >= "3.11"
 soupsieve==2.6 ; python_version >= "3.11"
 sqlparse==0.5.1 ; python_version >= "3.11"
 tornado==6.4.1 ; python_version >= "3.11"
+transliterate==1.10.2 ; python_version >= "3.11"
 twisted[http2,tls]==24.10.0 ; python_version >= "3.11"
 twisted[tls]==24.10.0 ; python_version >= "3.11"
 txaio==23.1.1 ; python_version >= "3.11"
@@ -81,3 +82,11 @@ vine==5.1.0 ; python_version >= "3.11"
 wcwidth==0.2.13 ; python_version >= "3.11"
 whitenoise==6.8.2 ; python_version >= "3.11"
 zope-interface==7.1.1 ; python_version >= "3.11"
+
+Django~=5.1.2
+django-filter~=24.3
+celery~=5.4.0
+transliterate~=1.10.2
+python-dotenv~=1.0.1
+pyTelegramBotAPI~=4.23.0
+Faker~=30.8.2
