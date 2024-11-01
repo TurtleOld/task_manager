@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, re_path
 
 from task_manager.tasks.views import (
     ChecklistItemToggle,
@@ -15,10 +15,10 @@ app_name = 'tasks'
 urlpatterns = [
     path('', TasksList.as_view(), name='list'),
     path('create/', CreateTask.as_view(), name='create'),
-    path('<int:pk>/update/', UpdateTask.as_view(), name='update_task'),
-    path('<int:pk>/delete/', DeleteTask.as_view(), name='delete_task'),
-    path('<int:pk>/close/', CloseTask.as_view(), name='close_task'),
-    path('<int:pk>/', TaskView.as_view(), name='view_task'),
-    path('toggle/<int:item_id>/', ChecklistItemToggle.as_view(), name='toggle'),
-    path('download/<int:pk>/', DownloadFileView.as_view(), name='download'),
+    path('<slug:slug>/update/', UpdateTask.as_view(), name='update_task'),
+    path('<slug:slug>/delete/', DeleteTask.as_view(), name='delete_task'),
+    path('<slug:slug>/close/', CloseTask.as_view(), name='close_task'),
+    path('<slug:slug>', TaskView.as_view(), name='view_task'),
+    path('toggle/<slug:slug>/', ChecklistItemToggle.as_view(), name='toggle'),
+    path('download/<slug:slug>/', DownloadFileView.as_view(), name='download'),
 ]

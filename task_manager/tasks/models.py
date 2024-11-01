@@ -1,4 +1,6 @@
+from typing import Iterable
 from django.db import models
+from django.urls import reverse
 from django.utils.timezone import now
 
 from task_manager.labels.models import Label
@@ -90,6 +92,7 @@ class Task(models.Model):
     deadline = models.DateTimeField(blank=True, null=True)
     state = models.BooleanField(default=False)
     files = models.FileField('Файл', upload_to='files', blank=True)
+    slug = models.SlugField(null=True, unique=True)
     reminder_periods = models.ManyToManyField(
         ReminderPeriod,
         related_name='tasks',
@@ -110,3 +113,6 @@ class Task(models.Model):
 
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        return reverse("tasks:view_task", args=[self.slug])

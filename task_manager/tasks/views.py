@@ -1,12 +1,15 @@
 from datetime import timedelta
 import mimetypes
 import os
-from urllib.parse import quote
+from urllib.parse import quote, unquote
+from django.db import IntegrityError
 from django.http import (
     FileResponse,
     Http404,
 )
+from django.utils.text import slugify
 from django.utils.timezone import now
+
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -22,6 +25,7 @@ from django.views.generic import (
     DetailView,
 )
 from django_filters.views import FilterView
+from transliterate import translit
 
 from task_manager.tasks.forms import TaskForm, TasksFilter
 from task_manager.tasks.models import ChecklistItem, Task
@@ -34,6 +38,7 @@ from task_manager.tasks.tasks import (
     send_about_updating_task,
     send_about_deleting_task,
     send_notification_about_task,
+    send_notification_with_photo_about_task,
 )
 
 
@@ -63,6 +68,7 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
         'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
+    query_pk_and_slug = True
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -70,29 +76,44 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
         return kwargs
 
     def form_valid(self, form):
-        form.instance.author = User.objects.get(pk=self.request.user.pk)
-        task = form.save()
-        form.save_checklist_items(task)
-        task_id = task.pk
-        task_name = task.name
-        deadline = task.deadline
-        reminder_periods = form.cleaned_data['reminder_periods']
-        task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
-        send_message_about_adding_task.delay(task_name, task_url)
-        if deadline and reminder_periods:
-            for period in reminder_periods:
-                notify_time_hour = task.deadline - timedelta(
-                    minutes=period.period
-                )
-                if notify_time_hour > now():
-                    send_notification_about_task.apply_async(
-                        (
-                            task_name,
-                            f'{period}',
-                        ),
-                        eta=notify_time_hour,
+        try:
+            form.instance.author = User.objects.get(pk=self.request.user.pk)
+            task = form.save(commit=False)
+            task_name = task.name
+            translite_name = translit(
+                task_name, language_code='ru', reversed=True
+            )
+            task.slug = slugify(translite_name, allow_unicode=True)
+            task = form.save()
+            task_slug = task.slug
+            form.save_checklist_items(task)
+            task_file = task.files
+            deadline = task.deadline
+            reminder_periods = form.cleaned_data['reminder_periods']
+            task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}/')
+            send_message_about_adding_task.delay(task_name, task_url)
+            if deadline and reminder_periods:
+                for period in reminder_periods:
+                    notify_time = task.deadline - timedelta(
+                        minutes=period.period
                     )
-        return super().form_valid(form)
+                    if notify_time > now():
+                        send_notification_about_task.apply_async(
+                            (
+                                task_name,
+                                f'{period}',
+                                task_url,
+                                task_file,
+                            ),
+                            eta=notify_time,
+                        )
+            return super().form_valid(form)
+        except IntegrityError:
+            messages.error(
+                self.request,
+                'Задача с таким названием уже существует.',
+            )
+            return self.form_invalid(form)
 
 
 class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
@@ -105,6 +126,9 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
         'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
+    query_pk_and_slug = True
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -112,11 +136,19 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form):
-        task = form.save()
-        task_id = task.pk
+        task = form.save(commit=False)
         task_name = task.name
+        translite_name = translit(task_name, language_code='ru', reversed=True)
+        task.slug = slugify(translite_name, allow_unicode=True)
+        task = form.save()
+        task_slug = task.slug
         deadline = task.deadline
         reminder_periods = form.cleaned_data['reminder_periods']
+
+        task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}/')
+
+        if task.files:
+            task_file_path = task.files.path
 
         if deadline and reminder_periods:
             for period in reminder_periods:
@@ -124,14 +156,26 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
                     minutes=period.period
                 )
                 if notify_time_hour > now():
-                    send_notification_about_task.apply_async(
-                        (
-                            task_name,
-                            f'{period}',
-                        ),
-                        eta=notify_time_hour,
-                    )
-        task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
+                    if task_file_path:
+                        send_notification_with_photo_about_task.apply_async(
+                            (
+                                task_name,
+                                f'{period}',
+                                task_url,
+                                task_file_path,
+                            ),
+                            eta=notify_time_hour,
+                        )
+                    else:
+                        send_notification_about_task.apply_async(
+                            (
+                                task_name,
+                                f'{period}',
+                                task_url,
+                            ),
+                            eta=notify_time_hour,
+                        )
+
         send_about_updating_task.delay(task_name, task_url)
         return super().form_valid(form)
 
@@ -206,6 +250,7 @@ class TaskView(
         'У вас нет прав на просмотр данной страницы! ' 'Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
+    query_pk_and_slug = True
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

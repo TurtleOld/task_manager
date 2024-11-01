@@ -31,7 +31,7 @@
         {% for task in tasks %}
         <tr>
             <td class="">{{ task.id }}</td>
-            <td class="border p-2"><a class="text-decoration-none" href="{% url 'tasks:view_task' task.id %}">{{ task.name }}</a></td>
+            <td class="border p-2"><a class="text-decoration-none" href="{{ task.get_absolute_url }}">{{ task.name }}</a></td>
             <td class="border p-2">{{ task.status }}</td>
             <td class="border p-2">{{ task.author }}</td>
             <td class="border p-2">{{ task.executor }}</td>
@@ -42,7 +42,7 @@
                         {% else %}text-success
                         {% endif %}">{% if task.deadline %}{{ task.deadline|date:"d.m.Y H:i" }}{% else %} Бессрочно{% endif %}</td>
             <td class="d-flex justify-content-around">
-                <a class="btn btn-outline-warning {% if task.state %}disabled{% endif %}"  href="{% url 'tasks:update_task' task.id %}">{% translate 'Изменить' %}</a>
+                <a class="btn btn-outline-warning {% if task.state %}disabled{% endif %}"  href="{% url 'tasks:update_task' task.slug %}">{% translate 'Изменить' %}</a>
                 {% if task.state %}
                     <form action="{% url 'tasks:close_task' task.id %}" method="post">
                         {% csrf_token %}

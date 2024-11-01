@@ -1,6 +1,8 @@
 import os
+from pathlib import Path
 
 from celery import shared_task
+from django.conf import settings
 
 from task_manager.users.bot import bot_admin
 
@@ -36,11 +38,31 @@ def send_about_deleting_task(task_name):
 
 
 @shared_task
-def send_notification_about_task(task_name, task_time):
+def send_notification_about_task(
+    task_name,
+    task_time,
+    task_url,
+):
     bot_admin.send_message(
         chat_id=os.environ.get('CHAT_ID'),
-        text=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}',
+        text=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}\n{task_url}',
     )
+
+
+@shared_task
+def send_notification_with_photo_about_task(
+    task_name,
+    task_time,
+    task_url,
+    task_file_path,
+):
+    file_path = Path(settings.BASE_DIR).joinpath(task_file_path)
+    with open(file_path, 'rb') as file:
+        bot_admin.send_photo(
+            chat_id=os.environ.get('CHAT_ID'),
+            photo=file,
+            caption=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}\n{task_url}',
+        )
 
 
 @shared_task

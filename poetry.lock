@@ -1626,6 +1626,20 @@ files = [
 ]
 
 [[package]]
+name = "transliterate"
+version = "1.10.2"
+description = "Bi-directional transliterator for Python"
+optional = false
+python-versions = "*"
+files = [
+    {file = "transliterate-1.10.2-py2.py3-none-any.whl", hash = "sha256:010a5021bf6021689c4fade0985f3f7b3db1f2f16a48a09a56797f171c08ed42"},
+    {file = "transliterate-1.10.2.tar.gz", hash = "sha256:bc608e0d48e687db9c2b1d7ea7c381afe0d1849cad216087d8e03d8d06a57c85"},
+]
+
+[package.dependencies]
+six = ">=1.1.0"
+
+[[package]]
 name = "twisted"
 version = "24.10.0"
 description = "An asynchronous networking framework written in Python"
@@ -1813,4 +1827,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11"
-content-hash = "3345f9574e135b98fa668ee5ae1670af075ce7fbc2055cc45b89ea4715b41a50"
+content-hash = "1a420fa42637650ff2b7c0837be1429ed0eebc98cd11d8142d162797371aed10"
