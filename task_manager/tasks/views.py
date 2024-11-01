@@ -226,7 +226,7 @@ class ChecklistItemToggle(View):
 class DownloadFileView(DetailView):
     model = Task
 
-    def get(self):
+    def get(self, request, pk):
         task = self.get_object()
         file_path = task.files.path
         file_name = task.files.name

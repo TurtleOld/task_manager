@@ -27,12 +27,22 @@
                 </div>
                 <div class="row p-1">
                     <div class="col">{% translate 'Напоминание до' %}</div>
-                    <div class="col">{% for period in task.reminder_periods.all %} {{ period}}<br/> {% endfor %}</div>
+                    <div class="col">
+                        {% if task.reminder_periods.all %}
+                            {% for period in task.reminder_periods.all %} {{ period }}<br/> {% endfor %}
+                        {% else %}
+                            <span>Напоминения не установлены</span>
+                        {% endif %}
+                    </div>
                 </div>
                 <div class="row p-1">
                     <div class="col">{% translate 'Приложенные файлы' %}</div>
                     <div class="col">
-                        <a href="{% url 'tasks:download' task.pk %}" download>Скачать файл</a>
+                        {% if task.files %}
+                            <a href="{% url 'tasks:download' task.pk %}" download>Скачать файл</a>
+                        {% else %}
+                            <span>Нет файлов</span>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="row p-1">
