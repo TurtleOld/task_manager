@@ -6,7 +6,7 @@ from django_filters import FilterSet
 
 from task_manager.labels.models import Label
 from task_manager.statuses.models import Status
-from task_manager.tasks.models import Task
+from task_manager.tasks.models import ReminderPeriod, Task
 from task_manager.users.models import User
 
 
@@ -23,6 +23,10 @@ class TestTask(TestCase):
         self.task2 = Task.objects.get(pk=2)
         self.label1 = Label.objects.get(pk=1)
         self.label2 = Label.objects.get(pk=2)
+        self.reminderperiod2 = ReminderPeriod.objects.get(pk=2)
+        self.reminderperiod3 = ReminderPeriod.objects.get(pk=3)
+        self.reminderperiod4 = ReminderPeriod.objects.get(pk=4)
+        self.reminderperiod5 = ReminderPeriod.objects.get(pk=5)
 
     def test_list_tasks(self):
         self.client.force_login(self.user1)
@@ -42,7 +46,7 @@ class TestTask(TestCase):
             'status': 1,
             'labels': [1, 2],
             'deadline': (datetime.now() + timedelta(days=1)).isoformat(),
-            'reminder_periods': [60, 420],
+            'reminder_periods': [self.reminderperiod4, self.reminderperiod5],
         }
         response = self.client.post(
             reverse_lazy('tasks:create'),
@@ -66,7 +70,7 @@ class TestTask(TestCase):
     @patch('task_manager.tasks.tasks.send_about_updating_task.apply_async')
     def test_update_task(self, mock_send_massage):
         self.client.force_login(self.user1)
-        url = reverse('tasks:update_task', args=(self.task1.pk,))
+        url = reverse('tasks:update_task', args=(self.task1.slug,))
         changed_task = {
             'name': 'New task',
             'description': 'description',
@@ -74,8 +78,9 @@ class TestTask(TestCase):
             'executor': 1,
             'status': 2,
             'labels': [1, 2],
+            'slug': 'new-task',
             'deadline': (datetime.now() + timedelta(days=1)).isoformat(),
-            'reminder_periods': [60, 420],
+            'reminder_periods': [self.reminderperiod4.period, self.reminderperiod5.period],
         }
 
         response = self.client.post(
@@ -83,6 +88,7 @@ class TestTask(TestCase):
             changed_task,
             follow=True
         )
+        print(response.context['form'].errors)
         self.assertRedirects(response, '/tasks/')
         created_task = Task.objects.get(name=changed_task['name'])
         self.assertEqual(created_task.name, 'New task')
