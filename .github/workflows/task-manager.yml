@@ -35,3 +35,7 @@ jobs:
 
       - name: Run Tests
         run: make test
+        env:
+          TOKEN_TELEGRAM_BOT: ${{ secrets.TOKEN_TELEGRAM_BOT }}
+
+
