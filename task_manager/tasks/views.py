@@ -1,7 +1,7 @@
 from datetime import timedelta
 import mimetypes
 import os
-from urllib.parse import quote, unquote
+from urllib.parse import quote
 from django.db import IntegrityError
 from django.http import (
     FileResponse,
