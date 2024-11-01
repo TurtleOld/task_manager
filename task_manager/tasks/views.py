@@ -28,6 +28,8 @@ from task_manager.tasks.models import ChecklistItem, Task
 from task_manager.users.models import User
 from task_manager.mixins import HandleNoPermissionMixin
 from task_manager.tasks.tasks import (
+    send_about_closing_task,
+    send_about_opening_task,
     send_message_about_adding_task,
     send_about_updating_task,
     send_about_deleting_task,
@@ -168,6 +170,8 @@ class CloseTask(View):
 
     def post(self, request, pk):
         task = get_object_or_404(Task, id=pk)
+        task_id = task.id
+        task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
 
         if task.author != request.user or task.executor != request.user:
             messages.error(
@@ -176,7 +180,7 @@ class CloseTask(View):
                     'У вас нет прав для изменения состояния этой задачи'
                 ),
             )
-            
+
         else:
             task.state = not task.state
             task.save()
@@ -184,6 +188,10 @@ class CloseTask(View):
                 request,
                 gettext_lazy('Состояние задачи изменено'),
             )
+            if task.state:
+                send_about_closing_task.delay(task.name, task_url)
+            else:
+                send_about_opening_task.delay(task.name, task_url)
 
         return redirect('tasks:list')
 

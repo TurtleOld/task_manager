@@ -42,9 +42,18 @@ def send_notification_about_task(task_name, task_time):
         text=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}',
     )
 
+
 @shared_task
-def send_about_closing_task(task_name):
+def send_about_closing_task(task_name, task_url):
     bot_admin.send_message(
         chat_id=os.environ.get('CHAT_ID'),
-        text=f'Задача "{task_name}" была удалена!',
+        text=f'Задача "{task_name}" была закрыта!\n{task_url}',
+    )
+
+
+@shared_task
+def send_about_opening_task(task_name, task_url):
+    bot_admin.send_message(
+        chat_id=os.environ.get('CHAT_ID'),
+        text=f'Задача "{task_name}" была переоткрыта!\n{task_url}',
     )
