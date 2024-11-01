@@ -36,8 +36,15 @@ def send_about_deleting_task(task_name):
 
 
 @shared_task
-def send_notification_about_task(task_name):
+def send_notification_about_task(task_name, task_time):
     bot_admin.send_message(
         chat_id=os.environ.get('CHAT_ID'),
-        text=f'Срок выполнения задачи "{task_name}" подходит к концу!',
+        text=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}',
+    )
+
+@shared_task
+def send_about_closing_task(task_name):
+    bot_admin.send_message(
+        chat_id=os.environ.get('CHAT_ID'),
+        text=f'Задача "{task_name}" была удалена!',
     )

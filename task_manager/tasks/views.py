@@ -46,7 +46,7 @@ class TasksList(
     context_object_name = 'tasks'
     filterset_class = TasksFilter
     error_message = gettext_lazy(
-        'У вас нет прав на просмотр данной страницы! ' 'Авторизуйтесь!'
+        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
 
@@ -58,7 +58,7 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
     success_message = gettext_lazy('Задача успешно создана')
     success_url = reverse_lazy('tasks:list')
     error_message = gettext_lazy(
-        'У вас нет прав на просмотр данной страницы! ' 'Авторизуйтесь!'
+        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
 
@@ -84,7 +84,10 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
                 )
                 if notify_time_hour > now():
                     send_notification_about_task.apply_async(
-                        (task_name,),
+                        (
+                            task_name,
+                            f'{period}',
+                        ),
                         eta=notify_time_hour,
                     )
         return super().form_valid(form)
@@ -97,7 +100,7 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
     success_message = gettext_lazy('Задача успешно изменена')
     success_url = reverse_lazy('tasks:list')
     error_message = gettext_lazy(
-        'У вас нет прав на просмотр данной страницы! ' 'Авторизуйтесь!'
+        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
 
@@ -120,7 +123,10 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
                 )
                 if notify_time_hour > now():
                     send_notification_about_task.apply_async(
-                        (task_name,),
+                        (
+                            task_name,
+                            f'{period}',
+                        ),
                         eta=notify_time_hour,
                     )
         task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
@@ -136,7 +142,7 @@ class DeleteTask(
     success_url = reverse_lazy('tasks:list')
     success_message = gettext_lazy('Задача успешно удалена')
     error_message = gettext_lazy(
-        'У вас нет прав на просмотр данной страницы! ' 'Авторизуйтесь!'
+        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
 
@@ -145,7 +151,7 @@ class DeleteTask(
         if self.request.user != self.get_object().author:
             messages.error(
                 self.request,
-                gettext_lazy('Вы не можете удалить ' 'чужую задачу!'),
+                gettext_lazy('Вы не можете удалить чужую задачу!'),
             )
         else:
             task_name = task.name
@@ -163,19 +169,20 @@ class CloseTask(View):
     def post(self, request, pk):
         task = get_object_or_404(Task, id=pk)
 
-        if task.author == request.user or task.executor == request.user:
+        if task.author != request.user or task.executor != request.user:
+            messages.error(
+                request,
+                gettext_lazy(
+                    'У вас нет прав для изменения состояния этой задачи'
+                ),
+            )
+            
+        else:
             task.state = not task.state
             task.save()
             messages.success(
                 request,
-                gettext_lazy('Состояние задачи изменено.'),
-            )
-        else:
-            messages.error(
-                request,
-                gettext_lazy(
-                    'У вас нет прав для изменения состояния этой задачи.'
-                ),
+                gettext_lazy('Состояние задачи изменено'),
             )
 
         return redirect('tasks:list')
@@ -212,10 +219,6 @@ class ChecklistItemToggle(View):
         checklist_item = get_object_or_404(ChecklistItem, id=item_id)
         checklist_item.is_completed = not checklist_item.is_completed
         checklist_item.save()
-
-        print(
-            f'Item ID: {checklist_item.id}, Completed: {checklist_item.is_completed}'
-        )  # Отладка
 
         context = {
             'item': checklist_item,
