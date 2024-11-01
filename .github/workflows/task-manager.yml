@@ -37,5 +37,6 @@ jobs:
         run: make test
         env:
           TOKEN_TELEGRAM_BOT: ${{ secrets.TOKEN_TELEGRAM_BOT }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
 
