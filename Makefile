@@ -38,7 +38,7 @@ github:
 		git push origin main
 
 test:
-		@poetry run coverage run --source='.' manage.py test
+		DB_USER="postgres" DB_PASSWORD="postgres" poetry run python ./manage.py test -v 2
 
 test-coverage-report-xml:
 		@poetry run coverage xml

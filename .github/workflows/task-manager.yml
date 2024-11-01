@@ -33,11 +33,5 @@ jobs:
       - name: Start linter
         run: make lint
 
-      - name: Test & publish code coverage
-        uses: paambaati/codeclimate-action@v3.0.0
-        env:
-          CC_TEST_REPORTER_ID: ${{ secrets.COVERAGE_ID_TASK_MANAGER }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-        with:
-          coverageCommand: make coverage
-          debug: true
+      - name: Run Tests
+        run: make test
