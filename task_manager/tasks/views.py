@@ -213,11 +213,12 @@ class CloseTask(View):
     model = Task
     template_name = 'tasks/list_tasks.html'
     form_class = TaskForm
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
 
-    def post(self, request, pk):
-        task = get_object_or_404(Task, id=pk)
-        task_id = task.id
-        task_url = self.request.build_absolute_uri(f'/tasks/{task_id}/')
+    def post(self, request, slug):
+        task = get_object_or_404(Task, slug=slug)
+        task_url = self.request.build_absolute_uri(f'/tasks/{slug}/')
 
         if task.author != request.user or task.executor != request.user:
             messages.error(
