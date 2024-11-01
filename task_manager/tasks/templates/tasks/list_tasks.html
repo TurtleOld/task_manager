@@ -44,23 +44,23 @@
             <td class="d-flex justify-content-around">
                 <a class="btn btn-outline-warning {% if task.state %}disabled{% endif %}"  href="{% url 'tasks:update_task' task.slug %}">{% translate 'Изменить' %}</a>
                 {% if task.state %}
-                    <form action="{% url 'tasks:close_task' task.id %}" method="post">
+                    <form action="{% url 'tasks:close_task' task.slug %}" method="post">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-outline-success {% if task.state and task.author != user %}disabled{% endif %}">{% translate 'Переоткрыть' %}</button>
                     </form>
                 {% else %}
-                    <form action="{% url 'tasks:close_task' task.id %}" method="post">
+                    <form action="{% url 'tasks:close_task' task.slug %}" method="post">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-outline-dark">{% translate 'Закрыть' %}</button>
                     </form>
                 {% endif %}
-                <a class="btn btn-outline-danger" href="{% url 'tasks:delete_task' task.id %}">{% translate 'Удалить' %}</a>
+                <a class="btn btn-outline-danger" href="{% url 'tasks:delete_task' task.slug %}">{% translate 'Удалить' %}</a>
             </td>
         </tr>
         {% endfor %}
     </table>
     {% for task in tasks %}
-        <a class="text-decoration-none" href="{% url 'tasks:view_task' task.id %}">
+        <a class="text-decoration-none" href="{% url 'tasks:view_task' task.slug %}">
             <div class="card-mobile card mt-2">
                 <div class="card-header bg-secondary text-white">
                     <h6 class="mb-0">{{ task.name }}</h6>

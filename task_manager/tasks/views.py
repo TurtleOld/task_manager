@@ -191,6 +191,8 @@ class DeleteTask(
         'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
 
     def form_valid(self, form):
         task = self.get_object()
