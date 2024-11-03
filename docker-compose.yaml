@@ -22,7 +22,7 @@ services:
     container_name: task_manager_server
     image: ghcr.io/turtleold/task_manager:main
     volumes:
-      - ${LOCATION:-./app_data}:/app
+      - ${LOCATION:-./app_data}:/app_data/files
     command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && daphne task_manager.asgi:application --port ${PORT:-8000} --bind 0.0.0.0 -v2"
     ports:
       - "${PORT:-8000}:${PORT:-8000}"
@@ -54,7 +54,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ${LOCATION:-./app_data}:/app
+      - ${LOCATION:-./app_data}:/app_data/files
     environment:
       BROKER_URL: ${BROKER_URL:-redis://redis:6379}
     depends_on:
