@@ -90,9 +90,10 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
             task_file = task.files
             deadline = task.deadline
             reminder_periods = form.cleaned_data['reminder_periods']
-            task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}/')
+            task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
             send_message_about_adding_task.delay(task_name, task_url)
             task_file_path = task.files.path if task_file else None
+
             if deadline and reminder_periods:
                 for period in reminder_periods:
                     notify_time = task.deadline - timedelta(
@@ -155,18 +156,13 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
         task_slug = task.slug
         deadline = task.deadline
         reminder_periods = form.cleaned_data['reminder_periods']
-
-        task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}/')
-
+        task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
         task_file_path = task.files.path if task.files else None
-
         if deadline and reminder_periods:
 
             for period in reminder_periods:
-                notify_time_hour = task.deadline - timedelta(
-                    minutes=period.period
-                )
-                if notify_time_hour > now():
+                notify_time = task.deadline - timedelta(minutes=period.period)
+                if notify_time > now():
                     if task_file_path:
                         send_notification_with_photo_about_task.apply_async(
                             (
@@ -175,7 +171,7 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
                                 task_url,
                                 task_file_path,
                             ),
-                            eta=notify_time_hour,
+                            eta=notify_time,
                         )
                     else:
                         send_notification_about_task.apply_async(
@@ -184,7 +180,7 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
                                 f'{period}',
                                 task_url,
                             ),
-                            eta=notify_time_hour,
+                            eta=notify_time,
                         )
 
         send_about_updating_task.delay(task_name, task_url)
@@ -229,7 +225,7 @@ class CloseTask(View):
 
     def post(self, request, slug):
         task = get_object_or_404(Task, slug=slug)
-        task_url = self.request.build_absolute_uri(f'/tasks/{slug}/')
+        task_url = self.request.build_absolute_uri(f'/tasks/{slug}')
 
         if task.author != request.user or task.executor != request.user:
             messages.error(
@@ -296,7 +292,7 @@ class ChecklistItemToggle(View):
 class DownloadFileView(DetailView):
     model = Task
 
-    def get(self, request, pk):
+    def get(self, request, *args, **kwargs):
         task = self.get_object()
         file_path = task.files.path
         file_name = task.files.name
