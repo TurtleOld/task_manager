@@ -57,11 +57,17 @@ def send_notification_with_photo_about_task(
     task_file_path,
 ):
     file_path = Path(settings.BASE_DIR).joinpath(task_file_path)
-    with open(file_path, 'rb') as file:
-        bot_admin.send_photo(
+    try:
+        with open(file_path, 'rb') as file:
+            bot_admin.send_photo(
+                chat_id=os.environ.get('CHAT_ID'),
+                photo=file,
+                caption=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}\n{task_url}',
+            )
+    except FileNotFoundError:
+        bot_admin.send_message(
             chat_id=os.environ.get('CHAT_ID'),
-            photo=file,
-            caption=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}\n{task_url}',
+            text=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}\n{task_url}',
         )
 
 

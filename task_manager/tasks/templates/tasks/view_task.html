@@ -39,7 +39,7 @@
                     <div class="col">{% translate 'Приложенные файлы' %}</div>
                     <div class="col">
                         {% if task.files %}
-                            <a href="{% url 'tasks:download' task.pk %}" download>Скачать файл</a>
+                            <a href="{% url 'tasks:download' task.slug %}" download>Скачать файл</a>
                         {% else %}
                             <span>Нет файлов</span>
                         {% endif %}
