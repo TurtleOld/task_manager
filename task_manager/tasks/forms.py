@@ -25,7 +25,6 @@ class TaskForm(ModelForm):
         required=False,
         label='Пункты чеклиста',
     )
-    files = forms.FileField(required=False, label=gettext_lazy('Файл'))
 
     class Meta:
         model = Task

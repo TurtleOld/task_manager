@@ -41,14 +41,15 @@
                         {% if task.image_url %}
                             <a class="btn btn-sm btn-outline-primary me-1" href="{% url 'tasks:download' task.slug %}" download>Скачать изображение</a>
                             <button id="preview-image-button" class="btn btn-sm btn-outline-primary">Просмотреть изображение</button>
+                            <div id="image-modal" style="display:none">
+                                <a id="link-image" href="" target="_blank">
+                                    <img width="350" height="300" id="preview-image" class="mt-1" src="" alt="Preview" />
+                                </a>
+                            </div>
                         {% else %}
                             <span>Нет файлов</span>
                         {% endif %}
-                        <div id="image-modal" style="display:none">
-                            <a id="link-image" href="" target="_blank">
-                                <img width="350" height="300" id="preview-image" class="mt-1" src="" alt="Preview" />
-                            </a>
-                        </div>
+
                     </div>
                 </div>
                 <div class="row p-1">

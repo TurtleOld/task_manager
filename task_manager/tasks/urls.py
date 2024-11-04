@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import path
 
 from task_manager.tasks.views import (
@@ -21,4 +23,4 @@ urlpatterns = [
     path('<slug:slug>', TaskView.as_view(), name='view_task'),
     path('toggle/<slug:slug>/', ChecklistItemToggle.as_view(), name='toggle'),
     path('download/<slug:slug>/', DownloadFileView.as_view(), name='download'),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
