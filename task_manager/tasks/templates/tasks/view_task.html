@@ -31,18 +31,24 @@
                         {% if task.reminder_periods.all %}
                             {% for period in task.reminder_periods.all %} {{ period }}<br/> {% endfor %}
                         {% else %}
-                            <span>Напоминения не установлены</span>
+                            <span>Напоминания не установлены</span>
                         {% endif %}
                     </div>
                 </div>
                 <div class="row p-1">
                     <div class="col">{% translate 'Приложенные файлы' %}</div>
                     <div class="col">
-                        {% if task.files %}
-                            <a href="{% url 'tasks:download' task.slug %}" download>Скачать файл</a>
+                        {% if task.image_url %}
+                            <a class="btn btn-sm btn-outline-primary me-1" href="{% url 'tasks:download' task.slug %}" download>Скачать изображение</a>
+                            <button id="preview-image-button" class="btn btn-sm btn-outline-primary">Просмотреть изображение</button>
                         {% else %}
                             <span>Нет файлов</span>
                         {% endif %}
+                        <div id="image-modal" style="display:none">
+                            <a id="link-image" href="" target="_blank">
+                                <img width="350" height="300" id="preview-image" class="mt-1" src="" alt="Preview" />
+                            </a>
+                        </div>
                     </div>
                 </div>
                 <div class="row p-1">
@@ -78,4 +84,42 @@
             </div>
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const previewButton = document.getElementById('preview-image-button');
+            const modal = document.getElementById('image-modal');
+            const image = document.getElementById('preview-image');
+            const link_image = document.getElementById('link-image');
+
+            // Обработчик нажатия на кнопку
+            previewButton.addEventListener('click', function() {
+                // Проверка, отображается ли модальное окно
+                if (modal.style.display === 'block') {
+                    // Скрыть модальное окно и сменить текст кнопки на "Посмотреть изображение"
+                    modal.style.display = 'none';
+                    previewButton.textContent = 'Просмотреть изображение';
+                } else {
+                    // Получаем URL изображения
+                    let url = "{{ task.image_url }}";
+
+                    // Устанавливаем источник изображения и ссылку
+                    image.src = url;
+                    link_image.href = url;
+
+                    // Показываем модальное окно и сменяем текст кнопки на "Скрыть изображение"
+                    modal.style.display = 'block';
+                    previewButton.textContent = 'Скрыть изображение';
+                }
+            });
+
+            // Закрытие модального окна при клике вне изображения
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                    previewButton.textContent = 'Просмотреть изображение';
+                }
+            };
+        });
+    </script>
+
 {% endblock %}

@@ -16,9 +16,9 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='task',
-            name='files',
+            name='image',
             field=models.FileField(
-                blank=True, upload_to='files', verbose_name='Файл'
+                blank=True, upload_to='image', verbose_name='Файл'
             ),
         ),
     ]

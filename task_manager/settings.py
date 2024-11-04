@@ -176,17 +176,17 @@ LANGUAGES = (
 
 LOCALE_PATHS = (os.path.join(BASE_DIR, 'task_manager/locale'),)
 
-# Static files (CSS, JavaScript, Images)
+# Static image (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'static')
+STATIC_ROOT = os.path.join(BASE_DIR, 'app_data', 'image', 'static')
 STATIC_URL = '/static/'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'media')
 MEDIA_URL = '/media/'
 
-# Extra places for collectstatic to find static files.
+# Extra places for collectstatic to find static image.
 STATICFILES_DIRS = (os.path.join(BASE_DIR, 'task_manager/static'),)
 
 # Default primary key field type

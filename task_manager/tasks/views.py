@@ -87,12 +87,12 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
             task = form.save()
             task_slug = task.slug
             form.save_checklist_items(task)
-            task_file = task.files
+            task_image = task.image
             deadline = task.deadline
             reminder_periods = form.cleaned_data['reminder_periods']
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
             send_message_about_adding_task.delay(task_name, task_url)
-            task_file_path = task.files.path if task_file else None
+            task_file_path = task.files.path if task_image else None
 
             if deadline and reminder_periods:
                 for period in reminder_periods:
@@ -157,19 +157,19 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
         deadline = task.deadline
         reminder_periods = form.cleaned_data['reminder_periods']
         task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
-        task_file_path = task.files.path if task.files else None
+        task_image_path = task.image.path if task.image else None
         if deadline and reminder_periods:
 
             for period in reminder_periods:
                 notify_time = task.deadline - timedelta(minutes=period.period)
                 if notify_time > now():
-                    if task_file_path:
+                    if task_image_path:
                         send_notification_with_photo_about_task.apply_async(
                             (
                                 task_name,
                                 f'{period}',
                                 task_url,
-                                task_file_path,
+                                task_image_path,
                             ),
                             eta=notify_time,
                         )
@@ -294,17 +294,17 @@ class DownloadFileView(DetailView):
 
     def get(self, request, *args, **kwargs):
         task = self.get_object()
-        file_path = task.files.path
-        file_name = task.files.name
-        mime_type, _ = mimetypes.guess_type(file_name)
+        image_path = task.image.path
+        image_name = task.image.name
+        mime_type, _ = mimetypes.guess_type(image_name)
         if not mime_type:
             mime_type = 'application/octet-stream'
         try:
             response = FileResponse(
-                open(file_path, 'rb'),
+                open(image_path, 'rb'),
                 content_type=mime_type,
             )
-            quote_filename = quote(os.path.basename(file_name))
+            quote_filename = quote(os.path.basename(image_name))
             response['Content-Disposition'] = (
                 f"attachment; filename*=UTF-8''{quote_filename}"
             )

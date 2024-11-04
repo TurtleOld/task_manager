@@ -38,7 +38,7 @@ class TaskForm(ModelForm):
             'executor',
             'labels',
             'state',
-            'files'
+            'image',
         )
         labels = {
             'name': gettext_lazy('Имя'),
@@ -75,8 +75,7 @@ class TaskForm(ModelForm):
             for item_text in items_text.splitlines():
                 if item_text.strip():
                     ChecklistItem.objects.create(
-                        checklist=checklist,
-                        description=item_text.strip()
+                        checklist=checklist, description=item_text.strip()
                     )
 
 

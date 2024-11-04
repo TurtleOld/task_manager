@@ -27,6 +27,7 @@ eventlet = "^0.37.0"
 django-htmx = "^1.21.0"
 transliterate = "^1.10.2"
 
+pillow = "^11.0.0"
 [tool.poetry.dev-dependencies]
 flake8 = ">=4.0.1"
 PyYAML = ">=6.0"

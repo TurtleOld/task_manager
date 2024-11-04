@@ -1,3 +1,6 @@
+from urllib.parse import urljoin
+
+from django.conf import settings
 from django.db import models
 from django.urls import reverse
 from django.utils.timezone import now
@@ -5,6 +8,7 @@ from django.utils.timezone import now
 from task_manager.labels.models import Label
 from task_manager.statuses.models import Status
 from task_manager.users.models import User
+from django.utils.translation import gettext_lazy as _
 
 PERIOD = {
     10: '10 минут',
@@ -38,15 +42,23 @@ PERIOD = {
     1440: '24 часа',
 }
 
+
 class Checklist(models.Model):
-    task = models.OneToOneField('Task', on_delete=models.CASCADE, related_name='checklist')
+    task = models.OneToOneField(
+        'Task', on_delete=models.CASCADE, related_name='checklist'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def str(self):
         return f'Чеклист для задачи: {self.task.name}'
 
+
 class ChecklistItem(models.Model):
-    checklist = models.ForeignKey(Checklist, on_delete=models.CASCADE, related_name='items')
+    checklist = models.ForeignKey(
+        Checklist,
+        on_delete=models.CASCADE,
+        related_name='items',
+    )
     description = models.CharField(max_length=255)
     is_completed = models.BooleanField(default=False)
 
@@ -90,7 +102,11 @@ class Task(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     deadline = models.DateTimeField(blank=True, null=True)
     state = models.BooleanField(default=False)
-    files = models.FileField('Файл', upload_to='files', blank=True)
+    image = models.ImageField(
+        _('Изображение'),
+        upload_to='images/',
+        blank=True,
+    )
     slug = models.SlugField(null=True, unique=True)
     reminder_periods = models.ManyToManyField(
         ReminderPeriod,
@@ -102,6 +118,13 @@ class Task(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+    def __str__(self):
+        return self.name
+
+    def image_url(self):
+        if self.image:
+            return urljoin(f"/tasks{settings.MEDIA_URL}", self.image.name)
+
     def is_deadline_overdue(self):
         if self.deadline:
             return self.deadline.astimezone() < now().astimezone()
@@ -109,9 +132,6 @@ class Task(models.Model):
 
     def get_reminder_period_display(self):
         return ', '.join(str(period) for period in self.reminder_periods.all())
-
-    def __str__(self):
-        return self.name
 
     def get_absolute_url(self):
         return reverse("tasks:view_task", args=[self.slug])
