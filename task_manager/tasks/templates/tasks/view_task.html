@@ -99,6 +99,8 @@
                     // Скрыть модальное окно и сменить текст кнопки на "Посмотреть изображение"
                     modal.style.display = 'none';
                     previewButton.textContent = 'Просмотреть изображение';
+                    image.src = "";
+                    link_image.href = "";
                 } else {
                     // Получаем URL изображения
                     let url = "{{ task.image_url }}";
