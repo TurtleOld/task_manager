@@ -47,9 +47,6 @@ services:
   worker-celery:
     image: ghcr.io/turtleold/task_manager:main
     container_name: task_manager_celery
-    build:
-      context: .
-      dockerfile: Dockerfile
     command: celery -A task_manager worker -l INFO
     env_file:
       - .env

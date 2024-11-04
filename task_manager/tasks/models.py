@@ -121,6 +121,7 @@ class Task(models.Model):
     def __str__(self):
         return self.name
 
+    @property
     def image_url(self):
         if self.image:
             return urljoin(f"/tasks{settings.MEDIA_URL}", self.image.name)
