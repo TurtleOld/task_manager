@@ -180,7 +180,7 @@ LOCALE_PATHS = (os.path.join(BASE_DIR, 'task_manager/locale'),)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'app_data', 'image', 'static')
+STATIC_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'static')
 STATIC_URL = '/static/'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'media')
