@@ -8,7 +8,7 @@
     <title>{% translate 'Список задач' %}</title>
     <h1 class="my-4">{% translate 'Задачи' %}</h1>
     <div class="card mb-3">
-        <div class="card-body bg-light">
+        <div class="card-body">
             <form method="get" class="form-inline justify-content-around">
                 {% csrf_token %}
                 {% bootstrap_form filter.form form_group_class='form-group' field_class='ml-2 mr-3' %}
@@ -17,7 +17,7 @@
         </div>
     </div>
     <a class="btn btn-outline-primary mb-1" href="{% url 'tasks:create' %}">{% translate 'Создать задачу' %}</a>
-    <table class="bg-white mt-1 border table table-striped table-desktop">
+    <table class="mt-1 table table-striped table-desktop">
         <tr>
             <th scope="col">ID</th>
             <th scope="col">{% translate 'Имя' %}</th>
@@ -30,18 +30,18 @@
         </tr>
         {% for task in tasks %}
         <tr>
-            <td class="">{{ task.id }}</td>
-            <td class="border p-2"><a class="text-decoration-none" href="{{ task.get_absolute_url }}">{{ task.name }}</a></td>
-            <td class="border p-2">{{ task.status }}</td>
-            <td class="border p-2">{{ task.author }}</td>
-            <td class="border p-2">{{ task.executor }}</td>
-            <td class="border p-2">{{ task.created_at|date:"d.m.Y H:i" }}</td>
-            <td class="border p-2
+            <td class="border-top-0">{{ task.id }}</td>
+            <td class="border-top-0"><a class="text-decoration-none" href="{{ task.get_absolute_url }}">{{ task.name }}</a></td>
+            <td class="border-top-0">{{ task.status }}</td>
+            <td class="border-top-0">{{ task.author }}</td>
+            <td class="border-top-0">{{ task.executor }}</td>
+            <td class="border-top-0">{{ task.created_at|date:"d.m.Y H:i" }}</td>
+            <td class="border-top-0
                        {% if task.deadline %}
                             {% if task.is_deadline_overdue %}text-danger{% endif %}
                         {% else %}text-success
                         {% endif %}">{% if task.deadline %}{{ task.deadline|date:"d.m.Y H:i" }}{% else %} Бессрочно{% endif %}</td>
-            <td class="d-flex justify-content-around">
+            <td class="d-flex justify-content-around border-top-0">
                 <a class="btn btn-outline-warning {% if task.state %}disabled{% endif %}"  href="{% url 'tasks:update_task' task.slug %}">{% translate 'Изменить' %}</a>
                 {% if task.state %}
                     <form action="{% url 'tasks:close_task' task.slug %}" method="post">
@@ -51,7 +51,7 @@
                 {% else %}
                     <form action="{% url 'tasks:close_task' task.slug %}" method="post">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-dark">{% translate 'Закрыть' %}</button>
+                        <button type="submit" class="btn btn-outline-secondary">{% translate 'Закрыть' %}</button>
                     </form>
                 {% endif %}
                 <a class="btn btn-outline-danger" href="{% url 'tasks:delete_task' task.slug %}">{% translate 'Удалить' %}</a>
@@ -62,10 +62,10 @@
     {% for task in tasks %}
         <a class="text-decoration-none" href="{% url 'tasks:view_task' task.slug %}">
             <div class="card-mobile card mt-2">
-                <div class="card-header bg-secondary text-white">
+                <div class="card-header">
                     <h6 class="mb-0">{{ task.name }}</h6>
                 </div>
-                <div class="card-body bg-light">
+                <div class="card-body">
                     Описание: {{ task.description }}<br>
                     Статус: {{ task.status }}
                 </div>

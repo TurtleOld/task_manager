@@ -5,7 +5,6 @@
 {% block title %}{% translate 'Обновление задачи' %}{% endblock %}
 
 {% block content %}
-    <title>{{ title_task_update }}</title>
     <h1 class="my-4">{% translate 'Обновление задачи' %}</h1>
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
