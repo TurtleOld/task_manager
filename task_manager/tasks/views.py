@@ -92,7 +92,7 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
             reminder_periods = form.cleaned_data['reminder_periods']
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
             send_message_about_adding_task.delay(task_name, task_url)
-            task_file_path = task.files.path if task_image else None
+            task_file_path = task.image.path if task_image else None
 
             if deadline and reminder_periods:
                 for period in reminder_periods:
