@@ -124,7 +124,7 @@ class Task(models.Model):
     @property
     def image_url(self):
         if self.image:
-            return urljoin(f"/tasks{settings.MEDIA_URL}", self.image.name)
+            return urljoin(f'/tasks{settings.MEDIA_URL}', self.image.name)
 
     def is_deadline_overdue(self):
         if self.deadline:
