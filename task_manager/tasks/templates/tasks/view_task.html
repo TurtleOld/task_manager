@@ -39,7 +39,7 @@
                 <div class="row p-1">
                     <div class="col">{% translate 'Приложенные файлы' %}</div>
                     <div class="col">
-                        {% if task.image_url %}
+                        {% if task.image %}
                             <a class="btn btn-sm btn-outline-primary me-1" href="{% url 'tasks:download' task.slug %}" download>Скачать изображение</a>
                             <button id="preview-image-button" class="btn btn-sm btn-outline-primary">Просмотреть изображение</button>
                             <div id="image-modal" style="display:none">
@@ -104,7 +104,7 @@
                     link_image.href = "";
                 } else {
                     // Получаем URL изображения
-                    let url = "{{ task.image_url }}";
+                    let url = "/tasks{{ task.image.url }}";
 
                     // Устанавливаем источник изображения и ссылку
                     image.src = url;

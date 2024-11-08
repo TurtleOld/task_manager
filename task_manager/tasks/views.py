@@ -308,6 +308,8 @@ class DownloadFileView(DetailView):
             response['Content-Disposition'] = (
                 f"attachment; filename*=UTF-8''{quote_filename}"
             )
+            print(response['Content-Disposition'])
+            print(image_path)
             return response
         except FileNotFoundError:
             raise Http404("Файл не найден")

@@ -104,7 +104,7 @@ class Task(models.Model):
     state = models.BooleanField(default=False)
     image = models.ImageField(
         _('Изображение'),
-        upload_to='images/',
+        upload_to='images',
         blank=True,
     )
     slug = models.SlugField(null=True, unique=True)
@@ -120,11 +120,6 @@ class Task(models.Model):
 
     def __str__(self):
         return self.name
-
-    @property
-    def image_url(self):
-        if self.image:
-            return urljoin(f'/tasks{settings.MEDIA_URL}', self.image.name)
 
     def is_deadline_overdue(self):
         if self.deadline:
