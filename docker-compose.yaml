@@ -24,10 +24,6 @@ services:
     volumes:
       - ${LOCATION:-./app_data}:/app_data/files
     command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && daphne task_manager.asgi:application --port ${PORT:-8000} --bind 0.0.0.0 -v2"
-    ports:
-      - "${PORT:-8000}:${PORT:-8000}"
-#    expose:
-#      - "8001"
     env_file:
       - .env
     environment:
@@ -88,6 +84,7 @@ services:
 
   nginx:
     image: nginx:alpine
+    container_name: task_manager_nginx
     ports:
       - "${PORT:-8000}:80"
     volumes:
