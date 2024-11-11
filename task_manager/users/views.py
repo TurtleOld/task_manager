@@ -7,7 +7,6 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.utils.translation import gettext, gettext_lazy
 from django.urls import reverse_lazy
-from django.views import View
 from django.views.generic.list import ListView
 from django.views.generic.edit import (
     CreateView,
@@ -21,6 +20,7 @@ from task_manager.mixins import HandleNoPermissionMixin
 
 
 class IndexView(TemplateView):
+
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
             return redirect('tasks:list')
@@ -128,4 +128,4 @@ class SwitchThemeMode(TemplateView):
 
         current_user.save()
 
-        return redirect(reverse_lazy('tasks:list'))
+        return redirect(request.META.get('HTTP_REFERER', '/'))

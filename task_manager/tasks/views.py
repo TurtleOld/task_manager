@@ -1,13 +1,11 @@
 from datetime import timedelta
 import mimetypes
 import os
-from typing import Any
 from urllib.parse import quote
 from django.db import IntegrityError
 from django.http import (
     FileResponse,
     Http404,
-    HttpResponseRedirect,
 )
 from django.utils.text import slugify
 from django.utils.timezone import now
@@ -59,19 +57,6 @@ class TasksList(
         'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
-
-    def get_context_data(self, **kwargs: reverse_lazy) -> dict[str, Any]:
-        context = super().get_context_data(**kwargs)
-
-        current_user = User.objects.get(username=self.request.user.username)
-        if current_user.is_authenticated:
-            theme_mode = current_user.theme_mode
-        else:
-            theme_mode = 'light'
-
-        context['theme_mode'] = theme_mode
-
-        return context
 
 
 class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
