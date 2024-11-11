@@ -27,6 +27,7 @@ from django.views.generic import (
 from django_filters.views import FilterView
 from transliterate import translit
 
+from task_manager.statuses.models import Status
 from task_manager.tasks.forms import TaskForm, TasksFilter
 from task_manager.tasks.models import ChecklistItem, Task
 from task_manager.users.models import User
@@ -237,15 +238,20 @@ class CloseTask(View):
 
         else:
             task.state = not task.state
-            task.save()
             messages.success(
                 request,
                 gettext_lazy('Состояние задачи изменено'),
             )
             if task.state:
                 send_about_closing_task.delay(task.name, task_url)
+                task.status = Status.objects.get_or_create(name='Закрыта')[0]
+                task.save()
             else:
                 send_about_opening_task.delay(task.name, task_url)
+                task.status = Status.objects.get_or_create(
+                    name='Открыта заново'
+                )[0]
+                task.save()
 
         return redirect('tasks:list')
 
@@ -311,8 +317,6 @@ class DownloadFileView(DetailView):
             response['Content-Disposition'] = (
                 f"attachment; filename*=UTF-8''{quote_filename}"
             )
-            print(response['Content-Disposition'])
-            print(image_path)
             return response
         except FileNotFoundError:
             raise Http404("Файл не найден")
