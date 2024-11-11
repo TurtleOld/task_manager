@@ -1,4 +1,5 @@
 {% load i18n %}
+{% load static %}
 
 <nav class="navbar navbar-expand-lg mb-3 border-1 border-bottom">
     <div class="container-fluid">
@@ -16,25 +17,25 @@
                 {% if user.is_authenticated %}
                 <li class="nav-item">
                     <a href="{% url 'users:list' %}"
-                       class="nav-link text-dark my-0 mr-md-auto">
+                       class="nav-link my-0 mr-md-auto">
                         {%translate 'Пользователи' %}
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="{% url 'statuses:list' %}"
-                       class="nav-link text-dark my-0 mr-md-auto">
+                       class="nav-link my-0 mr-md-auto">
                         {% translate 'Статусы' %}
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="{% url 'labels:list' %}"
-                       class="nav-link text-dark my-0 mr-md-auto">
+                       class="nav-link my-0 mr-md-auto">
                         {% translate 'Метки' %}
                     </a>
                 </li>
                 <li class="nav-item">
                     <a href="{% url 'tasks:list' %}"
-                       class="nav-link text-dark my-0 mr-md-auto">
+                       class="nav-link my-0 mr-md-auto">
                         {% translate 'Задачи' %}
                     </a>
                 </li>
@@ -42,7 +43,14 @@
             </ul>
             <ul class="navbar-nav d-flex align-items-center">
                 {% if user.is_authenticated %}
-                <button id="theme-switcher" type="button" class="btn btn-dark me-1">Переключить тему</button>
+                <form action="{% url 'users:switch_theme_mode' %}" method="POST">
+                    {% csrf_token %}
+                    <button type="submit" class="btn me-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-brilliance" viewBox="0 0 16 16">
+                            <path d="M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16M1 8a7 7 0 0 0 7 7 3.5 3.5 0 1 0 0-7 3.5 3.5 0 1 1 0-7 7 7 0 0 0-7 7"/>
+                        </svg>
+                    </button>
+                </form>
                 <li class="nav-item">
                     {{ user.username }}
                 </li>

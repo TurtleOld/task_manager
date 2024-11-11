@@ -47,7 +47,7 @@
     <script src="{% static 'js/script.js' %}"></script>
     <script src="{% static 'js/htmx.min.js' %}" defer></script>
 </head>
-<body class="d-flex flex-column min-vh-100" data-bs-theme="light">
+<body class="d-flex flex-column min-vh-100" data-bs-theme="{{ theme_mode }}">
 {% include "header.html" %}
 
 {% if messages %}

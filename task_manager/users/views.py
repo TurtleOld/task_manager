@@ -7,6 +7,7 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.utils.translation import gettext, gettext_lazy
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic.list import ListView
 from django.views.generic.edit import (
     CreateView,
@@ -109,3 +110,22 @@ class DeleteUser(
 
     def test_func(self):
         return self.request.user == self.get_object()
+
+
+class SwitchThemeMode(TemplateView):
+    model = User
+    template_name = 'header.html'
+
+    def post(self, request, *args, **kwargs):
+        current_user = User.objects.get(username=self.request.user.username)
+
+        if current_user.theme_mode == 'dark':
+            current_user.theme_mode = 'light'
+        elif current_user.theme_mode == 'light':
+            current_user.theme_mode = 'dark'
+        else:
+            current_user.theme_mode = 'dark'
+
+        current_user.save()
+
+        return redirect(reverse_lazy('tasks:list'))
