@@ -1,4 +1,5 @@
-
+from urllib.parse import urljoin
+from django.conf import settings
 from django.db import models
 from django.urls import reverse
 from django.utils.timezone import now
@@ -123,6 +124,11 @@ class Task(models.Model):
         if self.deadline:
             return self.deadline.astimezone() < now().astimezone()
         return False
+
+    @property
+    def image_url(self):
+        if self.image:
+            return urljoin(f'/tasks{settings.MEDIA_URL}', self.image.name)
 
     def get_reminder_period_display(self):
         return ', '.join(str(period) for period in self.reminder_periods.all())

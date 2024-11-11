@@ -251,13 +251,16 @@ class CloseTask(View):
 
 
 class TaskView(
-    LoginRequiredMixin, SuccessMessageMixin, HandleNoPermissionMixin, DetailView
+    LoginRequiredMixin,
+    SuccessMessageMixin,
+    HandleNoPermissionMixin,
+    DetailView,
 ):
     model = Task
     template_name = 'tasks/view_task.html'
     context_object_name = 'task'
     error_message = gettext(
-        'У вас нет прав на просмотр данной страницы! ' 'Авторизуйтесь!'
+        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
     query_pk_and_slug = True
