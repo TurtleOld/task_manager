@@ -105,6 +105,7 @@ class Task(models.Model):
         _('Изображение'),
         upload_to='images',
         blank=True,
+        null=True,
     )
     slug = models.SlugField(null=True, unique=True)
     reminder_periods = models.ManyToManyField(
