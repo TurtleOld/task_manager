@@ -85,6 +85,7 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
                 task_name, language_code='ru', reversed=True
             )
             task.slug = slugify(translite_name, allow_unicode=True)
+            task.status = Status.objects.get_or_create(name='Новая')[0]
             task = form.save()
             task_slug = task.slug
             form.save_checklist_items(task)

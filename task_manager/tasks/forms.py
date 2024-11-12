@@ -31,7 +31,6 @@ class TaskForm(ModelForm):
         fields = (
             'name',
             'description',
-            'status',
             'reminder_periods',
             'deadline',
             'executor',
@@ -42,7 +41,6 @@ class TaskForm(ModelForm):
         labels = {
             'name': gettext_lazy('Имя'),
             'description': gettext_lazy('Описание'),
-            'status': gettext_lazy('Статус'),
             'reminder_periods': gettext_lazy('Напоминание до'),
             'executor': gettext_lazy('Исполнитель'),
             'labels': gettext_lazy('Метки'),
