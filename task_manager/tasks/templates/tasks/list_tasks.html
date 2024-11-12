@@ -60,7 +60,7 @@
         {% endfor %}
     </table>
     {% for task in tasks %}
-        <a class="text-decoration-none" href="{% url 'tasks:view_task' task.slug %}">
+        <a class="text-decoration-none nav-link" href="{% url 'tasks:view_task' task.slug %}">
             <div class="card-mobile card mt-2">
                 <div class="card-header">
                     <h6 class="mb-0">{{ task.name }}</h6>
@@ -68,6 +68,21 @@
                 <div class="card-body">
                     Описание: {{ task.description }}<br>
                     Статус: {{ task.status }}
+                    <div class="d-flex justify-content-around mt-2">
+                        <a class="btn btn-sm btn-outline-warning {% if task.state %}disabled{% endif %}"  href="{% url 'tasks:update_task' task.slug %}">{% translate 'Изменить' %}</a>
+                        {% if task.state %}
+                            <form action="{% url 'tasks:close_task' task.slug %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-success {% if task.state and task.author != user %}disabled{% endif %}">{% translate 'Переоткрыть' %}</button>
+                            </form>
+                        {% else %}
+                            <form action="{% url 'tasks:close_task' task.slug %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">{% translate 'Закрыть' %}</button>
+                            </form>
+                        {% endif %}
+                        <a class="btn btn-sm btn-outline-danger" href="{% url 'tasks:delete_task' task.slug %}">{% translate 'Удалить' %}</a>
+                    </div>
                 </div>
             </div>
         </a>

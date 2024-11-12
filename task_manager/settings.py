@@ -211,3 +211,14 @@ if 'test' in sys.argv or 'test_coverage' in sys.argv:
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+BOOTSTRAP4 = {
+    'css_url': {
+        'href': 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css'
+    },
+    'javascript_url': {
+        'url': 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
+    },
+    'jquery_url': {'url': 'https://code.jquery.com/jquery-3.7.1.min.js'},
+    'include_jquery': 'full',
+}

@@ -79,7 +79,7 @@
                     
                 </div>
                 <div class="d-flex justify-content-center p-2">
-                    <a class="btn btn-outline-success btn-sm me-2 {% if task.state %}disabled{% endif %}" href="{% url 'tasks:list' %}">{% translate 'Список задач' %}</a><br>
+                    <a class="btn btn-outline-success btn-sm me-2">{% translate 'Список задач' %}</a><br>
                     <a class="btn btn-outline-warning btn-sm me-2 {% if task.state %}disabled{% endif %}" href="{% url 'tasks:update_task' task.slug %}">{% translate 'Изменить' %}</a><br>
                     <a class="btn btn-outline-danger btn-sm" href="{% url 'tasks:delete_task' task.slug %}">{% translate 'Удалить' %}</a>
                 </div>

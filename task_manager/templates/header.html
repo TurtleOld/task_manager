@@ -7,13 +7,13 @@
             {% translate 'Менеджер задач'%}
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                data-bs-target="#navbarSupportedContent"
+                data-bs-target="#navbarToggleExternalContent"
                 aria-controls="navbarSupportedContent" aria-expanded="false"
                 aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div id="navbarToggleExternalContent" class="collapse navbar-collapse">
-            <ul class="navbar-nav me-auto">
+            <ul class="navbar-nav me-auto d-flex align-items-center">
                 {% if user.is_authenticated %}
                 <li class="nav-item">
                     <a href="{% url 'users:list' %}"
