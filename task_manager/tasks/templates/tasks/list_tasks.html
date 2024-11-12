@@ -5,13 +5,12 @@
 {% block title %}{% translate 'Список задач' %}{% endblock %}
 
 {% block content %}
-    <title>{% translate 'Список задач' %}</title>
     <h1 class="my-4">{% translate 'Задачи' %}</h1>
     <div class="card mb-3">
         <div class="card-body">
-            <form method="get" class="form-inline justify-content-around">
+            <form method="get" class="form-horizontal">
                 {% csrf_token %}
-                {% bootstrap_form filter.form form_group_class='form-group' field_class='ml-2 mr-3' %}
+                {% bootstrap_form filter.form layout='horizontal' %}
                 {% bootstrap_button button_filter_text button_type='submit' button_class='btn btn-outline-primary' %}
             </form>
         </div>

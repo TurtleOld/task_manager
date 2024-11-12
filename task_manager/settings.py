@@ -221,4 +221,6 @@ BOOTSTRAP4 = {
     },
     'jquery_url': {'url': 'https://code.jquery.com/jquery-3.7.1.min.js'},
     'include_jquery': 'full',
+    'horizontal_field_class': 'col-md-10 mb-1',
+    'horizontal_label_class': 'col-md-2',
 }
