@@ -13,6 +13,7 @@
         date_joined: 2022-04-27 13:55:29.560867+00:00
         groups: []
         user_permissions: []
+        theme_mode: 'dark'
 -   model: users.user
     pk: 2
     fields:
@@ -28,6 +29,7 @@
         date_joined: 2022-05-01 12:38:44.494467+00:00
         groups: []
         user_permissions: []
+        theme_mode: 'dark'
 -   model: users.user
     pk: 3
     fields:
@@ -43,3 +45,4 @@
         date_joined: 2022-05-01 12:38:44.494467+00:00
         groups: []
         user_permissions: []
+        theme_mode: 'dark'
