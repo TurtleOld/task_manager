@@ -2,15 +2,14 @@ lint:
 		@cd ./task_manager && \
 			echo "Running ruff check..." && \
 			poetry run ruff check . --fix
+start:
+		docker compose up -d
 
-test-coverage:
-		@poetry run coverage run manage.py test
-
-start: migrate transcompile
-		@poetry run python manage.py runserver 127.0.0.1:8000
-
-install: .env
+install: shell .env
 		@poetry install
+
+shell:
+		@poetry shell
 
 .env:
 		@test ! -f .env && cp .env.example .env
@@ -31,28 +30,8 @@ transcompile:
 secretkey:
 		@poetry run python -c 'from django.utils.crypto import get_random_string; print(get_random_string(40))'
 		
-heroku:
-		git push heroku main
-		
-github:
-		git push origin main
-
 test:
 		DB_USER="postgres" DB_PASSWORD="postgres" poetry run python ./manage.py test -v 2
-
-test-coverage-report-xml:
-		@poetry run coverage xml
-
-heroku-migrate:
-		heroku run python manage.py migrate
-
-heroku-make-migrations:
-		heroku run python manage.py makemigrations
-
-coverage:
-		@poetry run coverage run manage.py test
-		@poetry run coverage xml
-		@poetry run coverage report
 
 .PHONY: poetry-export-prod
 poetry-export-prod:
