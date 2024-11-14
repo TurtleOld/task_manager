@@ -31,7 +31,6 @@ from task_manager.statuses.models import Status
 from task_manager.tasks.forms import TaskForm, TasksFilter
 from task_manager.tasks.models import ChecklistItem, Task
 from task_manager.users.models import User
-from task_manager.mixins import HandleNoPermissionMixin
 from task_manager.tasks.tasks import (
     send_about_closing_task,
     send_about_opening_task,

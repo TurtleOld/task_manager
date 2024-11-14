@@ -8,12 +8,10 @@ from django.views.generic import (
     ListView,
     CreateView,
     UpdateView,
-    FormView,
     DeleteView,
 )
 from django.views.generic.edit import DeletionMixin
 
-from task_manager.mixins import HandleNoPermissionMixin
 from task_manager.statuses.forms import StatusForm
 from task_manager.statuses.models import Status
 
