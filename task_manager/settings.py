@@ -25,6 +25,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 DEBUG = os.getenv('DEBUG', 'true').lower() in {'yes', '1', 'true'}
 
 # Quick-start development settings - unsuitable for production
@@ -224,3 +225,13 @@ BOOTSTRAP4 = {
     'horizontal_field_class': 'col-md-10 mb-1',
     'horizontal_label_class': 'col-md-2',
 }
+
+
+# Secure
+if not DEBUG:
+    SECURE_HSTS_PRELOAD = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
