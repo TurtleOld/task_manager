@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models.base import Model as Model
+from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.utils.translation import gettext, gettext_lazy
@@ -52,16 +53,13 @@ class UpdateLabel(
     no_permission_url = 'statuses:list'
 
 
-class DeleteLabel(LoginRequiredMixin, SuccessMessageMixin, DeleteView):
+class DeleteLabel(LoginRequiredMixin, SuccessMessageMixin, DeleteView[Label, LabelForm]):
     model = Label
     template_name = 'labels/delete_label.html'
     success_url = reverse_lazy('labels:list')
     success_message = gettext_lazy('Метка успешно удалена')
 
-    def object(self):
-        return self.get_object
-
-    def form_valid(self, form):
+    def form_valid(self, form: LabelForm) -> HttpResponse:
         if self.get_object().tasks.all():
             messages.error(
                 self.request,
@@ -69,7 +67,8 @@ class DeleteLabel(LoginRequiredMixin, SuccessMessageMixin, DeleteView):
                     'Вы не можете удалить метку, потому что она используется'
                 ),
             )
+            return redirect(self.success_url)
         else:
             self.object.delete()
             messages.success(self.request, self.success_message)
-        return redirect(self.success_url)
+            return redirect(self.success_url)

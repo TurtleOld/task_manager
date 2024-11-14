@@ -94,9 +94,6 @@ class DeleteUser(
     )
     no_permission_url = 'users:list'
 
-    def object(self):
-        return self.get_object()
-
     def form_valid(self, form):
         try:
             self.object.delete()

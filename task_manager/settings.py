@@ -18,6 +18,10 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
+import django_stubs_ext
+
+django_stubs_ext.monkeypatch()
+
 load_dotenv()
 
 # SECURITY WARNING: keep the secret key used in production secret!

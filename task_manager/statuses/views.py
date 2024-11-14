@@ -65,9 +65,6 @@ class DeleteStatus(
     error_message = gettext_lazy('У вас нет разрешения на изменение статуса')
     no_permission_url = 'statuses:list'
 
-    def object(self):
-        return self.get_object()
-
     def form_valid(self, form):
         if self.get_object().tasks.all():
             messages.error(

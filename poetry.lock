@@ -759,6 +759,7 @@ files = [
 asgiref = "*"
 django = "*"
 django-stubs-ext = ">=5.1.1"
+mypy = {version = ">=1.12,<1.14", optional = true, markers = "extra == \"compatible-mypy\""}
 types-PyYAML = "*"
 typing-extensions = ">=4.11.0"
 
@@ -2020,4 +2021,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11"
-content-hash = "ddcb85f3a48757fde5f701a0129bb3ee27caf8aaf163a408acad05ebee6d5f2f"
+content-hash = "4a4c6040f756b4bf4b80f7f1f410b6d1655a796b8c5bf1d5129df9335e636313"

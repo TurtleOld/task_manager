@@ -203,9 +203,6 @@ class DeleteTask(
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
 
-    def object(self):
-        return self.get_object()
-
     def form_valid(self, form):
         task = self.get_object()
         if self.request.user != self.get_object().author:
