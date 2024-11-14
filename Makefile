@@ -5,7 +5,7 @@ lint:
 start:
 		docker compose up -d
 
-install: shell .env
+install: .env
 		@poetry install
 
 shell:
