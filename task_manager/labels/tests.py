@@ -68,4 +68,4 @@ class TestStatus(TestCase):
 
     def test_status_list_without_authorization(self):
         response = self.client.get(reverse_lazy('labels:list'))
-        self.assertRedirects(response, '/login/')
+        self.assertRedirects(response, '/login/?next=/labels/')

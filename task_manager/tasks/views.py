@@ -45,7 +45,6 @@ from task_manager.tasks.tasks import (
 
 class TasksList(
     LoginRequiredMixin,
-    HandleNoPermissionMixin,
     SuccessMessageMixin,
     FilterView,
 ):
@@ -59,7 +58,7 @@ class TasksList(
     no_permission_url = reverse_lazy('login')
 
 
-class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
+class CreateTask(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = Task
     template_name = 'tasks/create_task.html'
     form_class = TaskForm
@@ -130,7 +129,7 @@ class CreateTask(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
             return self.form_invalid(form)
 
 
-class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
+class UpdateTask(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     model = Task
     template_name = 'tasks/update_task.html'
     form_class = TaskForm
@@ -190,7 +189,9 @@ class UpdateTask(SuccessMessageMixin, HandleNoPermissionMixin, UpdateView):
 
 
 class DeleteTask(
-    LoginRequiredMixin, SuccessMessageMixin, HandleNoPermissionMixin, DeleteView
+    LoginRequiredMixin,
+    SuccessMessageMixin,
+    DeleteView,
 ):
     model = Task
     template_name = 'tasks/delete_task.html'
@@ -202,6 +203,9 @@ class DeleteTask(
     no_permission_url = reverse_lazy('login')
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
+
+    def object(self):
+        return self.get_object()
 
     def form_valid(self, form):
         task = self.get_object()
@@ -260,7 +264,6 @@ class CloseTask(View):
 class TaskView(
     LoginRequiredMixin,
     SuccessMessageMixin,
-    HandleNoPermissionMixin,
     DetailView,
 ):
     model = Task

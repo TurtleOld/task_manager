@@ -1,6 +1,9 @@
+from typing import Any
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, AccessMixin
 from django.contrib.messages.views import SuccessMessageMixin
+from django.db.models.base import Model as Model
+from django.db.models.query import QuerySet
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.utils.translation import gettext, gettext_lazy
@@ -17,24 +20,24 @@ from task_manager.mixins import HandleNoPermissionMixin
 from task_manager.labels.models import Label
 
 
-class LabelsList(LoginRequiredMixin, HandleNoPermissionMixin, ListView):
+class LabelsList(LoginRequiredMixin, ListView):
     model = Label
     template_name = 'labels/list_labels.html'
     context_object_name = 'labels'
     error_message = gettext_lazy(
-        'У вас нет прав на просмотр данной страницы! ' 'Авторизуйтесь!'
+        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = 'login'
 
 
-class CreateLabel(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
+class CreateLabel(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = Label
     template_name = 'labels/create_label.html'
     form_class = LabelForm
     success_message = gettext_lazy('Метка успешно создана')
     success_url = reverse_lazy('labels:list')
     error_message = gettext_lazy(
-        'У вас нет прав на просмотр данной страницы! ' 'Авторизуйтесь!'
+        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = 'login'
 
@@ -42,9 +45,7 @@ class CreateLabel(SuccessMessageMixin, HandleNoPermissionMixin, CreateView):
 class UpdateLabel(
     LoginRequiredMixin,
     SuccessMessageMixin,
-    HandleNoPermissionMixin,
     UpdateView,
-    FormView,
 ):
     model = Label
     template_name = 'labels/update_label.html'
@@ -60,6 +61,9 @@ class DeleteLabel(LoginRequiredMixin, SuccessMessageMixin, DeleteView):
     template_name = 'labels/delete_label.html'
     success_url = reverse_lazy('labels:list')
     success_message = gettext_lazy('Метка успешно удалена')
+
+    def object(self):
+        return self.get_object
 
     def form_valid(self, form):
         if self.get_object().tasks.all():

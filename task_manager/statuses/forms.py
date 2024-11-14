@@ -6,7 +6,5 @@ from django.utils.translation import gettext_lazy
 class StatusForm(ModelForm):
     class Meta:
         model = Status
-        fields = ('name', )
-        labels = {
-            'name': gettext_lazy('Имя')
-        }
+        fields = ('name',)
+        labels = {'name': gettext_lazy('Имя')}

@@ -1,5 +1,6 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.contrib.auth.views import LoginView, LogoutView, TemplateView
+from django.contrib.auth.views import LoginView, LogoutView
+from django.views.generic import TemplateView
 from django.contrib import messages
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models import ProtectedError
@@ -12,11 +13,9 @@ from django.views.generic.edit import (
     CreateView,
     UpdateView,
     DeleteView,
-    FormView,
 )
 from task_manager.users.models import User
 from task_manager.users.forms import RegisterUserForm, AuthUserForm
-from task_manager.mixins import HandleNoPermissionMixin
 
 
 class IndexView(TemplateView):
@@ -62,9 +61,7 @@ class UpdateUser(
     LoginRequiredMixin,
     SuccessMessageMixin,
     UserPassesTestMixin,
-    HandleNoPermissionMixin,
     UpdateView,
-    FormView,
 ):
     model = User
     template_name = 'users/update.html'
@@ -83,10 +80,8 @@ class UpdateUser(
 class DeleteUser(
     LoginRequiredMixin,
     SuccessMessageMixin,
-    HandleNoPermissionMixin,
     UserPassesTestMixin,
     DeleteView,
-    FormView,
 ):
     model = User
     template_name = 'users/delete.html'
@@ -98,6 +93,9 @@ class DeleteUser(
         'задачей'
     )
     no_permission_url = 'users:list'
+
+    def object(self):
+        return self.get_object()
 
     def form_valid(self, form):
         try:

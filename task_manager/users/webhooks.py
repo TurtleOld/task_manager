@@ -1,5 +1,5 @@
 import json
-import types
+from telebot import types
 from typing import Final
 
 from django.http import HttpResponse

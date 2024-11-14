@@ -84,12 +84,12 @@ SQLITE_SETTINGS = {
 }
 
 if os.getenv('DB_ENGINE') == 'SQLite' or 'test' in sys.argv:
-    DATABASES['default'] = SQLITE_SETTINGS
+    DATABASES['default'] = SQLITE_SETTINGS  # type: ignore
 
 CONN_MAX_AGE = 500
 
 if os.getenv('DATABASE_URL'):
-    DATABASES['default'] = dj_database_url.config(conn_max_age=CONN_MAX_AGE)
+    DATABASES['default'] = dj_database_url.config(conn_max_age=CONN_MAX_AGE)  # type: ignore
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
