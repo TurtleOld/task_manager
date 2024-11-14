@@ -36,8 +36,10 @@ coverage = ">=6.3.2"
 
 [tool.poetry.group.dev.dependencies]
 black = ">=24.10.0"
-
 ruff = "^0.7.1"
+django-stubs = "^5.1.1"
+
+mypy = "^1.13.0"
 [tool.ruff.format]
 quote-style = "single"
 indent-style = "space"
@@ -47,6 +49,16 @@ exclude = [
     ".venv",
     ".git"
 ]
+
+[mypy]
+module = 'django.*'
+ignore_missing_imports = true
+
+[tool.mypy]
+plugins = ['mypy_django_plugin.main']
+
+[tool.django-stubs]
+django_settings_module = 'task_manager.settings'
 
 [tool.black]
 line-length = 80

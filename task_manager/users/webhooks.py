@@ -19,10 +19,8 @@ def webhooks(request) -> HttpResponse:
     :return: HttpResponse
     """
     if request.method == 'POST':
-        print(request.body)
         json_data = json.loads(request.body)
         update = types.Update.de_json(json_data)
-        print(update)
         bot_admin.process_new_updates([update])
         return HttpResponse(
             'Webhook processed successfully',
