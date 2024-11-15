@@ -1,7 +1,9 @@
+from typing import TypeVar
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models.base import Model as Model
+from django.forms import BaseForm
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
@@ -15,6 +17,8 @@ from django.views.generic import (
 
 from task_manager.labels.forms import LabelForm
 from task_manager.labels.models import Label
+
+T = TypeVar("T")
 
 
 class LabelsList(LoginRequiredMixin, ListView):
@@ -53,7 +57,7 @@ class UpdateLabel(
     no_permission_url = 'statuses:list'
 
 
-class DeleteLabel(LoginRequiredMixin, SuccessMessageMixin, DeleteView[Label, LabelForm]):
+class DeleteLabel(LoginRequiredMixin, SuccessMessageMixin, DeleteView):
     model = Label
     template_name = 'labels/delete_label.html'
     success_url = reverse_lazy('labels:list')

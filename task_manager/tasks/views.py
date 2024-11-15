@@ -1,11 +1,14 @@
 from datetime import timedelta
 import mimetypes
 import os
+from typing import Any
 from urllib.parse import quote
 from django.db import IntegrityError
 from django.http import (
     FileResponse,
     Http404,
+    HttpRequest,
+    HttpResponse,
 )
 from django.utils.text import slugify
 from django.utils.timezone import now
@@ -225,7 +228,7 @@ class CloseTask(View):
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
 
-    def post(self, request, slug):
+    def post(self, request: HttpRequest, slug: str) -> HttpResponse:
         task = get_object_or_404(Task, slug=slug)
         task_url = self.request.build_absolute_uri(f'/tasks/{slug}')
 
@@ -271,7 +274,7 @@ class TaskView(
     no_permission_url = reverse_lazy('login')
     query_pk_and_slug = True
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         task = self.get_object()
         context['labels'] = self.get_object().labels.all()
@@ -287,7 +290,7 @@ class TaskView(
 class ChecklistItemToggle(View):
     template_name = 'tasks/checklist_item.html'
 
-    def post(self, request, item_id):
+    def post(self, request: HttpRequest, item_id: int):
         checklist_item = get_object_or_404(ChecklistItem, id=item_id)
         checklist_item.is_completed = not checklist_item.is_completed
         checklist_item.save()
@@ -301,7 +304,7 @@ class ChecklistItemToggle(View):
 class DownloadFileView(DetailView):
     model = Task
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
         task = self.get_object()
         image_path = task.image.path
         image_name = task.image.name

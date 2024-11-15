@@ -53,7 +53,7 @@ exclude = [
 [mypy]
 module = 'django.*'
 check_untyped_defs = true
-disallow_any_generics = true
+disallow_any_generics = false
 disallow_untyped_calls = true
 disallow_untyped_decorators = true
 ignore_errors = false

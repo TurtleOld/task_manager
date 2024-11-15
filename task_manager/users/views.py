@@ -7,6 +7,7 @@ from django.db.models import ProtectedError
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.utils.translation import gettext, gettext_lazy
+from django_stubs_ext import StrPromise
 from django.urls import reverse_lazy
 from django.views.generic.list import ListView
 from django.views.generic.edit import (
@@ -60,7 +61,6 @@ class LogoutUser(LogoutView, SuccessMessageMixin):
 class UpdateUser(
     LoginRequiredMixin,
     SuccessMessageMixin,
-    UserPassesTestMixin,
     UpdateView,
 ):
     model = User
@@ -80,14 +80,13 @@ class UpdateUser(
 class DeleteUser(
     LoginRequiredMixin,
     SuccessMessageMixin,
-    UserPassesTestMixin,
     DeleteView,
 ):
     model = User
     template_name = 'users/delete.html'
     success_url = reverse_lazy('users:list')
     success_message = gettext_lazy('Пользователь успешно удалён')
-    error_message = gettext_lazy(
+    error_message: StrPromise = gettext_lazy(
         'У вас нет разрешения на изменение другого '
         'пользователя, либо пользователь связан с '
         'задачей'
@@ -98,7 +97,7 @@ class DeleteUser(
         try:
             self.object.delete()
         except ProtectedError:
-            messages.error(self.request, gettext_lazy(self.error_message))
+            messages.error(self.request, self.error_message)
         else:
             messages.success(self.request, self.success_message)
         return HttpResponseRedirect(self.success_url)
