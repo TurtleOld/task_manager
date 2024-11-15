@@ -4,6 +4,7 @@ import os
 from typing import Any
 from urllib.parse import quote
 from django.db import IntegrityError
+from django.forms import ModelForm
 from django.http import (
     FileResponse,
     Http404,
@@ -207,20 +208,24 @@ class DeleteTask(  # type: ignore
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
 
-    def dispatch(
-        self,
-        request: HttpRequest,
-        *args: reverse_lazy,
-        **kwargs: reverse_lazy,
-    ) -> HttpResponseBase:
-        try:
-            obj = self.get_object()
-            if obj.tasks.exists():
-                raise PermissionDenied(self.error_message)
-        except PermissionDenied as e:
-            messages.error(request, e.args[0])
+    def form_valid(self, form: ModelForm) -> HttpResponse:
+        task = self.get_object()
+        if self.request.user != self.get_object().author:
+            return self.form_invalid(form)
+        else:
+            task_name = task.name
+            send_about_deleting_task.delay(task_name)
+            self.object.delete()
+            messages.success(self.request, self.success_message)
             return redirect(self.success_url)
-        return super().dispatch(request, *args, **kwargs)
+    
+    def form_invalid(self, form):
+        messages.error(
+                self.request,
+                gettext_lazy('Вы не можете удалить чужую задачу!'),
+            )
+        return redirect(self.success_url)
+    
 
 
 class CloseTask(View):
