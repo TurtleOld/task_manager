@@ -16,7 +16,7 @@ class TestUser(TestCase):
         self.client: Client = Client()
         self.faker = Faker()
 
-    def test_create_user(self):
+    def test_create_user(self) -> None:
         url = reverse('users:create')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
@@ -38,7 +38,7 @@ class TestUser(TestCase):
         response = self.client.post(url, new_user, follow=True)
         self.assertRedirects(response, '/login/')
 
-    def test_delete_user(self):
+    def test_delete_user(self) -> None:
         user = self.user2
         self.client.force_login(user)
         url = reverse('users:delete_user', args=(user.id,))

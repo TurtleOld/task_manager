@@ -28,7 +28,7 @@ class TestTask(TestCase):
         self.reminderperiod4 = ReminderPeriod.objects.get(pk=4)
         self.reminderperiod5 = ReminderPeriod.objects.get(pk=5)
 
-    def test_list_tasks(self):
+    def test_list_tasks(self) -> None:
         self.client.force_login(self.user1)
         response = self.client.get(reverse_lazy('tasks:list'))
         self.assertEqual(response.status_code, 200)
@@ -37,7 +37,7 @@ class TestTask(TestCase):
 
     @patch('task_manager.tasks.tasks.send_message_about_adding_task.delay')
     @patch('task_manager.tasks.tasks.send_notification_about_task.apply_async')
-    def test_create_tasks(self, mock_send_massage, mock_send_notification):
+    def test_create_tasks(self, mock_send_massage, mock_send_notification) -> None:
         self.client.force_login(self.user1)
         new_task = {
             'name': 'Новая задача',
@@ -57,7 +57,7 @@ class TestTask(TestCase):
         created_task = Task.objects.get(name=new_task['name'])
         self.assertEqual(created_task.name, 'Новая задача')
 
-    def test_close_task(self):
+    def test_close_task(self) -> None:
         self.client.force_login(self.user3)
         url = reverse_lazy('tasks:close_task', args=(self.task1.slug,))
         response = self.client.post(url, follow=True)
@@ -67,7 +67,7 @@ class TestTask(TestCase):
 
     @patch('task_manager.tasks.tasks.send_about_updating_task.apply_async')
     @patch('task_manager.tasks.tasks.send_notification_about_task.apply_async')
-    def test_update_task(self, mock_send_massage, mock_send_notification):
+    def test_update_task(self, mock_send_massage, mock_send_notification) -> None:
         self.client.force_login(self.user1)
         url = reverse('tasks:update_task', args=(self.task1.slug,))
         changed_task = {
@@ -88,7 +88,7 @@ class TestTask(TestCase):
         self.assertEqual(created_task.name, 'New task')
 
     @patch('task_manager.tasks.tasks.send_about_deleting_task.apply_async')
-    def test_delete_task(self, mock_send_massage):
+    def test_delete_task(self, mock_send_massage) -> None:
         self.client.force_login(self.user1)
         url = reverse_lazy('tasks:delete_task', args=(self.task1.slug,))
         response = self.client.post(url, follow=True)
@@ -97,24 +97,24 @@ class TestTask(TestCase):
         self.assertRedirects(response, '/tasks/')
         mock_send_massage.assert_called_once()
 
-    def test_delete_task_not_author(self):
+    def test_delete_task_not_author(self) -> None:
         self.client.force_login(self.user1)
         url = reverse_lazy('tasks:delete_task', args=(self.task2.slug,))
         response = self.client.post(url, follow=True)
         self.assertTrue(Task.objects.filter(pk=self.task2.pk).exists())
         self.assertRedirects(response, '/tasks/')
 
-    def test_filter_status(self):
+    def test_filter_status(self) -> None:
         status = Task._meta.get_field('status')
         result = FilterSet.filter_for_field(status, 'status')
         self.assertEqual(result.field_name, 'status')
 
-    def test_filter_executor(self):
+    def test_filter_executor(self) -> None:
         status = Task._meta.get_field('executor')
         result = FilterSet.filter_for_field(status, 'executor')
         self.assertEqual(result.field_name, 'executor')
 
-    def test_filter_label(self):
+    def test_filter_label(self) -> None:
         status = Task._meta.get_field('labels')
         result = FilterSet.filter_for_field(status, 'labels')
         self.assertEqual(result.field_name, 'labels')

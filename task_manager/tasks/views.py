@@ -10,9 +10,10 @@ from django.http import (
     HttpRequest,
     HttpResponse,
 )
+from django.core.exceptions import PermissionDenied
 from django.utils.text import slugify
 from django.utils.timezone import now
-
+from django.http.response import HttpResponseBase
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -48,7 +49,7 @@ from task_manager.tasks.tasks import (
 class TasksList(
     LoginRequiredMixin,
     SuccessMessageMixin,
-    FilterView,
+    FilterView,  #type: ignore
 ):
     model = Task
     template_name = 'tasks/list_tasks.html'
@@ -72,12 +73,12 @@ class CreateTask(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     no_permission_url = reverse_lazy('login')
     query_pk_and_slug = True
 
-    def get_form_kwargs(self):
+    def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
         kwargs['request'] = self.request
         return kwargs
 
-    def form_valid(self, form):
+    def form_valid(self, form: TaskForm) -> HttpResponse:
         try:
             form.instance.author = User.objects.get(pk=self.request.user.pk)
             task = form.save(commit=False)
@@ -145,12 +146,12 @@ class UpdateTask(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
 
-    def get_form_kwargs(self):
+    def get_form_kwargs(self) -> dict[str, Any]:
         kwargs = super().get_form_kwargs()
         kwargs['request'] = self.request
         return kwargs
 
-    def form_valid(self, form):
+    def form_valid(self, form: TaskForm) -> HttpResponse:
         task = form.save(commit=False)
         task_name = task.name
         translite_name = translit(task_name, language_code='ru', reversed=True)
@@ -190,7 +191,7 @@ class UpdateTask(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         return super().form_valid(form)
 
 
-class DeleteTask(
+class DeleteTask(  # type: ignore
     LoginRequiredMixin,
     SuccessMessageMixin,
     DeleteView,
@@ -199,26 +200,27 @@ class DeleteTask(
     template_name = 'tasks/delete_task.html'
     success_url = reverse_lazy('tasks:list')
     success_message = gettext_lazy('Задача успешно удалена')
-    error_message = gettext_lazy(
-        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
+    error_message = (
+        gettext_lazy('Вы не можете удалить статус, потому что он используется'),
     )
     no_permission_url = reverse_lazy('login')
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
 
-    def form_valid(self, form):
-        task = self.get_object()
-        if self.request.user != self.get_object().author:
-            messages.error(
-                self.request,
-                gettext_lazy('Вы не можете удалить чужую задачу!'),
-            )
-        else:
-            task_name = task.name
-            send_about_deleting_task.delay(task_name)
-            self.object.delete()
-            messages.success(self.request, self.success_message)
-        return redirect(self.success_url)
+    def dispatch(
+        self,
+        request: HttpRequest,
+        *args: reverse_lazy,
+        **kwargs: reverse_lazy,
+    ) -> HttpResponseBase:
+        try:
+            obj = self.get_object()
+            if obj.tasks.exists():
+                raise PermissionDenied(self.error_message)
+        except PermissionDenied as e:
+            messages.error(request, e.args[0])
+            return redirect(self.success_url)
+        return super().dispatch(request, *args, **kwargs)
 
 
 class CloseTask(View):
@@ -274,7 +276,7 @@ class TaskView(
     no_permission_url = reverse_lazy('login')
     query_pk_and_slug = True
 
-    def get_context_data(self, **kwargs) -> dict[str, Any]:
+    def get_context_data(self, **kwargs: dict[str, Any]) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         task = self.get_object()
         context['labels'] = self.get_object().labels.all()
@@ -290,7 +292,7 @@ class TaskView(
 class ChecklistItemToggle(View):
     template_name = 'tasks/checklist_item.html'
 
-    def post(self, request: HttpRequest, item_id: int):
+    def post(self, request: HttpRequest, item_id: int) -> HttpResponse:
         checklist_item = get_object_or_404(ChecklistItem, id=item_id)
         checklist_item.is_completed = not checklist_item.is_completed
         checklist_item.save()
@@ -304,7 +306,7 @@ class ChecklistItemToggle(View):
 class DownloadFileView(DetailView):
     model = Task
 
-    def get(self, request: HttpRequest, *args, **kwargs) -> HttpResponse:
+    def get(self, request: HttpRequest, *args, **kwargs) -> FileResponse:  # type: ignore
         task = self.get_object()
         image_path = task.image.path
         image_name = task.image.name

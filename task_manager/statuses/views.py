@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
+from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy
@@ -52,7 +53,7 @@ class UpdateStatus(
     no_permission_url = 'statuses:list'
 
 
-class DeleteStatus(
+class DeleteStatus(  # type: ignore
     LoginRequiredMixin,
     SuccessMessageMixin,
     DeleteView,
@@ -65,7 +66,7 @@ class DeleteStatus(
     error_message = gettext_lazy('У вас нет разрешения на изменение статуса')
     no_permission_url = 'statuses:list'
 
-    def form_valid(self, form):
+    def form_valid(self, form: StatusForm) -> HttpResponse:
         if self.get_object().tasks.all():
             messages.error(
                 self.request,

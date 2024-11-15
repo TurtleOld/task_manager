@@ -1,10 +1,11 @@
-from typing import TypeVar
+from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models.base import Model as Model
-from django.forms import BaseForm
-from django.http import HttpResponse
+
+from django.http import HttpRequest
+from django.http.response import HttpResponseBase
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.utils.translation import gettext, gettext_lazy
@@ -17,8 +18,6 @@ from django.views.generic import (
 
 from task_manager.labels.forms import LabelForm
 from task_manager.labels.models import Label
-
-T = TypeVar("T")
 
 
 class LabelsList(LoginRequiredMixin, ListView):
@@ -57,22 +56,30 @@ class UpdateLabel(
     no_permission_url = 'statuses:list'
 
 
-class DeleteLabel(LoginRequiredMixin, SuccessMessageMixin, DeleteView):
+class DeleteLabel(  # type: ignore
+    LoginRequiredMixin,
+    SuccessMessageMixin,
+    DeleteView,
+):
     model = Label
     template_name = 'labels/delete_label.html'
     success_url = reverse_lazy('labels:list')
+    error_message = gettext_lazy(
+        'Вы не можете удалить метку, потому что она используется'
+    )
     success_message = gettext_lazy('Метка успешно удалена')
 
-    def form_valid(self, form: LabelForm) -> HttpResponse:
-        if self.get_object().tasks.all():
-            messages.error(
-                self.request,
-                gettext_lazy(
-                    'Вы не можете удалить метку, потому что она используется'
-                ),
-            )
+    def dispatch(
+        self,
+        request: HttpRequest,
+        *args: reverse_lazy,
+        **kwargs: reverse_lazy,
+    ) -> HttpResponseBase:
+        try:
+            obj = self.get_object()
+            if obj.tasks.exists():
+                raise PermissionDenied(self.error_message)
+        except PermissionDenied as e:
+            messages.error(request, e.args[0])
             return redirect(self.success_url)
-        else:
-            self.object.delete()
-            messages.success(self.request, self.success_message)
-            return redirect(self.success_url)
+        return super().dispatch(request, *args, **kwargs)

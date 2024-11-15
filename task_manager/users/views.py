@@ -1,10 +1,12 @@
+from typing import Any
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView, LogoutView
+from django.forms import ModelForm
 from django.views.generic import TemplateView
 from django.contrib import messages
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models import ProtectedError
-from django.http import HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.utils.translation import gettext, gettext_lazy
 from django_stubs_ext import StrPromise
@@ -73,11 +75,11 @@ class UpdateUser(
     )
     no_permission_url = 'users:list'
 
-    def test_func(self):
+    def test_func(self) -> Any:
         return self.request.user == self.get_object()
 
 
-class DeleteUser(
+class DeleteUser(  # type: ignore
     LoginRequiredMixin,
     SuccessMessageMixin,
     DeleteView,
@@ -93,7 +95,7 @@ class DeleteUser(
     )
     no_permission_url = 'users:list'
 
-    def form_valid(self, form):
+    def form_valid(self, form: ModelForm) -> HttpResponse:
         try:
             self.object.delete()
         except ProtectedError:
@@ -102,7 +104,7 @@ class DeleteUser(
             messages.success(self.request, self.success_message)
         return HttpResponseRedirect(self.success_url)
 
-    def test_func(self):
+    def test_func(self) -> Any:
         return self.request.user == self.get_object()
 
 
@@ -110,7 +112,7 @@ class SwitchThemeMode(TemplateView):
     model = User
     template_name = 'header.html'
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request: HttpRequest, *args: tuple, **kwargs: dict[str, Any]) -> HttpResponse:
         current_user = User.objects.get(username=self.request.user.username)
 
         if current_user.theme_mode == 'dark':

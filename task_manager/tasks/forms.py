@@ -3,7 +3,7 @@ from django.db.models import Value
 from django.db.models.functions import Concat
 from django.forms import ModelForm, DateTimeInput
 import django_filters
-
+from django.db.models import QuerySet
 from task_manager.labels.models import Label
 from task_manager.statuses.models import Status
 from task_manager.tasks.models import (
@@ -65,7 +65,7 @@ class TaskForm(ModelForm):
                 if field != 'status':
                     self.fields[field].disabled = True
 
-    def save_checklist_items(self, task):
+    def save_checklist_items(self, task: QuerySet) -> None:
         items_text = self.cleaned_data.get('checklist_items')
         if items_text:
             checklist, created = Checklist.objects.get_or_create(task=task)
