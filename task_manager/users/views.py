@@ -112,7 +112,9 @@ class SwitchThemeMode(TemplateView):
     model = User
     template_name = 'header.html'
 
-    def post(self, request: HttpRequest, *args: tuple, **kwargs: dict[str, Any]) -> HttpResponse:
+    def post(
+        self, request: HttpRequest, *args: tuple, **kwargs: dict[str, Any]
+    ) -> HttpResponse:
         current_user = User.objects.get(username=self.request.user.username)
 
         if current_user.theme_mode == 'dark':

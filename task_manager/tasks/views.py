@@ -49,7 +49,7 @@ from task_manager.tasks.tasks import (
 class TasksList(
     LoginRequiredMixin,
     SuccessMessageMixin,
-    FilterView,  #type: ignore
+    FilterView,  # type: ignore
 ):
     model = Task
     template_name = 'tasks/list_tasks.html'
