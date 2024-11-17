@@ -46,7 +46,6 @@ class TaskForm(ModelForm):
             'labels': gettext_lazy('Метки'),
             'deadline': gettext_lazy('Крайний срок'),
             'state': gettext_lazy('Закрыта?'),
-            'checklist_items': gettext_lazy('Чеклист'),
         }
         widgets = {
             'deadline': DateTimeInput(
@@ -61,19 +60,40 @@ class TaskForm(ModelForm):
             self.instance.state
             or self.instance.author_id != self.request.user.pk
         ):
+            print(self.instance.checklist.items.all())
             for field in self.fields:
                 if field != 'status':
                     self.fields[field].disabled = True
+        checklist_items = self.instance.checklist.items.values_list(
+            'description',
+            flat=True,
+        )
+        self.fields['checklist_items'].initial = '\n'.join(checklist_items)
 
     def save_checklist_items(self, task: QuerySet) -> None:
         items_text = self.cleaned_data.get('checklist_items')
         if items_text:
-            checklist, created = Checklist.objects.get_or_create(task=task)
-            for item_text in items_text.splitlines():
-                if item_text.strip():
+            checklist, _ = Checklist.objects.get_or_create(task=task)
+            existing_items = {
+                item.description: item for item in checklist.items.all()
+            }
+            new_items = set(
+                item.strip() for item in items_text.splitlines() if item.strip()
+            )
+            for description, item in existing_items.items():
+                if description not in new_items:
+                    item.delete()
+
+            for description in new_items:
+                if description not in existing_items:
                     ChecklistItem.objects.create(
-                        checklist=checklist, description=item_text.strip()
+                        checklist=checklist, description=description
                     )
+
+    def save(self, commit=True):
+        task = super().save(commit=commit)
+        self.save_checklist_items(task)
+        return task
 
 
 class TasksFilter(django_filters.FilterSet):

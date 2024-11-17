@@ -78,7 +78,7 @@ class ReminderPeriod(models.Model):
 
 class Task(models.Model):
     name = models.CharField(max_length=50)
-    description = models.TextField()
+    description = models.TextField(blank=True)
 
     status = models.ForeignKey(
         Status,
