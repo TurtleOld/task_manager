@@ -31,6 +31,7 @@ from django.views.generic import (
 )
 from django_filters.views import FilterView
 from transliterate import translit
+from twisted.python.failure import count
 
 from task_manager.statuses.models import Status
 from task_manager.tasks.forms import TaskForm, TasksFilter
@@ -113,7 +114,9 @@ class CreateTask(LoginRequiredMixin, SuccessMessageMixin, CreateView):
                                     task_url,
                                     task_file_path,
                                 ),
-                                eta=notify_time,
+                                countdown=timedelta(
+                                    minutes=period.period
+                                ).total_seconds(),
                             )
                         else:
                             send_notification_about_task.apply_async(
