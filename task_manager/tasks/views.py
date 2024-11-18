@@ -11,10 +11,8 @@ from django.http import (
     HttpRequest,
     HttpResponse,
 )
-from django.core.exceptions import PermissionDenied
 from django.utils.text import slugify
 from django.utils.timezone import now
-from django.http.response import HttpResponseBase
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -31,7 +29,6 @@ from django.views.generic import (
 )
 from django_filters.views import FilterView
 from transliterate import translit
-from twisted.python.failure import count
 
 from task_manager.statuses.models import Status
 from task_manager.tasks.forms import TaskForm, TasksFilter

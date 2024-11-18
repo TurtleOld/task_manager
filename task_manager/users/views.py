@@ -1,5 +1,5 @@
 from typing import Any
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.forms import ModelForm
 from django.views.generic import TemplateView

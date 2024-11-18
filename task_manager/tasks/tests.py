@@ -30,7 +30,8 @@ class TestTask(TestCase):
 
     def test_list_tasks(self) -> None:
         self.client.force_login(self.user1)
-        response = self.client.get(reverse_lazy('tasks:list'))
+        self.assertTrue(self.user1.is_active)
+        response = self.client.get(reverse_lazy('tasks:list'), follow=True)
         self.assertEqual(response.status_code, 200)
         tasks_list = list(response.context['tasks'])
         self.assertQuerySetEqual(tasks_list, [self.task2, self.task1])
