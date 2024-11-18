@@ -34,7 +34,7 @@ jobs:
         run: make lint
 
       - name: Run Tests
-        run: make test
+        run: poetry run python ./manage.py test -v 2
         env:
           TOKEN_TELEGRAM_BOT: ${{ secrets.TOKEN_TELEGRAM_BOT }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
