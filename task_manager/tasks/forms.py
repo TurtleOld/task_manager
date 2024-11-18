@@ -60,15 +60,15 @@ class TaskForm(ModelForm):
             self.instance.state
             or self.instance.author_id != self.request.user.pk
         ):
-            print(self.instance.checklist.items.all())
             for field in self.fields:
                 if field != 'status':
                     self.fields[field].disabled = True
-        checklist_items = self.instance.checklist.items.values_list(
-            'description',
-            flat=True,
-        )
-        self.fields['checklist_items'].initial = '\n'.join(checklist_items)
+        if hasattr(self.instance, 'checklist'):
+            checklist_items = self.instance.checklist.items.values_list(
+                'description',
+                flat=True,
+            )
+            self.fields['checklist_items'].initial = '\n'.join(checklist_items)
 
     def save_checklist_items(self, task: QuerySet) -> None:
         items_text = self.cleaned_data.get('checklist_items')

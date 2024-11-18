@@ -254,7 +254,7 @@ class CloseTask(View):
             task.state = not task.state
             messages.success(
                 request,
-                gettext_lazy('Состояние задачи изменено'),
+                gettext_lazy('Статус задачи изменен.'),
             )
             if task.state:
                 send_about_closing_task.delay(task.name, task_url)
@@ -300,8 +300,8 @@ class TaskView(
 class ChecklistItemToggle(View):
     template_name = 'tasks/checklist_item.html'
 
-    def post(self, request: HttpRequest, item_id: int) -> HttpResponse:
-        checklist_item = get_object_or_404(ChecklistItem, id=item_id)
+    def post(self, request: HttpRequest, id: int) -> HttpResponse:
+        checklist_item = get_object_or_404(ChecklistItem, id=id)
         checklist_item.is_completed = not checklist_item.is_completed
         checklist_item.save()
 
