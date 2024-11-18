@@ -88,7 +88,7 @@ class TestTask(TestCase):
         }
 
         response = self.client.post(url, changed_task, follow=True)
-        self.assertRedirects(response, '/tasks/')
+        self.assertRedirects(response, reverse_lazy('tasks:list'))
         created_task = Task.objects.get(name=changed_task['name'])
         self.assertEqual(created_task.name, 'New task')
 
