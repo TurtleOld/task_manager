@@ -33,6 +33,7 @@ from transliterate import translit
 from task_manager.statuses.models import Status
 from task_manager.tasks.forms import TaskForm, TasksFilter
 from task_manager.tasks.models import ChecklistItem, Task
+from task_manager.tasks.services import slugify_translit
 from task_manager.users.models import User
 from task_manager.tasks.tasks import (
     send_about_closing_task,
@@ -82,10 +83,7 @@ class CreateTask(LoginRequiredMixin, SuccessMessageMixin, CreateView):
             form.instance.author = User.objects.get(pk=self.request.user.pk)
             task = form.save(commit=False)
             task_name = task.name
-            translite_name = translit(
-                task_name, language_code='ru', reversed=True
-            )
-            task.slug = slugify(translite_name, allow_unicode=True)
+            task.slug = slugify_translit(task_name)
             task.status = Status.objects.get_or_create(name='Новая')[0]
             task = form.save()
             task_slug = task.slug
@@ -96,7 +94,6 @@ class CreateTask(LoginRequiredMixin, SuccessMessageMixin, CreateView):
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
             send_message_about_adding_task.delay(task_name, task_url)
             task_file_path = task.image.path if task_image else None
-
             if deadline and reminder_periods:
                 for period in reminder_periods:
                     notify_time = task.deadline - timedelta(
@@ -155,8 +152,7 @@ class UpdateTask(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     def form_valid(self, form: TaskForm) -> HttpResponse:
         task = form.save(commit=False)
         task_name = task.name
-        translite_name = translit(task_name, language_code='ru', reversed=True)
-        task.slug = slugify(translite_name, allow_unicode=True)
+        task.slug = slugify_translit(task_name)
         task = form.save()
         task_slug = task.slug
         deadline = task.deadline
@@ -164,7 +160,6 @@ class UpdateTask(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
         task_image_path = task.image.path if task.image else None
         if deadline and reminder_periods:
-
             for period in reminder_periods:
                 notify_time = task.deadline - timedelta(minutes=period.period)
                 if notify_time > now():
@@ -187,7 +182,6 @@ class UpdateTask(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
                             ),
                             eta=notify_time,
                         )
-
         send_about_updating_task.delay(task_name, task_url)
         return super().form_valid(form)
 
@@ -218,14 +212,12 @@ class DeleteTask(  # type: ignore
             self.object.delete()
             messages.success(self.request, self.success_message)
             return redirect(self.success_url)
-    
     def form_invalid(self, form):
         messages.error(
-                self.request,
-                gettext_lazy('Вы не можете удалить чужую задачу!'),
-            )
+            self.request,
+            gettext_lazy('Вы не можете удалить чужую задачу!'),
+        )
         return redirect(self.success_url)
-    
 
 
 class CloseTask(View):
@@ -238,7 +230,6 @@ class CloseTask(View):
     def post(self, request: HttpRequest, slug: str) -> HttpResponse:
         task = get_object_or_404(Task, slug=slug)
         task_url = self.request.build_absolute_uri(f'/tasks/{slug}')
-
         if task.author != request.user or task.executor != request.user:
             messages.error(
                 request,
@@ -246,7 +237,6 @@ class CloseTask(View):
                     'У вас нет прав для изменения состояния этой задачи'
                 ),
             )
-
         else:
             task.state = not task.state
             messages.success(
@@ -263,7 +253,6 @@ class CloseTask(View):
                     name='Открыта заново'
                 )[0]
                 task.save()
-
         return redirect('tasks:list')
 
 
@@ -290,7 +279,6 @@ class TaskView(
             context['checklist_items'] = task.checklist.items.all()
         else:
             context['checklist_items'] = []
-
         return context
 
 
@@ -301,7 +289,6 @@ class ChecklistItemToggle(View):
         checklist_item = get_object_or_404(ChecklistItem, id=id)
         checklist_item.is_completed = not checklist_item.is_completed
         checklist_item.save()
-
         context = {
             'item': checklist_item,
         }
