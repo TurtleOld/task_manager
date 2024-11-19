@@ -46,9 +46,23 @@ quote-style = "single"
 indent-style = "space"
 docstring-code-format = true
 exclude = [
-    "migrations",
+    ".git",
+    ".mypy_cache",
+    ".nox",
+    ".pytest_cache",
+    ".ruff_cache",
     ".venv",
-    ".git"
+    "__pycache__",
+    "__pypackages__",
+    "htmlcov",
+    "migrations",
+    "_build",
+    "build",
+    "dist",
+    "images",
+    "media",
+    "node_modules",
+    "venv",
 ]
 
 [mypy]
