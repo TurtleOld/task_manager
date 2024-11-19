@@ -135,4 +135,4 @@ class Task(models.Model):
         return ', '.join(str(period) for period in self.reminder_periods.all())
 
     def get_absolute_url(self):
-        return reverse("tasks:view_task", args=[self.slug])
+        return reverse('tasks:view_task', args=[self.slug])

@@ -11,7 +11,6 @@ class TestStatus(TestCase):
     fixtures = ['users.yaml', 'statuses.yaml', 'tasks.yaml', 'labels.yaml']
 
     def setUp(self) -> None:
-
         self.user = User.objects.get(pk=1)
         self.status1 = Status.objects.get(pk=1)
         self.status2 = Status.objects.get(pk=2)

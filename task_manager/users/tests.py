@@ -7,7 +7,6 @@ from task_manager.users.models import User
 
 # Create your tests here.
 class TestUser(TestCase):
-
     fixtures = ['users.yaml']
 
     def setUp(self) -> None:

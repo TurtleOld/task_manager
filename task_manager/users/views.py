@@ -22,7 +22,6 @@ from task_manager.users.forms import RegisterUserForm, AuthUserForm
 
 
 class IndexView(TemplateView):
-
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
             return redirect('tasks:list')
@@ -52,11 +51,8 @@ class LoginUser(SuccessMessageMixin, LoginView):
 
 
 class LogoutUser(LogoutView, SuccessMessageMixin):
-
     def dispatch(self, request, *args, **kwargs):
-        messages.add_message(
-            request, messages.SUCCESS, gettext('Вы разлогинены')
-        )
+        messages.add_message(request, messages.SUCCESS, gettext('Вы разлогинены'))
         return super().dispatch(request, *args, **kwargs)
 
 

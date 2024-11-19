@@ -98,7 +98,7 @@ if os.getenv('DATABASE_URL'):
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.middleware.locale.LocaleMiddleware',
-    "whitenoise.middleware.WhiteNoiseMiddleware",
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -141,7 +141,7 @@ REST_FRAMEWORK = {
 # Simplified static file serving.
 # https://warehouse.python.org/project/whitenoise/
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
@@ -152,16 +152,13 @@ AUTH_PASSWORD_VALIDATORS = [
         '.UserAttributeSimilarityValidator',
     },
     {
-        'NAME': 'django.contrib.auth.'
-        'password_validation.MinimumLengthValidator',
+        'NAME': 'django.contrib.auth.' 'password_validation.MinimumLengthValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation'
-        '.CommonPasswordValidator',
+        'NAME': 'django.contrib.auth.password_validation' '.CommonPasswordValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation'
-        '.NumericPasswordValidator',
+        'NAME': 'django.contrib.auth.password_validation' '.NumericPasswordValidator',
     },
 ]
 
@@ -177,8 +174,8 @@ USE_I18N = True
 USE_TZ = True
 
 LANGUAGES = (
-    ("en", "English"),
-    ("ru", "Russian"),
+    ('en', 'English'),
+    ('ru', 'Russian'),
 )
 
 LOCALE_PATHS = (os.path.join(BASE_DIR, 'task_manager/locale'),)
@@ -203,7 +200,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # Celery Configuration Options
-CELERY_TIMEZONE = "Europe/Moscow"
+CELERY_TIMEZONE = 'Europe/Moscow'
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERYD_TASK_TIME_LIMIT = 600

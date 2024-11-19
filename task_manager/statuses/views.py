@@ -70,11 +70,7 @@ class DeleteStatus(  # type: ignore
         if self.get_object().tasks.all():
             messages.error(
                 self.request,
-                gettext_lazy(
-                    'Вы не можете удалить '
-                    'статус, потому что он '
-                    'используется'
-                ),
+                gettext_lazy('Вы не можете удалить статус, потому что он используется'),
             )
         else:
             self.object.delete()

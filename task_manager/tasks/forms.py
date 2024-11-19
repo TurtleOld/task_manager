@@ -18,9 +18,7 @@ from task_manager.users.models import User
 class TaskForm(ModelForm):
     checklist_items = forms.CharField(
         widget=forms.Textarea(
-            attrs={
-                'placeholder': 'Введите пункты чеклиста, разделяя их новой строкой'
-            }
+            attrs={'placeholder': 'Введите пункты чеклиста, разделяя их новой строкой'}
         ),
         required=False,
         label='Пункты чеклиста',
@@ -57,8 +55,7 @@ class TaskForm(ModelForm):
         self.request = request
         super().__init__(*args, **kwargs)
         if self.instance.pk and (
-            self.instance.state
-            or self.instance.author_id != self.request.user.pk
+            self.instance.state or self.instance.author_id != self.request.user.pk
         ):
             for field in self.fields:
                 if field != 'status':
@@ -74,9 +71,7 @@ class TaskForm(ModelForm):
         items_text = self.cleaned_data.get('checklist_items')
         if items_text:
             checklist, _ = Checklist.objects.get_or_create(task=task)
-            existing_items = {
-                item.description: item for item in checklist.items.all()
-            }
+            existing_items = {item.description: item for item in checklist.items.all()}
             new_items = set(
                 item.strip() for item in items_text.splitlines() if item.strip()
             )
@@ -98,9 +93,7 @@ class TaskForm(ModelForm):
 
 class TasksFilter(django_filters.FilterSet):
     statuses = Status.objects.values_list('id', 'name', named=True).all()
-    status = django_filters.ChoiceFilter(
-        label=gettext_lazy('Статус'), choices=statuses
-    )
+    status = django_filters.ChoiceFilter(label=gettext_lazy('Статус'), choices=statuses)
 
     executors = User.objects.values_list(
         'id', Concat('first_name', Value(' '), 'last_name'), named=True

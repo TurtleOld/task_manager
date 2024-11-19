@@ -94,12 +94,14 @@ class CreateTask(LoginRequiredMixin, SuccessMessageMixin, CreateView):
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
             send_message_about_adding_task.delay(task_name, task_url)
             task_file_path = task.image.path if task_image else None
-            if (
-                deadline
-                and reminder_periods
-                and os.environ.get('TOKEN_TELEGRAM_BOT')
-            ):
-                notify(task_name, reminder_periods, deadline, task_file_path, task_url)
+            if deadline and reminder_periods and os.environ.get('TOKEN_TELEGRAM_BOT'):
+                notify(
+                    task_name,
+                    reminder_periods,
+                    deadline,
+                    task_file_path,
+                    task_url,
+                )
             return super().form_valid(form)
         except IntegrityError:
             messages.error(
@@ -213,9 +215,7 @@ class CloseTask(View):
         if task.author != request.user or task.executor != request.user:
             messages.error(
                 request,
-                gettext_lazy(
-                    'У вас нет прав для изменения состояния этой задачи'
-                ),
+                gettext_lazy('У вас нет прав для изменения состояния этой задачи'),
             )
         else:
             task.state = not task.state
@@ -229,9 +229,7 @@ class CloseTask(View):
                 task.save()
             else:
                 send_about_opening_task.delay(task.name, task_url)
-                task.status = Status.objects.get_or_create(
-                    name='Открыта заново'
-                )[0]
+                task.status = Status.objects.get_or_create(name='Открыта заново')[0]
                 task.save()
         return redirect('tasks:list')
 
@@ -296,4 +294,4 @@ class DownloadFileView(DetailView):
             )
             return response
         except FileNotFoundError:
-            raise Http404("Файл не найден")
+            raise Http404('Файл не найден')
