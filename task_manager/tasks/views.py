@@ -33,7 +33,7 @@ from transliterate import translit
 from task_manager.statuses.models import Status
 from task_manager.tasks.forms import TaskForm, TasksFilter
 from task_manager.tasks.models import ChecklistItem, Task
-from task_manager.tasks.services import slugify_translit
+from task_manager.tasks.services import notify, slugify_translit
 from task_manager.users.models import User
 from task_manager.tasks.tasks import (
     send_about_closing_task,
@@ -94,33 +94,12 @@ class CreateTask(LoginRequiredMixin, SuccessMessageMixin, CreateView):
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
             send_message_about_adding_task.delay(task_name, task_url)
             task_file_path = task.image.path if task_image else None
-            if deadline and reminder_periods:
-                for period in reminder_periods:
-                    notify_time = task.deadline - timedelta(
-                        minutes=period.period
-                    )
-                    if notify_time > now():
-                        if task_file_path:
-                            send_notification_with_photo_about_task.apply_async(
-                                (
-                                    task_name,
-                                    f'{period}',
-                                    task_url,
-                                    task_file_path,
-                                ),
-                                countdown=timedelta(
-                                    minutes=period.period
-                                ).total_seconds(),
-                            )
-                        else:
-                            send_notification_about_task.apply_async(
-                                (
-                                    task_name,
-                                    f'{period}',
-                                    task_url,
-                                ),
-                                eta=notify_time,
-                            )
+            if (
+                deadline
+                and reminder_periods
+                and os.environ.get('TOKEN_TELEGRAM_BOT')
+            ):
+                notify(task_name, reminder_periods, deadline, task_file_path, task_url)
             return super().form_valid(form)
         except IntegrityError:
             messages.error(
@@ -212,6 +191,7 @@ class DeleteTask(  # type: ignore
             self.object.delete()
             messages.success(self.request, self.success_message)
             return redirect(self.success_url)
+
     def form_invalid(self, form):
         messages.error(
             self.request,
