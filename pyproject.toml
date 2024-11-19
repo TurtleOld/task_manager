@@ -55,7 +55,7 @@ exclude = [
     "__pycache__",
     "__pypackages__",
     "htmlcov",
-    "migrations",
+    "**/migrations/*",
     "_build",
     "build",
     "dist",
