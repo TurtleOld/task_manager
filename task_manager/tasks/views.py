@@ -11,7 +11,6 @@ from django.http import (
     HttpRequest,
     HttpResponse,
 )
-from django.utils.text import slugify
 from django.utils.timezone import now
 
 from django.contrib import messages
@@ -28,7 +27,6 @@ from django.views.generic import (
     DetailView,
 )
 from django_filters.views import FilterView
-from transliterate import translit
 
 from task_manager.statuses.models import Status
 from task_manager.tasks.forms import TaskForm, TasksFilter
