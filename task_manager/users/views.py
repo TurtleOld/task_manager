@@ -28,13 +28,13 @@ class IndexView(TemplateView):
         return redirect('login')
 
 
-class UsersList(LoginRequiredMixin, ListView):
+class UsersList(LoginRequiredMixin, ListView[User]):
     model = User
     template_name = 'users/users.html'
     context_object_name = 'users'
 
 
-class CreateUser(SuccessMessageMixin, CreateView):
+class CreateUser(SuccessMessageMixin[Any], CreateView[User, Any]):
     model = User
     template_name = 'users/register.html'
     form_class = RegisterUserForm
@@ -42,7 +42,7 @@ class CreateUser(SuccessMessageMixin, CreateView):
     success_message = gettext_lazy('Пользователь успешно зарегистрирован')
 
 
-class LoginUser(SuccessMessageMixin, LoginView):
+class LoginUser(SuccessMessageMixin[Any], LoginView):
     model = User
     template_name = 'users/login.html'
     form_class = AuthUserForm
@@ -50,7 +50,7 @@ class LoginUser(SuccessMessageMixin, LoginView):
     success_message = gettext_lazy('Вы залогинены')
 
 
-class LogoutUser(LogoutView, SuccessMessageMixin):
+class LogoutUser(LogoutView, SuccessMessageMixin[Any]):
     def dispatch(self, request, *args, **kwargs):
         messages.add_message(request, messages.SUCCESS, gettext('Вы разлогинены'))
         return super().dispatch(request, *args, **kwargs)
@@ -58,8 +58,8 @@ class LogoutUser(LogoutView, SuccessMessageMixin):
 
 class UpdateUser(
     LoginRequiredMixin,
-    SuccessMessageMixin,
-    UpdateView,
+    SuccessMessageMixin[Any],
+    UpdateView[User, Any],
 ):
     model = User
     template_name = 'users/update.html'
@@ -77,8 +77,8 @@ class UpdateUser(
 
 class DeleteUser(  # type: ignore
     LoginRequiredMixin,
-    SuccessMessageMixin,
-    DeleteView,
+    SuccessMessageMixin[Any],
+    DeleteView[User, Any],
 ):
     model = User
     template_name = 'users/delete.html'
@@ -91,7 +91,7 @@ class DeleteUser(  # type: ignore
     )
     no_permission_url = 'users:list'
 
-    def form_valid(self, form: ModelForm) -> HttpResponse:
+    def form_valid(self, form: ModelForm[User]) -> HttpResponse:
         try:
             self.object.delete()
         except ProtectedError:
@@ -109,7 +109,7 @@ class SwitchThemeMode(TemplateView):
     template_name = 'header.html'
 
     def post(
-        self, request: HttpRequest, *args: tuple, **kwargs: dict[str, Any]
+        self, request: HttpRequest, *args: tuple[Any], **kwargs: dict[str, Any],
     ) -> HttpResponse:
         current_user = User.objects.get(username=self.request.user.username)
 

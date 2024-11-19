@@ -1,3 +1,4 @@
+from typing import Any
 from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -20,7 +21,7 @@ from task_manager.labels.forms import LabelForm
 from task_manager.labels.models import Label
 
 
-class LabelsList(LoginRequiredMixin, ListView):
+class LabelsList(LoginRequiredMixin, ListView[Label]):
     model = Label
     template_name = 'labels/list_labels.html'
     context_object_name = 'labels'
@@ -30,7 +31,7 @@ class LabelsList(LoginRequiredMixin, ListView):
     no_permission_url = 'login'
 
 
-class CreateLabel(LoginRequiredMixin, SuccessMessageMixin, CreateView):
+class CreateLabel(LoginRequiredMixin, SuccessMessageMixin[Any], CreateView[Label, Any]):
     model = Label
     template_name = 'labels/create_label.html'
     form_class = LabelForm
@@ -44,8 +45,8 @@ class CreateLabel(LoginRequiredMixin, SuccessMessageMixin, CreateView):
 
 class UpdateLabel(
     LoginRequiredMixin,
-    SuccessMessageMixin,
-    UpdateView,
+    SuccessMessageMixin[Any],
+    UpdateView[Label, Any],
 ):
     model = Label
     template_name = 'labels/update_label.html'
@@ -58,8 +59,8 @@ class UpdateLabel(
 
 class DeleteLabel(  # type: ignore
     LoginRequiredMixin,
-    SuccessMessageMixin,
-    DeleteView,
+    SuccessMessageMixin[Any],
+    DeleteView[Label, Any],
 ):
     model = Label
     template_name = 'labels/delete_label.html'

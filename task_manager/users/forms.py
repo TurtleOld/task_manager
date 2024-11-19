@@ -3,7 +3,7 @@ from django.forms import CharField, PasswordInput
 from task_manager.users.models import User
 
 
-class RegisterUserForm(UserCreationForm):
+class RegisterUserForm(UserCreationForm[User]):
     class Meta:
         model = User
         fields = [

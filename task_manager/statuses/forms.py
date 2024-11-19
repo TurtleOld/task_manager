@@ -3,7 +3,7 @@ from task_manager.statuses.models import Status
 from django.utils.translation import gettext_lazy
 
 
-class StatusForm(ModelForm):
+class StatusForm(ModelForm[Status]):
     class Meta:
         model = Status
         fields = ('name',)

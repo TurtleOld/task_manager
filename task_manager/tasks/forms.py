@@ -1,9 +1,9 @@
+from typing import Any
 from django import forms
 from django.db.models import Value
 from django.db.models.functions import Concat
 from django.forms import ModelForm, DateTimeInput
 import django_filters
-from django.db.models import QuerySet
 from task_manager.labels.models import Label
 from task_manager.statuses.models import Status
 from task_manager.tasks.models import (
@@ -15,7 +15,7 @@ from django.utils.translation import gettext_lazy
 from task_manager.users.models import User
 
 
-class TaskForm(ModelForm):
+class TaskForm(ModelForm[Any]):
     checklist_items = forms.CharField(
         widget=forms.Textarea(
             attrs={'placeholder': 'Введите пункты чеклиста, разделяя их новой строкой'}
@@ -67,7 +67,7 @@ class TaskForm(ModelForm):
             )
             self.fields['checklist_items'].initial = '\n'.join(checklist_items)
 
-    def save_checklist_items(self, task: QuerySet) -> None:
+    def save_checklist_items(self, task: Task) -> None:
         items_text = self.cleaned_data.get('checklist_items')
         if items_text:
             checklist, _ = Checklist.objects.get_or_create(task=task)
@@ -85,7 +85,7 @@ class TaskForm(ModelForm):
                         checklist=checklist, description=description
                     )
 
-    def save(self, commit=True):
+    def save(self, commit: bool = True) -> 'Task':
         task = super().save(commit=commit)
         self.save_checklist_items(task)
         return task

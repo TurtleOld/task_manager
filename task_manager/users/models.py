@@ -14,5 +14,5 @@ class User(AbstractUser):
         choices=THEME_CHOICES,
     )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.get_full_name()

@@ -48,7 +48,7 @@ class Checklist(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def str(self):
+    def str(self) -> str:
         return f'Чеклист для задачи: {self.task.name}'
 
 
@@ -61,7 +61,7 @@ class ChecklistItem(models.Model):
     description = models.CharField(max_length=255)
     is_completed = models.BooleanField(default=False)
 
-    def str(self):
+    def str(self) -> str:
         return self.description
 
 
@@ -71,9 +71,6 @@ class ReminderPeriod(models.Model):
         null=True,
         choices=[(key, value) for key, value in PERIOD.items()],
     )
-
-    def __str__(self):
-        return PERIOD[self.period]
 
 
 class Task(models.Model):
@@ -118,7 +115,7 @@ class Task(models.Model):
     class Meta:
         ordering = ['-created_at']
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
     def is_deadline_overdue(self):

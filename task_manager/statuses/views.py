@@ -1,3 +1,4 @@
+from typing import Any
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
@@ -17,7 +18,7 @@ from task_manager.statuses.forms import StatusForm
 from task_manager.statuses.models import Status
 
 
-class StatusesList(LoginRequiredMixin, ListView):
+class StatusesList(LoginRequiredMixin, ListView[Status]):
     model = Status
     template_name = 'statuses/list_statuses.html'
     context_object_name = 'statuses'
@@ -29,8 +30,8 @@ class StatusesList(LoginRequiredMixin, ListView):
 
 class CreateStatus(
     LoginRequiredMixin,
-    SuccessMessageMixin,
-    CreateView,
+    SuccessMessageMixin[Any],
+    CreateView[Status, Any],
 ):
     model = Status
     template_name = 'statuses/create_status.html'
@@ -41,8 +42,8 @@ class CreateStatus(
 
 class UpdateStatus(
     LoginRequiredMixin,
-    SuccessMessageMixin,
-    UpdateView,
+    SuccessMessageMixin[Any],
+    UpdateView[Status, Any],
 ):
     model = Status
     template_name = 'statuses/update_status.html'
@@ -55,9 +56,9 @@ class UpdateStatus(
 
 class DeleteStatus(  # type: ignore
     LoginRequiredMixin,
-    SuccessMessageMixin,
-    DeleteView,
-    DeletionMixin,
+    SuccessMessageMixin[Any],
+    DeleteView[Status, Any],
+    DeletionMixin[Status],
 ):
     model = Status
     template_name = 'statuses/delete_status.html'

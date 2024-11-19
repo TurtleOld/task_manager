@@ -4,7 +4,7 @@ import os
 from typing import Any
 from urllib.parse import quote
 from django.db import IntegrityError
-from django.forms import ModelForm
+from django.forms import BaseForm, ModelForm
 from django.http import (
     FileResponse,
     Http404,
@@ -46,8 +46,8 @@ from task_manager.tasks.tasks import (
 
 class TasksList(
     LoginRequiredMixin,
-    SuccessMessageMixin,
-    FilterView,  # type: ignore
+    SuccessMessageMixin[Any],
+    FilterView[Task],
 ):
     model = Task
     template_name = 'tasks/list_tasks.html'
@@ -59,7 +59,11 @@ class TasksList(
     no_permission_url = reverse_lazy('login')
 
 
-class CreateTask(LoginRequiredMixin, SuccessMessageMixin, CreateView):
+class CreateTask(
+    LoginRequiredMixin,
+    SuccessMessageMixin[Any],
+    CreateView[Task, Any],
+):
     model = Task
     template_name = 'tasks/create_task.html'
     form_class = TaskForm
@@ -89,6 +93,7 @@ class CreateTask(LoginRequiredMixin, SuccessMessageMixin, CreateView):
             task_image = task.image
             deadline = task.deadline
             reminder_periods = form.cleaned_data['reminder_periods']
+            type(reminder_periods)
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
             send_message_about_adding_task.delay(task_name, task_url)
             task_file_path = task.image.path if task_image else None
@@ -109,7 +114,9 @@ class CreateTask(LoginRequiredMixin, SuccessMessageMixin, CreateView):
             return self.form_invalid(form)
 
 
-class UpdateTask(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
+class UpdateTask(
+    LoginRequiredMixin, SuccessMessageMixin[Any], UpdateView[Task, Any]
+):
     model = Task
     template_name = 'tasks/update_task.html'
     form_class = TaskForm
@@ -129,7 +136,7 @@ class UpdateTask(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         return kwargs
 
     def form_valid(self, form: TaskForm) -> HttpResponse:
-        task = form.save(commit=False)
+        task: Task = form.save(commit=False)
         task_name = task.name
         task.slug = slugify_translit(task_name)
         task = form.save()
@@ -140,7 +147,7 @@ class UpdateTask(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         task_image_path = task.image.path if task.image else None
         if deadline and reminder_periods:
             for period in reminder_periods:
-                notify_time = task.deadline - timedelta(minutes=period.period)
+                notify_time = deadline - timedelta(minutes=period.period)
                 if notify_time > now():
                     if task_image_path:
                         send_notification_with_photo_about_task.apply_async(
@@ -167,8 +174,8 @@ class UpdateTask(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
 
 class DeleteTask(  # type: ignore
     LoginRequiredMixin,
-    SuccessMessageMixin,
-    DeleteView,
+    SuccessMessageMixin[Any],
+    DeleteView[Task, Any],
 ):
     model = Task
     template_name = 'tasks/delete_task.html'
@@ -181,7 +188,7 @@ class DeleteTask(  # type: ignore
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
 
-    def form_valid(self, form: ModelForm) -> HttpResponse:
+    def form_valid(self, form: ModelForm[Task]) -> HttpResponse:
         task = self.get_object()
         if self.request.user != self.get_object().author:
             return self.form_invalid(form)
@@ -192,7 +199,7 @@ class DeleteTask(  # type: ignore
             messages.success(self.request, self.success_message)
             return redirect(self.success_url)
 
-    def form_invalid(self, form):
+    def form_invalid(self, form: ModelForm[Task]) -> HttpResponse:
         messages.error(
             self.request,
             gettext_lazy('Вы не можете удалить чужую задачу!'),
@@ -234,8 +241,8 @@ class CloseTask(View):
 
 class TaskView(
     LoginRequiredMixin,
-    SuccessMessageMixin,
-    DetailView,
+    SuccessMessageMixin[BaseForm],
+    DetailView[Task],
 ):
     model = Task
     template_name = 'tasks/view_task.html'
@@ -271,7 +278,7 @@ class ChecklistItemToggle(View):
         return render(request, self.template_name, context)
 
 
-class DownloadFileView(DetailView):
+class DownloadFileView(DetailView[Task]):
     model = Task
 
     def get(self, request: HttpRequest, *args, **kwargs) -> FileResponse:  # type: ignore
