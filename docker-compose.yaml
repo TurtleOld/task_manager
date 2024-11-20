@@ -32,8 +32,12 @@ services:
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://127.0.0.1,http://localhost}
       CHAT_ID: ${CHAT_ID:-}
-      BROKER_URL: ${BROKER_URL:-redis://redis:6379}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379}
+      BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbit:5672}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-amqp://rabbitmq:rabbitmq@rabbit:5672}
+      RABBITMQ_DEFAULT_USER: ${RMUSER:-rabbitmq}
+      RABBITMQ_DEFAULT_PASS: ${RMPASSWORD:-rabbitmq}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbitmq log_levels [{connection,error},{default,error}] disk_free_limit 2147483648
+      RABBITMQ_DEFAULT_VHOST: rabbitmq
     depends_on:
       - redis
       - db
@@ -50,8 +54,8 @@ services:
     volumes:
       - ${LOCATION:-./app_data}:/app_data/files
     environment:
-      BROKER_URL: ${BROKER_URL:-redis://redis:6379}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379}
+      BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbit:5672}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-amqp://rabbitmq:rabbitmq@rabbit:5672}
     depends_on:
       - redis
     restart: on-failure
@@ -67,8 +71,8 @@ services:
     env_file:
       - .env
     environment:
-      BROKER_URL: ${BROKER_URL:-redis://redis:6379}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379}
+      BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbit:5672}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-amqp://rabbitmq:rabbitmq@rabbit:5672}
     depends_on:
       - task-manager-server
       - redis
@@ -76,14 +80,23 @@ services:
     networks:
       - default
 
-  redis:
-    container_name: task_manager_redis
-    image: redis:latest
-    healthcheck:
-      test: redis-cli ping || exit 1
-    ports:
-      - "${REDIS_PORT:-6379}:${REDIS_PORT:-6379}"
+  rabbitmq:
+    container_name: task_manager_rabbitmq
+    image: rabbitmq:latest
+    hostname: rabbitmq
     restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RMUSER:-rabbitmq}
+      RABBITMQ_DEFAULT_PASS: ${RMPASSWORD:-rabbitmq}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbitmq log_levels [{connection,error},{default,error}] disk_free_limit 2147483648
+      RABBITMQ_DEFAULT_VHOST: rabbitmq
+    healthcheck:
+      test: [ "CMD-SHELL", "rabbitmq-diagnostics check_port_connectivity" ]
+      interval: 15s
+      timeout: 15s
+      retries: 10
+    volumes:
+      - ${LOCATION:-./app_data}/rabbitmq:/var/lib/rabbitmq
     networks:
       - default
 
@@ -98,6 +111,8 @@ services:
     depends_on:
       - task-manager-server
     restart: ${RESTART:-always}
+    networks:
+      - default
 
 networks:
   default:
