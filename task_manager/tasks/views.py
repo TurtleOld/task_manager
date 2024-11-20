@@ -96,13 +96,13 @@ class CreateTask(
             type(reminder_periods)
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
             send_message_about_adding_task.delay(task_name, task_url)
-            task_file_path = task.image.path if task_image else None
+            task_image_path = task.image.path if task_image else None
             if deadline and reminder_periods and os.environ.get('TOKEN_TELEGRAM_BOT'):
                 notify(
                     task_name,
                     reminder_periods,
                     deadline,
-                    task_file_path,
+                    task_image_path,
                     task_url,
                 )
             return super().form_valid(form)
@@ -146,28 +146,13 @@ class UpdateTask(
         task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
         task_image_path = task.image.path if task.image else None
         if deadline and reminder_periods:
-            for period in reminder_periods:
-                notify_time = deadline - timedelta(minutes=period.period)
-                if notify_time > now():
-                    if task_image_path:
-                        send_notification_with_photo_about_task.apply_async(
-                            (
-                                task_name,
-                                f'{period}',
-                                task_url,
-                                task_image_path,
-                            ),
-                            eta=notify_time,
-                        )
-                    else:
-                        send_notification_about_task.apply_async(
-                            (
-                                task_name,
-                                f'{period}',
-                                task_url,
-                            ),
-                            eta=notify_time,
-                        )
+            notify(
+                    task_name,
+                    reminder_periods,
+                    deadline,
+                    task_image_path,
+                    task_url,
+                )
         send_about_updating_task.delay(task_name, task_url)
         return super().form_valid(form)
 
