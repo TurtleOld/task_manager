@@ -1,4 +1,3 @@
-from datetime import timedelta
 import mimetypes
 import os
 from typing import Any
@@ -11,7 +10,6 @@ from django.http import (
     HttpRequest,
     HttpResponse,
 )
-from django.utils.timezone import now
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -39,8 +37,6 @@ from task_manager.tasks.tasks import (
     send_message_about_adding_task,
     send_about_updating_task,
     send_about_deleting_task,
-    send_notification_about_task,
-    send_notification_with_photo_about_task,
 )
 
 
