@@ -39,7 +39,7 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbitmq log_levels [{connection,error},{default,error}] disk_free_limit 2147483648
       RABBITMQ_DEFAULT_VHOST: rabbitmq
     depends_on:
-      - redis
+      - rabbitmq
       - db
     restart: on-failure
     networks:
@@ -57,7 +57,7 @@ services:
       BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbit:5672}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-amqp://rabbitmq:rabbitmq@rabbit:5672}
     depends_on:
-      - redis
+      - rabbitmq
     restart: on-failure
     networks:
       - default
@@ -75,7 +75,7 @@ services:
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-amqp://rabbitmq:rabbitmq@rabbit:5672}
     depends_on:
       - task-manager-server
-      - redis
+      - rabbitmq
       - worker-celery
     networks:
       - default
