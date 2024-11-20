@@ -109,7 +109,10 @@ class SwitchThemeMode(TemplateView):
     template_name = 'header.html'
 
     def post(
-        self, request: HttpRequest, *args: tuple[Any], **kwargs: dict[str, Any],
+        self,
+        request: HttpRequest,
+        *args: tuple[Any],
+        **kwargs: dict[str, Any],
     ) -> HttpResponse:
         current_user = User.objects.get(username=self.request.user.username)
 

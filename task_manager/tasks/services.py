@@ -25,7 +25,6 @@ def notify(
     for period in reminder_periods:
         notify_time = deadline - timedelta(minutes=period.period)  # type: ignore
         if notify_time > now():
-
             if task_file_path:
                 send_notification_with_photo_about_task.apply_async(
                     (

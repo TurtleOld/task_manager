@@ -110,9 +110,7 @@ class CreateTask(
             return self.form_invalid(form)
 
 
-class UpdateTask(
-    LoginRequiredMixin, SuccessMessageMixin[Any], UpdateView[Task, Any]
-):
+class UpdateTask(LoginRequiredMixin, SuccessMessageMixin[Any], UpdateView[Task, Any]):
     model = Task
     template_name = 'tasks/update_task.html'
     form_class = TaskForm
@@ -143,12 +141,12 @@ class UpdateTask(
         task_image_path = task.image.path if task.image else None
         if deadline and reminder_periods:
             notify(
-                    task_name,
-                    reminder_periods,
-                    deadline,
-                    task_image_path,
-                    task_url,
-                )
+                task_name,
+                reminder_periods,
+                deadline,
+                task_image_path,
+                task_url,
+            )
         send_about_updating_task.delay(task_name, task_url)
         return super().form_valid(form)
 

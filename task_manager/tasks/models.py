@@ -44,7 +44,9 @@ PERIOD = {
 
 class Checklist(models.Model):
     task = models.OneToOneField(
-        'Task', on_delete=models.CASCADE, related_name='checklist'
+        'Task',
+        on_delete=models.CASCADE,
+        related_name='checklist',
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

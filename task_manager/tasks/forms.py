@@ -86,7 +86,7 @@ class TaskForm(ModelForm[Any]):
                     )
 
     def save(self, commit: bool = True) -> 'Task':
-        task = super().save(commit=commit)
+        task = super().save(commit=True)
         self.save_checklist_items(task)
         return task
 
