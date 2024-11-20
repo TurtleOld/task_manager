@@ -67,10 +67,16 @@ class ChecklistItem(models.Model):
 
 class ReminderPeriod(models.Model):
     period = models.IntegerField(
+        default=60,
         blank=True,
         null=True,
         choices=[(key, value) for key, value in PERIOD.items()],
     )
+
+    def __str__(self) -> str:
+        if isinstance(self.period, int):
+            return str(PERIOD.get(self.period, 60))
+        return 'Не задано'
 
 
 class Task(models.Model):
