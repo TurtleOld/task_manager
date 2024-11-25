@@ -32,12 +32,12 @@ services:
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://127.0.0.1,http://localhost}
       CHAT_ID: ${CHAT_ID:-}
-      BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbitmq:5672}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-amqp://rabbitmq:rabbitmq@rabbitmq:5672}
-      RABBITMQ_DEFAULT_USER: ${RMUSER:-rabbitmq}
-      RABBITMQ_DEFAULT_PASS: ${RMPASSWORD:-rabbitmq}
+      BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbitmq:5672/}
+      RABBITMQ_USER: ${RMUSER:-rabbitmq}
+      RABBITMQ_PASS: ${RMPASSWORD:-rabbitmq}
+      RABBITMQ_HOST: ${RMHOST:-rabbitmq}
+      RABBITMQ_PORT: ${RMPORT:-5672}
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbitmq log_levels [{connection,error},{default,error}] disk_free_limit 2147483648
-      RABBITMQ_DEFAULT_VHOST: rabbitmq
     depends_on:
       - rabbitmq
       - db
@@ -54,42 +54,26 @@ services:
     volumes:
       - ${LOCATION:-./app_data}:/app_data/files
     environment:
-      BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbitmq:5672}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-amqp://rabbitmq:rabbitmq@rabbitmq:5672}
-    depends_on:
-      - rabbitmq
+      BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbitmq:5672/}
+      RABBITMQ_DEFAULT_USER: ${RMUSER:-rabbitmq}
+      RABBITMQ_DEFAULT_PASS: ${RMPASSWORD:-rabbitmq}
+      RABBITMQ_DEFAULT_HOST: ${RMHOST:-rabbitmq}
+      RABBITMQ_DEFAULT_PORT: ${RMPORT:-5672}
     restart: on-failure
-    networks:
-      - default
-
-  flower:
-    image: mher/flower:latest
-    container_name: task_manager_flower
-    command: celery flower --persisten=True
-    ports:
-      - "${FLOWER_PORT:-5555}:${FLOWER_PORT:-5555}"
-    env_file:
-      - .env
-    environment:
-      BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbitmq:5672}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-amqp://rabbitmq:rabbitmq@rabbitmq:5672}
-    depends_on:
-      - task-manager-server
-      - rabbitmq
-      - worker-celery
     networks:
       - default
 
   rabbitmq:
     container_name: task_manager_rabbitmq
-    image: rabbitmq:latest
+    image: rabbitmq:4.0.4-management
     hostname: rabbitmq
     restart: always
     environment:
       RABBITMQ_DEFAULT_USER: ${RMUSER:-rabbitmq}
       RABBITMQ_DEFAULT_PASS: ${RMPASSWORD:-rabbitmq}
+      RABBITMQ_DEFAULT_HOST: ${RMHOST:-rabbitmq}
+      RABBITMQ_DEFAULT_PORT: ${RMPORT:-5672}
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbitmq log_levels [{connection,error},{default,error}] disk_free_limit 2147483648
-      RABBITMQ_DEFAULT_VHOST: rabbitmq
     healthcheck:
       test: [ "CMD-SHELL", "rabbitmq-diagnostics check_port_connectivity" ]
       interval: 15s
@@ -104,7 +88,7 @@ services:
     image: nginx:alpine
     container_name: task_manager_nginx
     ports:
-      - "${PORT:-8000}:80"
+      - "${NGINX_PORT:-8000}:80"
     volumes:
       - ${CONF_PATH:-./nginx}/nginx.conf:/etc/nginx/nginx.conf
       - ${LOCATION:-./app_data}:/app_data/files
