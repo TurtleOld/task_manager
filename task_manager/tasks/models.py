@@ -126,18 +126,19 @@ class Task(models.Model):
     def __str__(self) -> str:
         return self.name
 
-    def is_deadline_overdue(self):
+    def is_deadline_overdue(self) -> bool:
         if self.deadline:
             return self.deadline.astimezone() < now().astimezone()
         return False
 
     @property
-    def image_url(self):
+    def image_url(self) -> str:
         if self.image:
             return urljoin(f'/tasks{settings.MEDIA_URL}', self.image.name)
+        return ''
 
-    def get_reminder_period_display(self):
+    def get_reminder_period_display(self) -> str:
         return ', '.join(str(period) for period in self.reminder_periods.all())
 
-    def get_absolute_url(self):
+    def get_absolute_url(self) -> str:
         return reverse('tasks:view_task', args=[self.slug])

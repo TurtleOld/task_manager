@@ -1,3 +1,5 @@
+from typing import Any
+
 from django.db.models import CharField
 from django.contrib.auth.models import AbstractUser
 
@@ -8,7 +10,7 @@ THEME_CHOICES = [
 
 
 class User(AbstractUser):
-    theme_mode = CharField(
+    theme_mode: CharField[Any, Any] = CharField(
         max_length=10,
         default='dark',
         choices=THEME_CHOICES,
