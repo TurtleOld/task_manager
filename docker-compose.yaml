@@ -59,8 +59,6 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RMPASSWORD:-rabbitmq}
       RABBITMQ_DEFAULT_HOST: ${RMHOST:-rabbitmq}
       RABBITMQ_DEFAULT_PORT: ${RMPORT:-5672}
-    depends_on:
-      - rabbitmq
     restart: on-failure
     networks:
       - default
