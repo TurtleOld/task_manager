@@ -88,7 +88,7 @@ services:
     image: nginx:alpine
     container_name: task_manager_nginx
     ports:
-      - "${PORT:-8000}:80"
+      - "${NGINX_PORT:-8000}:80"
     volumes:
       - ${CONF_PATH:-./nginx}/nginx.conf:/etc/nginx/nginx.conf
       - ${LOCATION:-./app_data}:/app_data/files
