@@ -42,6 +42,10 @@ PERIOD = {
 }
 
 
+class Stage(models.Model):
+    name = models.CharField(null=False, unique=True)
+
+
 class Checklist(models.Model):
     task = models.OneToOneField(
         'Task',
