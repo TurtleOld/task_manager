@@ -42,10 +42,6 @@ PERIOD = {
 }
 
 
-class Stage(models.Model):
-    name = models.CharField(null=False, unique=True)
-
-
 class Checklist(models.Model):
     task = models.OneToOneField(
         'Task',
@@ -83,6 +79,10 @@ class ReminderPeriod(models.Model):
         if isinstance(self.period, int):
             return str(PERIOD.get(self.period, 60))
         return 'Не задано'
+
+
+class Stage(models.Model):
+    name = models.CharField(null=False, unique=True)
 
 
 class Task(models.Model):
@@ -123,9 +123,10 @@ class Task(models.Model):
         blank=True,
     )
     labels = models.ManyToManyField(Label, related_name='tasks', blank=True)
+    order = models.PositiveSmallIntegerField()
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['order']
 
     def __str__(self) -> str:
         return self.name
