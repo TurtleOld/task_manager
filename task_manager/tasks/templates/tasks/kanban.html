@@ -3,32 +3,15 @@
 {% load i18n %}
 
 {% block content %}
-<style>
-        /* Дополнительные стили для улучшения внешнего вида */
-        .stage {
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin-bottom: 20px;
-        }
-        .task-list {
-            list-style-type: none;
-            padding-left: 0;
-            margin-top: 10px;
-        }
-        .task-list li {
-            background-color: #f9f9f9;
-            padding: 10px;
-            margin-bottom: 10px;
-            cursor: grab;
-        }
-    </style>
-<div class="container mt-5">
-    <div class="row">
-        <!-- Начинается цикл по этапам -->
-        {% for stage in stages %}
-            <div class="col-sm-12 col-md-6 col-lg-4 mb-4">
+<div class="row">
+    <div class="col-1">
+        <a class="btn btn-outline-primary mb-1" href="{% url 'tasks:create_stage' %}">Создать колонку</a>
+        <a class="btn btn-outline-primary" href="{% url 'tasks:create' %}">Создать задачу</a>
+    </div>
+        <div class="col-10 d-flex justify-content-around">
+            {% for stage in stages %}
                 <div class="stage" data-stage-id="{{ stage.pk }}">
-                    <h2>{{ stage.name }}</h2>
+                    <h5 class="border text-center ps-5 pe-5 pt-1 pb-1" >{{ stage.name }}</h5>
                     <ul id="stage-{{ stage.pk }}" class="task-list">
                         <!-- Цикл по задачам -->
                         {% for task in stage.tasks.all %}
@@ -36,10 +19,8 @@
                         {% endfor %}
                     </ul>
                 </div>
-            </div>
-        {% endfor %}
-        <!-- Конец цикла по этапам -->
-    </div>
+            {% endfor %}
+        </div>
 </div>
 
 <script>

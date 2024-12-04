@@ -89,6 +89,9 @@ class Stage(models.Model):
         default='Process',
     )
 
+    class Meta:
+        ordering = ['id']
+
 
 class Task(models.Model):
     name = models.CharField(max_length=50)

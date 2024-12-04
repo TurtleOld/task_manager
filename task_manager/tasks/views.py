@@ -73,6 +73,13 @@ class KanbanBoard(
         )
 
 
+class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
+    model = Stage
+    template_name = 'tasks/create_stage.html'
+    fields = '__all__'
+    success_url = reverse_lazy('tasks:kanban')
+
+
 class UpdateTaskOrderView(View):
 
     def post(self, request):
@@ -126,13 +133,13 @@ class CreateTask(
             task_name = task.name
             task.slug = slugify_translit(task_name)
             task.status = Status.objects.get_or_create(name='Новая')[0]
+            task.stage_id = 1
             task = form.save()
             task_slug = task.slug
             form.save_checklist_items(task)
             task_image = task.image
             deadline = task.deadline
             reminder_periods = form.cleaned_data['reminder_periods']
-            type(reminder_periods)
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
             send_message_about_adding_task.delay(task_name, task_url)
             task_image_path = task.image.path if task_image else None
