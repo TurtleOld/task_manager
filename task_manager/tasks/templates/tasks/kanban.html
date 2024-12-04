@@ -1,0 +1,74 @@
+{% extends '../base.html' %}
+{% load bootstrap4 %}
+{% load i18n %}
+
+{% block content %}
+<style>
+        /* Дополнительные стили для улучшения внешнего вида */
+        .stage {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        .task-list {
+            list-style-type: none;
+            padding-left: 0;
+            margin-top: 10px;
+        }
+        .task-list li {
+            background-color: #f9f9f9;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: grab;
+        }
+    </style>
+<div class="container mt-5">
+    <div class="row">
+        <!-- Начинается цикл по этапам -->
+        {% for stage in stages %}
+            <div class="col-sm-12 col-md-6 col-lg-4 mb-4">
+                <div class="stage" data-stage-id="{{ stage.pk }}">
+                    <h2>{{ stage.name }}</h2>
+                    <ul id="stage-{{ stage.pk }}" class="task-list">
+                        <!-- Цикл по задачам -->
+                        {% for task in stage.tasks.all %}
+                            <li data-task-id="{{ task.pk }}" data-old-stage-id="{{ stage.pk }}">{{ task.name }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endfor %}
+        <!-- Конец цикла по этапам -->
+    </div>
+</div>
+
+<script>
+    document.querySelectorAll('.task-list').forEach(function(list) {
+        new Sortable(list, {
+            group: 'tasks',
+            animation: 150,
+            onEnd: function(evt) {
+                const itemEl = evt.item;
+                const newStageContainer = itemEl.closest('.stage');
+                const newStageId = newStageContainer.getAttribute('data-stage-id');
+                const oldStageId = itemEl.getAttribute('data-old-stage-id');
+                itemEl.setAttribute('data-old-stage-id', newStageId);
+                const tasks = Array.from(itemEl.parentNode.children).map((li, index) => ({
+                    task_id: li.getAttribute('data-task-id'),
+                    stage_id: li.getAttribute('data-old-stage-id') || newStageId,
+                    order: index + 1
+                }));
+
+                fetch("{% url 'tasks:update_task_order' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ tasks: tasks })
+                })
+            }
+        });
+    });
+</script>
+{% endblock %}

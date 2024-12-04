@@ -37,6 +37,7 @@
     <link rel="icon" href="{% static 'favicon/favicon.ico' %}" type="image/x-icon">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <title>{% block title %}{% endblock %} - Task Manager</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
 </head>
 <body class="d-flex flex-column min-vh-100" data-bs-theme="{{ theme_mode }}">
 {% include "header.html" %}

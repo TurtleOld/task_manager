@@ -1,3 +1,4 @@
+import json
 import mimetypes
 import os
 from typing import Any
@@ -9,6 +10,7 @@ from django.http import (
     Http404,
     HttpRequest,
     HttpResponse,
+    JsonResponse,
 )
 
 from django.contrib import messages
@@ -28,7 +30,7 @@ from django_filters.views import FilterView
 
 from task_manager.statuses.models import Status
 from task_manager.tasks.forms import TaskForm, TasksFilter
-from task_manager.tasks.models import ChecklistItem, Task
+from task_manager.tasks.models import ChecklistItem, Task, Stage
 from task_manager.tasks.services import notify, slugify_translit
 from task_manager.users.models import User
 from task_manager.tasks.tasks import (
@@ -53,6 +55,47 @@ class TasksList(
         'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
+
+
+class KanbanBoard(
+    LoginRequiredMixin,
+    SuccessMessageMixin[Any],
+    FilterView[Task],
+):
+    template_name = 'tasks/kanban.html'
+
+    def get(self, request, *args, **kwargs):
+        stages = Stage.objects.all()
+        return render(
+            request,
+            template_name=self.template_name,
+            context={'stages': stages},
+        )
+
+
+class UpdateTaskOrderView(View):
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            tasks = data.get('tasks', [])
+            for task_data in tasks:
+                task_id = int(task_data['task_id'])
+                stage_id = int(task_data['stage_id'])
+                order = int(task_data['order'])
+
+                task = Task.objects.filter(pk=task_id).first()
+                if task:
+                    task.stage_id = stage_id
+                    task.order = order
+                    task.save()
+                else:
+                    raise ValueError(f"Таск с ID {task_id} не найден")
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+        return JsonResponse({'message': 'Задачи успешно обновлены'}, status=200)
 
 
 class CreateTask(
@@ -93,7 +136,11 @@ class CreateTask(
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
             send_message_about_adding_task.delay(task_name, task_url)
             task_image_path = task.image.path if task_image else None
-            if deadline and reminder_periods and os.environ.get('TOKEN_TELEGRAM_BOT'):
+            if (
+                deadline
+                and reminder_periods
+                and os.environ.get('TOKEN_TELEGRAM_BOT')
+            ):
                 notify(
                     task_name,
                     reminder_periods,
@@ -110,7 +157,9 @@ class CreateTask(
             return self.form_invalid(form)
 
 
-class UpdateTask(LoginRequiredMixin, SuccessMessageMixin[Any], UpdateView[Task, Any]):
+class UpdateTask(
+    LoginRequiredMixin, SuccessMessageMixin[Any], UpdateView[Task, Any]
+):
     model = Task
     template_name = 'tasks/update_task.html'
     form_class = TaskForm
@@ -199,7 +248,9 @@ class CloseTask(View):
         if task.author != request.user or task.executor != request.user:
             messages.error(
                 request,
-                gettext_lazy('У вас нет прав для изменения состояния этой задачи'),
+                gettext_lazy(
+                    'У вас нет прав для изменения состояния этой задачи'
+                ),
             )
         else:
             task.state = not task.state
@@ -213,7 +264,9 @@ class CloseTask(View):
                 task.save()
             else:
                 send_about_opening_task.delay(task.name, task_url)
-                task.status = Status.objects.get_or_create(name='Открыта заново')[0]
+                task.status = Status.objects.get_or_create(
+                    name='Открыта заново'
+                )[0]
                 task.save()
         return redirect('tasks:list')
 

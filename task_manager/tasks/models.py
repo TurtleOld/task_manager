@@ -82,7 +82,12 @@ class ReminderPeriod(models.Model):
 
 
 class Stage(models.Model):
-    name = models.CharField(null=False, unique=True)
+    name = models.CharField(
+        null=True,
+        blank=True,
+        unique=True,
+        default='Process',
+    )
 
 
 class Task(models.Model):
@@ -123,7 +128,13 @@ class Task(models.Model):
         blank=True,
     )
     labels = models.ManyToManyField(Label, related_name='tasks', blank=True)
-    order = models.PositiveSmallIntegerField()
+    stage = models.ForeignKey(
+        'Stage',
+        related_name='tasks',
+        on_delete=models.CASCADE,
+        null=True,
+    )
+    order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         ordering = ['order']

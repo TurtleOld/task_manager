@@ -11,11 +11,19 @@ from task_manager.tasks.views import (
     UpdateTask,
     DeleteTask,
     TaskView,
+    KanbanBoard,
+    UpdateTaskOrderView,
 )
 
 app_name = 'tasks'
 urlpatterns = [
     path('', TasksList.as_view(), name='list'),
+    path('kanban/', KanbanBoard.as_view(), name='kanban'),
+    path(
+        'kanban/update_order/',
+        UpdateTaskOrderView.as_view(),
+        name='update_task_order',
+    ),
     path('create/', CreateTask.as_view(), name='create'),
     path('<slug:slug>/update/', UpdateTask.as_view(), name='update_task'),
     path('<slug:slug>/delete/', DeleteTask.as_view(), name='delete_task'),

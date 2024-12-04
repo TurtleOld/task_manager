@@ -34,11 +34,13 @@ class TestTask(TestCase):
         response = self.client.get(reverse_lazy('tasks:list'), follow=True)
         self.assertEqual(response.status_code, 200)
         tasks_list = list(response.context['tasks'])
-        self.assertQuerySetEqual(tasks_list, [self.task2, self.task1])
+        self.assertQuerySetEqual(tasks_list, [self.task1, self.task2])
 
     @patch('task_manager.tasks.tasks.send_message_about_adding_task.delay')
     @patch('task_manager.tasks.tasks.send_notification_about_task.apply_async')
-    def test_create_tasks(self, mock_send_massage, mock_send_notification) -> None:
+    def test_create_tasks(
+        self, mock_send_massage, mock_send_notification
+    ) -> None:
         self.client.force_login(self.user1)
         new_task = {
             'name': 'Новая задача',
@@ -50,7 +52,9 @@ class TestTask(TestCase):
             'deadline': (datetime.now() + timedelta(days=1)).isoformat(),
             'reminder_periods': [1, 2],
         }
-        response = self.client.post(reverse_lazy('tasks:create'), new_task, follow=True)
+        response = self.client.post(
+            reverse_lazy('tasks:create'), new_task, follow=True
+        )
 
         self.assertRedirects(response, '/tasks/')
         created_task = Task.objects.get(name=new_task['name'])
@@ -66,7 +70,9 @@ class TestTask(TestCase):
 
     @patch('task_manager.tasks.tasks.send_about_updating_task.apply_async')
     @patch('task_manager.tasks.tasks.send_notification_about_task.apply_async')
-    def test_update_task(self, mock_send_massage, mock_send_notification) -> None:
+    def test_update_task(
+        self, mock_send_massage, mock_send_notification
+    ) -> None:
         self.client.force_login(self.user1)
         url = reverse('tasks:update_task', args=(self.task1.slug,))
         changed_task = {
