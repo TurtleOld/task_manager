@@ -91,20 +91,16 @@ class UpdateTaskOrderView(View):
     def post(self, request):
         try:
             data = json.loads(request.body)
-            tasks = data.get('tasks', [])
-            for task_data in tasks:
-                task_id = int(task_data['task_id'])
-                stage_id = int(task_data['stage_id'])
-                order = int(task_data['order'])
-
-                task = Task.objects.filter(pk=task_id).first()
-                if task:
-                    task.stage_id = stage_id
-                    task.order = order
-                    task.save()
-                else:
-                    raise ValueError(f"Таск с ID {task_id} не найден")
-
+            task_id = data.get('task_id', 0)
+            order = data.get('order', 0)
+            stage_id = data.get('new_stage_id', 0)
+            task = Task.objects.filter(pk=task_id).first()
+            if task:
+                task.stage_id = stage_id
+                task.order = order
+                task.save()
+            else:
+                raise ValueError(f"Таск с ID {task_id} не найден")
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
 
