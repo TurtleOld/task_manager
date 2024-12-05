@@ -76,13 +76,13 @@ class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = Stage
     template_name = 'tasks/create_stage.html'
     fields = '__all__'
-    success_url = reverse_lazy('tasks:kanban')
+    success_url = reverse_lazy('tasks:list')
 
 
 class DeleteStageView(LoginRequiredMixin, SuccessMessageMixin, DeleteView):
     model = Stage
     template_name = 'tasks/delete_stage.html'
-    success_url = reverse_lazy('tasks:kanban')
+    success_url = reverse_lazy('tasks:list')
     context_object_name = 'stage'
 
 
