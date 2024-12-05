@@ -23,7 +23,7 @@
                     <!-- Цикл по задачам -->
                     {% for task in stage.tasks.all %}
                         <a class="text-decoration-none" href="{% url 'tasks:view_task' task.slug %}">
-                            <li class="list-group-item task" data-task-id="{{ task.pk }}" data-old-stage-id="{{ stage.pk }}">{{ task.name }}</li>
+                            <li class="list-group-item task mb-1" data-task-id="{{ task.pk }}" data-old-stage-id="{{ stage.pk }}">{{ task.name }}</li>
                         </a>
                     {% endfor %}
                 </ul>
