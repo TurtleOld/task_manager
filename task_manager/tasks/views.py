@@ -28,7 +28,6 @@ from django.views.generic import (
 )
 from django_filters.views import FilterView
 
-from task_manager.statuses.models import Status
 from task_manager.tasks.forms import TaskForm, TasksFilter
 from task_manager.tasks.models import ChecklistItem, Task, Stage
 from task_manager.tasks.services import notify, slugify_translit
@@ -150,7 +149,6 @@ class CreateTask(
             task = form.save(commit=False)
             task_name = task.name
             task.slug = slugify_translit(task_name)
-            task.status = Status.objects.get_or_create(name='Новая')[0]
             task.stage_id = 1
             task = form.save()
             task_slug = task.slug
@@ -285,13 +283,9 @@ class CloseTask(View):
             )
             if task.state:
                 send_about_closing_task.delay(task.name, task_url)
-                task.status = Status.objects.get_or_create(name='Закрыта')[0]
                 task.save()
             else:
                 send_about_opening_task.delay(task.name, task_url)
-                task.status = Status.objects.get_or_create(
-                    name='Открыта заново'
-                )[0]
                 task.save()
         return redirect('tasks:list')
 

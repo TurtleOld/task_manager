@@ -6,20 +6,17 @@ from django_filters import FilterSet
 from unittest.mock import MagicMock
 
 from task_manager.labels.models import Label
-from task_manager.statuses.models import Status
 from task_manager.tasks.models import ReminderPeriod, Task
 from task_manager.users.models import User
 
 
 class TestTask(TestCase):
-    fixtures = ['users.yaml', 'statuses.yaml', 'tasks.yaml', 'labels.yaml']
+    fixtures = ['users.yaml', 'tasks.yaml', 'labels.yaml']
 
     def setUp(self) -> None:
         self.user1 = User.objects.get(pk=1)
         self.user2 = User.objects.get(pk=2)
         self.user3 = User.objects.get(pk=3)
-        self.status1 = Status.objects.get(pk=1)
-        self.status2 = Status.objects.get(pk=2)
         self.task1 = Task.objects.get(pk=1)
         self.task2 = Task.objects.get(pk=2)
         self.label1 = Label.objects.get(pk=1)
@@ -50,7 +47,6 @@ class TestTask(TestCase):
             'description': 'description',
             'author': 1,
             'executor': 2,
-            'status': 1,
             'labels': [1, 2],
             'deadline': (datetime.now() + timedelta(days=1)).isoformat(),
             'reminder_periods': [1, 2],
@@ -85,7 +81,6 @@ class TestTask(TestCase):
             'description': 'description',
             'author': 2,
             'executor': 1,
-            'status': 2,
             'labels': [1, 2],
             'slug': 'new-task',
             'deadline': (datetime.now() + timedelta(days=1)).isoformat(),
@@ -114,17 +109,12 @@ class TestTask(TestCase):
         self.assertTrue(Task.objects.filter(pk=self.task2.pk).exists())
         self.assertRedirects(response, '/tasks/')
 
-    def test_filter_status(self) -> None:
-        status = Task._meta.get_field('status')
-        result = FilterSet.filter_for_field(status, 'status')
-        self.assertEqual(result.field_name, 'status')
-
     def test_filter_executor(self) -> None:
-        status = Task._meta.get_field('executor')
-        result = FilterSet.filter_for_field(status, 'executor')
+        executor = Task._meta.get_field('executor')
+        result = FilterSet.filter_for_field(executor, 'executor')
         self.assertEqual(result.field_name, 'executor')
 
     def test_filter_label(self) -> None:
-        status = Task._meta.get_field('labels')
-        result = FilterSet.filter_for_field(status, 'labels')
+        labels = Task._meta.get_field('labels')
+        result = FilterSet.filter_for_field(labels, 'labels')
         self.assertEqual(result.field_name, 'labels')

@@ -10,7 +10,6 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('statuses', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
         ('labels', '0001_initial'),
     ]
@@ -52,15 +51,6 @@ class Migration(migrations.Migration):
                     'labels',
                     models.ManyToManyField(
                         blank=True, related_name='tasks', to='labels.label'
-                    ),
-                ),
-                (
-                    'status',
-                    models.ForeignKey(
-                        null=True,
-                        on_delete=django.db.models.deletion.PROTECT,
-                        related_name='tasks',
-                        to='statuses.status',
                     ),
                 ),
             ],

@@ -31,7 +31,9 @@ class LabelsList(LoginRequiredMixin, ListView[Label]):
     no_permission_url = 'login'
 
 
-class CreateLabel(LoginRequiredMixin, SuccessMessageMixin[Any], CreateView[Label, Any]):
+class CreateLabel(
+    LoginRequiredMixin, SuccessMessageMixin[Any], CreateView[Label, Any]
+):
     model = Label
     template_name = 'labels/create_label.html'
     form_class = LabelForm
@@ -54,7 +56,7 @@ class UpdateLabel(
     success_message = gettext('Метка успешно изменена')
     success_url = reverse_lazy('labels:list')
     error_message = gettext_lazy('У вас нет разрешения на изменение метки')
-    no_permission_url = 'statuses:list'
+    no_permission_url = 'labels:list'
 
 
 class DeleteLabel(  # type: ignore
