@@ -82,9 +82,6 @@ msgstr "The user has been successfully deleted"
 msgid "У вас нет разрешения на изменение другого пользователя"
 msgstr "You do not have permission to change another user"
 
-msgid "Статусы"
-msgstr "Statuses"
-
 msgid "Метки"
 msgstr "Labels"
 
@@ -103,12 +100,6 @@ msgstr "Creating a task"
 msgid "Создать задачу"
 msgstr "Create a task"
 
-msgid "Создать статус"
-msgstr "Create a status"
-
-msgid "Изменить статус"
-msgstr "Change Status"
-
 msgid "Создать метку"
 msgstr "Create a label"
 
@@ -124,9 +115,6 @@ msgstr "Author"
 msgid "Исполнитель"
 msgstr "Executor"
 
-msgid "Статус"
-msgstr "Status"
-
 msgid "Метка"
 msgstr "Label"
 
@@ -138,12 +126,6 @@ msgstr "Create Date"
 
 msgid "Полное имя"
 msgstr "Full name"
-
-msgid "Удаление статуса"
-msgstr "Deleting a status"
-
-msgid "Вы уверены, что хотите удалить статус"
-msgstr "Are you sure you want to delete the status"
 
 msgid "Вы уверены, что хотите удалить задачу"
 msgstr "Are you sure you want to delete the task"
@@ -172,9 +154,6 @@ msgstr "You can't delete a label because it's being used"
 msgid "Вы не можете удалить чужую задачу!"
 msgstr "You can't delete someone else's task!"
 
-msgid "Вы не можете удалить статус, потому что он используется"
-msgstr "You can't delete the status because it is being used"
-
 msgid "У вас нет разрешения на изменение другого пользователя, либо пользователь связан с задачей"
 msgstr "You don't have permission to change another user, or the user is associated with the task"
 
@@ -183,9 +162,6 @@ msgstr "Only your own tasks"
 
 msgid "Список задач"
 msgstr "Task list"
-
-msgid "Список статусов"
-msgstr "Status list"
 
 msgid "Список меток"
 msgstr "Label list"
@@ -196,23 +172,14 @@ msgstr "Name"
 msgid "Метка успешно изменена"
 msgstr "Label changed successfully"
 
-msgid "Статус успешно изменён"
-msgstr "Status successfully changed"
-
 msgid "Задача успешно создана"
 msgstr "The task was successfully created"
-
-msgid "Статус успешно создан"
-msgstr "Status successfully created"
 
 msgid "Задача успешно изменена"
 msgstr "The task has been successfully changed"
 
 msgid "Задача успешно удалена"
 msgstr "The task was successfully deleted"
-
-msgid "Статус успешно удалён"
-msgstr "Status successfully deleted"
 
 msgid "Метка успешно удалена"
 msgstr "The label was successfully deleted"

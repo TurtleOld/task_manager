@@ -31,12 +31,22 @@
     pk: 5
     fields:
         period: 40
+-   model: tasks.stage
+    pk: 1
+    fields:
+        name: To Do
+        order: 1
+-   model: tasks.stage
+    pk: 2
+    fields:
+        name: In Progress
+        order: 2
 -   model: tasks.task
     pk: 1
     fields:
         name: Одна новая задача
         description: выпаавыпав
-        status: 2
+        stage: 1
         author: 1
         executor: 2
         created_at: 2022-05-10 18:48:15.864338+00:00
@@ -49,7 +59,7 @@
     fields:
         name: Майская задача
         description: Спасите!!!
-        status: 1
+        stage: 2
         author: 2
         executor: 1
         slug: majskaja-zadacha

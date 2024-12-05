@@ -1,0 +1,15 @@
+{% extends '../base.html' %}
+{% load bootstrap4 %}
+{% load i18n %}
+
+{% block title %}{% translate 'Создание этапа' %}{% endblock %}
+
+{% block content %}
+    <h1 class="my-4">{% translate 'Создать этап' %}</h1>
+    <form method="post" enctype="multipart/form-data" class="form-horizontal">
+        {% csrf_token %}
+        {% bootstrap_form form layout='horizontal' %}
+        {% bootstrap_button button_text_create button_type="submit" button_class="btn btn-primary"  %}
+    </form>
+
+{% endblock %}
