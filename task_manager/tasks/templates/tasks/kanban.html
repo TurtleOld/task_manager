@@ -8,47 +8,84 @@
         <a class="btn btn-outline-primary mb-1" href="{% url 'tasks:create_stage' %}">Создать колонку</a>
         <a class="btn btn-outline-primary" href="{% url 'tasks:create' %}">Создать задачу</a>
     </div>
-        <div class="col-10 d-flex justify-content-around">
-            {% for stage in stages %}
-                <div class="stage" data-stage-id="{{ stage.pk }}">
+    <div class="stages-container col-10 d-flex justify-content-around">
+        {% for stage in stages %}
+            <div class="drag-handle stage position-relative" data-stage-id="{{ stage.pk }}">
+                <div class="">
                     <h5 class="border text-center ps-5 pe-5 pt-1 pb-1" >{{ stage.name }}</h5>
-                    <ul id="stage-{{ stage.pk }}" class="task-list">
-                        <!-- Цикл по задачам -->
-                        {% for task in stage.tasks.all %}
-                            <li data-task-id="{{ task.pk }}" data-old-stage-id="{{ stage.pk }}">{{ task.name }}</li>
-                        {% endfor %}
-                    </ul>
+                    <a class="remove-stage position-absolute end-0 top-0 btn btn-sm btn-outline-danger border-0" href="{% url 'tasks:delete_stage' stage.pk %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x" viewBox="0 0 16 16">
+                          <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+                        </svg>
+                    </a>
                 </div>
-            {% endfor %}
-        </div>
+                <ul id="stage-{{ stage.pk }}" class="task-list list-group">
+                    <!-- Цикл по задачам -->
+                    {% for task in stage.tasks.all %}
+                        <li class="list-group-item" data-task-id="{{ task.pk }}" data-old-stage-id="{{ stage.pk }}">{{ task.name }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endfor %}
+    </div>
 </div>
 
+
 <script>
-    document.querySelectorAll('.task-list').forEach(function(list) {
-        new Sortable(list, {
-            group: 'tasks',
+    document.addEventListener('DOMContentLoaded', function() {
+        // Инициализация сортировки для стадий
+        const stagesContainer = document.querySelector('.stages-container');
+
+        new Sortable(stagesContainer, {
+            handle: '.drag-handle',
             animation: 150,
             onEnd: function(evt) {
                 const itemEl = evt.item;
-                const newStageContainer = itemEl.closest('.stage');
-                const newStageId = newStageContainer.getAttribute('data-stage-id');
-                const oldStageId = itemEl.getAttribute('data-old-stage-id');
-                itemEl.setAttribute('data-old-stage-id', newStageId);
-                const tasks = Array.from(itemEl.parentNode.children).map((li, index) => ({
-                    task_id: li.getAttribute('data-task-id'),
-                    stage_id: li.getAttribute('data-old-stage-id') || newStageId,
-                    order: index + 1
-                }));
-
-                fetch("{% url 'tasks:update_task_order' %}", {
+                const stageId = itemEl.getAttribute('data-stage-id');
+                const newIndex = Array.prototype.indexOf.call(itemEl.parentElement.children, itemEl);
+                fetch("{% url 'tasks:update_stage_order' %}", {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': '{{ csrf_token }}'
                     },
-                    body: JSON.stringify({ tasks: tasks })
+                    body: JSON.stringify({
+                        stage_id: stageId,
+                        order: newIndex + 1
+                    })
                 })
             }
+        });
+
+        // Инициализация сортировки для задач внутри каждой стадии
+        document.querySelectorAll('.task-list').forEach(function(taskList) {
+            new Sortable(taskList, {
+                group: 'tasks',
+                animation: 150,
+                onEnd: function(evt) {
+                    const itemEl = evt.item;
+                    const newStageContainer = itemEl.closest('.stage');
+                    const newStageId = newStageContainer.getAttribute('data-stage-id');
+                    const oldStageId = itemEl.getAttribute('data-old-stage-id');
+                    itemEl.setAttribute('data-old-stage-id', newStageId);
+
+                    const tasks = Array.from(itemEl.parentNode.children).map((li, index) => ({
+                        task_id: li.getAttribute('data-task-id'),
+                        stage_id: li.getAttribute('data-old-stage-id') || newStageId,
+                        order: index + 1
+                    }));
+
+                    // Отправка данных на сервер для обновления порядка задач
+                    fetch("{% url 'tasks:update_task_order' %}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({ tasks: tasks })
+                    })
+                }
+            });
         });
     });
 </script>

@@ -88,9 +88,10 @@ class Stage(models.Model):
         unique=True,
         default='Process',
     )
+    order = models.PositiveIntegerField(default=0)
 
     class Meta:
-        ordering = ['id']
+        ordering = ['order']
 
 
 class Task(models.Model):

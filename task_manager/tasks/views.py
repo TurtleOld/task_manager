@@ -80,6 +80,13 @@ class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     success_url = reverse_lazy('tasks:kanban')
 
 
+class DeleteStageView(LoginRequiredMixin, SuccessMessageMixin, DeleteView):
+    model = Stage
+    template_name = 'tasks/delete_stage.html'
+    success_url = reverse_lazy('tasks:kanban')
+    context_object_name = 'stage'
+
+
 class UpdateTaskOrderView(View):
 
     def post(self, request):
@@ -103,6 +110,17 @@ class UpdateTaskOrderView(View):
             return JsonResponse({'error': str(e)}, status=400)
 
         return JsonResponse({'message': 'Задачи успешно обновлены'}, status=200)
+
+
+class UpdateStageOrderView(View):
+    def post(self, request):
+        data = json.loads(request.body)
+        stage_id = data.get('stage_id')
+        order = data.get('order')
+        stage = Stage.objects.get(pk=stage_id)
+        stage.order = order
+        stage.save()
+        return JsonResponse({'status': 'success'})
 
 
 class CreateTask(
