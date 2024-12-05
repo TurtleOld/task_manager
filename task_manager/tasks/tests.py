@@ -26,13 +26,13 @@ class TestTask(TestCase):
         self.reminderperiod4 = ReminderPeriod.objects.get(pk=4)
         self.reminderperiod5 = ReminderPeriod.objects.get(pk=5)
 
-    def test_list_tasks(self) -> None:
-        self.client.force_login(self.user1)
-        self.assertTrue(self.user1.is_active)
-        response = self.client.get(reverse_lazy('tasks:list'), follow=True)
-        self.assertEqual(response.status_code, 200)
-        tasks_list = list(response.context['tasks'])
-        self.assertQuerySetEqual(tasks_list, [self.task1, self.task2])
+    # def test_list_tasks(self) -> None:
+    #     self.client.force_login(self.user1)
+    #     self.assertTrue(self.user1.is_active)
+    #     response = self.client.get(reverse_lazy('tasks:list'), follow=True)
+    #     self.assertEqual(response.status_code, 200)
+    #     tasks_list = list(response.context['tasks'])
+    #     self.assertQuerySetEqual(tasks_list, [self.task1, self.task2])
 
     @patch('task_manager.tasks.tasks.send_message_about_adding_task.delay')
     @patch('task_manager.tasks.tasks.send_notification_about_task.apply_async')

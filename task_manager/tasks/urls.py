@@ -6,7 +6,6 @@ from task_manager.tasks.views import (
     ChecklistItemToggle,
     CloseTask,
     DownloadFileView,
-    TasksList,
     CreateTask,
     UpdateTask,
     DeleteTask,
