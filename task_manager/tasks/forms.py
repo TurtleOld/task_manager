@@ -29,27 +29,31 @@ class TaskForm(ModelForm[Any]):
         model = Task
         fields = (
             'name',
+            'executor',
             'description',
             'reminder_periods',
             'deadline',
-            'executor',
             'labels',
             'state',
             'image',
         )
         labels = {
             'name': gettext_lazy('Имя'),
+            'executor': gettext_lazy('Исполнитель'),
             'description': gettext_lazy('Описание'),
             'reminder_periods': gettext_lazy('Напоминание до'),
-            'executor': gettext_lazy('Исполнитель'),
             'labels': gettext_lazy('Метки'),
-            'deadline': gettext_lazy('Крайний срок'),
+            'deadline': gettext_lazy('Дата'),
             'state': gettext_lazy('Закрыта?'),
         }
         widgets = {
             'deadline': DateTimeInput(
-                attrs={'type': 'datetime-local', 'class': 'form-control'},
+                attrs={
+                    'type': 'datetime-local',
+                    'class': 'form-control',
+                },
             ),
+            'description': forms.Textarea(attrs={'rows': 4, 'cols': 10}),
         }
 
     def __init__(self, request, *args, **kwargs):
@@ -61,11 +65,13 @@ class TaskForm(ModelForm[Any]):
         ):
             for field in self.fields:
                 self.fields[field].disabled = True
+        self.fields['checklist_items'].widget.attrs['rows'] = 4
         if hasattr(self.instance, 'checklist'):
             checklist_items = self.instance.checklist.items.values_list(
                 'description',
                 flat=True,
             )
+
             self.fields['checklist_items'].initial = '\n'.join(checklist_items)
 
     def save_checklist_items(self, task: Task) -> None:
