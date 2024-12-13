@@ -15,6 +15,7 @@ from task_manager.tasks.views import (
     CreateStageView,
     DeleteStageView,
     UpdateStageOrderView,
+    UpdateStageView,
 )
 
 app_name = 'tasks'
@@ -39,6 +40,11 @@ urlpatterns = [
         'kanban/<int:pk>/delete/',
         DeleteStageView.as_view(),
         name='delete_stage',
+    ),
+    path(
+        'update-stage/<int:pk>/',
+        UpdateStageView.as_view(),
+        name='update_stage',
     ),
     path('<slug:slug>/close/', CloseTask.as_view(), name='close_task'),
     path('<slug:slug>', TaskView.as_view(), name='view_task'),

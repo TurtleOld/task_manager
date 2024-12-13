@@ -219,6 +219,44 @@ class UpdateTask(
         return super().form_valid(form)
 
 
+class UpdateStageView(UpdateView):
+    template_name = 'tasks/kanban.html'
+    model = Stage
+
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(request.body)
+            new_name = data.get('name')
+            stage_id = data.get('stage_id')
+
+            stage = Stage.objects.get(pk=stage_id)
+            stage.name = new_name
+            stage.save()
+
+            return JsonResponse(
+                {
+                    'status': 'success',
+                    'new_name': new_name,
+                }
+            )
+        except Stage.DoesNotExist:
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'message': 'Stage not found',
+                },
+                status=404,
+            )
+        except Exception as e:
+            return JsonResponse(
+                {
+                    'status': 'error',
+                    'message': str(e),
+                },
+                status=400,
+            )
+
+
 class DeleteTask(  # type: ignore
     LoginRequiredMixin,
     SuccessMessageMixin[Any],

@@ -12,7 +12,7 @@
         {% for stage in stages %}
         <div class="stage position-relative" data-stage-id="{{ stage.pk }}">
             <div class="drag-handle">
-                <h5 class="border text-center ps-5 pe-5 pt-1 pb-1">{{ stage.name }}</h5>
+                <h5 class="border text-center ps-5 pe-5 pt-1 pb-1" onblur="updateStageName(this)" data-stage-pk="{{ stage.pk }}" contenteditable>{{ stage.name }}</h5>
                 <a class="remove-stage position-absolute end-0 top-0 btn btn-sm btn-outline-danger border-0"
                    href="{% url 'tasks:delete_stage' stage.pk %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16"
@@ -26,8 +26,11 @@
                 <!-- Цикл по задачам -->
                 {% for task in stage.tasks.all %}
                     <li class="list-group-item task border-1 rounded-3 mb-1" data-task-id="{{ task.pk }}" data-old-stage-id="{{ stage.pk }}">
-                        <a class="text-decoration-none" href="{% url 'tasks:view_task' task.slug %}">{{ task.name }}</a>
-                        <div class="small">{{ task.executor }}</div>
+                        <a class="text-decoration-none text-body" href="{% url 'tasks:view_task' task.slug %}">
+                            {{ task.name }}
+                            <div class="small">{{ task.executor }}</div>
+                        </a>
+
                     </li>
                 {% endfor %}
             </ul>
@@ -40,6 +43,46 @@
     </div>
 </div>
 
+<script>
+function updateStageName(element) {
+    const stageId = element.getAttribute('data-stage-pk');
+    const newName = element.innerText;
+
+    fetch(`update-stage/${stageId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: JSON.stringify({ name: newName, stage_id: stageId }),
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .catch(error => {
+        console.error('Error updating stage:', error);
+    });
+}
+
+// Функция для получения CSRF-токена
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const stagesContainer = document.querySelector('.stages-container');
