@@ -46,7 +46,7 @@
                     </button>
                 </form>
                 <li class="nav-item">
-                    {{ user.username }}
+                    <a class="btn" href="{% url 'users:profile' %}">{{ user.username }}</a>
                 </li>
                 <li class="nav-item">
                     <form action="/logout/" method="post">

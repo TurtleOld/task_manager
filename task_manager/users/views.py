@@ -28,6 +28,12 @@ class IndexView(TemplateView):
         return redirect('login')
 
 
+class ProfileUser(LoginRequiredMixin, ListView[User]):
+    model = User
+    template_name = 'users/profile.html'
+    context_object_name = 'profile'
+
+
 class UsersList(LoginRequiredMixin, ListView[User]):
     model = User
     template_name = 'users/users.html'
@@ -52,7 +58,9 @@ class LoginUser(SuccessMessageMixin[Any], LoginView):
 
 class LogoutUser(LogoutView, SuccessMessageMixin[Any]):
     def dispatch(self, request, *args, **kwargs):
-        messages.add_message(request, messages.SUCCESS, gettext('Вы разлогинены'))
+        messages.add_message(
+            request, messages.SUCCESS, gettext('Вы разлогинены')
+        )
         return super().dispatch(request, *args, **kwargs)
 
 

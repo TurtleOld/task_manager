@@ -7,8 +7,9 @@
 {% block content %}
 <div class="row">
     <div class="col-1">
-        <a class="btn btn-sm btn-outline-primary" href="{% url 'tasks:create' %}">Создать
-            задачу</a>
+        <a class="btn btn-sm btn-outline-primary" href="{% url 'tasks:create' %}">
+            Создать задачу
+        </a>
     </div>
     <div class="stages-container col-10 d-flex justify-content-around">
         {% for stage in stages %}
@@ -25,7 +26,6 @@
                 </a>
             </div>
             <ul id="stage-{{ stage.pk }}" class="task-list list-group">
-                <!-- Цикл по задачам -->
                 {% for task in stage.tasks.all %}
                     <li class="list-group-item task border-1 rounded-3 mb-1" data-task-id="{{ task.pk }}" data-old-stage-id="{{ stage.pk }}">
                         <a class="text-decoration-none text-body" href="{% url 'tasks:view_task' task.slug %}">
