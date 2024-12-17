@@ -4,21 +4,17 @@
 {% load i18n %}
 
 {% block content %}
-    <title>{% translate 'Список меток' %}</title>
-    <h1 class="my-4">{% translate 'Метки' %}</h1>
-    <a class="text-decoration-none" href="{% url 'labels:create' %}">{% translate 'Создать метку' %}</a>
+    <title>{% translate 'Список тегов' %}</title>
+    <h1 class="my-4">{% translate 'Теги' %}</h1>
+    <a class="text-decoration-none" href="{% url 'labels:create' %}">{% translate 'Создать тег' %}</a>
     <table class="bg-white mt-1 border table table-striped">
         <tr>
-            <th class="border p-2">ID</th>
             <th class="border p-2">{% translate 'Имя' %}</th>
-            <th class="border p-2">{% translate 'Дата создания' %}</th>
             <th class="border p-2"></th>
         </tr>
         {% for label in labels %}
         <tr>
-            <td class="border p-2">{{ label.id }}</td>
             <td class="border p-2">{{ label.name }}</td>
-            <td class="border p-2">{{ label.created_at|date:"d.m.Y H:i" }}</td>
             <td class="border p-2">
                 <a class="text-decoration-none" href="{% url 'labels:update_label' label.id %}">{% translate 'Изменить' %}</a><br>
                 <a class="text-decoration-none" href="{% url 'labels:delete_label' label.id %}">{% translate 'Удалить' %}</a>
