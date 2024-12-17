@@ -16,20 +16,9 @@
             <ul class="navbar-nav me-auto d-flex align-items-center">
                 {% if user.is_authenticated %}
                 <li class="nav-item">
-                    <a href="{% url 'users:list' %}"
-                       class="nav-link my-0 mr-md-auto">
-                        {%translate 'Пользователи' %}
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{% url 'labels:list' %}"
-                       class="nav-link my-0 mr-md-auto">
-                        {% translate 'Метки' %}
-                    </a>
-                </li>
-                <li class="nav-item">
                     <a href="{% url 'tasks:list' %}"
                        class="nav-link my-0 mr-md-auto">
+                        <i class="bi bi-list-task"></i>
                         {% translate 'Задачи' %}
                     </a>
                 </li>
@@ -39,20 +28,25 @@
                 {% if user.is_authenticated %}
                 <form action="{% url 'users:switch_theme_mode' %}" method="POST">
                     {% csrf_token %}
-                    <button type="submit" class="btn me-1">
+                    <button type="submit" class="btn pt-1 me-1">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-brilliance" viewBox="0 0 16 16">
                             <path d="M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16M1 8a7 7 0 0 0 7 7 3.5 3.5 0 1 0 0-7 3.5 3.5 0 1 1 0-7 7 7 0 0 0-7 7"/>
                         </svg>
                     </button>
                 </form>
                 <li class="nav-item">
-                    <a class="btn" href="{% url 'users:profile' %}">{{ user.username }}</a>
+
+                    <a class="btn d-flex align-items-center" href="{% url 'users:profile' %}">
+                        <i class="bi bi-person-circle me-1"></i>
+                        {{ user.username }}
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <form action="/logout/" method="post">
+                    <form class="d-flex align-items-center" action="/logout/" method="post">
                         {% csrf_token %}
-                        <input type="submit" class="me-md-5 btn nav-link"
+                        <input type="submit" class="btn nav-link"
                             value="{% translate 'Выход' %}">
+                        <i class="bi bi-box-arrow-right me-md-5"></i>
                     </form>
                 </li>
                 {% endif %}

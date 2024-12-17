@@ -27,10 +27,14 @@
             </div>
             <ul id="stage-{{ stage.pk }}" class="task-list list-group">
                 {% for task in stage.tasks.all %}
-                    <li class="list-group-item task border-1 rounded-3 mb-1" data-task-id="{{ task.pk }}" data-old-stage-id="{{ stage.pk }}">
+                    <li class="list-group-item task border-1 rounded-3 mb-1 d-flex align-items-center" data-task-id="{{ task.pk }}" data-old-stage-id="{{ stage.pk }}">
                         <a class="text-decoration-none text-body" href="{% url 'tasks:view_task' task.slug %}">
+                            <i class="bi bi-calendar-check"></i>
                             {{ task.name }}
-                            <div class="small">{{ task.executor }}</div>
+                            <div class="small d-flex align-items-center">
+                                <i class="bi bi-person-fill me-1"></i>
+                                {{ task.executor }}
+                            </div>
                         </a>
 
                     </li>

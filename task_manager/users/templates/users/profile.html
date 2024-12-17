@@ -5,4 +5,14 @@
 {% block title %}{% translate 'Профиль' %}{% endblock %}
 
 {% block content %}
+<div class="list-group">
+    <a href="{% url 'users:list' %}" class="list-group-item">
+        <i class="bi bi-people-fill"></i>
+        {%translate 'Пользователи' %}
+    </a>
+    <a href="{% url 'labels:list' %}" class="list-group-item">
+        <i class="bi bi-tags-fill"></i>
+        {% translate 'Теги' %}
+    </a>
+</div>
 {% endblock %}
