@@ -82,6 +82,7 @@ class ReminderPeriod(models.Model):
 
 class Stage(models.Model):
     name = models.CharField(
+        max_length=100,
         null=True,
         blank=True,
         unique=True,
