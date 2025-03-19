@@ -51,7 +51,7 @@ class TestTask(TestCase):
             'stage': 1,
             'order': 3,
             'deadline': (datetime.now() + timedelta(days=1)).isoformat(),
-            'reminder_periods': [1, 2],
+            'reminder_periods': [2, 3],
         }
         response = self.client.post(
             reverse_lazy('tasks:create'), new_task, follow=True
