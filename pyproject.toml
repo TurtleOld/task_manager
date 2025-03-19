@@ -16,7 +16,6 @@ dj-database-url = ">=0.5.0"
 psycopg2-binary = ">=2.9.3"
 whitenoise = ">=6.1"
 django-filter = ">=24.3"
-django-bootstrap4 = ">=22.1"
 rollbar = ">=0.16.2"
 daphne = ">=4.1.2"
 twisted = {extras = ["http2", "tls"], version = ">=22.2.0"}
@@ -25,9 +24,11 @@ flower = "^2.0.1"
 eventlet = "^0.37.0"
 django-htmx = "^1.21.0"
 transliterate = "^1.10.2"
-
 pillow = "^11.0.0"
 celery = {extras = ["amqp"], version = "^5.4.0"}
+django-crispy-forms = "^2.3"
+
+crispy-bulma = "^0.11.0"
 [tool.poetry.dev-dependencies]
 flake8 = ">=4.0.1"
 PyYAML = ">=6.0"

@@ -22,12 +22,12 @@ from django.utils.translation import gettext, gettext_lazy
 from django.views import View
 from django.views.generic import (
     CreateView,
-    UpdateView,
     DeleteView,
     DetailView,
 )
 from django_filters.views import FilterView
 
+from task_manager.statuses.models import Status
 from task_manager.tasks.forms import TaskForm, TasksFilter
 from task_manager.tasks.models import ChecklistItem, Task, Stage
 from task_manager.tasks.services import notify, slugify_translit
@@ -36,7 +36,6 @@ from task_manager.tasks.tasks import (
     send_about_closing_task,
     send_about_opening_task,
     send_message_about_adding_task,
-    send_about_updating_task,
     send_about_deleting_task,
 )
 
@@ -47,7 +46,7 @@ class TasksList(
     FilterView[Task],
 ):
     model = Task
-    template_name = 'tasks/list_tasks.html'
+    template_name = 'tasks/kanban.html'
     context_object_name = 'tasks'
     filterset_class = TasksFilter
     error_message = gettext_lazy(
@@ -76,14 +75,7 @@ class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = Stage
     template_name = 'tasks/create_stage.html'
     fields = '__all__'
-    success_url = reverse_lazy('tasks:list')
-
-
-class DeleteStageView(LoginRequiredMixin, SuccessMessageMixin, DeleteView):
-    model = Stage
-    template_name = 'tasks/delete_stage.html'
-    success_url = reverse_lazy('tasks:list')
-    context_object_name = 'stage'
+    success_url = reverse_lazy('tasks:kanban')
 
 
 class UpdateTaskOrderView(View):
@@ -91,31 +83,24 @@ class UpdateTaskOrderView(View):
     def post(self, request):
         try:
             data = json.loads(request.body)
-            task_id = data.get('task_id', 0)
-            order = data.get('order', 0)
-            stage_id = data.get('new_stage_id', 0)
-            task = Task.objects.filter(pk=task_id).first()
-            if task:
-                task.stage_id = stage_id
-                task.order = order
-                task.save()
-            else:
-                raise ValueError(f"Таск с ID {task_id} не найден")
+            tasks = data.get('tasks', [])
+            for task_data in tasks:
+                task_id = int(task_data['task_id'])
+                stage_id = int(task_data['stage_id'])
+                order = int(task_data['order'])
+
+                task = Task.objects.filter(pk=task_id).first()
+                if task:
+                    task.stage_id = stage_id
+                    task.order = order
+                    task.save()
+                else:
+                    raise ValueError(f"Таск с ID {task_id} не найден")
+
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
 
         return JsonResponse({'message': 'Задачи успешно обновлены'}, status=200)
-
-
-class UpdateStageOrderView(View):
-    def post(self, request):
-        data = json.loads(request.body)
-        stage_id = data.get('stage_id')
-        order = data.get('order')
-        stage = Stage.objects.get(pk=stage_id)
-        stage.order = order
-        stage.save()
-        return JsonResponse({'status': 'success'})
 
 
 class CreateTask(
@@ -127,7 +112,7 @@ class CreateTask(
     template_name = 'tasks/create_task.html'
     form_class = TaskForm
     success_message = gettext_lazy('Задача успешно создана')
-    success_url = reverse_lazy('tasks:list')
+    success_url = reverse_lazy('tasks:kanban')
     error_message = gettext_lazy(
         'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
@@ -145,6 +130,7 @@ class CreateTask(
             task = form.save(commit=False)
             task_name = task.name
             task.slug = slugify_translit(task_name)
+            task.status = Status.objects.get_or_create(name='Новая')[0]
             task.stage_id = 1
             task = form.save()
             task_slug = task.slug
@@ -174,87 +160,6 @@ class CreateTask(
                 'Задача с таким названием уже существует.',
             )
             return self.form_invalid(form)
-
-
-class UpdateTask(
-    LoginRequiredMixin, SuccessMessageMixin[Any], UpdateView[Task, Any]
-):
-    model = Task
-    template_name = 'tasks/update_task.html'
-    form_class = TaskForm
-    success_message = gettext_lazy('Задача успешно изменена')
-    success_url = reverse_lazy('tasks:list')
-    error_message = gettext_lazy(
-        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
-    )
-    no_permission_url = reverse_lazy('login')
-    query_pk_and_slug = True
-    slug_field = 'slug'
-    slug_url_kwarg = 'slug'
-
-    def get_form_kwargs(self) -> dict[str, Any]:
-        kwargs = super().get_form_kwargs()
-        kwargs['request'] = self.request
-        return kwargs
-
-    def form_valid(self, form: TaskForm) -> HttpResponse:
-        task: Task = form.save(commit=False)
-        task_name = task.name
-        task.slug = slugify_translit(task_name)
-        task = form.save()
-        task_slug = task.slug
-        deadline = task.deadline
-        reminder_periods = form.cleaned_data['reminder_periods']
-        task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
-        task_image_path = task.image.path if task.image else None
-        if deadline and reminder_periods:
-            notify(
-                task_name,
-                reminder_periods,
-                deadline,
-                task_image_path,
-                task_url,
-            )
-        send_about_updating_task.delay(task_name, task_url)
-        return super().form_valid(form)
-
-
-class UpdateStageView(UpdateView):
-    template_name = 'tasks/kanban.html'
-    model = Stage
-
-    def post(self, request, *args, **kwargs):
-        try:
-            data = json.loads(request.body)
-            new_name = data.get('name')
-            stage_id = data.get('stage_id')
-
-            stage = Stage.objects.get(pk=stage_id)
-            stage.name = new_name
-            stage.save()
-
-            return JsonResponse(
-                {
-                    'status': 'success',
-                    'new_name': new_name,
-                }
-            )
-        except Stage.DoesNotExist:
-            return JsonResponse(
-                {
-                    'status': 'error',
-                    'message': 'Stage not found',
-                },
-                status=404,
-            )
-        except Exception as e:
-            return JsonResponse(
-                {
-                    'status': 'error',
-                    'message': str(e),
-                },
-                status=400,
-            )
 
 
 class DeleteTask(  # type: ignore
@@ -294,7 +199,7 @@ class DeleteTask(  # type: ignore
 
 class CloseTask(View):
     model = Task
-    template_name = 'tasks/list_tasks.html'
+    template_name = 'tasks/kanban.html'
     form_class = TaskForm
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
@@ -317,11 +222,15 @@ class CloseTask(View):
             )
             if task.state:
                 send_about_closing_task.delay(task.name, task_url)
+                task.status = Status.objects.get_or_create(name='Закрыта')[0]
                 task.save()
             else:
                 send_about_opening_task.delay(task.name, task_url)
+                task.status = Status.objects.get_or_create(
+                    name='Открыта заново'
+                )[0]
                 task.save()
-        return redirect('tasks:list')
+        return redirect('tasks:kanban')
 
 
 class TaskView(

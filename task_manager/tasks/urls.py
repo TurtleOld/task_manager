@@ -7,7 +7,6 @@ from task_manager.tasks.views import (
     CloseTask,
     DownloadFileView,
     CreateTask,
-    UpdateTask,
     DeleteTask,
     TaskView,
     KanbanBoard,
@@ -34,7 +33,6 @@ urlpatterns = [
     ),
     path('create/', CreateTask.as_view(), name='create'),
     path('create-stage/', CreateStageView.as_view(), name='create_stage'),
-    path('<slug:slug>/update/', UpdateTask.as_view(), name='update_task'),
     path('<slug:slug>/delete/', DeleteTask.as_view(), name='delete_task'),
     path(
         'kanban/<int:pk>/delete/',

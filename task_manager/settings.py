@@ -40,8 +40,6 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split() or []
 
 CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '').split() or []
 
-# Application definition
-
 INSTALLED_APPS = [
     'locale',
     'django.contrib.admin',
@@ -50,7 +48,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'bootstrap4',
+    'crispy_forms',
+    'crispy_bulma',
     'task_manager',
     'task_manager.users',
     'task_manager.tasks',
@@ -228,6 +227,9 @@ BOOTSTRAP4 = {
     'horizontal_label_class': 'col-md-2',
 }
 
+# Crispy Forms
+CRISPY_ALLOWED_TEMPLATE_PACKS = ("bulma",)
+CRISPY_TEMPLATE_PACK = "bulma"
 
 # Secure
 if not DEBUG:
