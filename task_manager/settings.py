@@ -91,7 +91,7 @@ if os.environ.get('GITHUB_WORKFLOW'):
             'PORT': '5432',
         },
     }
-    
+
 CONN_MAX_AGE = 500
 if os.getenv('DATABASE_URL'):
     DATABASES['default'] = dj_database_url.config(conn_max_age=CONN_MAX_AGE)  # type: ignore
