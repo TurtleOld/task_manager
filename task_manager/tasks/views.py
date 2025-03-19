@@ -22,7 +22,6 @@ from django.utils.translation import gettext, gettext_lazy
 from django.views import View
 from django.views.generic import (
     CreateView,
-    UpdateView,
     DeleteView,
     DetailView,
 )
@@ -37,7 +36,6 @@ from task_manager.tasks.tasks import (
     send_about_closing_task,
     send_about_opening_task,
     send_message_about_adding_task,
-    send_about_updating_task,
     send_about_deleting_task,
 )
 
@@ -48,7 +46,7 @@ class TasksList(
     FilterView[Task],
 ):
     model = Task
-    template_name = 'tasks/list_tasks.html'
+    template_name = 'tasks/kanban.html'
     context_object_name = 'tasks'
     filterset_class = TasksFilter
     error_message = gettext_lazy(
@@ -114,7 +112,7 @@ class CreateTask(
     template_name = 'tasks/create_task.html'
     form_class = TaskForm
     success_message = gettext_lazy('Задача успешно создана')
-    success_url = reverse_lazy('tasks:list')
+    success_url = reverse_lazy('tasks:kanban')
     error_message = gettext_lazy(
         'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
@@ -164,49 +162,6 @@ class CreateTask(
             return self.form_invalid(form)
 
 
-class UpdateTask(
-    LoginRequiredMixin, SuccessMessageMixin[Any], UpdateView[Task, Any]
-):
-    model = Task
-    template_name = 'tasks/update_task.html'
-    form_class = TaskForm
-    success_message = gettext_lazy('Задача успешно изменена')
-    success_url = reverse_lazy('tasks:list')
-    error_message = gettext_lazy(
-        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
-    )
-    no_permission_url = reverse_lazy('login')
-    query_pk_and_slug = True
-    slug_field = 'slug'
-    slug_url_kwarg = 'slug'
-
-    def get_form_kwargs(self) -> dict[str, Any]:
-        kwargs = super().get_form_kwargs()
-        kwargs['request'] = self.request
-        return kwargs
-
-    def form_valid(self, form: TaskForm) -> HttpResponse:
-        task: Task = form.save(commit=False)
-        task_name = task.name
-        task.slug = slugify_translit(task_name)
-        task = form.save()
-        task_slug = task.slug
-        deadline = task.deadline
-        reminder_periods = form.cleaned_data['reminder_periods']
-        task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
-        task_image_path = task.image.path if task.image else None
-        if deadline and reminder_periods:
-            notify(
-                task_name,
-                reminder_periods,
-                deadline,
-                task_image_path,
-                task_url,
-            )
-        send_about_updating_task.delay(task_name, task_url)
-        return super().form_valid(form)
-
-
 class DeleteTask(  # type: ignore
     LoginRequiredMixin,
     SuccessMessageMixin[Any],
@@ -214,7 +169,7 @@ class DeleteTask(  # type: ignore
 ):
     model = Task
     template_name = 'tasks/delete_task.html'
-    success_url = reverse_lazy('tasks:list')
+    success_url = reverse_lazy('tasks:kanban')
     success_message = gettext_lazy('Задача успешно удалена')
     error_message = (
         gettext_lazy('Вы не можете удалить статус, потому что он используется'),
@@ -244,7 +199,7 @@ class DeleteTask(  # type: ignore
 
 class CloseTask(View):
     model = Task
-    template_name = 'tasks/list_tasks.html'
+    template_name = 'tasks/kanban.html'
     form_class = TaskForm
     slug_field = 'slug'
     slug_url_kwarg = 'slug'
@@ -275,7 +230,7 @@ class CloseTask(View):
                     name='Открыта заново'
                 )[0]
                 task.save()
-        return redirect('tasks:list')
+        return redirect('tasks:kanban')
 
 
 class TaskView(

@@ -1,13 +1,13 @@
 {% extends '../base.html' %}
-{% load bootstrap4 %}
+{% load crispy_forms_tags %}
 {% load i18n %}
+
 {% block content %}
-    <h1 class="my-4">{% translate 'Страница входа в ваш аккаунт' %}</h1>
+    <h1 class="title">{% translate 'Страница входа в ваш аккаунт' %}</h1>
     <form method="post">
         {% csrf_token %}
-        <p>
-            {% bootstrap_form form %}
-        </p>
-        {% bootstrap_button button_text_user_signin button_type="submit" button_class="btn btn-primary" %}
+            {{ form | crispy }}
+        <button type="submit" class="button">Войти</button>
+
     </form>
 {% endblock %}

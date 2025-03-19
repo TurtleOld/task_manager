@@ -1,13 +1,6 @@
 {{ '<' }}{{'!doctype html>'}}
-{# Load the tag library #}
-{% load bootstrap4 %}
-
-{# Load CSS and JavaScript #}
-{% bootstrap_css %}
-{% bootstrap_javascript %}
 {% load i18n %}
 {% load static %}
-
 
 {% translate 'Создать' as button_text_create %}
 {% translate 'Изменить' as button_text_update %}
@@ -34,6 +27,10 @@
     <meta charset="utf-8">
     <meta name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css"
+    >
     <link rel="icon" href="{% static 'favicon/favicon.ico' %}" type="image/x-icon">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <title>{% block title %}{% endblock %} - Task Manager</title>
@@ -53,7 +50,7 @@
         </div>
     {% endfor %}
 {% endif %}
-<div class="container mb-5">
+<div class="container">
     {% block content %}
     {% endblock %}
 </div>

@@ -1,5 +1,5 @@
 {% extends '../base.html' %}
-{% load bootstrap4 %}
+{% load crispy_forms_tags %}
 {% load i18n %}
 
 {% block content %}
@@ -7,8 +7,8 @@
     <form method="POST">
         {% csrf_token %}
         <p>
-            {% bootstrap_form form %}
+            {{ form | crispy }}
         </p>
-        {% bootstrap_button button_text_user_create button_type="submit" button_class="btn btn-primary" %}
+        <button type="submit" class="button">{% translate 'Зарегистрироваться' %}</button>
     </form>
 {% endblock %}

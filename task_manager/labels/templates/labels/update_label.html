@@ -1,5 +1,5 @@
 {% extends '../base.html' %}
-{% load bootstrap4 %}
+{% load crispy_forms_tags %}
 {% load i18n %}
 
 
@@ -9,7 +9,7 @@
     <h1 class="my-4">{% translate 'Обновление метки' %}</h1>
     <form method="post">
         {% csrf_token %}
-        {% bootstrap_form form %}
-        {% bootstrap_button button_text_update button_type="submit" button_class="btn btn-primary"  %}
+        {{ form | crispy }}
+        <button type="submit" class="button">{% translate 'Обновить метку' %}</button>
     </form>
 {% endblock %}

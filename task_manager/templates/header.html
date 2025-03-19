@@ -1,62 +1,59 @@
 {% load i18n %}
 {% load static %}
 
-<nav class="navbar navbar-expand-lg mb-3 border-1 border-bottom">
-    <div class="container-fluid">
-        <a href="/" class="navbar-brand ms-md-3">
-            {% translate 'Менеджер задач'%}
-        </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
-                data-bs-target="#navbarToggleExternalContent"
-                aria-controls="navbarSupportedContent" aria-expanded="false"
-                aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div id="navbarToggleExternalContent" class="collapse navbar-collapse">
-            <ul class="navbar-nav me-auto d-flex align-items-center">
+<nav class="navbar">
+    <div class="container is-fullhd">
+        <div class="navbar-brand">
+            <a href="/" class="navbar-item">
+                {% translate 'Менеджер задач'%}
+            </a>
+            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+            </a>
+        </div>
+        <div class="navbar-menu">
+            <div class="navbar-start">
                 {% if user.is_authenticated %}
-                <li class="nav-item">
-                    <a href="{% url 'users:list' %}"
-                       class="nav-link my-0 mr-md-auto">
-                        {%translate 'Пользователи' %}
+                    <a href="{% url 'users:list' %}" class="navbar-item">
+                        {% translate 'Пользователи' %}
                     </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{% url 'labels:list' %}"
-                       class="nav-link my-0 mr-md-auto">
+                    <a href="{% url 'labels:list' %}" class="navbar-item">
                         {% translate 'Метки' %}
                     </a>
-                </li>
-                <li class="nav-item">
-                    <a href="{% url 'tasks:list' %}"
-                       class="nav-link my-0 mr-md-auto">
+                    <a href="{% url 'tasks:kanban' %}" class="navbar-item">
                         {% translate 'Задачи' %}
                     </a>
-                </li>
                 {% endif %}
-            </ul>
-            <ul class="navbar-nav d-flex align-items-center">
-                {% if user.is_authenticated %}
-                <form action="{% url 'users:switch_theme_mode' %}" method="POST">
-                    {% csrf_token %}
-                    <button type="submit" class="btn me-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-brilliance" viewBox="0 0 16 16">
-                            <path d="M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16M1 8a7 7 0 0 0 7 7 3.5 3.5 0 1 0 0-7 3.5 3.5 0 1 1 0-7 7 7 0 0 0-7 7"/>
-                        </svg>
-                    </button>
-                </form>
-                <li class="nav-item">
-                    {{ user.username }}
-                </li>
-                <li class="nav-item">
-                    <form action="/logout/" method="post">
-                        {% csrf_token %}
-                        <input type="submit" class="me-md-5 btn nav-link"
-                            value="{% translate 'Выход' %}">
-                    </form>
-                </li>
-                {% endif %}
-            </ul>
+            </div>
+            <div class="navbar-end">
+                <div class="navbar-item">
+                    <div class="buttons">
+                        {% if user.is_authenticated %}
+                            <form action="{% url 'users:switch_theme_mode' %}" method="POST">
+                                {% csrf_token %}
+                                <button type="submit" class="btn me-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-brilliance" viewBox="0 0 16 16">
+                                        <path d="M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16M1 8a7 7 0 0 0 7 7 3.5 3.5 0 1 0 0-7 3.5 3.5 0 1 1 0-7 7 7 0 0 0-7 7"/>
+                                    </svg>
+                                </button>
+                            </form>
+                            <div class="navbar-item">
+                                {{ user.username }}
+                            </div>
+                            <form action="/logout/" method="post">
+                                {% csrf_token %}
+                                <input type="submit" class="me-md-5 button"
+                                    value="{% translate 'Выйти' %}">
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </nav>
