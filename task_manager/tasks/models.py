@@ -127,7 +127,7 @@ class Task(models.Model):
     )
     labels = models.ManyToManyField(Label, related_name='tasks', blank=True)
     stage = models.ForeignKey(
-        'Stage',
+        Stage,
         related_name='tasks',
         on_delete=models.CASCADE,
         null=True,
