@@ -27,7 +27,6 @@ from django.views.generic import (
 )
 from django_filters.views import FilterView
 
-from task_manager.statuses.models import Status
 from task_manager.tasks.forms import TaskForm, TasksFilter
 from task_manager.tasks.models import ChecklistItem, Task, Stage
 from task_manager.tasks.services import notify, slugify_translit
@@ -75,7 +74,7 @@ class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     model = Stage
     template_name = 'tasks/create_stage.html'
     fields = '__all__'
-    success_url = reverse_lazy('tasks:kanban')
+    success_url = reverse_lazy('tasks:list')
 
 
 class UpdateTaskOrderView(View):
@@ -112,7 +111,7 @@ class CreateTask(
     template_name = 'tasks/create_task.html'
     form_class = TaskForm
     success_message = gettext_lazy('Задача успешно создана')
-    success_url = reverse_lazy('tasks:kanban')
+    success_url = reverse_lazy('tasks:list')
     error_message = gettext_lazy(
         'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
@@ -130,7 +129,6 @@ class CreateTask(
             task = form.save(commit=False)
             task_name = task.name
             task.slug = slugify_translit(task_name)
-            task.status = Status.objects.get_or_create(name='Новая')[0]
             task.stage_id = 1
             task = form.save()
             task_slug = task.slug
@@ -222,15 +220,11 @@ class CloseTask(View):
             )
             if task.state:
                 send_about_closing_task.delay(task.name, task_url)
-                task.status = Status.objects.get_or_create(name='Закрыта')[0]
                 task.save()
             else:
                 send_about_opening_task.delay(task.name, task_url)
-                task.status = Status.objects.get_or_create(
-                    name='Открыта заново'
-                )[0]
                 task.save()
-        return redirect('tasks:kanban')
+        return redirect('tasks:list')
 
 
 class TaskView(

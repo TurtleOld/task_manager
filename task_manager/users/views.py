@@ -24,7 +24,7 @@ from task_manager.users.forms import RegisterUserForm, AuthUserForm
 class IndexView(TemplateView):
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
-            return redirect('tasks:kanban')
+            return redirect('tasks:list')
         return redirect('login')
 
 
