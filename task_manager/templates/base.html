@@ -5,10 +5,6 @@
 {% translate 'Создать' as button_text_create %}
 {% translate 'Изменить' as button_text_update %}
 
-{% translate 'Создание статуса' as title_statuses_create %}
-{% translate 'Изменение статуса' as title_statuses_update %}
-
-
 {% translate 'Создание метки' as title_label_create %}
 {% translate 'Изменение метки' as title_label_update %}
 
@@ -32,6 +28,7 @@
       href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css"
     >
     <link rel="icon" href="{% static 'favicon/favicon.ico' %}" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <title>{% block title %}{% endblock %} - Task Manager</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>

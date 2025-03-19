@@ -5,9 +5,9 @@
 {% block content %}
     <title>{{ title_statuses_update }}</title>
     <h1 class="my-4">{% translate 'Изменить статус' %}</h1>
-    <form method="POST">
+    <form method="post">
         {% csrf_token %}
-        {{ form | crispy }}
-        <button class="button" type="submit">{% translate 'Обновить' %}</button>
+        {% bootstrap_form form %}
+        {% bootstrap_button button_text_update button_type="submit" button_class="btn btn-primary"  %}
     </form>
 {% endblock %}

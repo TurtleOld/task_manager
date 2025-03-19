@@ -169,7 +169,7 @@ class DeleteTask(  # type: ignore
 ):
     model = Task
     template_name = 'tasks/delete_task.html'
-    success_url = reverse_lazy('tasks:kanban')
+    success_url = reverse_lazy('tasks:list')
     success_message = gettext_lazy('Задача успешно удалена')
     error_message = (
         gettext_lazy('Вы не можете удалить статус, потому что он используется'),

@@ -24,11 +24,6 @@ from task_manager.users.webhooks import webhooks
 urlpatterns = [
     path('', IndexView.as_view(), name='index'),
     path('users/', include('task_manager.users.urls'), name='users_list'),
-    path(
-        'statuses/',
-        include('task_manager.statuses.urls'),
-        name='statuses_list',
-    ),
     path('labels/', include('task_manager.labels.urls'), name='labels_list'),
     path(
         'tasks/',

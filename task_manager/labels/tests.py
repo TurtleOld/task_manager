@@ -2,18 +2,15 @@ from django.test import TestCase
 from django.urls import reverse_lazy, reverse
 
 from task_manager.labels.models import Label
-from task_manager.statuses.models import Status
 from task_manager.tasks.models import Task
 from task_manager.users.models import User
 
 
-class TestStatus(TestCase):
-    fixtures = ['users.yaml', 'statuses.yaml', 'tasks.yaml', 'labels.yaml']
+class TestLabel(TestCase):
+    fixtures = ['users.yaml', 'tasks.yaml', 'labels.yaml']
 
     def setUp(self) -> None:
         self.user = User.objects.get(pk=1)
-        self.status1 = Status.objects.get(pk=1)
-        self.status2 = Status.objects.get(pk=2)
         self.task1 = Task.objects.get(pk=1)
         self.task2 = Task.objects.get(pk=2)
 
@@ -38,8 +35,8 @@ class TestStatus(TestCase):
         )
 
         self.assertRedirects(new_data, '/labels/')
-        created_status = Label.objects.get(name=name_new_label['name'])
-        self.assertEqual(created_status.name, 'Новая метка')
+        created_label = Label.objects.get(name=name_new_label['name'])
+        self.assertEqual(created_label.name, 'Новая метка')
 
     def test_change_label(self) -> None:
         self.client.force_login(self.user)
@@ -66,6 +63,6 @@ class TestStatus(TestCase):
 
         self.assertRedirects(response, '/labels/')
 
-    def test_status_list_without_authorization(self) -> None:
+    def test_label_list_without_authorization(self) -> None:
         response = self.client.get(reverse_lazy('labels:list'))
         self.assertRedirects(response, '/login/?next=/labels/')

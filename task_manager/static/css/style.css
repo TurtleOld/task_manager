@@ -2,6 +2,19 @@
     display: none !important;
 }
 
+.remove-stage {
+    margin-top: .1rem;
+    margin-right: .1rem;
+}
+
+.task {
+    transition: background-color 0.3s ease;
+}
+
+.task:hover {
+    background-color: #8A2BE2;
+}
+
 @media only screen and (max-width: 1400px) {
     .card-mobile {
         display: flex !important;

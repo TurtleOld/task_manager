@@ -2,30 +2,118 @@
 {% load crispy_forms_tags %}
 {% load i18n %}
 
+{% block title %}{% translate 'Список задач' %}{% endblock %}
+
 {% block content %}
 <div class="row">
     <div class="col-1">
-        <a class="btn btn-outline-primary mb-1" href="{% url 'tasks:create_stage' %}">Создать колонку</a>
-        <a class="btn btn-outline-primary" href="{% url 'tasks:create' %}">Создать задачу</a>
+        <a class="btn btn-sm btn-outline-primary" href="{% url 'tasks:create' %}">
+            Создать задачу
+        </a>
     </div>
-        <div class="col-10 d-flex justify-content-around">
-            {% for stage in stages %}
-                <div class="stage" data-stage-id="{{ stage.pk }}">
-                    <h5 class="border text-center ps-5 pe-5 pt-1 pb-1" >{{ stage.name }}</h5>
-                    <ul id="stage-{{ stage.pk }}" class="task-list">
-                        <!-- Цикл по задачам -->
-                        {% for task in stage.tasks.all %}
-                            <li data-task-id="{{ task.pk }}" data-old-stage-id="{{ stage.pk }}">{{ task.name }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            {% endfor %}
+    <div class="stages-container col-10 d-flex justify-content-around">
+        {% for stage in stages %}
+        <div class="stage position-relative" data-stage-id="{{ stage.pk }}">
+            <div class="drag-handle">
+                <h5 class="border text-center ps-5 pe-5 pt-1 pb-1" onblur="updateStageName(this)" data-stage-pk="{{ stage.pk }}" contenteditable>{{ stage.name }}</h5>
+                <a class="remove-stage position-absolute end-0 top-0 btn btn-sm btn-outline-danger border-0"
+                   href="{% url 'tasks:delete_stage' stage.pk %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16"
+                         height="16" fill="currentColor" class="bi bi-x"
+                         viewBox="0 0 16 16">
+                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+                    </svg>
+                </a>
+            </div>
+            <ul id="stage-{{ stage.pk }}" class="task-list list-group">
+                {% for task in stage.tasks.all %}
+                    <li class="list-group-item task border-1 rounded-3 mb-1 d-flex align-items-center" data-task-id="{{ task.pk }}" data-old-stage-id="{{ stage.pk }}">
+                        <a class="text-decoration-none text-body" href="{% url 'tasks:view_task' task.slug %}">
+                            <i class="bi bi-calendar-check"></i>
+                            {{ task.name }}
+                            <div class="small d-flex align-items-center">
+                                <i class="bi bi-person-fill me-1"></i>
+                                {{ task.executor }}
+                            </div>
+                        </a>
+
+                    </li>
+                {% endfor %}
+            </ul>
         </div>
+        {% endfor %}
+    </div>
+    <div class="col-1">
+        <a class="btn btn-sm btn-outline-primary mb-1"
+           href="{% url 'tasks:create_stage' %}">Создать колонку</a>
+    </div>
 </div>
 
 <script>
-    document.querySelectorAll('.task-list').forEach(function(list) {
-        new Sortable(list, {
+function updateStageName(element) {
+    const stageId = element.getAttribute('data-stage-pk');
+    const newName = element.innerText;
+
+    fetch(`update-stage/${stageId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+        },
+        body: JSON.stringify({ name: newName, stage_id: stageId }),
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .catch(error => {
+        console.error('Error updating stage:', error);
+    });
+}
+
+// Функция для получения CSRF-токена
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const stagesContainer = document.querySelector('.stages-container');
+    new Sortable(stagesContainer, {
+        handle: '.drag-handle',
+        animation: 150,
+        onEnd: function(evt) {
+            const itemEl = evt.item;
+            const stageId = itemEl.getAttribute('data-stage-id');
+            const newIndex = Array.prototype.indexOf.call(itemEl.parentElement.children, itemEl);
+            fetch("{% url 'tasks:update_stage_order' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    stage_id: stageId,
+                    order: newIndex + 1
+                })
+            })
+        }
+    });
+    document.querySelectorAll('.task-list').forEach(function(taskList) {
+        new Sortable(taskList, {
             group: 'tasks',
             animation: 150,
             onEnd: function(evt) {
@@ -34,11 +122,7 @@
                 const newStageId = newStageContainer.getAttribute('data-stage-id');
                 const oldStageId = itemEl.getAttribute('data-old-stage-id');
                 itemEl.setAttribute('data-old-stage-id', newStageId);
-                const tasks = Array.from(itemEl.parentNode.children).map((li, index) => ({
-                    task_id: li.getAttribute('data-task-id'),
-                    stage_id: li.getAttribute('data-old-stage-id') || newStageId,
-                    order: index + 1
-                }));
+                const newOrder = Array.prototype.indexOf.call(itemEl.parentNode.children, itemEl) + 1;
 
                 fetch("{% url 'tasks:update_task_order' %}", {
                     method: 'POST',
@@ -46,10 +130,18 @@
                         'Content-Type': 'application/json',
                         'X-CSRFToken': '{{ csrf_token }}'
                     },
-                    body: JSON.stringify({ tasks: tasks })
+                    body: JSON.stringify({
+                        task_id: itemEl.getAttribute('data-task-id'),
+                        old_stage_id: oldStageId,
+                                new_stage_id: newStageId,
+                        order: newOrder
+                    })
                 })
             }
         });
     });
+});
 </script>
+
+
 {% endblock %}
