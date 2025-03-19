@@ -5,9 +5,9 @@
 {% block title %}{% translate 'Список задач' %}{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-1">
-        <a class="btn btn-sm btn-outline-primary" href="{% url 'tasks:create' %}">
+<div class="grid">
+    <div class="is-col-min-1">
+        <a class="button" href="{% url 'tasks:create' %}">
             Создать задачу
         </a>
     </div>
@@ -35,8 +35,8 @@
         </div>
         {% endfor %}
     </div>
-    <div class="col-1">
-        <a class="btn btn-sm btn-outline-primary mb-1"
+    <div class="is-col-min-1">
+        <a class="button"
            href="{% url 'tasks:create_stage' %}">Создать колонку</a>
     </div>
 </div>
