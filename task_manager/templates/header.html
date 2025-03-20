@@ -4,7 +4,7 @@
 <nav class="navbar">
     <div class="container is-fluid">
         <div class="navbar-brand">
-            <a href="/" class="navbar-item">
+            <a href="/" class="navbar-item title mb-2">
                 {% translate 'Менеджер задач'%}
             </a>
             <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
@@ -34,7 +34,7 @@
                 <div class="navbar-item">
                     <div class="buttons">
                         {% if user.is_authenticated %}
-                            <form action="{% url 'users:switch_theme_mode' %}" method="POST">
+                            <form class="mt-1" action="{% url 'users:switch_theme_mode' %}" method="POST">
                                 {% csrf_token %}
                                 <button type="submit" class="btn me-1">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-brilliance" viewBox="0 0 16 16">
