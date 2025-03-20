@@ -35,3 +35,41 @@
     font-size: 1.5rem; /* Переопределяем размер для мобильных устройств */
   }
 }
+
+.kanban-column {
+    min-height: 0;
+    padding: 10px;
+    background-color: var(--bulma-scheme-main);
+}
+
+.kanban-column:hover {
+    border-color: #00d1b2;
+}
+
+/* Стиль для колонок */
+.kanban-box {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-top: 4px solid transparent; /* Прозрачная граница по умолчанию */
+}
+
+.column[data-stage-id="1"] .kanban-box {
+    border-top-color: #00d1b2; /* Синяя граница для первой колонки */
+}
+
+.column[data-stage-id="2"] .kanban-box {
+    border-top-color: #ff3860; /* Красная граница для второй колонки */
+}
+
+.column[data-stage-id="3"] .kanban-box {
+    border-top-color: #209cee; /* Голубая граница для третьей колонки */
+}
+
+.column[data-stage-id="4"] .kanban-box {
+    border-top-color: #ffdd57; /* Жёлтая граница для четвертой колонки */
+}
+
+/* Стиль для задач */
+.kanban-task.box {
+    border-top: none; /* Убираем границу у задач */
+}

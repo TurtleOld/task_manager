@@ -30,10 +30,11 @@
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css"
     >
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <title>{% block title %}{% endblock %} - Task Manager</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
 </head>
-<body data-theme="{{ theme_mode }}">
+<body data-theme="{{ theme_mode }}" x-data="{ dragging: null }">
 {% include "header.html" %}
 
 {% if messages %}
