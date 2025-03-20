@@ -5,14 +5,22 @@
 {% block title %}{% translate 'Создание задачи' %}{% endblock %}
 
 {% block content %}
-    <title>{{ title_task_create }}</title>
-    <h1 class="my-4">{% translate 'Создать задачу' %}</h1>
-
-    <!-- Основная форма для создания задачи -->
-    <form method="post" enctype="multipart/form-data" class="form-horizontal">
-        {% csrf_token %}
-        {{ form | crispy }}
-        <button type="submit" class="button">Создать</button>
-    </form>
-
+    <div class="section">
+        <div class="container">
+            <div class="columns is-mobile">
+                <div class="column">
+                    <h1 class="title is-size-3-mobile has-text-success-70 mt-1">{% translate 'Создать задачу' %}</h1>
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form | crispy }}
+                        <button type="submit" class="button is-centered">Создать</button>
+                    </form>
+                </div>
+                <!-- /.column -->
+            </div>
+            <!-- /.columns -->
+        </div>
+        <!-- /.container -->
+    </div>
+    <!-- /.section -->
 {% endblock %}
