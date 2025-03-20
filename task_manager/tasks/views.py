@@ -11,6 +11,7 @@ from django.http import (
     HttpRequest,
     HttpResponse,
     JsonResponse,
+    HttpResponseRedirect,
 )
 
 from django.contrib import messages
@@ -192,21 +193,18 @@ class CreateTask(
             return self.form_invalid(form)
 
 
+from django.http import JsonResponse
+
+
 class DeleteTask(
     LoginRequiredMixin,
-    SuccessMessageMixin[Any],
-    DeleteView[Task, Any],
+    SuccessMessageMixin,
+    DeleteView,
 ):
     model = Task
     template_name = 'tasks/delete_task.html'
     success_url = reverse_lazy('tasks:list')
-    success_message = gettext_lazy('Задача успешно удалена')
-    error_message = (
-        gettext_lazy('Вы не можете удалить статус, потому что он используется'),
-    )
-    no_permission_url = reverse_lazy('login')
-    slug_field = 'slug'
-    slug_url_kwarg = 'slug'
+    success_message = "Задача успешно удалена"
 
     def delete(self, request, *args, **kwargs):
         task = self.get_object()
@@ -223,9 +221,9 @@ class DeleteTask(
         send_about_deleting_task.delay(task_name)
         task.delete()
 
-        return JsonResponse(
-            {'success': True, 'message': str(self.success_message)}
-        )
+        messages.success(request, self.success_message)
+
+        return redirect(self.success_url)
 
     def form_invalid(self, form: ModelForm[Task]) -> HttpResponse:
         messages.error(

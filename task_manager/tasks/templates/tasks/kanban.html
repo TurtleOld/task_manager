@@ -11,44 +11,42 @@
     <!-- /.button is-primary -->
     <div class="columns is-multiline">
         {% for stage in stages %}
-        <div class="column is-one-quarter" data-stage-id="{{ stage.id }}">
-            <div class="box kanban-box">
-                <div
-                    class="kanban-column"
-                    @dragover="onDragOver($event)"
-                    @drop="drop($event, {{ stage.id }})"
-                >
-                    <div class="kanban-header">
-                        <h2 class="subtitle">{{ stage.name }}</h2>
-                    </div>
-                    {% if not stage.tasks.all %}
-                        <p class="has-text-centered has-text-grey-light empty-message">Пусто</p>
-                    {% endif %}
-                    {% for task in stage.tasks.all %}
+            <div class="column is-one-quarter" data-stage-id="{{ stage.id }}">
+                <div class="box kanban-box">
                     <div
-                        class="box mb-2 kanban-task"
-                        draggable="true"
-                        @dragstart="window.dragging = {{ task.id }}"
-                        @dragend="window.dragging = null"
-                        data-task-id="{{ task.id }}"
+                        class="kanban-column"
+                        @dragover="onDragOver($event)"
+                        @drop="drop($event, {{ stage.id }})"
                     >
-                        <div class="is-flex is-justify-content-space-between">
-                            <p>{{ task.name }}</p>
-                            <button
-                                class="delete-task button is-small is-danger"
-                                data-task-id="{{ task.id }}"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x-circle" viewBox="0 0 16 16">
-                                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
-                                  <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
-                                </svg>
-                            </button>
+                        <div class="kanban-header">
+                            <h2 class="subtitle">{{ stage.name }}</h2>
                         </div>
+                        {% if not stage.tasks.all %}
+                            <p class="has-text-centered has-text-grey-light empty-message">Пусто</p>
+                        {% endif %}
+                        {% for task in stage.tasks.all %}
+                            <div class="box mt-5 mb-2 kanban-task" data-task-id="{{ task.id }}">
+                                <div class="is-flex is-justify-content-space-between is-align-items-center">
+                                    <p>{{ task.name }}</p>
+                                    <form
+                                        action="{% url 'tasks:delete_task' task.pk %}"
+                                        method="POST"
+                                        onsubmit="return confirm('Вы уверены, что хотите удалить задачу \'{{ task.name }}\'?')"
+                                    >
+                                        {% csrf_token %}
+                                        <button type="submit" class="delete-task button is-small is-danger is-outlined">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x-circle" viewBox="0 0 16 16">
+                                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+                                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 </div>
             </div>
-        </div>
         {% endfor %}
     </div>
 </div>
@@ -133,44 +131,69 @@
     });
 </script>
 <script>
-    const deleteTaskBaseUrl = "{{ delete_task_base_url }}";
+document.addEventListener('DOMContentLoaded', () => {
+    document.body.addEventListener('htmx:afterRequest', (event) => {
+        const response = event.detail.xhr.response;
 
-    // AJAX для удаления задачи
-    document.addEventListener('DOMContentLoaded', () => {
-        document.querySelectorAll('.delete-task').forEach(button => {
-            button.addEventListener('click', (event) => {
-                event.preventDefault();
+        try {
+            const data = JSON.parse(response);
 
-                const taskId = button.dataset.taskId;
-                const taskElement = button.closest('.kanban-task');
-                const deleteTaskUrl = `${deleteTaskBaseUrl}/${taskId}/`;
+            if (data.success) {
+                // Находим задачу, которая была удалена
+                const taskElement = event.target.closest('.kanban-task');
+                if (!taskElement) {
+                    console.error('Task element not found');
+                    return;
+                }
 
-                fetch(deleteTaskUrl, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrftoken,
-                    },
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
+                // Удаляем задачу из DOM
+                taskElement.remove();
+
+                // Находим родительскую колонку через data-stage-id
+                const stageElement = taskElement.closest('[data-stage-id]');
+                if (!stageElement) {
+                    console.error('Stage element with data-stage-id not found');
+                    return;
+                }
+
+                const stageId = stageElement.getAttribute('data-stage-id');
+                if (!stageId) {
+                    console.error('data-stage-id attribute is missing');
+                    return;
+                }
+
+                // Находим колонку по ID
+                const column = document.querySelector(`[data-stage-id="${stageId}"] .kanban-column`);
+                if (!column) {
+                    console.error('Kanban column not found');
+                    return;
+                }
+
+                // Проверяем, остались ли задачи в колонке
+                const tasksInColumn = column.querySelectorAll('.kanban-task');
+
+                if (tasksInColumn.length === 0) {
+                    // Если задач нет, добавляем сообщение "Пусто"
+                    const emptyMessage = document.createElement('p');
+                    emptyMessage.className = 'has-text-centered has-text-grey-light empty-message';
+                    emptyMessage.textContent = 'Пусто';
+
+                    // Удаляем старое сообщение "Пусто", если оно уже есть
+                    const existingEmptyMessage = column.querySelector('.empty-message');
+                    if (existingEmptyMessage) {
+                        existingEmptyMessage.remove();
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        taskElement.remove();
-                        console.log(data.message);
-                    } else {
-                        console.error(data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Fetch error:', error);
-                });
-            });
-        });
+
+                    column.appendChild(emptyMessage);
+                }
+            } else {
+                // Ошибка удаления
+                alert(data.error);
+            }
+        } catch (error) {
+            console.error('Ошибка при обработке ответа:', error);
+        }
     });
+});
 </script>
 {% endblock %}

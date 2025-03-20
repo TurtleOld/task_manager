@@ -126,3 +126,8 @@ body[data-theme="dark"] textarea {
     background-color: #1e1e1e !important;
     border-color: #495057 !important;
 }
+
+/* убираем границы */
+.no-border {
+    border: none !important;
+}
