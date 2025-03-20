@@ -34,7 +34,7 @@
                 <div class="navbar-item">
                     <div class="buttons">
                         {% if user.is_authenticated %}
-                            <form class="mt-1" action="{% url 'users:switch_theme_mode' %}" method="POST">
+                            <form class="mt-1" id="theme-switch-form">
                                 {% csrf_token %}
                                 <button type="submit" class="btn me-1">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-brilliance" viewBox="0 0 16 16">
@@ -57,3 +57,30 @@
         </div>
     </div>
 </nav>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('theme-switch-form');
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            fetch("{% url 'users:switch_theme_mode' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({}),
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.body.setAttribute('data-theme', data.theme_mode);
+            })
+            .catch(error => {
+                console.error('Ошибка при переключении темы:', error);
+            });
+        });
+    });
+</script>
