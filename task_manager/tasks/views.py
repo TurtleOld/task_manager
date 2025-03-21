@@ -11,7 +11,6 @@ from django.http import (
     HttpRequest,
     HttpResponse,
     JsonResponse,
-    HttpResponseRedirect,
 )
 
 from django.contrib import messages
@@ -191,9 +190,6 @@ class CreateTask(
                 'Задача с таким названием уже существует.',
             )
             return self.form_invalid(form)
-
-
-from django.http import JsonResponse
 
 
 class DeleteTask(
