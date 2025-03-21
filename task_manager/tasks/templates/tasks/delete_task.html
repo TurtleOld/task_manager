@@ -1,14 +1,29 @@
-{% extends '../base.html' %}
-{% load i18n %}
-
-{% block title %}{% translate 'Удаление задачи' %}{% endblock %}
-
-{% block content %}
-    <title>{% translate 'Удаление задачи' %}</title>
-    <h1 class="my-4">{% translate 'Удаление задачи' %}</h1>
-    <p>{% translate 'Вы уверены, что хотите удалить задачу'%} <i>{{ task.name }}</i>?</p>
-    <form method="post" class="pb-4 pt-2">
-        {% csrf_token %}
-        <input class="btn btn-danger" type="submit" value="{% translate 'Да, удалить' %}">
-    </form>
-{% endblock %}
+<div class="modal is-active">
+    <div class="modal-background" hx-get="{% url 'tasks:cancel_delete_task' %}" hx-target="#confirmation-modal" hx-swap="innerHTML"></div>
+    <div class="modal-card">
+        <header class="modal-card-head">
+            <p class="modal-card-title">Подтверждение удаления</p>
+        </header>
+        <section class="modal-card-body">
+            Вы уверены, что хотите удалить задачу "{{ task.name }}"?
+        </section>
+        <footer class="modal-card-foot">
+            <button
+                class="button is-danger"
+                hx-delete="{% url 'tasks:delete_task' task.id %}"
+                hx-target="#confirmation-modal"
+                hx-swap="innerHTML"
+            >
+                Да, удалить
+            </button>
+            <button
+                class="button"
+                hx-get="{% url 'tasks:cancel_delete_task' %}"
+                hx-target="#confirmation-modal"
+                hx-swap="innerHTML"
+            >
+                Нет, отменить
+            </button>
+        </footer>
+    </div>
+</div>

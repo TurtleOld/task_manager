@@ -6,7 +6,12 @@ from django.views.generic import TemplateView
 from django.contrib import messages
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models import ProtectedError
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import (
+    HttpRequest,
+    HttpResponse,
+    HttpResponseRedirect,
+    JsonResponse,
+)
 from django.shortcuts import redirect
 from django.utils.translation import gettext, gettext_lazy
 from django_stubs_ext import StrPromise
@@ -124,13 +129,13 @@ class SwitchThemeMode(TemplateView):
     ) -> HttpResponse:
         current_user = User.objects.get(username=self.request.user.username)
 
+        # Переключаем тему
         if current_user.theme_mode == 'dark':
             current_user.theme_mode = 'light'
-        elif current_user.theme_mode == 'light':
-            current_user.theme_mode = 'dark'
         else:
             current_user.theme_mode = 'dark'
 
         current_user.save()
 
-        return redirect(request.META.get('HTTP_REFERER', '/'))
+        # Возвращаем JSON с новой темой
+        return JsonResponse({'theme_mode': current_user.theme_mode})
