@@ -131,3 +131,9 @@ body[data-theme="dark"] textarea {
 .no-border {
     border: none !important;
 }
+
+.is-dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+    border: 2px dashed #ccc;
+}

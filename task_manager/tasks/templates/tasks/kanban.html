@@ -25,7 +25,7 @@
                             <p class="has-text-centered has-text-grey-light empty-message">Пусто</p>
                         {% endif %}
                         {% for task in stage.tasks.all %}
-                            <div class="box mt-5 mb-2 kanban-task" data-task-id="{{ task.id }}">
+                            <div class="box mt-5 mb-2 kanban-task" data-task-id="{{ task.id }}" draggable="true">
                                 <div class="is-flex is-justify-content-space-between is-align-items-center">
                                     <p>{{ task.name }}</p>
                                     <form
@@ -75,7 +75,6 @@
     const csrftoken = getCookie('csrftoken');
     const updateTaskStageUrl = "{% url 'tasks:update_task_stage' %}";
 
-    // AJAX для перемещения задачи
     function drop(event, newStageId) {
         const taskId = window.dragging;
         if (!taskId) {
@@ -131,6 +130,25 @@
     });
 </script>
 <script>
+    document.addEventListener('DOMContentLoaded', () => {
+    document.body.addEventListener('dragstart', (event) => {
+        const taskElement = event.target.closest('.kanban-task');
+        if (taskElement) {
+            window.dragging = taskElement.getAttribute('data-task-id');
+            taskElement.classList.add('is-dragging');
+        }
+    });
+
+    document.body.addEventListener('dragend', (event) => {
+        const taskElement = event.target.closest('.kanban-task');
+        if (taskElement) {
+            taskElement.classList.remove('is-dragging');
+            window.dragging = null;
+        }
+    });
+});
+</script>
+<script>
 document.addEventListener('DOMContentLoaded', () => {
     document.body.addEventListener('htmx:afterRequest', (event) => {
         const response = event.detail.xhr.response;
@@ -146,10 +164,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                // Удаляем задачу из DOM
                 taskElement.remove();
 
-                // Находим родительскую колонку через data-stage-id
                 const stageElement = taskElement.closest('[data-stage-id]');
                 if (!stageElement) {
                     console.error('Stage element with data-stage-id not found');
@@ -162,23 +178,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                // Находим колонку по ID
                 const column = document.querySelector(`[data-stage-id="${stageId}"] .kanban-column`);
                 if (!column) {
                     console.error('Kanban column not found');
                     return;
                 }
 
-                // Проверяем, остались ли задачи в колонке
                 const tasksInColumn = column.querySelectorAll('.kanban-task');
 
                 if (tasksInColumn.length === 0) {
-                    // Если задач нет, добавляем сообщение "Пусто"
                     const emptyMessage = document.createElement('p');
                     emptyMessage.className = 'has-text-centered has-text-grey-light empty-message';
                     emptyMessage.textContent = 'Пусто';
 
-                    // Удаляем старое сообщение "Пусто", если оно уже есть
                     const existingEmptyMessage = column.querySelector('.empty-message');
                     if (existingEmptyMessage) {
                         existingEmptyMessage.remove();
@@ -187,7 +199,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     column.appendChild(emptyMessage);
                 }
             } else {
-                // Ошибка удаления
                 alert(data.error);
             }
         } catch (error) {
