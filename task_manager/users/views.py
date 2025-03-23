@@ -39,12 +39,6 @@ class ProfileUser(LoginRequiredMixin, ListView[User]):
     context_object_name = 'profile'
 
 
-class UsersList(LoginRequiredMixin, ListView[User]):
-    model = User
-    template_name = 'users/users.html'
-    context_object_name = 'users'
-
-
 class CreateUser(SuccessMessageMixin[Any], CreateView[User, Any]):
     model = User
     template_name = 'users/register.html'
