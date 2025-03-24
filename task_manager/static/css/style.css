@@ -132,8 +132,16 @@ body[data-theme="dark"] textarea {
     border: none !important;
 }
 
+/* Стили для анимации перетаскивания */
 .is-dragging {
     opacity: 0.5;
     transform: scale(0.95);
     border: 2px dashed #ccc;
+}
+
+/* Стили для сообщений */
+.alert {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
 }
