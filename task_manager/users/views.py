@@ -6,7 +6,12 @@ from django.views.generic import TemplateView
 from django.contrib import messages
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models import ProtectedError
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import (
+    HttpRequest,
+    HttpResponse,
+    HttpResponseRedirect,
+    JsonResponse,
+)
 from django.shortcuts import redirect
 from django.utils.translation import gettext, gettext_lazy
 from django_stubs_ext import StrPromise
@@ -32,12 +37,6 @@ class ProfileUser(LoginRequiredMixin, ListView[User]):
     model = User
     template_name = 'users/profile.html'
     context_object_name = 'profile'
-
-
-class UsersList(LoginRequiredMixin, ListView[User]):
-    model = User
-    template_name = 'users/users.html'
-    context_object_name = 'users'
 
 
 class CreateUser(SuccessMessageMixin[Any], CreateView[User, Any]):
@@ -72,12 +71,12 @@ class UpdateUser(
     model = User
     template_name = 'users/update.html'
     form_class = RegisterUserForm
-    success_url = reverse_lazy('users:list')
+    success_url = reverse_lazy('tasks:list')
     success_message = gettext_lazy('Пользователь успешно изменён')
     error_message = gettext_lazy(
         'У вас нет разрешения на изменение другого ' 'пользователя'
     )
-    no_permission_url = 'users:list'
+    no_permission_url = 'tasks:list'
 
     def test_func(self) -> Any:
         return self.request.user == self.get_object()
@@ -90,14 +89,14 @@ class DeleteUser(  # type: ignore
 ):
     model = User
     template_name = 'users/delete.html'
-    success_url = reverse_lazy('users:list')
+    success_url = reverse_lazy('tasks:list')
     success_message = gettext_lazy('Пользователь успешно удалён')
     error_message: StrPromise = gettext_lazy(
         'У вас нет разрешения на изменение другого '
         'пользователя, либо пользователь связан с '
         'задачей'
     )
-    no_permission_url = 'users:list'
+    no_permission_url = 'tasks:list'
 
     def form_valid(self, form: ModelForm[User]) -> HttpResponse:
         try:
@@ -124,13 +123,13 @@ class SwitchThemeMode(TemplateView):
     ) -> HttpResponse:
         current_user = User.objects.get(username=self.request.user.username)
 
+        # Переключаем тему
         if current_user.theme_mode == 'dark':
             current_user.theme_mode = 'light'
-        elif current_user.theme_mode == 'light':
-            current_user.theme_mode = 'dark'
         else:
             current_user.theme_mode = 'dark'
 
         current_user.save()
 
-        return redirect(request.META.get('HTTP_REFERER', '/'))
+        # Возвращаем JSON с новой темой
+        return JsonResponse({'theme_mode': current_user.theme_mode})

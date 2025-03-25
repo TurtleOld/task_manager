@@ -14,7 +14,7 @@ from django.http import (
 )
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -62,11 +62,19 @@ class KanbanBoard(
     template_name = 'tasks/kanban.html'
 
     def get(self, request, *args, **kwargs):
-        stages = Stage.objects.all()
+        stages = Stage.objects.prefetch_related('tasks').order_by('order')
+        delete_task_base_url = (
+            reverse_lazy('tasks:delete_task', args=['0'])
+            .replace('0', '')
+            .rstrip('/')
+        )
         return render(
             request,
             template_name=self.template_name,
-            context={'stages': stages},
+            context={
+                'stages': stages,
+                'delete_task_base_url': delete_task_base_url,
+            },
         )
 
 
@@ -75,6 +83,30 @@ class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
     template_name = 'tasks/create_stage.html'
     fields = '__all__'
     success_url = reverse_lazy('tasks:list')
+
+
+class UpdateTaskStageView(View):
+    def post(self, request, *args, **kwargs):
+        try:
+            # Получаем данные из тела запроса
+            data = json.loads(request.body)
+            task_id = data.get('task_id')
+            new_stage_id = data.get('new_stage_id')
+            if not task_id or not new_stage_id:
+                return JsonResponse(
+                    {'success': False, 'error': 'Invalid data'}, status=400
+                )
+            task = get_object_or_404(Task, id=task_id)
+            new_stage = get_object_or_404(Stage, id=new_stage_id)
+
+            # Обновляем этап задачи
+            task.stage = new_stage
+            task.save()
+
+            return JsonResponse({'success': True})
+        except Exception as e:
+            print(f"Error: {str(e)}")  # Отладочное сообщение
+            return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
 class UpdateTaskOrderView(View):
@@ -160,32 +192,37 @@ class CreateTask(
             return self.form_invalid(form)
 
 
-class DeleteTask(  # type: ignore
+class DeleteTask(
     LoginRequiredMixin,
-    SuccessMessageMixin[Any],
-    DeleteView[Task, Any],
+    SuccessMessageMixin,
+    UserPassesTestMixin,
+    DeleteView,
 ):
     model = Task
-    template_name = 'tasks/delete_task.html'
     success_url = reverse_lazy('tasks:list')
-    success_message = gettext_lazy('Задача успешно удалена')
-    error_message = (
-        gettext_lazy('Вы не можете удалить статус, потому что он используется'),
-    )
-    no_permission_url = reverse_lazy('login')
-    slug_field = 'slug'
-    slug_url_kwarg = 'slug'
+    success_message = "Задача успешно удалена"
 
-    def form_valid(self, form: ModelForm[Task]) -> HttpResponse:
+    def test_func(self):
         task = self.get_object()
-        if self.request.user != self.get_object().author:
-            return self.form_invalid(form)
-        else:
-            task_name = task.name
-            send_about_deleting_task.delay(task_name)
-            self.object.delete()
-            messages.success(self.request, self.success_message)
-            return redirect(self.success_url)
+        return self.request.user == task.author
+
+    def handle_no_permission(self):
+        messages.error(
+            self.request,
+            'Вы не можете удалить чужую задачу!',
+        )
+        return redirect(self.success_url)
+
+    def delete(self, request, *args, **kwargs):
+        task = self.get_object()
+
+        task_name = task.name
+        send_about_deleting_task.delay(task_name)
+        task.delete()
+
+        messages.success(request, self.success_message)
+
+        return redirect(self.success_url)
 
     def form_invalid(self, form: ModelForm[Task]) -> HttpResponse:
         messages.error(

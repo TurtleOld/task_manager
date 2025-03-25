@@ -1,3 +1,11 @@
+.container {
+    min-height: 100vh;
+}
+
+.section {
+    min-height: 100vh;
+}
+
 .card-mobile {
     display: none !important;
 }
@@ -22,4 +30,118 @@
     .table-desktop {
         display: none;
     }
+}
+
+@media screen and (max-width: 768px) {
+  .title.is-size-1 {
+    font-size: 2rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .title.is-size-1 {
+    font-size: 1.5rem;
+  }
+}
+
+.kanban-column {
+    min-height: 0;
+    padding: 10px;
+    background-color: var(--bulma-scheme-main);
+}
+
+.kanban-column:hover {
+    border-color: #00d1b2;
+}
+
+/* Стиль для колонок */
+.kanban-box {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-top: 4px solid transparent;
+}
+
+.column[data-stage-id="1"] .kanban-box {
+    border-top-color: #00d1b2;
+}
+
+.column[data-stage-id="2"] .kanban-box {
+    border-top-color: #ff3860;
+}
+
+.column[data-stage-id="3"] .kanban-box {
+    border-top-color: #209cee;
+}
+
+.column[data-stage-id="4"] .kanban-box {
+    border-top-color: #ffdd57;
+}
+
+.kanban-task.box {
+    border-top: none;
+}
+
+/* Светлая тема */
+body[data-theme="light"] {
+    background-color: #ffffff;
+    color: #000000;
+}
+
+body[data-theme="light"] label,
+body[data-theme="light"] .label {
+    color: #000000 !important;
+}
+
+body[data-theme="light"] input::placeholder,
+body[data-theme="light"] textarea::placeholder {
+    color: #6c757d !important;
+}
+
+body[data-theme="light"] textarea {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    border-color: #ced4da !important;
+}
+
+/* Темная тема */
+body[data-theme="dark"] {
+    background-color: #121212;
+    color: #ffffff;
+}
+
+body[data-theme="dark"] label,
+body[data-theme="dark"] .label {
+    color: #ffffff !important;
+}
+
+body[data-theme="dark"] input::placeholder,
+body[data-theme="dark"] textarea::placeholder {
+    color: #adb5bd !important;
+}
+
+body[data-theme="dark"] textarea {
+    color: #ffffff !important;
+    background-color: #1e1e1e !important;
+    border-color: #495057 !important;
+}
+
+
+
+/* убираем границы */
+.no-border {
+    border: none !important;
+}
+
+/* Стили для анимации перетаскивания */
+.is-dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+    border: 2px dashed #ccc;
+}
+
+/* Стили для сообщений */
+.alert {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
 }
