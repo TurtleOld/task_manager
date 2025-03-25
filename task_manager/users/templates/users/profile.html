@@ -1,18 +1,32 @@
 {% extends '../base.html' %}
-{% load bootstrap4 %}
+{% load crispy_forms_tags %}
 {% load i18n %}
 
 {% block title %}{% translate 'Профиль' %}{% endblock %}
 
 {% block content %}
-<div class="list-group">
-    <a href="{% url 'users:list' %}" class="list-group-item">
-        <i class="bi bi-people-fill"></i>
-        {%translate 'Пользователи' %}
-    </a>
-    <a href="{% url 'labels:list' %}" class="list-group-item">
+<div class="container">
+    <a href="{% url 'labels:list' %}" class="button has-background-info">
         <i class="bi bi-tags-fill"></i>
         {% translate 'Теги' %}
     </a>
+    <div class="container is-fullhd">
+        <div class="card mt-5">
+            <div class="card-content">
+                <div class="title">
+                    {% translate 'Пользователь' %}: {{ user.username }}
+                </div>
+                <!-- /.title -->
+                <ul>
+                    <li>{% translate 'Дата создания' %}: {{ user.date_joined | date:"d M Y H:m" }}</li>
+                    <li>{% translate 'Последний вход' %}: {{ user.last_login | date:"d M Y H:m" }}</li>
+                </ul>
+            </div>
+            <!-- /.content -->
+    </div>
+    <!-- /.card -->
+    </div>
+    <!-- /.container -->
+
 </div>
 {% endblock %}

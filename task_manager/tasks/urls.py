@@ -31,12 +31,12 @@ urlpatterns = [
     path('create/', CreateTask.as_view(), name='create'),
     path('create-stage/', CreateStageView.as_view(), name='create_stage'),
     path(
-        'delete/<int:pk>/',
+        'delete/<slug:slug>/',
         DeleteTask.as_view(),
         name='delete_task',
     ),
     path('<slug:slug>/close/', CloseTask.as_view(), name='close_task'),
     path('<slug:slug>', TaskView.as_view(), name='view_task'),
-    path('toggle/<int:id>/', ChecklistItemToggle.as_view(), name='toggle'),
+    path('toggle/<slug:slug>/', ChecklistItemToggle.as_view(), name='toggle'),
     path('download/<slug:slug>/', DownloadFileView.as_view(), name='download'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

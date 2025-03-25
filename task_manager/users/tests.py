@@ -47,4 +47,4 @@ class TestUser(TestCase):
         with self.assertRaises(User.DoesNotExist):
             User.objects.get(pk=user.id)
 
-        self.assertRedirects(response, '/login/?next=/users/')
+        self.assertRedirects(response, '/login/?next=/tasks/')

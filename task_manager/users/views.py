@@ -71,12 +71,12 @@ class UpdateUser(
     model = User
     template_name = 'users/update.html'
     form_class = RegisterUserForm
-    success_url = reverse_lazy('users:list')
+    success_url = reverse_lazy('tasks:list')
     success_message = gettext_lazy('Пользователь успешно изменён')
     error_message = gettext_lazy(
         'У вас нет разрешения на изменение другого ' 'пользователя'
     )
-    no_permission_url = 'users:list'
+    no_permission_url = 'tasks:list'
 
     def test_func(self) -> Any:
         return self.request.user == self.get_object()
@@ -89,14 +89,14 @@ class DeleteUser(  # type: ignore
 ):
     model = User
     template_name = 'users/delete.html'
-    success_url = reverse_lazy('users:list')
+    success_url = reverse_lazy('tasks:list')
     success_message = gettext_lazy('Пользователь успешно удалён')
     error_message: StrPromise = gettext_lazy(
         'У вас нет разрешения на изменение другого '
         'пользователя, либо пользователь связан с '
         'задачей'
     )
-    no_permission_url = 'users:list'
+    no_permission_url = 'tasks:list'
 
     def form_valid(self, form: ModelForm[User]) -> HttpResponse:
         try:

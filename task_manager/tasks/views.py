@@ -14,7 +14,7 @@ from django.http import (
 )
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
@@ -195,23 +195,26 @@ class CreateTask(
 class DeleteTask(
     LoginRequiredMixin,
     SuccessMessageMixin,
+    UserPassesTestMixin,
     DeleteView,
 ):
     model = Task
-    template_name = 'tasks/delete_task.html'
     success_url = reverse_lazy('tasks:list')
     success_message = "Задача успешно удалена"
 
+    def test_func(self):
+        task = self.get_object()
+        return self.request.user == task.author
+
+    def handle_no_permission(self):
+        messages.error(
+            self.request,
+            'Вы не можете удалить чужую задачу!',
+        )
+        return redirect(self.success_url)
+
     def delete(self, request, *args, **kwargs):
         task = self.get_object()
-        if self.request.user != task.author:
-            return JsonResponse(
-                {
-                    'success': False,
-                    'error': 'Вы не можете удалить чужую задачу!',
-                },
-                status=403,
-            )
 
         task_name = task.name
         send_about_deleting_task.delay(task_name)

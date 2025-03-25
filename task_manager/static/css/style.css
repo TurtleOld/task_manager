@@ -97,7 +97,6 @@ body[data-theme="light"] textarea::placeholder {
     color: #6c757d !important;
 }
 
-body[data-theme="light"] input,
 body[data-theme="light"] textarea {
     color: #000000 !important;
     background-color: #ffffff !important;
@@ -120,12 +119,13 @@ body[data-theme="dark"] textarea::placeholder {
     color: #adb5bd !important;
 }
 
-body[data-theme="dark"] input,
 body[data-theme="dark"] textarea {
     color: #ffffff !important;
     background-color: #1e1e1e !important;
     border-color: #495057 !important;
 }
+
+
 
 /* убираем границы */
 .no-border {

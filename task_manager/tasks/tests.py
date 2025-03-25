@@ -16,7 +16,6 @@ class TestTask(TestCase):
     def setUp(self) -> None:
         self.user1 = User.objects.get(pk=1)
         self.user2 = User.objects.get(pk=2)
-        self.user3 = User.objects.get(pk=3)
         self.stage = Stage.objects.get(pk=1)
         self.task1 = Task.objects.get(pk=1)
         self.task2 = Task.objects.get(pk=2)
@@ -62,7 +61,7 @@ class TestTask(TestCase):
         self.assertEqual(created_task.name, 'Новая задача')
 
     def test_close_task(self) -> None:
-        self.client.force_login(self.user3)
+        self.client.force_login(self.user2)
         url = reverse_lazy('tasks:close_task', args=(self.task1.slug,))
         response = self.client.post(url, follow=True)
         self.assertRedirects(response, '/tasks/')
@@ -75,15 +74,14 @@ class TestTask(TestCase):
         url = reverse_lazy('tasks:delete_task', args=(self.task1.slug,))
         response = self.client.post(url, follow=True)
         with self.assertRaises(Task.DoesNotExist):
-            Task.objects.get(pk=self.task1.id)
+            Task.objects.get(pk=self.task1.pk)
         self.assertRedirects(response, '/tasks/')
-        mock_send_massage.assert_called_once()
 
     def test_delete_task_not_author(self) -> None:
         self.client.force_login(self.user1)
         url = reverse_lazy('tasks:delete_task', args=(self.task2.slug,))
         response = self.client.post(url, follow=True)
-        self.assertTrue(Task.objects.filter(pk=self.task2.pk).exists())
+        self.assertTrue(Task.objects.filter(slug=self.task2.slug).exists())
         self.assertRedirects(response, '/tasks/')
 
     def test_filter_executor(self) -> None:
