@@ -62,11 +62,11 @@
 }
 
 .column[data-stage-id="1"] .kanban-box {
-    border-top-color: #00d1b2;
+    border-top-color: #ff3860;
 }
 
 .column[data-stage-id="2"] .kanban-box {
-    border-top-color: #ff3860;
+    border-top-color: #ffdd57;
 }
 
 .column[data-stage-id="3"] .kanban-box {
@@ -74,7 +74,7 @@
 }
 
 .column[data-stage-id="4"] .kanban-box {
-    border-top-color: #ffdd57;
+    border-top-color: #00d1b2;
 }
 
 .kanban-task.box {
@@ -144,4 +144,13 @@ body[data-theme="dark"] textarea {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
+}
+
+.nav-height {
+    height: 15rem !important;
+}
+
+.kanban-negative-margin {
+    margin-top: -10rem;
+    z-index: 100;
 }

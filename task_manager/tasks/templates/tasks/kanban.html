@@ -5,8 +5,8 @@
 {% block title %}{% translate 'Список задач' %}{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <a href="{% url 'tasks:create' %}" class="button is-primary mb-1">Создать задачу</a>
+<div class="container kanban-negative-margin">
+    <a href="{% url 'tasks:create' %}" class="button is-danger mb-1">Создать задачу</a>
     <!-- /.button is-primary -->
     <div class="columns is-multiline">
         {% for stage in stages %}
