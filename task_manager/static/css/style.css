@@ -74,11 +74,12 @@
 }
 
 .column[data-stage-id="4"] .kanban-box {
-    border-top-color: #00d1b2;
+    border-top-color: #b392f0;
 }
 
 .kanban-task.box {
     border-top: none;
+    position: relative;
 }
 
 /* Светлая тема */
@@ -153,4 +154,12 @@ body[data-theme="dark"] textarea {
 .kanban-negative-margin {
     margin-top: -10rem;
     z-index: 100;
+}
+
+.form-remove-task {
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin-right: .3rem;
+    margin-top: .3rem;
 }

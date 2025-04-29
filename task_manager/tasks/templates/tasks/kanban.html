@@ -6,7 +6,7 @@
 
 {% block content %}
 <div class="container kanban-negative-margin">
-    <a href="{% url 'tasks:create' %}" class="button is-danger mb-1">Создать задачу</a>
+    <a href="{% url 'tasks:create' %}" class="button has-background-danger is-outlined mb-1">Создать задачу</a>
     <!-- /.button is-primary -->
     <div class="columns is-multiline">
         {% for stage in stages %}
@@ -20,21 +20,20 @@
                         <div class="kanban-header">
                             <h2 class="subtitle">{{ stage.name }}</h2>
                         </div>
-                        {% if not stage.tasks.all %}
-                            <p class="has-text-centered has-text-grey-light empty-message mt-5">Пусто</p>
-                        {% endif %}
                         {% for task in stage.tasks.all %}
                             <div class="box mt-5 mb-1 kanban-task" data-task-id="{{ task.id }}" draggable="true">
-                                <div class="is-flex is-justify-content-space-between is-align-items-center">
-                                    <p>{{ task.name }}</p>
+                                <div>
+                                    <p><span class="is-size-5 has-text-weight-semibold">{{ task.name }}</span><br><small>Автор: <i>{{task.author}}</i></small><br><small>Исполнитель: <i>{{task.executor}}</i></small><br><small>Дата создания: <i>{{ task.created_at |date:"d.m.Y H:m" }}</i></small></p>
+
                                     <form
+                                        class="form-remove-task"
                                         action="{% url 'tasks:delete_task' task.slug %}"
                                         method="POST"
                                         onsubmit="return confirm('Вы уверены, что хотите удалить задачу \'{{ task.name }}\'?')"
                                     >
                                         {% csrf_token %}
                                         <button type="submit" class="delete-task button is-small is-danger is-outlined">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x-circle" viewBox="0 0 16 16">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" class="bi bi-x-circle" viewBox="0 0 16 16">
                                                 <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
                                                 <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
                                             </svg>
