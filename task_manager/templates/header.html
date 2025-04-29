@@ -1,9 +1,9 @@
 {% load i18n %}
 {% load static %}
 
-<nav class="navbar">
+<nav class="navbar nav-height is-primary">
     <div class="container is-fluid">
-        <div class="navbar-brand">
+        <div class="navbar-brand mt-0 is-block">
             <a href="/" class="navbar-item title mb-2">
                 {% translate 'Менеджер задач'%}
             </a>
@@ -16,7 +16,7 @@
               <span aria-hidden="true"></span>
             </a>
         </div>
-        <div class="navbar-menu">
+        <div class="navbar-menu is-block">
             <div class="navbar-end">
                 <div class="navbar-item">
                     <div class="buttons">
@@ -30,11 +30,11 @@
                                 </button>
                             </form>
                             <div class="navbar-item">
-                                <a href="{% url 'users:profile' %}" class="button has-background-primary">{{ user.username }}</a>
+                                <a href="{% url 'users:profile' %}" class="button has-background-primary is-outlined">{{ user.username }}</a>
                             </div>
                             <form action="/logout/" method="post">
                                 {% csrf_token %}
-                                <input type="submit" class="me-md-5 button has-background-danger"
+                                <input type="submit" class="me-md-5 button has-background-danger is-outlined"
                                     value="{% translate 'Выйти' %}">
                             </form>
                         {% endif %}
