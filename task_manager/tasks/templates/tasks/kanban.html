@@ -5,31 +5,40 @@
 {% block title %}{% translate 'Список задач' %}{% endblock %}
 
 {% block content %}
-<div class="container kanban-negative-margin">
+<div x-data="kanbanBoard" class="container kanban-negative-margin">
     <a href="{% url 'tasks:create' %}" class="button has-background-danger is-outlined mb-1">Создать задачу</a>
-    <!-- /.button is-primary -->
     <div class="columns is-multiline">
         {% for stage in stages %}
             <div class="column is-one-quarter" data-stage-id="{{ stage.id }}">
                 <div class="box kanban-box">
                     <div
                         class="kanban-column"
-                        @dragover="onDragOver($event)"
+                        @dragover.prevent
                         @drop="drop($event, {{ stage.id }})"
                     >
                         <div class="kanban-header">
                             <h2 class="subtitle">{{ stage.name }}</h2>
                         </div>
-                        {% for task in stage.tasks.all %}
-                            <div class="box mt-5 mb-1 kanban-task" data-task-id="{{ task.id }}" draggable="true">
+                        <template x-for="task in tasks[{{ stage.id }}]" :key="task.id">
+                            <div
+                                class="box mt-5 mb-1 kanban-task"
+                                :data-task-id="task.id"
+                                draggable="true"
+                                @dragstart="dragStart(task.id)"
+                                @dragend="dragEnd"
+                            >
                                 <div>
-                                    <p><span class="is-size-5 has-text-weight-semibold">{{ task.name }}</span><br><small>Автор: <i>{{task.author}}</i></small><br><small>Исполнитель: <i>{{task.executor}}</i></small><br><small>Дата создания: <i>{{ task.created_at |date:"d.m.Y H:m" }}</i></small></p>
-
+                                    <p>
+                                        <span class="is-size-5 has-text-weight-semibold" x-text="task.name"></span><br>
+                                        <small>Автор: <i x-text="task.author.full_name"></i></small><br>
+                                        <small>Исполнитель: <i x-text="task.executor.full_name"></i></small><br>
+                                        <small>Дата создания: <i x-text="task.created_at"></i></small>
+                                    </p>
                                     <form
                                         class="form-remove-task"
-                                        action="{% url 'tasks:delete_task' task.slug %}"
+                                        :action="`/tasks/delete/${task.slug}/`"
                                         method="POST"
-                                        onsubmit="return confirm('Вы уверены, что хотите удалить задачу \'{{ task.name }}\'?')"
+                                        @submit.prevent="confirmDelete(task)"
                                     >
                                         {% csrf_token %}
                                         <button type="submit" class="delete-task button is-small is-danger is-outlined">
@@ -41,7 +50,13 @@
                                     </form>
                                 </div>
                             </div>
-                        {% endfor %}
+                        </template>
+                        <p
+                            x-show="tasks[{{ stage.id }}]?.length === 0"
+                            class="has-text-centered has-text-grey-light empty-message"
+                        >
+                            Пусто
+                        </p>
                     </div>
                 </div>
             </div>
@@ -50,11 +65,108 @@
 </div>
 
 <script>
-    function onDragOver(event) {
-        event.preventDefault();
-    }
-</script>
-<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('kanbanBoard', () => ({
+            tasks: {},
+            dragging: null,
+            draggingStage: null,
+            init() {
+                this.tasks = JSON.parse('{{ tasks|safe }}');
+                const groupedTasks = {};
+                this.tasks.forEach(task => {
+                    if (!groupedTasks[task.stage]) {
+                        groupedTasks[task.stage] = [];
+                    }
+                    groupedTasks[task.stage].push(task);
+                });
+                this.tasks = groupedTasks;
+            },
+            dragStart(taskId) {
+                this.dragging = taskId;
+                const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+                const stageElement = taskElement.closest('[data-stage-id]');
+                this.draggingStage = stageElement.getAttribute('data-stage-id');
+            },
+            dragEnd() {
+                this.dragging = null;
+                this.draggingStage = null;
+            },
+            drop(event, newStageId) {
+                const taskId = this.dragging;
+                if (!taskId) return;
+
+                const column = event.target.closest('.kanban-column');
+                if (!column) {
+                    console.error('Drop target is not a valid column');
+                    return;
+                }
+
+                const tasksInColumn = Array.from(column.querySelectorAll('.kanban-task'));
+                const newIndex = tasksInColumn.indexOf(event.target.closest('.kanban-task'));
+                const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
+                if (taskElement && column) {
+                    const emptyMessage = column.querySelector('.empty-message');
+                    if (emptyMessage) {
+                        emptyMessage.remove();
+                    }
+                    column.insertBefore(taskElement, tasksInColumn[newIndex] || null);
+                }
+
+                fetch('/tasks/update-task-stage/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                    body: JSON.stringify({
+                        task_id: taskId,
+                        new_stage_id: newStageId,
+                        new_order: newIndex >= 0 ? newIndex : tasksInColumn.length,
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        console.error('Server error:', data.error);
+                        this.init();
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    this.init();
+                });
+            },
+            confirmDelete(task) {
+                if (confirm(`Вы уверены, что хотите удалить задачу '${task.name}'?`)) {
+                    fetch(`/tasks/delete/${task.slug}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken'),
+                        },
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Удаляем задачу из текущего состояния
+                            for (const stageId in this.tasks) {
+                                const tasks = this.tasks[stageId];
+                                const taskIndex = tasks.findIndex(t => t.id === task.id);
+                                if (taskIndex !== -1) {
+                                    tasks.splice(taskIndex, 1);
+                                    break;
+                                }
+                            }
+                        } else {
+                            alert(data.error);
+                        }
+                    })
+                    .catch(error => console.error('Ошибка при удалении задачи:', error));
+                }
+            },
+        }));
+    });
+
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -69,140 +181,5 @@
         }
         return cookieValue;
     }
-
-    const csrftoken = getCookie('csrftoken');
-    const updateTaskStageUrl = "{% url 'tasks:update_task_stage' %}";
-
-    function drop(event, newStageId) {
-        const taskId = window.dragging;
-        if (!taskId) {
-            return;
-        }
-
-        fetch(updateTaskStageUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrftoken,
-            },
-            body: JSON.stringify({
-                task_id: taskId,
-                new_stage_id: newStageId,
-            }),
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data.success) {
-                const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
-                if (taskElement) {
-                    const column = event.target.closest('.kanban-column');
-                    if (column) {
-                        const emptyMessage = column.querySelector('.empty-message');
-                        if (emptyMessage) {
-                            emptyMessage.remove();
-                        }
-
-                        column.appendChild(taskElement);
-                    } else {
-                        console.error('Drop target is not a valid column');
-                    }
-                } else {
-                    console.error('Task element not found');
-                }
-            } else {
-                console.error('Server error:', data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Fetch error:', error);
-        });
-    }
-
-    document.addEventListener('alpine:init', () => {
-        window.dragging = null;
-    });
-</script>
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-    document.body.addEventListener('dragstart', (event) => {
-        const taskElement = event.target.closest('.kanban-task');
-        if (taskElement) {
-            window.dragging = taskElement.getAttribute('data-task-id');
-            taskElement.classList.add('is-dragging');
-        }
-    });
-
-    document.body.addEventListener('dragend', (event) => {
-        const taskElement = event.target.closest('.kanban-task');
-        if (taskElement) {
-            taskElement.classList.remove('is-dragging');
-            window.dragging = null;
-        }
-    });
-});
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    document.body.addEventListener('htmx:afterRequest', (event) => {
-        const response = event.detail.xhr.response;
-
-        try {
-            const data = JSON.parse(response);
-
-            if (data.success) {
-                // Находим задачу, которая была удалена
-                const taskElement = event.target.closest('.kanban-task');
-                if (!taskElement) {
-                    console.error('Task element not found');
-                    return;
-                }
-
-                taskElement.remove();
-
-                const stageElement = taskElement.closest('[data-stage-id]');
-                if (!stageElement) {
-                    console.error('Stage element with data-stage-id not found');
-                    return;
-                }
-
-                const stageId = stageElement.getAttribute('data-stage-id');
-                if (!stageId) {
-                    console.error('data-stage-id attribute is missing');
-                    return;
-                }
-
-                const column = document.querySelector(`[data-stage-id="${stageId}"] .kanban-column`);
-                if (!column) {
-                    console.error('Kanban column not found');
-                    return;
-                }
-
-                const tasksInColumn = column.querySelectorAll('.kanban-task');
-
-                if (tasksInColumn.length === 0) {
-                    const emptyMessage = document.createElement('p');
-                    emptyMessage.className = 'has-text-centered has-text-grey-light empty-message';
-                    emptyMessage.textContent = 'Пусто';
-
-                    const existingEmptyMessage = column.querySelector('.empty-message');
-                    if (existingEmptyMessage) {
-                        existingEmptyMessage.remove();
-                    }
-
-                    column.appendChild(emptyMessage);
-                }
-            } else {
-                alert(data.error);
-            }
-        } catch (error) {
-            console.error('Ошибка при обработке ответа:', error);
-        }
-    });
-});
 </script>
 {% endblock %}

@@ -12,6 +12,7 @@ from django.http import (
     HttpResponse,
     JsonResponse,
 )
+from django.db import transaction
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -28,7 +29,13 @@ from django.views.generic import (
 from django_filters.views import FilterView
 
 from task_manager.tasks.forms import TaskForm, TasksFilter
-from task_manager.tasks.models import ChecklistItem, Task, Stage
+from task_manager.tasks.models import (
+    ChecklistItem,
+    Task,
+    Stage,
+    reorder_tasks_in_stage,
+    reorder_task_within_stage,
+)
 from task_manager.tasks.services import notify, slugify_translit
 from task_manager.users.models import User
 from task_manager.tasks.tasks import (
@@ -63,17 +70,48 @@ class KanbanBoard(
 
     def get(self, request, *args, **kwargs):
         stages = Stage.objects.prefetch_related('tasks').order_by('order')
-        delete_task_base_url = (
-            reverse_lazy('tasks:delete_task', args=['0'])
-            .replace('0', '')
-            .rstrip('/')
-        )
+
+        # Преобразуем задачи в JSON-совместимый формат
+        tasks_data = []
+        for stage in stages:
+            for task in stage.tasks.all():
+                tasks_data.append(
+                    {
+                        'id': task.id,
+                        'name': task.name,
+                        'author': {
+                            'username': (
+                                task.author.username if task.author else ''
+                            ),
+                            'full_name': (
+                                task.author.get_full_name()
+                                if task.author
+                                else ''
+                            ),
+                        },
+                        'executor': {
+                            'username': (
+                                task.executor.username if task.executor else ''
+                            ),
+                            'full_name': (
+                                task.executor.get_full_name()
+                                if task.executor
+                                else ''
+                            ),
+                        },
+                        'created_at': task.created_at.strftime(
+                            '%d.%m.%Y %H:%M'
+                        ),
+                        'stage': task.stage_id,
+                    }
+                )
+
         return render(
             request,
             template_name=self.template_name,
             context={
                 'stages': stages,
-                'delete_task_base_url': delete_task_base_url,
+                'tasks': json.dumps(tasks_data, default=str),
             },
         )
 
@@ -88,37 +126,57 @@ class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
 class UpdateTaskStageView(View):
     def post(self, request, *args, **kwargs):
         try:
-            # Получаем данные из тела запроса
             data = json.loads(request.body)
             task_id = data.get('task_id')
             new_stage_id = data.get('new_stage_id')
-            if not task_id or not new_stage_id:
-                return JsonResponse(
-                    {'success': False, 'error': 'Invalid data'}, status=400
-                )
-            task = get_object_or_404(Task, id=task_id)
-            new_stage = get_object_or_404(Stage, id=new_stage_id)
+            new_order = data.get('new_order')
 
-            # Обновляем этап задачи
-            task.stage = new_stage
-            task.save()
+            if not task_id or (new_stage_id is None and new_order is None):
+                return JsonResponse({'success': False, 'error': 'Invalid data'})
+
+            with transaction.atomic():
+                task = Task.objects.select_for_update().get(id=task_id)
+
+                if new_stage_id is not None:
+                    old_stage = task.stage
+                    new_stage = (
+                        Stage.objects.get(id=new_stage_id)
+                        if new_stage_id
+                        else None
+                    )
+                    task.stage = new_stage
+                    task.save()
+
+                    if old_stage:
+                        reorder_tasks_in_stage(old_stage.id)
+                    if new_stage:
+                        reorder_tasks_in_stage(new_stage.id)
+
+                if new_order is not None:
+                    reorder_task_within_stage(task, new_order)
 
             return JsonResponse({'success': True})
+        except Task.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Task not found'})
+        except Stage.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Stage not found'})
         except Exception as e:
-            print(f"Error: {str(e)}")  # Отладочное сообщение
-            return JsonResponse({'success': False, 'error': str(e)}, status=400)
+            return JsonResponse({'success': False, 'error': str(e)})
 
 
 class UpdateTaskOrderView(View):
-
     def post(self, request):
         try:
             data = json.loads(request.body)
-            tasks = data.get('tasks', [])
-            for task_data in tasks:
-                task_id = int(task_data['task_id'])
-                stage_id = int(task_data['stage_id'])
-                order = int(task_data['order'])
+            tasks_data = data.get('tasks', [])
+
+            for task_data in tasks_data:
+                task_id = task_data.get('task_id')
+                stage_id = task_data.get('stage_id')
+                order = task_data.get('order')
+
+                if task_id is None or stage_id is None or order is None:
+                    raise ValueError("Invalid task data")
 
                 task = Task.objects.filter(pk=task_id).first()
                 if task:
@@ -126,12 +184,14 @@ class UpdateTaskOrderView(View):
                     task.order = order
                     task.save()
                 else:
-                    raise ValueError(f"Таск с ID {task_id} не найден")
+                    raise ValueError(f"Task with ID {task_id} not found")
+
+            return JsonResponse(
+                {'message': 'Tasks successfully updated'}, status=200
+            )
 
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
-
-        return JsonResponse({'message': 'Задачи успешно обновлены'}, status=200)
 
 
 class CreateTask(

@@ -135,7 +135,10 @@ class Task(models.Model):
     order = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
-        ordering = ['order']
+        indexes = [
+            models.Index(fields=['stage', 'order']),
+            models.Index(fields=['created_at']),
+        ]
 
     def __str__(self) -> str:
         return self.name
@@ -156,3 +159,46 @@ class Task(models.Model):
 
     def get_absolute_url(self) -> str:
         return reverse('tasks:view_task', args=[self.slug])
+
+    def move_to_stage(self, new_stage_id):
+        old_stage_id = self.stage.id
+        self.stage.id = new_stage_id
+
+        self.save()
+
+        if old_stage_id:
+            reorder_tasks_in_stage(old_stage_id)
+        reorder_tasks_in_stage(new_stage_id)
+
+    def reorder_within_stage(self, new_order):
+        """
+        Reorders the task within its current stage.
+        """
+        reorder_task_within_stage(self, new_order)
+
+
+def reorder_tasks_in_stage(stage_id):
+    tasks = Task.objects.filter(stage_id=stage_id).order_by(
+        'order', 'created_at'
+    )
+    for index, task in enumerate(tasks):
+        task.order = index
+        task.save(update_fields=['order'])
+
+
+def reorder_task_within_stage(task, new_order):
+    stage_id = task.stage_id
+    if not stage_id:
+        return
+
+    tasks = (
+        Task.objects.filter(stage_id=stage_id)
+        .exclude(id=task.id)
+        .order_by('order', 'created_at')
+    )
+    reordered_tasks = list(tasks)
+    reordered_tasks.insert(new_order, task)
+
+    for index, t in enumerate(reordered_tasks):
+        t.order = index
+        t.save(update_fields=['order'])
