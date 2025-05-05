@@ -122,5 +122,5 @@ def test_delete_label_with_tasks(client, user, labels):
 def test_label_list_without_authorization(client):
     """Test accessing label list without authorization."""
     response = client.get(reverse_lazy('labels:list'))
-    assert response.status_code == 200
+    assert response.status_code == 302
     assert response.url == '/login/?next=/labels/'
