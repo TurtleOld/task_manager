@@ -16,12 +16,18 @@ make .env
 ```
 ### Заполнение .env файла.
 ```bash
-# It must contain a URL string with the information needed to connect to the database. This URL contains information such as the database type (for example, PostgreSQL, MySQL), host, port, database name, and authentication credentials.
+# It must contain a URL string with the information needed to connect to the database. 
+# This URL contains information such as the database type 
+# (for example, PostgreSQL, MySQL), host, port, database name, and authentication credentials.
 # Example: postgres://postgres:postgres@localhost:5432/task-manager
 DATABASE_URL=
-# Who will be allowed to access your site. It simply means on which address your site will be accessible. for example www.google.com is the address of google site. That does not mean who will be allowed to access the site (Is already public).
+# Who will be allowed to access your site. 
+# It simply means on which address your site will be accessible. 
+# For example www.google.com is the address of google site. 
+# That does not mean who will be allowed to access the site (Is already public).
 ALLOWED_HOSTS=127.0.0.1
-# To generate a strong secret key, you can use the built-in Django utility: run the python -c "import secrets; print(secrets.token_urlsafe(50))"
+# To generate a strong secret key, you can use the built-in Django utility: 
+# run the python -c "import secrets; print(secrets.token_urlsafe(50))"
 SECRET_KEY=
 # Optional: The port under which the web application will be launched
 # Default: 8000
@@ -29,7 +35,7 @@ PORT=
 # Is a security setting that helps protect your web application from a specific type of attack called Cross-Site Request Forgery (CSRF). A CSRF attack attempts to trick a user's browser into performing unintended actions on a website where they're already authenticated (logged in).
 # Example https://example.com
 CSRF_TRUSTED_ORIGINS=
-# Optional: You must never enable debug in production. true 1 yes. Default: true
+# Optional: You must never enable debug in production. true 1 yes. Default: false
 DEBUG=
 # Optional: specify where to send alerts if you are connecting a bot
 CHAT_ID=

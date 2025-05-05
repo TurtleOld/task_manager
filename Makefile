@@ -8,7 +8,7 @@ start:
 install: .env
 		@poetry install
 
-shell:
+shell: install
 		@poetry shell
 
 .env:
