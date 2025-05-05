@@ -29,6 +29,8 @@ celery = {extras = ["amqp"], version = "^5.4.0"}
 django-crispy-forms = "^2.3"
 
 crispy-bulma = "^0.11.0"
+pytest = "^8.3.5"
+pytest-django = "^4.11.1"
 [tool.poetry.dev-dependencies]
 flake8 = ">=4.0.1"
 PyYAML = ">=6.0"
@@ -41,6 +43,10 @@ ruff = "^0.7.1"
 mypy = "^1.13.0"
 django-stubs = {extras = ["compatible-mypy"], version = "^5.1.1"}
 pylint = "^3.3.1"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "task_manager.settings"
+python_files = ["test_*.py", "*_test.py", "tests.py"]
 
 [tool.ruff.format]
 quote-style = "single"
