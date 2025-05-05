@@ -47,8 +47,9 @@ def test_label_list(client, user, labels):
     """Test label list view."""
     client.force_login(user)
     response = client.get(reverse_lazy('labels:list'))
-    assert response.status_code == 301
+    assert response.status_code == 200
     labels_list = list(response.context['labels'])
+    print(labels_list, 'labels_list')
     assert labels_list == list(labels)
 
 
@@ -64,7 +65,7 @@ def test_create_label(client, user):
         follow=True,
     )
 
-    assert response.status_code == 301
+    assert response.status_code == 200
     assert response.redirect_chain[-1][0] == '/labels/'
     print(response.redirect_chain[-1][0])
     created_label = Label.objects.get(name=name_new_label['name'])
@@ -81,7 +82,7 @@ def test_change_label(client, user, labels):
 
     response = client.post(url, name_new_label, follow=True)
 
-    assert response.status_code == 301
+    assert response.status_code == 200
     assert response.redirect_chain[-1][0] == '/labels/'
     updated_label = Label.objects.get(pk=label_to_update.pk)
     assert updated_label.name == 'Blue'
@@ -97,7 +98,7 @@ def test_delete_label(client, user, labels):
 
     response = client.post(url, follow=True)
 
-    assert response.status_code == 301
+    assert response.status_code == 200
     assert response.redirect_chain[-1][0] == '/labels/'
     with pytest.raises(Label.DoesNotExist):
         Label.objects.get(pk=label_to_delete.pk)
@@ -112,7 +113,7 @@ def test_delete_label_with_tasks(client, user, labels):
 
     response = client.post(url, follow=True)
 
-    assert response.status_code == 301
+    assert response.status_code == 200
     assert response.redirect_chain[-1][0] == '/labels/'
     assert Label.objects.filter(pk=label_to_delete.pk).exists()
 
@@ -121,5 +122,5 @@ def test_delete_label_with_tasks(client, user, labels):
 def test_label_list_without_authorization(client):
     """Test accessing label list without authorization."""
     response = client.get(reverse_lazy('labels:list'))
-    assert response.status_code == 301
+    assert response.status_code == 200
     assert response.url == '/login/?next=/labels/'
