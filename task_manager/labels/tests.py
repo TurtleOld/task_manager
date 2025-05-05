@@ -49,7 +49,6 @@ def test_label_list(client, user, labels):
     response = client.get(reverse_lazy('labels:list'))
     assert response.status_code == 200
     labels_list = list(response.context['labels'])
-    print(labels_list, 'labels_list')
     assert labels_list == list(labels)
 
 
