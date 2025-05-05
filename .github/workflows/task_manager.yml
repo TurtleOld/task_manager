@@ -39,7 +39,7 @@ jobs:
         pip install -r requirements.txt
     - name: Run Tests
       run: |
-        coverage run -m pytest -v -s
+        python manage.py test
       env:
         TOKEN_TELEGRAM_BOT: ${{ secrets.TOKEN_TELEGRAM_BOT }}
         SECRET_KEY: ${{ secrets.SECRET_KEY }}
