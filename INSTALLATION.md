@@ -11,20 +11,16 @@ Linux \ OSX:
 
 ## 1. Установка
 
-### 1.1 Клонирование репозитория и установка зависимостей:  
+**Клонирование репозитория:**  
 
 ```commandline
 git clone https://github.com/TurtleOld/python-project-lvl4.git
 cd python-project-lvl4
 ```
 
-**Установка зависимостей**
+**Активация окружения и установка зависимостей:**
 ```commandline
-make install
-```
-Активировать виртуальное окружение
-```commandline
-source $HOME/.cache/pypoetry/virtualenvs/<название созданного окружения>/bin/activate
+make shell
 ```
 ---
 

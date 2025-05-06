@@ -88,6 +88,10 @@ body[data-theme="light"] {
     color: #000000;
 }
 
+body[data-theme="light"] .task-name {
+   color: #14161a;
+}
+
 body[data-theme="light"] label,
 body[data-theme="light"] .label {
     color: #000000 !important;
@@ -108,6 +112,10 @@ body[data-theme="light"] textarea {
 body[data-theme="dark"] {
     background-color: #121212;
     color: #ffffff;
+}
+
+body[data-theme="dark"] .task-name {
+   color: #f3f4f6;
 }
 
 body[data-theme="dark"] label,
