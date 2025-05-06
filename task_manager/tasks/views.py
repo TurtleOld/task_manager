@@ -79,6 +79,7 @@ class KanbanBoard(
                     {
                         'id': task.id,
                         'name': task.name,
+                        'slug': task.slug,
                         'author': {
                             'username': (
                                 task.author.username if task.author else ''
@@ -250,6 +251,10 @@ class CreateTask(
                 'Задача с таким названием уже существует.',
             )
             return self.form_invalid(form)
+
+
+class UpdateTask(CreateTask):
+    template_name = 'tasks/view_task.html'
 
 
 class DeleteTask(

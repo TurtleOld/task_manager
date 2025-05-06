@@ -13,6 +13,7 @@ from task_manager.tasks.views import (
     UpdateTaskOrderView,
     CreateStageView,
     UpdateTaskStageView,
+    UpdateTask,
 )
 
 app_name = 'tasks'
@@ -29,6 +30,7 @@ urlpatterns = [
         name='update_task_stage',
     ),
     path('create/', CreateTask.as_view(), name='create'),
+    path('update/<slug:slug>', UpdateTask.as_view(), name='update'),
     path('create-stage/', CreateStageView.as_view(), name='create_stage'),
     path(
         'delete/<slug:slug>/',
