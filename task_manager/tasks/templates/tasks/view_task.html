@@ -5,80 +5,77 @@
 {% block title %}{{ task.name }}{% endblock %}
 
 {% block content %}
-    <h1 class="my-4">{% translate 'Просмотр задачи' %}</h1>
-    <div class="card">
-        <div class="card-header bg-secondary text-white">
-            <h2>{{ task.name }}</h2>
-        </div>
-        <div class="card-body">
+    <div class="card card-task">
+        <div class="card-header">
+            <h2 class="card-header-title is-size-5-desktop">{{ task.name }}</h2>
             <p>{{ task.description }}</p>
-            <hr>
-            <div class="container">
-                <div class="row p-1">
-                    <div class="col">{% translate 'Автор' %}</div>
-                    <div class="col">{{ task.author }}</div>
-                </div>
-                <div class="row p-1">
-                    <div class="col">{% translate 'Исполнитель' %}</div>
-                    <div class="col">{{ task.executor }}</div>
-                </div>
-                <div class="row p-1">
-                    <div class="col">{% translate 'Напоминание до' %}</div>
-                    <div class="col">
-                        {% if task.reminder_periods.all %}
-                            {% for period in task.reminder_periods.all %} {{ period }}<br/> {% endfor %}
-                        {% else %}
-                            <span>Напоминания не установлены</span>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="row p-1">
-                    <div class="col">{% translate 'Приложенные файлы' %}</div>
-                    <div class="col">
-                        {% if task.image_url %}
-                            <a class="btn btn-sm btn-outline-primary me-1" href="{% url 'tasks:download' task.slug %}" download>Скачать изображение</a>
-                            <button id="preview-image-button" class="btn btn-sm btn-outline-primary">Просмотреть изображение</button>
-                            <div id="image-modal" style="display:none">
-                                <a id="link-image" href="" target="_blank">
-                                    <img width="350" height="300" id="preview-image" class="mt-1" src="" alt="Preview" />
-                                </a>
-                            </div>
-                        {% else %}
-                            <span>Нет файлов</span>
-                        {% endif %}
+        </div>
+        <div class="card-content">
 
-                    </div>
+            <div class="columns">
+                <div class="column">{% translate 'Автор' %}</div>
+                <div class="column">{{ task.author }}</div>
+            </div>
+            <div class="columns">
+                <div class="column">{% translate 'Исполнитель' %}</div>
+                <div class="column">{{ task.executor }}</div>
+            </div>
+            <div class="columns">
+                <div class="column">{% translate 'Напоминание до' %}</div>
+                <div class="column">
+                    {% if task.reminder_periods.all %}
+                        {% for period in task.reminder_periods.all %} {{ period }}<br/> {% endfor %}
+                    {% else %}
+                        <span>Напоминания не установлены</span>
+                    {% endif %}
                 </div>
-                <div class="row p-1">
-                    <div class="col">{% translate 'Дата' %}</div>
-                    <div class="col">{% if task.deadline %}{{ task.deadline|date:"d.m.Y H:i" }}{% else %} Бессрочно{% endif %}</div>
+            </div>
+            <div class="columns">
+                <div class="column">{% translate 'Приложенные файлы' %}</div>
+                <div class="column">
+                    {% if task.image_url %}
+                        <a class="button me-1" href="{% url 'tasks:download' task.slug %}" download>Скачать изображение</a>
+                        <button id="preview-image-button" class="btn btn-sm btn-outline-primary">Просмотреть изображение</button>
+                        <div id="image-modal" style="display:none">
+                            <a id="link-image" href="" target="_blank">
+                                <img width="350" height="300" id="preview-image" class="mt-1" src="" alt="Preview" />
+                            </a>
+                        </div>
+                    {% else %}
+                        <span>Нет файлов</span>
+                    {% endif %}
+
                 </div>
-                <div class="row p-1">
-                    <div class="col">{% translate 'Чек-лист' %}</div>
-                    <div class="col">
-                        {% if checklist_items %}
-                            <ul class="list-group">
-                                {% for item in checklist_items %}
-                                    {% include 'tasks/checklist_item.html' with item=item %}
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <p>Чеклист пуст.</p>
-                        {% endif %}
-                    </div>
+            </div>
+            <div class="columns">
+                <div class="column">{% translate 'Дата' %}</div>
+                <div class="column">{% if task.deadline %}{{ task.deadline|date:"d.m.Y H:i" }}{% else %} Бессрочно{% endif %}</div>
+            </div>
+            <div class="columns">
+                <div class="column">{% translate 'Чек-лист' %}</div>
+                <div class="column">
+                    {% if checklist_items %}
+                        <ul class="list-group">
+                            {% for item in checklist_items %}
+                                {% include 'tasks/checklist_item.html' with item=item %}
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>Чеклист пуст.</p>
+                    {% endif %}
                 </div>
-                <div class="row p-1">
-                    <div class="col">{% translate 'Дата создания' %}</div>
-                    <div class="col">{{ task.created_at|date:'d.m.Y H:i' }}</div>
-                </div>
-                <div class="row p-1">
-                    
-                </div>
-                <div class="d-flex justify-content-center p-2">
-                    <a class="btn btn-outline-success btn-sm me-2" href="{% url 'tasks:list' %}">{% translate 'Список задач' %}</a><br>
-                    <a class="btn btn-outline-warning btn-sm me-2 {% if task.state %}disabled{% endif %}" href="{% url 'tasks:update' task.slug %}">{% translate 'Изменить' %}</a><br>
-                    <a class="btn btn-outline-danger btn-sm" href="{% url 'tasks:delete_task' task.slug %}">{% translate 'Удалить' %}</a>
-                </div>
+            </div>
+            <div class="columns">
+                <div class="column">{% translate 'Дата создания' %}</div>
+                <div class="column">{{ task.created_at|date:'d.m.Y H:i' }}</div>
+            </div>
+            <div class="columns">
+
+            </div>
+            <div class="columns btn-card-task">
+                <a class="button column mr-1" href="{% url 'tasks:list' %}">{% translate 'Список задач' %}</a><br>
+                <a class="button column mr-1 {% if task.state %}disabled{% endif %}" href="{% url 'tasks:update' task.slug %}">{% translate 'Изменить' %}</a><br>
+                <a class="button column" href="{% url 'tasks:delete_task' task.slug %}">{% translate 'Удалить' %}</a>
             </div>
         </div>
     </div>

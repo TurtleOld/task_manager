@@ -88,6 +88,11 @@ body[data-theme="light"] {
     color: #000000;
 }
 
+body[data-theme="light"] + html {
+    background-color: #ffffff;
+    color: #000000;
+}
+
 body[data-theme="light"] .task-name {
    color: #14161a;
 }
@@ -170,4 +175,24 @@ body[data-theme="dark"] textarea {
     right: 0;
     margin-right: .3rem;
     margin-top: .3rem;
+}
+
+.card-task {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    margin-top: -10rem;
+    z-index: 500;
+    border-radius: 0;
+}
+
+.card-header {
+    box-shadow: none !important;
+    border-bottom: 1px solid;
+}
+
+.btn-card-task {
+    display: flex;
+    justify-content: space-between;
 }
