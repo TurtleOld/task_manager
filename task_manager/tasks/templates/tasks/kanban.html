@@ -27,7 +27,7 @@
                                 @dragstart="dragStart(task.id)"
                                 @dragend="dragEnd"
                             >
-                                <div>
+                                <a :href="`/tasks/${task.slug}`" >
                                     <p>
                                         <span class="is-size-5 has-text-weight-semibold" x-text="task.name"></span><br>
                                         <small>Автор: <i x-text="task.author.full_name"></i></small><br>
@@ -48,7 +48,7 @@
                                             </svg>
                                         </button>
                                     </form>
-                                </div>
+                                </a>
                             </div>
                         </template>
                         <p
