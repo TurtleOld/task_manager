@@ -358,8 +358,8 @@ class TaskView(
 class ChecklistItemToggle(View):
     template_name = 'tasks/checklist_item.html'
 
-    def post(self, request: HttpRequest, id: int) -> HttpResponse:
-        checklist_item = get_object_or_404(ChecklistItem, id=id)
+    def post(self, request: HttpRequest, pk: int) -> HttpResponse:
+        checklist_item = get_object_or_404(ChecklistItem, pk=pk)
         checklist_item.is_completed = not checklist_item.is_completed
         checklist_item.save()
         context = {
