@@ -43,7 +43,7 @@ class TestLabel(TestCase):
         url = reverse('labels:update_label', args=(self.label2.pk,))
         name_new_label = {'name': 'Blue'}
         response = self.client.post(url, name_new_label, follow=True)
-        self.assertEqual(Label.objects.get(pk=self.label2.id), self.label2)
+        self.assertEqual(Label.objects.get(pk=self.label2.pk), self.label2)
         self.assertRedirects(response, '/labels/')
 
     def test_delete_label(self) -> None:
