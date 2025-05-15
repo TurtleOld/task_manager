@@ -73,8 +73,8 @@
 
             </div>
             <div class="columns btn-card-task">
-                <a class="button column mr-1" href="{% url 'tasks:list' %}">{% translate 'Список задач' %}</a><br>
-                <a class="button column mr-1 {% if task.state %}disabled{% endif %}" href="{% url 'tasks:update' task.slug %}">{% translate 'Изменить' %}</a><br>
+                <a class="button column mr-1" href="{% url 'tasks:list' %}">{% translate 'Список задач' %}</a>
+                <a class="button column mr-1 {% if task.state %}disabled{% endif %}" href="{% url 'tasks:update' task.slug %}">{% translate 'Изменить' %}</a>
                 <a class="button column" href="{% url 'tasks:delete_task' task.slug %}">{% translate 'Удалить' %}</a>
             </div>
         </div>

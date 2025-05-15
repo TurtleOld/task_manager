@@ -1,0 +1,29 @@
+{% extends '../base.html' %}
+{% load crispy_forms_tags %}
+{% load i18n %}
+
+{% block title %}{% translate 'Удаление задачи' %} "{{ task.name }}"{% endblock %}
+
+{% block content %}
+<div class="container">
+    <section class="section">
+        <div class="box">
+            <h1 class="title is-4">{% translate 'Подтвердите удаление задачи' %}</h1>
+            <p class="mb-4">{% blocktranslate %}Вы уверены, что хотите удалить задачу {% endblocktranslate %} "{{ tasks.name }}"? {% blocktranslate %}Это действие нельзя отменить.{% endblocktranslate %}</p>
+
+            <form method="post">
+                {% csrf_token %}
+                <div class="field is-grouped">
+                    <div class="control">
+                        <button type="submit" class="button is-danger">{% translate 'Удалить' %}</button>
+                    </div>
+                    <div class="control">
+                        <a href="{% url 'tasks:list' %}" class="button is-light">{% translate 'Отмена' %}</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+<!-- /.container -->
+{% endblock %}
