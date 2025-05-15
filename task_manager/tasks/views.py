@@ -25,6 +25,7 @@ from django.views.generic import (
     CreateView,
     DeleteView,
     DetailView,
+    UpdateView,
 )
 from django_filters.views import FilterView
 
@@ -253,8 +254,21 @@ class CreateTask(
             return self.form_invalid(form)
 
 
-class UpdateTask(CreateTask):
-    template_name = 'tasks/view_task.html'
+class UpdateTask(
+    LoginRequiredMixin,
+    SuccessMessageMixin[Any],
+    UpdateView[Task, Any],
+):
+    template_name = 'tasks/update_task.html'
+    query_pk_and_slug = True
+    form_class = TaskForm
+    model = Task
+    context_object_name = 'tasks'
+
+    def get_form_kwargs(self) -> dict[str, Any]:
+        kwargs = super().get_form_kwargs()
+        kwargs['request'] = self.request
+        return kwargs
 
 
 class DeleteTask(
@@ -263,9 +277,11 @@ class DeleteTask(
     UserPassesTestMixin,
     DeleteView,
 ):
+    template_name = 'tasks/task_confirm_delete.html'
     model = Task
     success_url = reverse_lazy('tasks:list')
     success_message = "Задача успешно удалена"
+    context_object_name = 'tasks'
 
     def test_func(self):
         task = self.get_object()
@@ -358,8 +374,8 @@ class TaskView(
 class ChecklistItemToggle(View):
     template_name = 'tasks/checklist_item.html'
 
-    def post(self, request: HttpRequest, id: int) -> HttpResponse:
-        checklist_item = get_object_or_404(ChecklistItem, id=id)
+    def post(self, request: HttpRequest, pk: int) -> HttpResponse:
+        checklist_item = get_object_or_404(ChecklistItem, pk=pk)
         checklist_item.is_completed = not checklist_item.is_completed
         checklist_item.save()
         context = {

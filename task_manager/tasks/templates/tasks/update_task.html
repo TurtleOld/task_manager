@@ -1,0 +1,26 @@
+{% extends '../base.html' %}
+{% load crispy_forms_tags %}
+{% load i18n %}
+
+{% block title %}{% translate 'Обновить задачу' %} "{{tasks.name}}"{% endblock %}
+
+{% block content %}
+    <div class="task-change">
+        <div class="container">
+            <div class="columns is-mobile">
+                <div class="column">
+                    <h1 class="title is-size-3-mobile has-text-success-70 mt-1">{% translate 'Обновить задачу' %}</h1>
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form | crispy }}
+                        <button type="submit" class="button is-centered">Обновить</button>
+                    </form>
+                </div>
+                <!-- /.column -->
+            </div>
+            <!-- /.columns -->
+        </div>
+        <!-- /.container -->
+    </div>
+    <!-- /.task-change -->
+{% endblock %}
