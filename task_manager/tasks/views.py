@@ -70,9 +70,15 @@ class KanbanBoard(
     template_name = 'tasks/kanban.html'
 
     def get(self, request, *args, **kwargs):
-        stages = Stage.objects.prefetch_related('tasks').order_by('order')
+        # Optimize database queries with select_related and prefetch_related
+        stages = Stage.objects.prefetch_related(
+            'tasks__author',
+            'tasks__executor',
+            'tasks__labels',
+            'tasks__reminder_periods'
+        ).order_by('order')
 
-        # Преобразуем задачи в JSON-совместимый формат
+        # Transform tasks data more efficiently
         tasks_data = []
         for stage in stages:
             for task in stage.tasks.all():
@@ -359,10 +365,22 @@ class TaskView(
     no_permission_url = reverse_lazy('login')
     query_pk_and_slug = True
 
+    def get_queryset(self):
+        # Optimize database queries
+        return Task.objects.select_related(
+            'author', 
+            'executor', 
+            'stage'
+        ).prefetch_related(
+            'labels',
+            'reminder_periods',
+            'checklist__items'
+        )
+
     def get_context_data(self, **kwargs: dict[str, Any]) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         task = self.get_object()
-        context['labels'] = self.get_object().labels.all()
+        context['labels'] = task.labels.all()
 
         if hasattr(task, 'checklist'):
             context['checklist_items'] = task.checklist.items.all()

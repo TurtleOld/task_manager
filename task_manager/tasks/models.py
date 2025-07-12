@@ -138,6 +138,13 @@ class Task(models.Model):
         indexes = [
             models.Index(fields=['stage', 'order']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['author']),
+            models.Index(fields=['executor']),
+            models.Index(fields=['state']),
+            models.Index(fields=['deadline']),
+            models.Index(fields=['slug']),
+            models.Index(fields=['stage', 'state']),
+            models.Index(fields=['author', 'created_at']),
         ]
 
     def __str__(self) -> str:
@@ -178,27 +185,42 @@ class Task(models.Model):
 
 
 def reorder_tasks_in_stage(stage_id):
-    tasks = Task.objects.filter(stage_id=stage_id).order_by(
+    """Optimized task reordering using bulk_update"""
+    tasks = list(Task.objects.filter(stage_id=stage_id).order_by(
         'order', 'created_at'
-    )
+    ))
+    
+    # Update all tasks at once
     for index, task in enumerate(tasks):
         task.order = index
-        task.save(update_fields=['order'])
+    
+    # Use bulk_update for better performance
+    if tasks:
+        Task.objects.bulk_update(tasks, ['order'], batch_size=100)
 
 
 def reorder_task_within_stage(task, new_order):
+    """
+    Optimized reordering of a task within its current stage.
+    """
     stage_id = task.stage_id
     if not stage_id:
         return
 
-    tasks = (
+    # Get all tasks in the stage
+    tasks = list(
         Task.objects.filter(stage_id=stage_id)
         .exclude(id=task.id)
         .order_by('order', 'created_at')
     )
-    reordered_tasks = list(tasks)
-    reordered_tasks.insert(new_order, task)
-
+    
+    # Insert the task at the new position
+    reordered_tasks = tasks[:new_order] + [task] + tasks[new_order:]
+    
+    # Update all tasks at once
     for index, t in enumerate(reordered_tasks):
         t.order = index
-        t.save(update_fields=['order'])
+    
+    # Use bulk_update for better performance
+    if reordered_tasks:
+        Task.objects.bulk_update(reordered_tasks, ['order'], batch_size=100)

@@ -40,3 +40,17 @@ poetry-export-prod:
 .PHONY: poetry-export-dev
 poetry-export-dev: poetry-export-prod
 		@poetry export -f requirements.txt -o requirements.txt --with dev --without-hashes
+
+optimize: ## Optimize static files and database
+	@echo "Optimizing static files..."
+	python manage.py optimize_static --force
+	@echo "Collecting static files..."
+	python manage.py collectstatic --noinput
+	@echo "Running database migrations..."
+	python manage.py migrate
+	@echo "Creating database indexes..."
+	python manage.py dbshell < create_indexes.sql || true
+
+performance-test: ## Run performance tests
+	@echo "Running performance tests..."
+	python -m pytest tests/ -v --tb=short --durations=10

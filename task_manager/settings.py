@@ -77,6 +77,10 @@ DATABASES = {
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
         'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
         'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        'OPTIONS': {
+            'MAX_CONNS': 20,
+            'CONN_MAX_AGE': 600,
+        },
     },
 }
 
@@ -96,6 +100,23 @@ CONN_MAX_AGE = 500
 if os.getenv('DATABASE_URL'):
     DATABASES['default'] = dj_database_url.config(conn_max_age=CONN_MAX_AGE)  # type: ignore
 
+# Cache configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'KEY_PREFIX': 'task_manager',
+        'TIMEOUT': 300,  # 5 minutes default
+    }
+}
+
+# Use cache for sessions
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.middleware.locale.LocaleMiddleware',
@@ -107,6 +128,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
+    'task_manager.middleware.PerformanceMonitoringMiddleware',
+    'task_manager.middleware.CacheControlMiddleware',
 ]
 
 ROOT_URLCONF = 'task_manager.urls'
@@ -142,7 +165,14 @@ REST_FRAMEWORK = {
 # Simplified static file serving.
 # https://warehouse.python.org/project/whitenoise/
 
+# Static files optimization
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# WhiteNoise configuration for better static file serving
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = DEBUG
+WHITENOISE_MAX_AGE = 31536000  # 1 year
+WHITENOISE_INDEX_FILE = True
 
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
@@ -186,7 +216,6 @@ LOCALE_PATHS = (os.path.join(BASE_DIR, 'task_manager/locale'),)
 
 # Static image (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
-
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'static')
 STATIC_URL = '/static/'
