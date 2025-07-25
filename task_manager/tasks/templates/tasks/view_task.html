@@ -7,21 +7,28 @@
 {% block content %}
     <div class="card card-task">
         <div class="card-header">
-            <h2 class="card-header-title is-size-5-desktop">{{ task.name }}</h2>
-            <p>{{ task.description }}</p>
+            <h2 class="card-header-title is-size-4 has-text-weight-bold">
+                <i class="fa fa-tasks"></i> {{ task.name }}
+                {% if task.state == 'done' %}
+                    <span class="tag is-success ml-2">Выполнена</span>
+                {% elif task.deadline and task.deadline < now %}
+                    <span class="tag is-danger ml-2">Просрочена</span>
+                {% endif %}
+            </h2>
+            <p class="has-text-grey mt-2" title="{{ task.description }}">{{ task.description|truncatechars:100 }}</p>
         </div>
         <div class="card-content">
-
-            <div class="columns">
-                <div class="column">{% translate 'Автор' %}</div>
+            <div class="columns is-mobile">
+                <div class="column"><i class="fa fa-user"></i> {% translate 'Автор' %}</div>
                 <div class="column">{{ task.author }}</div>
             </div>
-            <div class="columns">
-                <div class="column">{% translate 'Исполнитель' %}</div>
+            <div class="columns is-mobile">
+                <div class="column"><i class="fa fa-user-check"></i> {% translate 'Исполнитель' %}</div>
                 <div class="column">{{ task.executor }}</div>
             </div>
-            <div class="columns">
-                <div class="column">{% translate 'Напоминание до' %}</div>
+            <hr>
+            <div class="columns is-mobile">
+                <div class="column"><i class="fa fa-bell"></i> {% translate 'Напоминание до' %}</div>
                 <div class="column">
                     {% if task.reminder_periods.all %}
                         {% for period in task.reminder_periods.all %} {{ period }}<br/> {% endfor %}
@@ -30,31 +37,46 @@
                     {% endif %}
                 </div>
             </div>
-            <div class="columns">
-                <div class="column">{% translate 'Приложенные файлы' %}</div>
+            <hr>
+            <div class="columns is-mobile">
+                <div class="column"><i class="fa fa-paperclip"></i> {% translate 'Приложенные файлы' %}</div>
                 <div class="column">
                     {% if task.image_url %}
-                        <a class="button me-1" href="{% url 'tasks:download' task.slug %}" download>Скачать изображение</a>
-                        <button id="preview-image-button" class="btn btn-sm btn-outline-primary">Просмотреть изображение</button>
-                        <div id="image-modal" style="display:none">
-                            <a id="link-image" href="" target="_blank">
-                                <img width="350" height="300" id="preview-image" class="mt-1" src="" alt="Preview" />
-                            </a>
+                        <img src="{{ task.image_url }}" alt="thumb" style="max-width: 60px; max-height: 40px; margin-right: 10px; vertical-align: middle;">
+                        <a class="button is-small is-link is-light me-1" href="{% url 'tasks:download' task.slug %}" download>
+                            <i class="fa fa-download"></i> Скачать изображение
+                        </a>
+                        <button id="preview-image-button" class="button is-small is-info is-light">
+                            <i class="fa fa-image"></i> Просмотреть изображение
+                        </button>
+                        <div id="image-modal" class="modal">
+                            <div class="modal-background"></div>
+                            <div class="modal-content has-text-centered">
+                                <a id="link-image" href="" target="_blank">
+                                    <img width="350" height="300" id="preview-image" class="mt-1" src="" alt="Preview" />
+                                </a>
+                            </div>
+                            <button class="modal-close is-large" aria-label="close"></button>
                         </div>
                     {% else %}
                         <span>Нет файлов</span>
                     {% endif %}
-
                 </div>
             </div>
-            <div class="columns">
-                <div class="column">{% translate 'Дата' %}</div>
+            <hr>
+            <div class="columns is-mobile">
+                <div class="column"><i class="fa fa-calendar"></i> {% translate 'Дата' %}</div>
                 <div class="column">{% if task.deadline %}{{ task.deadline|date:"d.m.Y H:i" }}{% else %} Бессрочно{% endif %}</div>
             </div>
-            <div class="columns">
-                <div class="column">{% translate 'Чек-лист' %}</div>
+            <hr>
+            <div class="columns is-mobile">
+                <div class="column"><i class="fa fa-tasks"></i> {% translate 'Чек-лист' %}</div>
                 <div class="column">
                     {% if checklist_items %}
+                        {% if total_checklist > 0 %}
+                            <progress class="progress is-success" value="{{ progress_checklist }}" max="100">{{ progress_checklist }}%</progress>
+                            <span>{{ done_checklist }} / {{ total_checklist }}</span>
+                        {% endif %}
                         <ul class="list-group">
                             {% for item in checklist_items %}
                                 {% include 'tasks/checklist_item.html' with item=item %}
@@ -65,17 +87,22 @@
                     {% endif %}
                 </div>
             </div>
-            <div class="columns">
-                <div class="column">{% translate 'Дата создания' %}</div>
+            <hr>
+            <div class="columns is-mobile">
+                <div class="column"><i class="fa fa-calendar-plus"></i> {% translate 'Дата создания' %}</div>
                 <div class="column">{{ task.created_at|date:'d.m.Y H:i' }}</div>
             </div>
-            <div class="columns">
-
-            </div>
-            <div class="columns btn-card-task">
-                <a class="button column mr-1" href="{% url 'tasks:list' %}">{% translate 'Список задач' %}</a>
-                <a class="button column mr-1 {% if task.state %}disabled{% endif %}" href="{% url 'tasks:update' task.slug %}">{% translate 'Изменить' %}</a>
-                <a class="button column" href="{% url 'tasks:delete_task' task.slug %}">{% translate 'Удалить' %}</a>
+            <hr>
+            <div class="columns btn-card-task is-mobile">
+                <a class="button is-link is-light column mr-1" href="{% url 'tasks:list' %}">
+                    <i class="fa fa-list"></i> Список задач
+                </a>
+                <a class="button is-warning is-light column mr-1 {% if task.state %}disabled{% endif %}" href="{% url 'tasks:update' task.slug %}">
+                    <i class="fa fa-edit"></i> Изменить
+                </a>
+                <a class="button is-danger is-light column" href="{% url 'tasks:delete_task' task.slug %}">
+                    <i class="fa fa-trash"></i> Удалить
+                </a>
             </div>
         </div>
     </div>
@@ -85,38 +112,23 @@
             const modal = document.getElementById('image-modal');
             const image = document.getElementById('preview-image');
             const link_image = document.getElementById('link-image');
-
-            // Обработчик нажатия на кнопку
-            previewButton.addEventListener('click', function() {
-                // Проверка, отображается ли модальное окно
-                if (modal.style.display === 'block') {
-                    // Скрыть модальное окно и сменить текст кнопки на "Посмотреть изображение"
-                    modal.style.display = 'none';
-                    previewButton.textContent = 'Просмотреть изображение';
-                    image.src = "";
-                    link_image.href = "";
-                } else {
-                    // Получаем URL изображения
+            if (previewButton) {
+                previewButton.addEventListener('click', function() {
                     let url = "{{ task.image_url }}";
-
-                    // Устанавливаем источник изображения и ссылку
                     image.src = url;
                     link_image.href = url;
-
-                    // Показываем модальное окно и сменяем текст кнопки на "Скрыть изображение"
-                    modal.style.display = 'block';
-                    previewButton.textContent = 'Скрыть изображение';
-                }
-            });
-
-            // Закрытие модального окна при клике вне изображения
-            window.onclick = function(event) {
-                if (event.target == modal) {
-                    modal.style.display = "none";
-                    previewButton.textContent = 'Просмотреть изображение';
-                }
-            };
+                    modal.classList.add('is-active');
+                });
+            }
+            function closeModalFunc() {
+                modal.classList.remove('is-active');
+                image.src = "";
+                link_image.href = "";
+            }
+            const closeModal = modal ? modal.querySelector('.modal-close') : null;
+            const modalBg = modal ? modal.querySelector('.modal-background') : null;
+            if (closeModal) closeModal.addEventListener('click', closeModalFunc);
+            if (modalBg) modalBg.addEventListener('click', closeModalFunc);
         });
     </script>
-
 {% endblock %}

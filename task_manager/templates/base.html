@@ -20,6 +20,7 @@
 <head>
     <script src="{% static 'js/script.js' %}"></script>
     <script src="{% static 'js/htmx.min.js' %}" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css"
@@ -30,8 +31,9 @@
 
     <link rel="icon" href="{% static 'favicon/favicon.ico' %}" type="image/x-icon">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
-
+    <script defer src="{% static 'js/kanban.js' %}"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
     <title>{% block title %}{% endblock %} - Task Manager</title>
 </head>
 <body data-theme="{{ theme_mode }}" x-data="{ dragging: null }">

@@ -5,181 +5,57 @@
 {% block title %}{% translate 'Список задач' %}{% endblock %}
 
 {% block content %}
-<div x-data="kanbanBoard" class="container kanban-negative-margin">
-    <a href="{% url 'tasks:create' %}" class="button has-background-danger is-outlined mb-1">Создать задачу</a>
+<div x-data="kanbanBoard" x-init="init()" class="container kanban-negative-margin" data-tasks='{{ tasks|safe }}'>
+    <a href="{% url 'tasks:create' %}" class="button is-primary is-large has-text-weight-bold mb-1 kanban-create-btn">
+        <span class="icon"><i class="fas fa-plus"></i></span>
+        <span>Создать задачу</span>
+    </a>
     <div class="columns is-multiline">
         {% for stage in stages %}
-            <div class="column is-one-quarter" data-stage-id="{{ stage.id }}">
+            <div class="column is-one-quarter is-full-mobile" data-stage-id="{{ stage.id }}">
                 <div class="box kanban-box">
                     <div
                         class="kanban-column"
-                        @dragover.prevent
+                        @dragover.prevent="onDragOver($event, {{ stage.id }})"
+                        @dragleave="onDragLeave($event, {{ stage.id }})"
                         @drop="drop($event, {{ stage.id }})"
+                        :class="dragOverStage == {{ stage.id }} ? 'is-dragover' : ''"
                     >
                         <div class="kanban-header">
-                            <h2 class="subtitle">{{ stage.name }}</h2>
+                            <h2 class="subtitle is-4 has-text-weight-bold">
+                                <span class="icon is-small mr-1"><i class="fas fa-layer-group"></i></span>
+                                {{ stage.name }}
+                                <span class="tag is-light ml-2" x-text="tasks['{{ stage.id }}']?.length || 0"></span>
+                            </h2>
                         </div>
-                        <template x-for="task in tasks[{{ stage.id }}]" :key="task.id">
-                            <div
-                                class="box mt-5 mb-1 kanban-task"
-                                :data-task-id="task.id"
-                                draggable="true"
-                                @dragstart="dragStart(task.id)"
-                                @dragend="dragEnd"
-                            >
-                                <a :href="`/tasks/${task.slug}`" >
-                                    <p>
-                                        <span class="is-size-5 has-text-weight-semibold" x-text="task.name"></span><br>
-                                        <small>Автор: <i x-text="task.author.full_name"></i></small><br>
-                                        <small>Исполнитель: <i x-text="task.executor.full_name"></i></small><br>
-                                        <small>Дата создания: <i x-text="task.created_at"></i></small>
-                                    </p>
-                                    <form
-                                        class="form-remove-task"
-                                        :action="`/tasks/delete/${task.slug}/`"
-                                        method="POST"
-                                        @submit.prevent="confirmDelete(task)"
-                                    >
-                                        {% csrf_token %}
-                                        <button type="submit" class="delete-task button is-small is-danger is-outlined">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" class="bi bi-x-circle" viewBox="0 0 16 16">
-                                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
-                                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
-                                            </svg>
-                                        </button>
-                                    </form>
-                                </a>
+                        <template x-for="(task, idx) in tasks['{{ stage.id }}']" :key="task.id ? task.id : 'placeholder-' + idx">
+                            <div>
+                                <div x-show="task.placeholder" class="kanban-placeholder"></div>
+                                {% include 'tasks/_task_card.html' %}
                             </div>
                         </template>
-                        <p
-                            x-show="tasks[{{ stage.id }}]?.length === 0"
-                            class="has-text-centered has-text-grey-light empty-message"
-                        >
-                            Пусто
-                        </p>
+                        {% include 'tasks/_empty_column_message.html' with stage_id=stage.id %}
                     </div>
                 </div>
             </div>
         {% endfor %}
     </div>
+    <div x-show="showDeleteModal" class="modal is-active fade-in" style="z-index: 1000;" aria-modal="true" role="dialog" aria-labelledby="deleteModalTitle">
+      <div class="modal-background" @click="closeDeleteModal"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title" id="deleteModalTitle">Подтверждение удаления</p>
+          <button class="delete" aria-label="close" @click="closeDeleteModal"></button>
+        </header>
+        <section class="modal-card-body">
+          <p>Вы уверены, что хотите удалить задачу <b x-text="deleteTaskObj && deleteTaskObj.name"></b>?</p>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="button is-danger" @click="confirmDelete(deleteTaskObj)" id="confirmDeleteBtn">Да, удалить</button>
+          <button class="button" @click="closeDeleteModal">Отмена</button>
+        </footer>
+      </div>
+    </div>
 </div>
 
-<script>
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('kanbanBoard', () => ({
-            tasks: {},
-            dragging: null,
-            draggingStage: null,
-            init() {
-                this.tasks = JSON.parse('{{ tasks|safe }}');
-                const groupedTasks = {};
-                this.tasks.forEach(task => {
-                    if (!groupedTasks[task.stage]) {
-                        groupedTasks[task.stage] = [];
-                    }
-                    groupedTasks[task.stage].push(task);
-                });
-                this.tasks = groupedTasks;
-            },
-            dragStart(taskId) {
-                this.dragging = taskId;
-                const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
-                const stageElement = taskElement.closest('[data-stage-id]');
-                this.draggingStage = stageElement.getAttribute('data-stage-id');
-            },
-            dragEnd() {
-                this.dragging = null;
-                this.draggingStage = null;
-            },
-            drop(event, newStageId) {
-                const taskId = this.dragging;
-                if (!taskId) return;
-
-                const column = event.target.closest('.kanban-column');
-                if (!column) {
-                    console.error('Drop target is not a valid column');
-                    return;
-                }
-
-                const tasksInColumn = Array.from(column.querySelectorAll('.kanban-task'));
-                const newIndex = tasksInColumn.indexOf(event.target.closest('.kanban-task'));
-                const taskElement = document.querySelector(`[data-task-id="${taskId}"]`);
-                if (taskElement && column) {
-                    const emptyMessage = column.querySelector('.empty-message');
-                    if (emptyMessage) {
-                        emptyMessage.remove();
-                    }
-                    column.insertBefore(taskElement, tasksInColumn[newIndex] || null);
-                }
-
-                fetch('/tasks/update-task-stage/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken'),
-                    },
-                    body: JSON.stringify({
-                        task_id: taskId,
-                        new_stage_id: newStageId,
-                        new_order: newIndex >= 0 ? newIndex : tasksInColumn.length,
-                    }),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (!data.success) {
-                        console.error('Server error:', data.error);
-                        this.init();
-                    }
-                })
-                .catch(error => {
-                    console.error('Fetch error:', error);
-                    this.init();
-                });
-            },
-            confirmDelete(task) {
-                if (confirm(`Вы уверены, что хотите удалить задачу '${task.name}'?`)) {
-                    fetch(`/tasks/delete/${task.slug}/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': getCookie('csrftoken'),
-                        },
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Удаляем задачу из текущего состояния
-                            for (const stageId in this.tasks) {
-                                const tasks = this.tasks[stageId];
-                                const taskIndex = tasks.findIndex(t => t.id === task.id);
-                                if (taskIndex !== -1) {
-                                    tasks.splice(taskIndex, 1);
-                                    break;
-                                }
-                            }
-                        } else {
-                            alert(data.error);
-                        }
-                    })
-                    .catch(error => console.error('Ошибка при удалении задачи:', error));
-                }
-            },
-        }));
-    });
-
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (const element of cookies) {
-                const cookie = element.trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-</script>
 {% endblock %}

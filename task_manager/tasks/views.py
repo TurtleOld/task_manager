@@ -72,7 +72,6 @@ class KanbanBoard(
     def get(self, request, *args, **kwargs):
         stages = Stage.objects.prefetch_related('tasks').order_by('order')
 
-        # Преобразуем задачи в JSON-совместимый формат
         tasks_data = []
         for stage in stages:
             for task in stage.tasks.all():
@@ -82,13 +81,9 @@ class KanbanBoard(
                         'name': task.name,
                         'slug': task.slug,
                         'author': {
-                            'username': (
-                                task.author.username if task.author else ''
-                            ),
+                            'username': (task.author.username if task.author else ''),
                             'full_name': (
-                                task.author.get_full_name()
-                                if task.author
-                                else ''
+                                task.author.get_full_name() if task.author else ''
                             ),
                         },
                         'executor': {
@@ -96,18 +91,14 @@ class KanbanBoard(
                                 task.executor.username if task.executor else ''
                             ),
                             'full_name': (
-                                task.executor.get_full_name()
-                                if task.executor
-                                else ''
+                                task.executor.get_full_name() if task.executor else ''
                             ),
                         },
-                        'created_at': task.created_at.strftime(
-                            '%d.%m.%Y %H:%M'
-                        ),
+                        'created_at': task.created_at.strftime('%d.%m.%Y %H:%M'),
                         'stage': task.stage_id,
                     }
                 )
-
+        print(tasks_data)
         return render(
             request,
             template_name=self.template_name,
@@ -142,9 +133,7 @@ class UpdateTaskStageView(View):
                 if new_stage_id is not None:
                     old_stage = task.stage
                     new_stage = (
-                        Stage.objects.get(id=new_stage_id)
-                        if new_stage_id
-                        else None
+                        Stage.objects.get(id=new_stage_id) if new_stage_id else None
                     )
                     task.stage = new_stage
                     task.save()
@@ -178,7 +167,7 @@ class UpdateTaskOrderView(View):
                 order = task_data.get('order')
 
                 if task_id is None or stage_id is None or order is None:
-                    raise ValueError("Invalid task data")
+                    raise ValueError('Invalid task data')
 
                 task = Task.objects.filter(pk=task_id).first()
                 if task:
@@ -186,11 +175,9 @@ class UpdateTaskOrderView(View):
                     task.order = order
                     task.save()
                 else:
-                    raise ValueError(f"Task with ID {task_id} not found")
+                    raise ValueError(f'Task with ID {task_id} not found')
 
-            return JsonResponse(
-                {'message': 'Tasks successfully updated'}, status=200
-            )
+            return JsonResponse({'message': 'Tasks successfully updated'}, status=200)
 
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
@@ -233,11 +220,7 @@ class CreateTask(
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
             send_message_about_adding_task.delay(task_name, task_url)
             task_image_path = task.image.path if task_image else None
-            if (
-                deadline
-                and reminder_periods
-                and os.environ.get('TOKEN_TELEGRAM_BOT')
-            ):
+            if deadline and reminder_periods and os.environ.get('TOKEN_TELEGRAM_BOT'):
                 notify(
                     task_name,
                     reminder_periods,
@@ -280,7 +263,7 @@ class DeleteTask(
     template_name = 'tasks/task_confirm_delete.html'
     model = Task
     success_url = reverse_lazy('tasks:list')
-    success_message = "Задача успешно удалена"
+    success_message = 'Задача успешно удалена'
     context_object_name = 'tasks'
 
     def test_func(self):
@@ -326,9 +309,7 @@ class CloseTask(View):
         if task.author != request.user or task.executor != request.user:
             messages.error(
                 request,
-                gettext_lazy(
-                    'У вас нет прав для изменения состояния этой задачи'
-                ),
+                gettext_lazy('У вас нет прав для изменения состояния этой задачи'),
             )
         else:
             task.state = not task.state
@@ -365,9 +346,21 @@ class TaskView(
         context['labels'] = self.get_object().labels.all()
 
         if hasattr(task, 'checklist'):
-            context['checklist_items'] = task.checklist.items.all()
+            checklist_items = task.checklist.items.all()
+            context['checklist_items'] = checklist_items
+            total_checklist = checklist_items.count()
+            done_checklist = checklist_items.filter(is_completed=True).count()
+            progress_checklist = (
+                int(done_checklist / total_checklist * 100) if total_checklist else 0
+            )
+            context['total_checklist'] = total_checklist
+            context['done_checklist'] = done_checklist
+            context['progress_checklist'] = progress_checklist
         else:
             context['checklist_items'] = []
+            context['total_checklist'] = 0
+            context['done_checklist'] = 0
+            context['progress_checklist'] = 0
         return context
 
 
