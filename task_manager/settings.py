@@ -153,16 +153,13 @@ AUTH_PASSWORD_VALIDATORS = [
         '.UserAttributeSimilarityValidator',
     },
     {
-        'NAME': 'django.contrib.auth.'
-        'password_validation.MinimumLengthValidator',
+        'NAME': 'django.contrib.auth.' 'password_validation.MinimumLengthValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation'
-        '.CommonPasswordValidator',
+        'NAME': 'django.contrib.auth.password_validation' '.CommonPasswordValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation'
-        '.NumericPasswordValidator',
+        'NAME': 'django.contrib.auth.password_validation' '.NumericPasswordValidator',
     },
 ]
 
@@ -189,9 +186,13 @@ LOCALE_PATHS = (os.path.join(BASE_DIR, 'task_manager/locale'),)
 
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'static')
+if not os.path.exists(STATIC_ROOT):
+    os.makedirs(STATIC_ROOT)
 STATIC_URL = '/static/'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'media')
+if not os.path.exists(MEDIA_ROOT):
+    os.makedirs(MEDIA_ROOT)
 MEDIA_URL = '/media/'
 
 # Extra places for collectstatic to find static image.
@@ -231,8 +232,8 @@ BOOTSTRAP4 = {
 }
 
 # Crispy Forms
-CRISPY_ALLOWED_TEMPLATE_PACKS = ("bulma",)
-CRISPY_TEMPLATE_PACK = "bulma"
+CRISPY_ALLOWED_TEMPLATE_PACKS = ('bulma',)
+CRISPY_TEMPLATE_PACK = 'bulma'
 
 # Secure
 if not DEBUG:

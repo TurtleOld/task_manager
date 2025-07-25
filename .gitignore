@@ -215,4 +215,6 @@ task_manager/settings/development.py
 
 staticfiles/
 
+.cursor/
+
 # End of https://www.gitignore.io/api/macos,linux,django,python,pycharm
