@@ -1,3 +1,4 @@
+import os
 from urllib.parse import urljoin
 from django.conf import settings
 from django.db import models
@@ -148,12 +149,6 @@ class Task(models.Model):
             return self.deadline.astimezone() < now().astimezone()
         return False
 
-    @property
-    def image_url(self) -> str:
-        if self.image:
-            return urljoin(f'/tasks{settings.MEDIA_URL}', self.image.name)
-        return ''
-
     def get_reminder_period_display(self) -> str:
         return ', '.join(str(period) for period in self.reminder_periods.all())
 
@@ -175,6 +170,12 @@ class Task(models.Model):
         Reorders the task within its current stage.
         """
         reorder_task_within_stage(self, new_order)
+
+    def save(self, *args, **kwargs):
+        image_dir = os.path.join(settings.MEDIA_ROOT, 'images')
+        if not os.path.exists(image_dir):
+            os.makedirs(image_dir)
+        super().save(*args, **kwargs)
 
 
 def reorder_tasks_in_stage(stage_id):
