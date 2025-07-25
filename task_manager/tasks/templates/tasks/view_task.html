@@ -41,8 +41,8 @@
             <div class="columns is-mobile">
                 <div class="column"><i class="fa fa-paperclip"></i> {% translate 'Приложенные файлы' %}</div>
                 <div class="column">
-                    {% if task.image_url %}
-                        <img src="{{ task.image_url }}" alt="thumb" style="max-width: 60px; max-height: 40px; margin-right: 10px; vertical-align: middle;">
+                    {% if task.image %}
+                        <img src="{{ task.image.url }}" alt="thumb" style="max-width: 60px; max-height: 40px; margin-right: 10px; vertical-align: middle;">
                         <a class="button is-small is-link is-light me-1" href="{% url 'tasks:download' task.slug %}" download>
                             <i class="fa fa-download"></i> Скачать изображение
                         </a>
@@ -53,7 +53,7 @@
                             <div class="modal-background"></div>
                             <div class="modal-content has-text-centered">
                                 <a id="link-image" href="" target="_blank">
-                                    <img width="350" height="300" id="preview-image" class="mt-1" src="" alt="Preview" />
+                                    <img src="{{ task.image.url }}" width="350" height="300" id="preview-image" class="mt-1" src="" alt="Preview" />
                                 </a>
                             </div>
                             <button class="modal-close is-large" aria-label="close"></button>
@@ -108,27 +108,15 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const previewButton = document.getElementById('preview-image-button');
-            const modal = document.getElementById('image-modal');
-            const image = document.getElementById('preview-image');
-            const link_image = document.getElementById('link-image');
-            if (previewButton) {
-                previewButton.addEventListener('click', function() {
-                    let url = "{{ task.image_url }}";
-                    image.src = url;
-                    link_image.href = url;
-                    modal.classList.add('is-active');
-                });
-            }
-            function closeModalFunc() {
-                modal.classList.remove('is-active');
-                image.src = "";
-                link_image.href = "";
-            }
-            const closeModal = modal ? modal.querySelector('.modal-close') : null;
-            const modalBg = modal ? modal.querySelector('.modal-background') : null;
-            if (closeModal) closeModal.addEventListener('click', closeModalFunc);
-            if (modalBg) modalBg.addEventListener('click', closeModalFunc);
+            modalManager.attach(
+                'preview-image-button',
+                'image-modal',
+                function() {
+                    return "{{ task.image.url }}";
+                }
+            );
         });
     </script>
+
 {% endblock %}
+    

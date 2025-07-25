@@ -98,7 +98,6 @@ class KanbanBoard(
                         'stage': task.stage_id,
                     }
                 )
-        print(tasks_data)
         return render(
             request,
             template_name=self.template_name,
