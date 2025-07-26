@@ -14,16 +14,33 @@ from django.utils.translation import gettext_lazy
 from task_manager.users.models import User
 
 
-class TaskForm(ModelForm[Any]):
-    checklist_items = forms.CharField(
-        widget=forms.Textarea(
+class ChecklistItemForm(forms.Form):
+    """Форма для отдельного пункта чеклиста"""
+
+    description = forms.CharField(
+        max_length=255,
+        widget=forms.TextInput(
             attrs={
-                'placeholder': 'Введите пункты чеклиста, разделяя их новой строкой'
+                'class': 'input checklist-item-input',
+                'placeholder': 'Введите пункт чеклиста...',
+                'aria-label': 'Пункт чеклиста',
             }
         ),
         required=False,
-        label='Пункты чеклиста',
     )
+
+
+class TaskForm(ModelForm[Any]):
+    # Убираем старое поле checklist_items
+    # checklist_items = forms.CharField(
+    #     widget=forms.Textarea(
+    #         attrs={
+    #             'placeholder': 'Введите пункты чеклиста, разделяя их новой строкой'
+    #         }
+    #     ),
+    #     required=False,
+    #     label='Пункты чеклиста',
+    # )
 
     class Meta:
         model = Task
@@ -60,39 +77,42 @@ class TaskForm(ModelForm[Any]):
         self.request = request
         super().__init__(*args, **kwargs)
         if self.instance.pk and (
-            self.instance.state
-            or self.instance.author_id != self.request.user.pk
+            self.instance.state or self.instance.author_id != self.request.user.pk
         ):
             for field in self.fields:
                 self.fields[field].disabled = True
-        self.fields['checklist_items'].widget.attrs['rows'] = 4
-        if hasattr(self.instance, 'checklist'):
-            checklist_items = self.instance.checklist.items.values_list(
-                'description',
-                flat=True,
-            )
 
-            self.fields['checklist_items'].initial = '\n'.join(checklist_items)
+        # Инициализируем данные чеклиста для JavaScript
+        self.checklist_data = []
+        if hasattr(self.instance, 'checklist'):
+            checklist_items = self.instance.checklist.items.all()
+            self.checklist_data = [
+                {
+                    'id': item.id,
+                    'description': item.description,
+                    'is_completed': item.is_completed,
+                }
+                for item in checklist_items
+            ]
 
     def save_checklist_items(self, task: Task) -> None:
-        items_text = self.cleaned_data.get('checklist_items')
-        if items_text:
-            checklist, _ = Checklist.objects.get_or_create(task=task)
-            existing_items = {
-                item.description: item for item in checklist.items.all()
-            }
-            new_items = set(
-                item.strip() for item in items_text.splitlines() if item.strip()
-            )
-            for description, item in existing_items.items():
-                if description not in new_items:
-                    item.delete()
+        """Сохраняет пункты чеклиста из POST данных"""
+        if hasattr(self, 'cleaned_data') and 'checklist_items' in self.cleaned_data:
+            items_data = self.cleaned_data.get('checklist_items', [])
+            if items_data:
+                checklist, _ = Checklist.objects.get_or_create(task=task)
 
-            for description in new_items:
-                if description not in existing_items:
-                    ChecklistItem.objects.create(
-                        checklist=checklist, description=description
-                    )
+                # Удаляем все существующие пункты
+                checklist.items.all().delete()
+
+                # Создаем новые пункты
+                for item_data in items_data:
+                    if item_data.get('description', '').strip():
+                        ChecklistItem.objects.create(
+                            checklist=checklist,
+                            description=item_data['description'].strip(),
+                            is_completed=item_data.get('is_completed', False),
+                        )
 
     def save(self, commit: bool = True) -> 'Task':
         task = super().save(commit=True)
@@ -101,7 +121,6 @@ class TaskForm(ModelForm[Any]):
 
 
 class TasksFilter(django_filters.FilterSet):
-
     executors = User.objects.values_list(
         'id', Concat('first_name', Value(' '), 'last_name'), named=True
     ).all()
