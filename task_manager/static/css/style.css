@@ -306,19 +306,47 @@ body[data-theme="dark"] .modal-card {
 }
 
 .kanban-dropdown-fix .dropdown-menu {
-    right: 0 !important;
+    position: fixed !important;
+    right: auto !important;
     left: auto !important;
     min-width: 140px;
-    top: 100% !important;
-    margin-top: 0.25rem;
-    z-index: 20;
+    top: auto !important;
+    margin-top: 0.5rem;
+    z-index: 1000;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     border-radius: 6px;
     border: 1px solid #dbdbdb;
+    transform: none !important;
+    animation: dropdownFadeIn 0.2s ease-out;
+}
+
+@keyframes dropdownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 @media (max-width: 600px) {
     .kanban-dropdown-fix .dropdown-menu {
         min-width: 110px;
+        position: fixed !important;
+        right: 10px !important;
+        left: 10px !important;
+        width: auto !important;
+        max-width: calc(100vw - 20px) !important;
+        background-color: #ffffff !important;
+        border: 1px solid #dbdbdb !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        border-radius: 6px !important;
+    }
+    
+    body[data-theme="dark"] .kanban-dropdown-fix .dropdown-menu {
+        background-color: #363636 !important;
+        border-color: #4a4a4a !important;
     }
 }
 
