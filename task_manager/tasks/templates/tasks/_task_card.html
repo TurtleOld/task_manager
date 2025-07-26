@@ -6,6 +6,7 @@
     draggable="true"
     @dragstart="dragStart(task.id)"
     @dragend="dragEnd"
+    @click="dropdownTaskId = null"
     :class="{
         'is-dragging': dragging == task.id,
         'kanban-task-hover': true
@@ -17,6 +18,7 @@
     <div class="is-flex is-justify-content-space-between is-align-items-flex-start is-flex-direction-row is-flex-wrap-wrap is-relative">
         <a :href="`/tasks/${task.slug}`" 
            class="is-flex-grow-1 kanban-task-link"
+           @click.stop
            :aria-label="`Открыть задачу: ${task.name}`"
            title="{% translate 'Открыть задачу' %}">
             <header class="is-flex is-align-items-center mb-2">
@@ -90,32 +92,35 @@
              :aria-label="`Действия для задачи: ${task.name}`">
             <div class="dropdown-trigger">
                 <button class="button is-white is-small" 
-                        @click.stop="toggleDropdown(task.id)" 
+                        @click.stop="toggleDropdown(task.id, $event)" 
                         :title="`{% translate 'Действия для задачи' %}: ${task.name}`"
                         :aria-label="`{% translate 'Действия для задачи' %}: ${task.name}`"
                         :aria-expanded="dropdownTaskId === task.id"
-                        @keydown.escape="dropdownTaskId = null">
+                        @keydown.escape="dropdownTaskId = null"
+                        @click.stop>
                     <span class="icon" aria-hidden="true">
                         <i class="fas fa-ellipsis-v"></i>
                     </span>
                 </button>
             </div>
-            <div class="dropdown-menu" role="menu">
+            <div class="dropdown-menu" role="menu" @click.stop>
                 <div class="dropdown-content">
                     <a :href="`/tasks/${task.slug}`" 
                        class="dropdown-item" 
+                       @click="dropdownTaskId = null"
                        :title="`{% translate 'Посмотреть задачу' %}: ${task.name}`"
                        :aria-label="`{% translate 'Посмотреть задачу' %}: ${task.name}`">
                         <i class="fas fa-eye" aria-hidden="true"></i> {% translate 'Посмотреть' %}
                     </a>
                     <a :href="`/tasks/update/${task.slug}/`" 
                        class="dropdown-item" 
+                       @click="dropdownTaskId = null"
                        :title="`{% translate 'Редактировать задачу' %}: ${task.name}`"
                        :aria-label="`{% translate 'Редактировать задачу' %}: ${task.name}`">
                         <i class="fas fa-edit" aria-hidden="true"></i> {% translate 'Редактировать' %}
                     </a>
                     <button class="dropdown-item has-text-danger" 
-                            @click.prevent="openDeleteModal(task)" 
+                            @click.prevent="openDeleteModal(task); dropdownTaskId = null" 
                             :title="`{% translate 'Удалить задачу' %}: ${task.name}`"
                             :aria-label="`{% translate 'Удалить задачу' %}: ${task.name}`">
                         <i class="fas fa-trash" aria-hidden="true"></i> {% translate 'Удалить' %}
