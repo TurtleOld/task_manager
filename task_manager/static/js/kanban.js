@@ -25,6 +25,33 @@ document.addEventListener('alpine:init', () => {
                 if (!groupedTasks[key]) groupedTasks[key] = [];
             });
             Object.assign(this.tasks, groupedTasks);
+            
+            // Добавляем обработчик клика вне dropdown для его закрытия
+            document.addEventListener('click', (event) => {
+                // Проверяем, что клик не по dropdown-меню и не по кнопке открытия
+                const isDropdownMenuClick = event.target.closest('.dropdown-menu');
+                const isDropdownTriggerClick = event.target.closest('.dropdown-trigger');
+                const isDropdownItemClick = event.target.closest('.dropdown-item');
+                
+                // Если клик не по меню, не по кнопке и не по пункту меню, закрываем меню
+                if (!isDropdownMenuClick && !isDropdownTriggerClick && !isDropdownItemClick) {
+                    this.dropdownTaskId = null;
+                }
+            });
+            
+            // Добавляем обработчик изменения размера окна
+            window.addEventListener('resize', () => {
+                if (this.dropdownTaskId) {
+                    this.dropdownTaskId = null;
+                }
+            });
+            
+            // Добавляем обработчик клавиши Escape для закрытия dropdown
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && this.dropdownTaskId) {
+                    this.dropdownTaskId = null;
+                }
+            });
         },
         dragStart(taskId) {
             this.dragging = taskId;
@@ -135,8 +162,43 @@ document.addEventListener('alpine:init', () => {
             }
             return null;
         },
-        toggleDropdown(taskId) {
-            this.dropdownTaskId = this.dropdownTaskId === taskId ? null : taskId;
+        toggleDropdown(taskId, event) {
+            // Если кликаем по той же кнопке, закрываем меню
+            if (this.dropdownTaskId === taskId) {
+                this.dropdownTaskId = null;
+                return;
+            }
+            
+            // Открываем новое меню
+            this.dropdownTaskId = taskId;
+            
+            this.$nextTick(() => {
+                const dropdownMenu = document.querySelector(`[data-task-id="${taskId}"] .dropdown-menu`);
+                if (dropdownMenu) {
+                    const button = event.target.closest('.dropdown-trigger');
+                    const buttonRect = button.getBoundingClientRect();
+                    
+                    // Проверяем, мобильное ли устройство
+                    const isMobile = window.innerWidth <= 600;
+                    
+                    if (isMobile) {
+                        // На мобильных устройствах позиционируем по центру экрана
+                        dropdownMenu.style.position = 'fixed';
+                        dropdownMenu.style.top = '50%';
+                        dropdownMenu.style.left = '50%';
+                        dropdownMenu.style.transform = 'translate(-50%, -50%)';
+                        dropdownMenu.style.zIndex = '1000';
+                        dropdownMenu.style.maxWidth = 'calc(100vw - 20px)';
+                    } else {
+                        // На десктопе позиционируем относительно кнопки
+                        dropdownMenu.style.position = 'fixed';
+                        dropdownMenu.style.top = (buttonRect.bottom + 5) + 'px';
+                        dropdownMenu.style.left = (buttonRect.right - dropdownMenu.offsetWidth) + 'px';
+                        dropdownMenu.style.zIndex = '1000';
+                        dropdownMenu.style.transform = 'none';
+                    }
+                }
+            });
         },
         openDeleteModal(task) {
             this.showDeleteModal = true;
