@@ -1,26 +1,92 @@
 {% extends '../base.html' %}
 {% load crispy_forms_tags %}
 {% load i18n %}
+{% load static %}
 
 {% block title %}{% translate 'Создание задачи' %}{% endblock %}
 
 {% block content %}
-    <div class="section">
-        <div class="container">
-            <div class="columns is-mobile">
-                <div class="column">
-                    <h1 class="title is-size-3-mobile has-text-success-70 mt-1">{% translate 'Создать задачу' %}</h1>
-                    <form method="post" enctype="multipart/form-data">
+<main class="task-change" role="main" aria-labelledby="create-task-title">
+    <div class="container">
+        <div class="columns is-centered">
+            <div class="column is-8-tablet is-6-desktop">
+                <header class="mb-5">
+                    <h1 id="create-task-title" class="title is-size-3-mobile has-text-success-70 mt-1">
+                        <span class="icon mr-2" aria-hidden="true">
+                            <i class="fas fa-plus"></i>
+                        </span>
+                        {% translate 'Создать задачу' %}
+                    </h1>
+                    <p class="subtitle is-6 has-text-grey-light">
+                        {% translate 'Заполните информацию о новой задаче' %}
+                    </p>
+                </header>
+
+                <section class="box has-background-white-ter">
+                    <form method="post" enctype="multipart/form-data" novalidate>
                         {% csrf_token %}
-                        {{ form | crispy }}
-                        <button type="submit" class="button is-centered">Создать</button>
+                        
+                        <div class="field">
+                            {{ form | crispy }}
+                        </div>
+
+                        <!-- Улучшенный интерфейс чеклиста -->
+                        <div class="field">
+                            <label class="label">
+                                <span class="icon is-small mr-1" aria-hidden="true">
+                                    <i class="fas fa-tasks"></i>
+                                </span>
+                                {% translate 'Пункты чеклиста' %}
+                            </label>
+                            <div class="checklist-container">
+                                <div id="checklist-items" class="checklist-items">
+                                    <!-- Пункты чеклиста будут добавляться сюда динамически -->
+                                </div>
+                                <div class="field mt-3">
+                                    <button type="button" 
+                                            id="add-checklist-item" 
+                                            class="button is-small is-info"
+                                            aria-label="{% translate 'Добавить пункт чеклиста' %}"
+                                            title="{% translate 'Добавить пункт' %}">
+                                        <span class="icon is-small" aria-hidden="true">
+                                            <i class="fas fa-plus"></i>
+                                        </span>
+                                        <span>{% translate 'Добавить пункт' %}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <footer class="field is-grouped is-grouped-right mt-5">
+                            <div class="control">
+                                <a href="{% url 'tasks:list' %}" 
+                                   class="button is-light"
+                                   aria-label="{% translate 'Отменить создание задачи' %}"
+                                   title="{% translate 'Отменить' %}">
+                                    <span class="icon" aria-hidden="true">
+                                        <i class="fas fa-times"></i>
+                                    </span>
+                                    <span>{% translate 'Отменить' %}</span>
+                                </a>
+                            </div>
+                            <div class="control">
+                                <button type="submit" 
+                                        class="button is-success"
+                                        aria-label="{% translate 'Создать задачу' %}"
+                                        title="{% translate 'Создать' %}">
+                                    <span class="icon" aria-hidden="true">
+                                        <i class="fas fa-save"></i>
+                                    </span>
+                                    <span>{% translate 'Создать' %}</span>
+                                </button>
+                            </div>
+                        </footer>
                     </form>
-                </div>
-                <!-- /.column -->
+                </section>
             </div>
-            <!-- /.columns -->
         </div>
-        <!-- /.container -->
     </div>
-    <!-- /.section -->
+</main>
+
+<script src="{% static 'js/checklist.js' %}"></script>
 {% endblock %}

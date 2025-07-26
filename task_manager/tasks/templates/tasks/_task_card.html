@@ -1,64 +1,127 @@
-<div
+{% load i18n %}
+
+<article
     class="box mt-5 mb-1 kanban-task has-shadow transition-kanban kanban-task-hover kanban-task-card"
     :data-task-id="task.id"
     draggable="true"
     @dragstart="dragStart(task.id)"
     @dragend="dragEnd"
-    :class="[
-        dragging == task.id ? 'is-dragging' : '',
-        'kanban-task-hover'
-    ]"
+    :class="{
+        'is-dragging': dragging == task.id,
+        'kanban-task-hover': true
+    }"
+    :aria-label="`Задача: ${task.name}`"
+    @keydown.enter="window.location.href = `/tasks/${task.slug}`"
+    @keydown.space.prevent="window.location.href = `/tasks/${task.slug}`"
 >
     <div class="is-flex is-justify-content-space-between is-align-items-flex-start is-flex-direction-row is-flex-wrap-wrap is-relative">
-        <a :href="`/tasks/${task.slug}`" class="is-flex-grow-1 kanban-task-link">
-            <div class="is-flex is-align-items-center mb-2">
-                <span class="avatar mr-2" :title="task.executor?.full_name">
+        <a :href="`/tasks/${task.slug}`" 
+           class="is-flex-grow-1 kanban-task-link"
+           :aria-label="`Открыть задачу: ${task.name}`"
+           title="{% translate 'Открыть задачу' %}">
+            <header class="is-flex is-align-items-center mb-2">
+                <figure class="avatar mr-2" :title="task.executor?.full_name || '{% translate 'Исполнитель не назначен' %}'">
                     <template x-if="task.executor?.avatar">
-                        <img :src="task.executor.avatar" class="is-rounded kanban-task-avatar">
+                        <img :src="task.executor.avatar" 
+                             :alt="`Аватар исполнителя: ${task.executor.full_name}`"
+                             class="is-rounded kanban-task-avatar">
                     </template>
                     <template x-if="!task.executor?.avatar">
-                        <span class="tag is-info is-light is-medium kanban-task-avatar-fallback">
+                        <span class="tag is-info is-light is-medium kanban-task-avatar-fallback"
+                              :aria-label="`Исполнитель: ${task.executor?.full_name || 'Не назначен'}`">
                             <span x-text="task.executor?.full_name ? task.executor.full_name[0] : '?'" />
                         </span>
                     </template>
-                </span>
-                <span class="is-size-5 has-text-weight-bold task-title kanban-task-title"
-                      :class="task.status == 'done' ? 'has-text-success' : 'has-text-link'"
-                      x-text="task.name"></span>
-            </div>
+                </figure>
+                <h3 class="is-size-5 has-text-weight-bold task-title kanban-task-title"
+                    :class="task.status == 'done' ? 'has-text-success' : 'has-text-link'"
+                    x-text="task.name">
+                </h3>
+            </header>
+            
             <div class="mb-1 is-flex is-align-items-center is-flex-wrap-wrap kanban-task-badges">
-                <span class="tag is-light is-small" title="Автор">
-                    <i class="fas fa-user"></i> 
-                    <span x-text="task.author?.full_name"></span>
+                <span class="tag is-light is-small kanban-task-author" 
+                      :title="`Автор: ${task.author?.full_name}`"
+                      :aria-label="`Автор задачи: ${task.author?.full_name}`">
+                    <span class="kanban-task-author-avatar" aria-hidden="true">
+                        <i class="fas fa-user"></i>
+                    </span>
+                    <span class="kanban-task-author-name" x-text="task.author?.full_name"></span>
                 </span>
-                <span class="tag is-primary is-light is-small" title="Исполнитель">
-                    <i class="fas fa-user-check"></i> 
-                    <span x-text="task.executor?.full_name"></span>
+                <span class="tag is-primary is-light is-small kanban-task-executor"
+                      :title="`Исполнитель: ${task.executor?.full_name || 'Не назначен'}`"
+                      :aria-label="`Исполнитель задачи: ${task.executor?.full_name || 'Не назначен'}`">
+                    <span class="kanban-task-executor-avatar" aria-hidden="true">
+                        <template x-if="task.executor?.avatar">
+                            <img :src="task.executor.avatar"
+                                 :alt="`Аватар исполнителя: ${task.executor.full_name}`"
+                                 class="is-rounded kanban-task-avatar" style="width:1.6em;height:1.6em;">
+                        </template>
+                        <template x-if="!task.executor?.avatar">
+                            <span class="kanban-task-executor-fallback" x-text="task.executor?.full_name ? task.executor.full_name[0] : '?'" />
+                        </template>
+                    </span>
+                    <span class="kanban-task-executor-name" x-text="task.executor?.full_name || '{% translate 'Не назначен' %}'"></span>
                 </span>
-                <span class="tag is-warning is-light is-small" title="Приоритет" x-show="task.priority">
-                    <i class="fas fa-flag"></i> 
+                <span class="tag is-warning is-light is-small" 
+                      title="{% translate 'Приоритет' %}" 
+                      x-show="task.priority"
+                      :aria-label="`Приоритет: ${task.priority}`">
+                    <i class="fas fa-flag" aria-hidden="true"></i> 
                     <span x-text="task.priority"></span>
                 </span>
-                <span class="tag is-info is-light is-small" title="Дедлайн" x-show="task.deadline">
-                    <i class="fas fa-clock"></i> 
+                <span class="tag is-info is-light is-small" 
+                      title="{% translate 'Дедлайн' %}" 
+                      x-show="task.deadline"
+                      :aria-label="`Дедлайн: ${task.deadline}`">
+                    <i class="fas fa-clock" aria-hidden="true"></i> 
                     <span x-text="task.deadline"></span>
                 </span>
             </div>
-            <small class="has-text-grey">Создана: <i x-text="task.created_at"></i></small>
+            
+            <footer class="has-text-grey">
+                <small>{% translate 'Создана' %}: <time x-text="task.created_at"></time></small>
+            </footer>
         </a>
-        <div class="dropdown kanban-dropdown-fix" :class="{ 'is-active': dropdownTaskId === task.id }">
+        
+        <nav class="dropdown kanban-dropdown-fix" 
+             :class="{ 'is-active': dropdownTaskId === task.id }"
+             role="navigation"
+             :aria-label="`Действия для задачи: ${task.name}`">
             <div class="dropdown-trigger">
-                <button class="button is-white is-small" @click.stop="toggleDropdown(task.id)" title="Действия" aria-label="Действия">
-                    <span class="icon"><i class="fas fa-ellipsis-v"></i></span>
+                <button class="button is-white is-small" 
+                        @click.stop="toggleDropdown(task.id)" 
+                        :title="`{% translate 'Действия для задачи' %}: ${task.name}`"
+                        :aria-label="`{% translate 'Действия для задачи' %}: ${task.name}`"
+                        :aria-expanded="dropdownTaskId === task.id"
+                        @keydown.escape="dropdownTaskId = null">
+                    <span class="icon" aria-hidden="true">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </span>
                 </button>
             </div>
             <div class="dropdown-menu" role="menu">
                 <div class="dropdown-content">
-                    <a :href="`/tasks/${task.slug}`" class="dropdown-item" title="Посмотреть" aria-label="Посмотреть"><i class="fas fa-eye"></i> Посмотреть</a>
-                    <a :href="`/tasks/update/${task.slug}/`" class="dropdown-item" title="Редактировать" aria-label="Редактировать"><i class="fas fa-edit"></i> Редактировать</a>
-                    <a href="#" class="dropdown-item has-text-danger" @click.prevent="openDeleteModal(task)" title="Удалить" aria-label="Удалить"><i class="fas fa-trash"></i> Удалить</a>
+                    <a :href="`/tasks/${task.slug}`" 
+                       class="dropdown-item" 
+                       :title="`{% translate 'Посмотреть задачу' %}: ${task.name}`"
+                       :aria-label="`{% translate 'Посмотреть задачу' %}: ${task.name}`">
+                        <i class="fas fa-eye" aria-hidden="true"></i> {% translate 'Посмотреть' %}
+                    </a>
+                    <a :href="`/tasks/update/${task.slug}/`" 
+                       class="dropdown-item" 
+                       :title="`{% translate 'Редактировать задачу' %}: ${task.name}`"
+                       :aria-label="`{% translate 'Редактировать задачу' %}: ${task.name}`">
+                        <i class="fas fa-edit" aria-hidden="true"></i> {% translate 'Редактировать' %}
+                    </a>
+                    <button class="dropdown-item has-text-danger" 
+                            @click.prevent="openDeleteModal(task)" 
+                            :title="`{% translate 'Удалить задачу' %}: ${task.name}`"
+                            :aria-label="`{% translate 'Удалить задачу' %}: ${task.name}`">
+                        <i class="fas fa-trash" aria-hidden="true"></i> {% translate 'Удалить' %}
+                    </button>
                 </div>
             </div>
-        </div>
+        </nav>
     </div>
-</div> 
+</article> 

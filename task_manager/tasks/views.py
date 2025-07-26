@@ -13,6 +13,7 @@ from django.http import (
     JsonResponse,
 )
 from django.db import transaction
+from django.template.loader import render_to_string
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -212,6 +213,30 @@ class CreateTask(
             task.stage_id = 1
             task = form.save()
             task_slug = task.slug
+
+            # Обрабатываем данные чеклиста из POST запроса
+            checklist_items = []
+            i = 0
+            while f'checklist_items[{i}][description]' in self.request.POST:
+                description = self.request.POST.get(
+                    f'checklist_items[{i}][description]', ''
+                ).strip()
+                is_completed = (
+                    self.request.POST.get(
+                        f'checklist_items[{i}][is_completed]', 'false'
+                    )
+                    == 'true'
+                )
+                if description:  # Добавляем только непустые пункты
+                    checklist_items.append(
+                        {'description': description, 'is_completed': is_completed}
+                    )
+                i += 1
+
+            # Добавляем данные чеклиста в cleaned_data формы
+            form.cleaned_data = form.cleaned_data or {}
+            form.cleaned_data['checklist_items'] = checklist_items
+
             form.save_checklist_items(task)
             task_image = task.image
             deadline = task.deadline
@@ -251,6 +276,37 @@ class UpdateTask(
         kwargs = super().get_form_kwargs()
         kwargs['request'] = self.request
         return kwargs
+
+    def get_context_data(self, **kwargs: dict[str, Any]) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        form = context['form']
+        # Передаем данные чеклиста в контекст для JavaScript
+        context['checklist_data'] = json.dumps(form.checklist_data)
+        return context
+
+    def form_valid(self, form: TaskForm) -> HttpResponse:
+        # Обрабатываем данные чеклиста из POST запроса
+        checklist_items = []
+        i = 0
+        while f'checklist_items[{i}][description]' in self.request.POST:
+            description = self.request.POST.get(
+                f'checklist_items[{i}][description]', ''
+            ).strip()
+            is_completed = (
+                self.request.POST.get(f'checklist_items[{i}][is_completed]', 'false')
+                == 'true'
+            )
+            if description:  # Добавляем только непустые пункты
+                checklist_items.append(
+                    {'description': description, 'is_completed': is_completed}
+                )
+            i += 1
+
+        # Добавляем данные чеклиста в cleaned_data формы
+        form.cleaned_data = form.cleaned_data or {}
+        form.cleaned_data['checklist_items'] = checklist_items
+
+        return super().form_valid(form)
 
 
 class DeleteTask(
@@ -398,3 +454,27 @@ class DownloadFileView(DetailView[Task]):
             return response
         except FileNotFoundError:
             raise Http404('Файл не найден')
+
+
+def checklist_progress_view(request, task_id):
+    task = get_object_or_404(Task, pk=task_id)
+    if hasattr(task, 'checklist'):
+        checklist_items = task.checklist.items.all()
+        total_checklist = checklist_items.count()
+        done_checklist = checklist_items.filter(is_completed=True).count()
+        progress_checklist = (
+            int(done_checklist / total_checklist * 100) if total_checklist else 0
+        )
+    else:
+        total_checklist = 0
+        done_checklist = 0
+        progress_checklist = 0
+    html = render_to_string(
+        'tasks/_checklist_progress.html',
+        {
+            'progress_checklist': progress_checklist,
+            'done_checklist': done_checklist,
+            'total_checklist': total_checklist,
+        },
+    )
+    return HttpResponse(html)

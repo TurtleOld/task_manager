@@ -61,9 +61,6 @@ msgstr "Deleting the user"
 msgid "Да, удалить"
 msgstr "Yes, delete"
 
-msgid "Удалить"
-msgstr "Delete"
-
 msgid "Вы залогинены"
 msgstr "You are logged in"
 
@@ -97,89 +94,159 @@ msgstr "Updating a task"
 msgid "Создание задачи"
 msgstr "Creating a task"
 
-msgid "Создать задачу"
-msgstr "Create a task"
+msgid "Создать новую задачу"
+msgstr "Create new task"
 
-msgid "Создать метку"
-msgstr "Create a label"
+msgid "Колонки задач"
+msgstr "Task columns"
 
-msgid "Удаление задачи"
-msgstr "Deleting a task"
+msgid "Колонка"
+msgstr "Column"
 
-msgid "Создать"
-msgstr "Create"
+msgid "Список задач в колонке"
+msgstr "Task list in column"
 
-msgid "Автор"
-msgstr "Author"
+msgid "Количество задач"
+msgstr "Number of tasks"
 
-msgid "Исполнитель"
-msgstr "Executor"
+msgid "Закрыть модальное окно"
+msgstr "Close modal window"
 
-msgid "Метка"
-msgstr "Label"
+msgid "Подтверждение удаления"
+msgstr "Delete confirmation"
 
-msgid "Описание"
-msgstr "Description"
-
-msgid "Дата создания"
-msgstr "Create Date"
-
-msgid "Полное имя"
-msgstr "Full name"
+msgid "Закрыть"
+msgstr "Close"
 
 msgid "Вы уверены, что хотите удалить задачу"
 msgstr "Are you sure you want to delete the task"
 
-msgid "Создание метки"
-msgstr "Creating a label"
+msgid "Подтвердить удаление задачи"
+msgstr "Confirm task deletion"
 
-msgid "Обновление метки"
-msgstr "Updating a label"
+msgid "Отменить удаление"
+msgstr "Cancel deletion"
 
-msgid "Изменение метки"
-msgstr "Changing the label"
+msgid "Отмена"
+msgstr "Cancel"
 
-msgid "Удаление метки"
-msgstr "Deleting a label"
+msgid "Открыть задачу"
+msgstr "Open task"
 
-msgid "Вы уверены, что хотите удалить метку"
-msgstr "Are you sure you want to delete the label"
+msgid "Исполнитель не назначен"
+msgstr "Executor not assigned"
 
-msgid "У вас нет прав на просмотр данной страницы! Авторизуйтесь!"
-msgstr "You have no rights to view this page! Log in!"
+msgid "Не назначен"
+msgstr "Not assigned"
 
-msgid "Вы не можете удалить метку, потому что она используется"
-msgstr "You can't delete a label because it's being used"
+msgid "Приоритет"
+msgstr "Priority"
 
-msgid "Вы не можете удалить чужую задачу!"
-msgstr "You can't delete someone else's task!"
+msgid "Дедлайн"
+msgstr "Deadline"
 
-msgid "У вас нет разрешения на изменение другого пользователя, либо пользователь связан с задачей"
-msgstr "You don't have permission to change another user, or the user is associated with the task"
+msgid "Создана"
+msgstr "Created"
 
-msgid "Только свои задачи"
-msgstr "Only your own tasks"
+msgid "Действия для задачи"
+msgstr "Task actions"
 
-msgid "Список задач"
-msgstr "Task list"
+msgid "Посмотреть задачу"
+msgstr "View task"
 
-msgid "Список меток"
-msgstr "Label list"
+msgid "Посмотреть"
+msgstr "View"
 
-msgid "Имя"
-msgstr "Name"
+msgid "Редактировать задачу"
+msgstr "Edit task"
 
-msgid "Метка успешно изменена"
-msgstr "Label changed successfully"
+msgid "Редактировать"
+msgstr "Edit"
 
-msgid "Задача успешно создана"
-msgstr "The task was successfully created"
+msgid "Удалить задачу"
+msgstr "Delete task"
 
-msgid "Задача успешно изменена"
-msgstr "The task has been successfully changed"
+msgid "Колонка пуста"
+msgstr "Column is empty"
 
-msgid "Задача успешно удалена"
-msgstr "The task was successfully deleted"
+msgid "задач"
+msgstr "tasks"
 
-msgid "Метка успешно удалена"
-msgstr "The label was successfully deleted"
+msgid "Нет задач в этой стадии"
+msgstr "No tasks in this stage"
+
+msgid "Перетащите задачу сюда или создайте новую"
+msgstr "Drag a task here or create a new one"
+
+# Переводы для шаблона обновления задачи
+msgid "Обновить задачу"
+msgstr "Update task"
+
+msgid "Измените информацию о задаче"
+msgstr "Change task information"
+
+msgid "Отменить изменения и вернуться к просмотру задачи"
+msgstr "Cancel changes and return to task view"
+
+msgid "Отменить"
+msgstr "Cancel"
+
+msgid "Сохранить изменения в задаче"
+msgstr "Save changes to task"
+
+msgid "Сохранить изменения"
+msgstr "Save changes"
+
+msgid "Совет"
+msgstr "Tip"
+
+msgid "Вы можете изменить название, описание, исполнителя, дедлайн и другие параметры задачи."
+msgstr "You can change the name, description, executor, deadline and other task parameters."
+
+msgid "Совет: Вы можете изменить название, описание, исполнителя, дедлайн и другие параметры задачи."
+msgstr "Tip: You can change the name, description, assignee, deadline and other task parameters."
+
+msgid "Пункты чеклиста"
+msgstr "Checklist items"
+
+msgid "Добавить пункт чеклиста"
+msgstr "Add checklist item"
+
+msgid "Добавить пункт"
+msgstr "Add item"
+
+msgid "Введите пункт чеклиста..."
+msgstr "Enter checklist item..."
+
+msgid "Пункт чеклиста"
+msgstr "Checklist item"
+
+msgid "Отметить как выполненный"
+msgstr "Mark as completed"
+
+msgid "Удалить пункт"
+msgstr "Remove item"
+
+msgid "Удалить"
+msgstr "Remove"
+
+msgid "Нет пунктов чеклиста"
+msgstr "No checklist items"
+
+msgid "Заполните информацию о новой задаче"
+msgstr "Fill in the information for the new task"
+
+msgid "Отменить создание задачи"
+msgstr "Cancel task creation"
+
+msgid "Создать задачу"
+msgstr "Create task"
+
+msgid "Создать"
+msgstr "Create"
+
+msgid "Совет: Вы можете добавить пункты чеклиста для лучшей организации задачи."
+msgstr "Tip: You can add checklist items for better task organization."
+
+msgid "Отменить изменения и вернуться к списку задач"
+msgstr "Cancel changes and return to task list"

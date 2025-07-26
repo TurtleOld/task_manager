@@ -41,7 +41,7 @@
             <div class="columns is-mobile">
                 <div class="column"><i class="fa fa-paperclip"></i> {% translate 'Приложенные файлы' %}</div>
                 <div class="column">
-                    {% if task.image %}
+                    {% if task.image and task.image.url != '' %}
                         <img src="{{ task.image.url }}" alt="thumb" style="max-width: 60px; max-height: 40px; margin-right: 10px; vertical-align: middle;">
                         <a class="button is-small is-link is-light me-1" href="{% url 'tasks:download' task.slug %}" download>
                             <i class="fa fa-download"></i> Скачать изображение
@@ -74,8 +74,10 @@
                 <div class="column">
                     {% if checklist_items %}
                         {% if total_checklist > 0 %}
-                            <progress class="progress is-success" value="{{ progress_checklist }}" max="100">{{ progress_checklist }}%</progress>
-                            <span>{{ done_checklist }} / {{ total_checklist }}</span>
+                            <div id="checklist-progress-block" hx-get="{% url 'tasks:checklist_progress' task.pk %}" hx-trigger="load, checklist-updated from:body">
+                                <progress id="checklist-progress" class="progress is-success" value="{{ progress_checklist }}" max="100">{{ progress_checklist }}%</progress>
+                                <span id="checklist-progress-count">{{ done_checklist }} / {{ total_checklist }}</span>
+                            </div>
                         {% endif %}
                         <ul class="list-group">
                             {% for item in checklist_items %}
@@ -112,9 +114,15 @@
                 'preview-image-button',
                 'image-modal',
                 function() {
-                    return "{{ task.image.url }}";
+                    return "{% if task.image %}{{ task.image.url }}{% endif %}";
                 }
             );
+        });
+        // После успешного HTMX запроса чеклиста, инициируем обновление прогресса
+        document.body.addEventListener('htmx:afterSwap', function(event) {
+            if (event.target && event.target.matches('.list-group-item')) {
+                htmx.trigger(document.body, 'checklist-updated');
+            }
         });
     </script>
 
