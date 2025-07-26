@@ -1,5 +1,4 @@
 import os
-from urllib.parse import urljoin
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
