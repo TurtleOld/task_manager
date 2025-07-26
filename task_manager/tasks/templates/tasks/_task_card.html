@@ -40,17 +40,28 @@
             </header>
             
             <div class="mb-1 is-flex is-align-items-center is-flex-wrap-wrap kanban-task-badges">
-                <span class="tag is-light is-small" 
+                <span class="tag is-light is-small kanban-task-author" 
                       :title="`Автор: ${task.author?.full_name}`"
                       :aria-label="`Автор задачи: ${task.author?.full_name}`">
-                    <i class="fas fa-user" aria-hidden="true"></i> 
-                    <span x-text="task.author?.full_name"></span>
+                    <span class="kanban-task-author-avatar" aria-hidden="true">
+                        <i class="fas fa-user"></i>
+                    </span>
+                    <span class="kanban-task-author-name" x-text="task.author?.full_name"></span>
                 </span>
-                <span class="tag is-primary is-light is-small" 
+                <span class="tag is-primary is-light is-small kanban-task-executor"
                       :title="`Исполнитель: ${task.executor?.full_name || 'Не назначен'}`"
                       :aria-label="`Исполнитель задачи: ${task.executor?.full_name || 'Не назначен'}`">
-                    <i class="fas fa-user-check" aria-hidden="true"></i> 
-                    <span x-text="task.executor?.full_name || '{% translate 'Не назначен' %}'"></span>
+                    <span class="kanban-task-executor-avatar" aria-hidden="true">
+                        <template x-if="task.executor?.avatar">
+                            <img :src="task.executor.avatar"
+                                 :alt="`Аватар исполнителя: ${task.executor.full_name}`"
+                                 class="is-rounded kanban-task-avatar" style="width:1.6em;height:1.6em;">
+                        </template>
+                        <template x-if="!task.executor?.avatar">
+                            <span class="kanban-task-executor-fallback" x-text="task.executor?.full_name ? task.executor.full_name[0] : '?'" />
+                        </template>
+                    </span>
+                    <span class="kanban-task-executor-name" x-text="task.executor?.full_name || '{% translate 'Не назначен' %}'"></span>
                 </span>
                 <span class="tag is-warning is-light is-small" 
                       title="{% translate 'Приоритет' %}" 
