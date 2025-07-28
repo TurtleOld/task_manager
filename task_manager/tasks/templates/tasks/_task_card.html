@@ -1,104 +1,104 @@
 {% load i18n %}
 
 <article
-    class="box mt-5 mb-1 kanban-task has-shadow transition-kanban kanban-task-hover kanban-task-card"
+    class="box has-shadow has-radius-large is-clickable kanban-task-card"
     :data-task-id="task.id"
+    :data-status="task.status"
     draggable="true"
     @dragstart="dragStart(task.id)"
     @dragend="dragEnd"
     @click="dropdownTaskId = null"
     :class="{
         'is-dragging': dragging == task.id,
-        'kanban-task-hover': true
+        'is-selected': selectedTask == task.id,
+        'has-background-primary-light': false
     }"
     :aria-label="`Задача: ${task.name}`"
     @keydown.enter="window.location.href = `/tasks/${task.slug}`"
     @keydown.space.prevent="window.location.href = `/tasks/${task.slug}`"
 >
-    <div class="is-flex is-justify-content-space-between is-align-items-flex-start is-flex-direction-row is-flex-wrap-wrap is-relative">
+    <div class="is-flex is-justify-content-space-between is-align-items-flex-start">
         <a :href="`/tasks/${task.slug}`" 
-           class="is-flex-grow-1 kanban-task-link"
+           class="is-flex-grow-1"
            @click.stop
            :aria-label="`Открыть задачу: ${task.name}`"
            title="{% translate 'Открыть задачу' %}">
-            <header class="is-flex is-align-items-center mb-2">
-                <figure class="avatar mr-2" :title="task.executor?.full_name || '{% translate 'Исполнитель не назначен' %}'">
+            <header class="is-flex is-align-items-center mb-3">
+                <figure class="image is-32x32 mr-3" :title="task.executor?.full_name || '{% translate 'Исполнитель не назначен' %}'">
                     <template x-if="task.executor?.avatar">
                         <img :src="task.executor.avatar" 
                              :alt="`Аватар исполнителя: ${task.executor.full_name}`"
-                             class="is-rounded kanban-task-avatar">
+                             class="is-rounded">
                     </template>
                     <template x-if="!task.executor?.avatar">
-                        <span class="tag is-info is-light is-medium kanban-task-avatar-fallback"
-                              :aria-label="`Исполнитель: ${task.executor?.full_name || 'Не назначен'}`">
+                        <div class="has-background-primary has-text-white is-rounded has-text-centered has-text-weight-bold"
+                             style="width: 32px; height: 32px; line-height: 32px;"
+                             :aria-label="`Исполнитель: ${task.executor?.full_name || 'Не назначен'}`">
                             <span x-text="task.executor?.full_name ? task.executor.full_name[0] : '?'" />
-                        </span>
+                        </div>
                     </template>
                 </figure>
-                <h3 class="is-size-5 has-text-weight-bold task-title kanban-task-title"
-                    :class="task.status == 'done' ? 'has-text-success' : 'has-text-link'"
+                <h3 class="title is-5 has-text-weight-bold"
+                    :class="task.status == 'done' ? 'has-text-success' : 'has-text-primary'"
                     x-text="task.name">
                 </h3>
             </header>
             
-            <div class="mb-1 is-flex is-align-items-center is-flex-wrap-wrap kanban-task-badges">
-                <span class="tag is-light is-small kanban-task-author" 
+            <div class="mb-3 is-flex is-align-items-center is-flex-wrap-wrap">
+                <span class="tag is-light is-small mr-2 mb-1" 
                       :title="`Автор: ${task.author?.full_name}`"
                       :aria-label="`Автор задачи: ${task.author?.full_name}`">
-                    <span class="kanban-task-author-avatar" aria-hidden="true">
+                    <span class="icon is-small mr-1" aria-hidden="true">
                         <i class="fas fa-user"></i>
                     </span>
-                    <span class="kanban-task-author-name" x-text="task.author?.full_name"></span>
+                    <span x-text="task.author?.full_name"></span>
                 </span>
-                <span class="tag is-primary is-light is-small kanban-task-executor"
+                <span class="tag is-primary is-light is-small mr-2"
                       :title="`Исполнитель: ${task.executor?.full_name || 'Не назначен'}`"
                       :aria-label="`Исполнитель задачи: ${task.executor?.full_name || 'Не назначен'}`">
-                    <span class="kanban-task-executor-avatar" aria-hidden="true">
-                        <template x-if="task.executor?.avatar">
-                            <img :src="task.executor.avatar"
-                                 :alt="`Аватар исполнителя: ${task.executor.full_name}`"
-                                 class="is-rounded kanban-task-avatar" style="width:1.6em;height:1.6em;">
-                        </template>
-                        <template x-if="!task.executor?.avatar">
-                            <span class="kanban-task-executor-fallback" x-text="task.executor?.full_name ? task.executor.full_name[0] : '?'" />
-                        </template>
+                    <span class="icon is-small mr-1" aria-hidden="true">
+                        <i class="fas fa-user-check"></i>
                     </span>
-                    <span class="kanban-task-executor-name" x-text="task.executor?.full_name || '{% translate 'Не назначен' %}'"></span>
+                    <span x-text="task.executor?.full_name || '{% translate 'Не назначен' %}'"></span>
                 </span>
-                <span class="tag is-warning is-light is-small" 
+                <span class="tag is-warning is-light is-small mr-2" 
                       title="{% translate 'Приоритет' %}" 
                       x-show="task.priority"
                       :aria-label="`Приоритет: ${task.priority}`">
-                    <i class="fas fa-flag" aria-hidden="true"></i> 
+                    <span class="icon is-small mr-1" aria-hidden="true">
+                        <i class="fas fa-flag"></i>
+                    </span>
                     <span x-text="task.priority"></span>
                 </span>
                 <span class="tag is-info is-light is-small" 
                       title="{% translate 'Дедлайн' %}" 
                       x-show="task.deadline"
                       :aria-label="`Дедлайн: ${task.deadline}`">
-                    <i class="fas fa-clock" aria-hidden="true"></i> 
+                    <span class="icon is-small mr-1" aria-hidden="true">
+                        <i class="fas fa-clock"></i>
+                    </span>
                     <span x-text="task.deadline"></span>
                 </span>
             </div>
             
-            <footer class="has-text-grey">
+            <footer class="has-text-grey-light">
                 <small>{% translate 'Создана' %}: <time x-text="task.created_at"></time></small>
             </footer>
         </a>
         
-        <nav class="dropdown kanban-dropdown-fix" 
+        <nav class="dropdown" 
              :class="{ 'is-active': dropdownTaskId === task.id }"
              role="navigation"
              :aria-label="`Действия для задачи: ${task.name}`">
             <div class="dropdown-trigger">
-                <button class="button is-white is-small" 
+                <button class="button is-small is-light" 
                         @click.stop="toggleDropdown(task.id, $event)" 
                         :title="`{% translate 'Действия для задачи' %}: ${task.name}`"
                         :aria-label="`{% translate 'Действия для задачи' %}: ${task.name}`"
                         :aria-expanded="dropdownTaskId === task.id"
                         @keydown.escape="dropdownTaskId = null"
                         @click.stop>
-                    <span class="icon" aria-hidden="true">
+                    <span class="icon is-small" aria-hidden="true">
                         <i class="fas fa-ellipsis-v"></i>
                     </span>
                 </button>
@@ -110,20 +110,30 @@
                        @click="dropdownTaskId = null"
                        :title="`{% translate 'Посмотреть задачу' %}: ${task.name}`"
                        :aria-label="`{% translate 'Посмотреть задачу' %}: ${task.name}`">
-                        <i class="fas fa-eye" aria-hidden="true"></i> {% translate 'Посмотреть' %}
+                        <span class="icon is-small mr-2" aria-hidden="true">
+                            <i class="fas fa-eye"></i>
+                        </span>
+                        {% translate 'Посмотреть' %}
                     </a>
                     <a :href="`/tasks/update/${task.slug}/`" 
                        class="dropdown-item" 
                        @click="dropdownTaskId = null"
                        :title="`{% translate 'Редактировать задачу' %}: ${task.name}`"
                        :aria-label="`{% translate 'Редактировать задачу' %}: ${task.name}`">
-                        <i class="fas fa-edit" aria-hidden="true"></i> {% translate 'Редактировать' %}
+                        <span class="icon is-small mr-2" aria-hidden="true">
+                            <i class="fas fa-edit"></i>
+                        </span>
+                        {% translate 'Редактировать' %}
                     </a>
+                    <hr class="dropdown-divider">
                     <button class="dropdown-item has-text-danger" 
                             @click.prevent="openDeleteModal(task); dropdownTaskId = null" 
                             :title="`{% translate 'Удалить задачу' %}: ${task.name}`"
                             :aria-label="`{% translate 'Удалить задачу' %}: ${task.name}`">
-                        <i class="fas fa-trash" aria-hidden="true"></i> {% translate 'Удалить' %}
+                        <span class="icon is-small mr-2" aria-hidden="true">
+                            <i class="fas fa-trash"></i>
+                        </span>
+                        {% translate 'Удалить' %}
                     </button>
                 </div>
             </div>

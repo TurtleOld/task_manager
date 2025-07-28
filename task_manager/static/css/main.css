@@ -1,0 +1,147 @@
+/* === MAIN CSS FILE === */
+/* Task Manager - Refactored CSS Architecture */
+
+/* Import order is important for cascade and specificity */
+
+/* 1. Base Layer */
+@import url('./base/variables.css');
+@import url('./base/reset.css');
+
+/* 2. Components Layer */
+@import url('./components/kanban.css');
+@import url('./components/task-card.css');
+@import url('./components/dropdown.css');
+@import url('./components/modal.css');
+@import url('./components/empty-message.css');
+@import url('./components/checklist.css');
+
+/* 3. Utilities Layer */
+@import url('./utilities/helpers.css');
+
+/* 4. Themes Layer */
+@import url('./themes/dark-mode.css');
+
+/* 5. Media Layer (must be last for proper cascade) */
+@import url('./media/responsive.css');
+
+/* 6. Animations Layer */
+@import url('./animations/keyframes.css');
+
+/* === BULMA ENHANCEMENTS === */
+
+/* Box component enhancements */
+.box {
+  transition: all 0.3s ease;
+}
+
+.box:hover {
+  box-shadow: 0 8px 25px rgba(10, 10, 10, 0.1);
+}
+
+/* Tag component enhancements */
+.tag {
+  transition: all 0.2s ease;
+}
+
+.tag:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(10, 10, 10, 0.1);
+}
+
+/* Button component enhancements */
+.button {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.button:hover::before {
+  left: 100%;
+}
+
+/* === RESPONSIVE ADJUSTMENTS === */
+
+@media screen and (max-width: 768px) {
+  .title.is-size-1 {
+    font-size: 2rem;
+  }
+  
+  .columns.is-gapless {
+    margin: 0;
+  }
+  
+  .column {
+    padding: 0.5rem;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .title.is-size-1 {
+    font-size: 1.5rem;
+  }
+}
+
+/* === ACCESSIBILITY ENHANCEMENTS === */
+
+/* Focus visible improvements */
+.box:focus-visible,
+.button:focus-visible {
+  outline: 2px solid #485fc7;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .box {
+    border: 2px solid #4a4a4a;
+  }
+  
+  .box:focus {
+    border: 3px solid #485fc7;
+    outline: 2px solid #485fc7;
+  }
+  
+  .button {
+    border: 2px solid #4a4a4a;
+  }
+  
+  .button:focus {
+    border: 3px solid #485fc7;
+    outline: 2px solid #485fc7;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .box,
+  .tag,
+  .button,
+  .empty-message,
+  .kanban-task-card {
+    transition: none;
+    animation: none;
+  }
+  
+  .box:hover,
+  .tag:hover,
+  .button:hover,
+  .empty-message:hover,
+  .kanban-task-card:hover {
+    transform: none;
+  }
+  
+  .button::before {
+    display: none;
+  }
+} 
