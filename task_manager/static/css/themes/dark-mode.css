@@ -93,10 +93,6 @@
     color: #d1d5db !important;
   }
 
-  .has-text-grey-light {
-    color: #9ca3af !important;
-  }
-
   /* Dropdown */
   .dropdown-menu {
     background-color: #363636 !important;
@@ -331,11 +327,6 @@
     color: #48c774 !important;
   }
 
-  /* Task Card Footer */
-  .has-text-grey-light {
-    color: #6c757d !important;
-  }
-
   /* Tags */
   .tag.is-light {
     background-color: #f8f9fa !important;
@@ -361,11 +352,6 @@
     border-color: #03a9f4;
   }
 
-  /* Avatar */
-  .has-background-primary {
-    background-color: #3273dc !important;
-  }
-
   /* Empty Message */
   .has-background-light {
     background-color: #f8f9fa !important;
@@ -374,10 +360,6 @@
 
   .has-text-grey {
     color: #495057 !important;
-  }
-
-  .has-text-grey-light {
-    color: #6c757d !important;
   }
 
   /* Dropdown */
