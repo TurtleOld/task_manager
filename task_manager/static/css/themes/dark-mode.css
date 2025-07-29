@@ -78,11 +78,6 @@
     border-color: #3b82f6;
   }
 
-  /* Avatar */
-  .has-background-primary {
-    background-color: #3273dc !important;
-  }
-
   /* Empty Message */
   .has-background-light {
     background-color: #404040 !important;
@@ -297,11 +292,6 @@
     color: #4a4a4a;
   }
 
-  /* Column Header */
-  .has-background-primary {
-    background-color: #00d1b2 !important;
-  }
-
   .has-background-primary .title {
     color: #ffffff !important;
   }
@@ -361,6 +351,7 @@
   .has-text-grey {
     color: #495057 !important;
   }
+
 
   /* Dropdown */
   .dropdown-menu {
