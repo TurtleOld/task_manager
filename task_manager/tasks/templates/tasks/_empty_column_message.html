@@ -2,14 +2,13 @@
 
 <div
     x-show="tasks[{{ stage_id }}]?.length === 0"
-    class="has-text-centered has-text-grey-light empty-message"
-    style="margin-top: 2em; padding: 2rem 1rem;"
+    class="has-text-centered has-text-grey-light has-background-light has-radius-large p-5"
     aria-live="polite"
     :aria-label="`{% translate 'Колонка пуста' %}: ${tasks[{{ stage_id }}]?.length || 0} {% translate 'задач' %}`"
 >
-    <span class="icon is-large mb-2" aria-hidden="true">
+    <span class="icon is-large mb-4 has-text-grey-light" aria-hidden="true">
         <i class="fas fa-inbox"></i>
     </span>
-    <p class="is-size-5 mb-2 mt-1">{% translate 'Нет задач в этой стадии' %}</p>
-    <p class="is-size-6 has-text-grey-light">{% translate 'Перетащите задачу сюда или создайте новую' %}</p>
+    <p class="title is-5 mb-3 has-text-grey">{% translate 'Нет задач в этой стадии' %}</p>
+    <p class="subtitle is-6 has-text-grey-light">{% translate 'Перетащите задачу сюда или создайте новую' %}</p>
 </div>

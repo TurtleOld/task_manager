@@ -1,0 +1,151 @@
+/* === ANIMATIONS: KEYFRAMES === */
+
+/* Gradient shift animation */
+@keyframes gradientShift {
+  0%, 100% { 
+    background-position: 0% 50%; 
+  }
+  50% { 
+    background-position: 100% 50%; 
+  }
+}
+
+/* Modal fade in animation */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Pulse animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Loading animation */
+@keyframes loading {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Slide in up animation */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Spin animation */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Slide out down animation */
+@keyframes slideOutDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* Progress pulse animation */
+@keyframes progressPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Dropdown fade in animation */
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Update pulse animation */
+@keyframes updatePulse {
+  0% {
+    background-color: rgba(79, 192, 141, 0.1);
+  }
+  50% {
+    background-color: rgba(79, 192, 141, 0.2);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Success pulse animation */
+@keyframes successPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(79, 192, 141, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(79, 192, 141, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(79, 192, 141, 0);
+  }
+}
+
+/* Error shake animation */
+@keyframes errorShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+  }
+}
+
+/* Warning pulse animation */
+@keyframes warningPulse {
+  0%, 100% {
+    border-color: #ffc107;
+  }
+  50% {
+    border-color: #ff9800;
+  }
+} 

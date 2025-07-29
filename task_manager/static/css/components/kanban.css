@@ -1,0 +1,197 @@
+/* === COMPONENTS: KANBAN BOARD === */
+
+/* Kanban Column Drag & Drop */
+.kanban-column.is-dragover {
+  background: rgba(72, 95, 199, 0.1) !important;
+  border: 2px dashed #485fc7 !important;
+  border-radius: 8px !important;
+}
+
+/* Task Card Drag States */
+.kanban-task-card.is-dragging {
+  opacity: 0.7;
+  transform: rotate(3deg) scale(1.05);
+  box-shadow: 0 16px 40px rgba(50,115,220,0.25);
+  z-index: 1000;
+  border-color: #485fc7;
+}
+
+/* Mobile Selection State */
+.kanban-task-card.is-selected {
+  opacity: 0.8;
+  transform: scale(1.02);
+  box-shadow: 0 8px 25px rgba(50,115,220,0.3);
+  border-color: #3273dc;
+  border-width: 2px;
+  border-style: solid;
+}
+
+/* Mobile Selection Indicator */
+.mobile-selection-indicator {
+  background: rgba(50, 115, 220, 0.9);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: mobileIndicatorPulse 1.5s ease-in-out infinite;
+}
+
+.mobile-selection-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@keyframes mobileIndicatorPulse {
+  0%, 100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+/* Hover effects for task cards */
+.box.is-clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(10, 10, 10, 0.1);
+  transition: all 0.3s ease;
+}
+
+/* Stage-specific colors for task cards */
+.box[data-status="todo"] {
+  border-left: 4px solid #f14668;
+}
+
+.box[data-status="in_progress"] {
+  border-left: 4px solid #ffdd57;
+}
+
+.box[data-status="review"] {
+  border-left: 4px solid #3298dc;
+}
+
+.box[data-status="done"] {
+  border-left: 4px solid #48c774;
+}
+
+/* Placeholder styles for drag and drop */
+.task-list .has-background-light.has-radius-large {
+  border: 2px dashed #485fc7;
+  background: rgba(72, 95, 199, 0.05) !important;
+  animation: placeholderPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes placeholderPulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+/* Drag over state for columns */
+.has-background-primary-light {
+  background: rgba(72, 95, 199, 0.1) !important;
+  border: 2px dashed #485fc7 !important;
+  border-radius: 8px !important;
+  transition: all 0.3s ease;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+  .columns.is-gapless {
+    margin: 0;
+  }
+  
+  .column {
+    padding: 0.5rem;
+  }
+  
+  .box {
+    margin: 0;
+  }
+  
+  /* Улучшаем touch targets для мобильных устройств */
+  .kanban-task-card {
+    min-height: 60px;
+    touch-action: manipulation;
+    cursor: grab;
+  }
+  
+  .kanban-task-card:active {
+    cursor: grabbing;
+  }
+  
+  /* Увеличиваем отступы для лучшего touch взаимодействия */
+  .task-list .mb-1 {
+    margin-bottom: 0.75rem !important;
+  }
+  
+  /* Скрываем hover эффекты на мобильных устройствах */
+  .box.is-clickable:hover {
+    transform: none;
+  }
+  
+  /* Улучшаем видимость placeholder на мобильных */
+  .task-list .has-background-light.has-radius-large {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Улучшаем видимость инструкций */
+  .notification.is-info.is-light {
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+  
+  /* Улучшаем touch targets для кнопок */
+  .button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Улучшаем видимость выбранной карточки */
+  .kanban-task-card.is-selected {
+    transform: scale(1.02);
+    box-shadow: 0 8px 25px rgba(50,115,220,0.4);
+    border: 2px solid #3273dc;
+    z-index: 100;
+  }
+  
+  /* Улучшаем индикатор выбора */
+  .mobile-selection-indicator {
+    font-size: 0.875rem;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .box.is-clickable:hover {
+    transform: none;
+  }
+  
+  .kanban-task-card.is-dragging {
+    transform: none;
+  }
+  
+  .task-list .has-background-light.has-radius-large {
+    animation: none;
+  }
+  
+  .mobile-selection-indicator {
+    animation: none;
+  }
+} 

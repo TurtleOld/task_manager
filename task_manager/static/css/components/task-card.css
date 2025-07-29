@@ -1,0 +1,151 @@
+/* === COMPONENTS: TASK CARDS === */
+
+/* Task Card Base */
+.kanban-task-card {
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Task Card States */
+.kanban-task-card.is-dragging {
+  opacity: 0.7;
+  transform: rotate(3deg) scale(1.05);
+  box-shadow: 0 16px 40px rgba(50,115,220,0.25);
+  z-index: 1000;
+  border-color: #485fc7;
+}
+
+.kanban-task-card.is-loading {
+  position: relative;
+  overflow: hidden;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.kanban-task-card.is-loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  animation: loading 1.5s infinite;
+}
+
+.kanban-task-card.is-updating {
+  animation: updatePulse 1s ease-in-out;
+}
+
+.kanban-task-card.is-success {
+  animation: successPulse 1s ease-out;
+}
+
+.kanban-task-card.is-error {
+  animation: errorShake 0.6s ease-in-out;
+  border-color: #f14668;
+}
+
+.kanban-task-card.is-warning {
+  animation: warningPulse 1s ease-in-out;
+  border-color: #ffdd57;
+}
+
+/* Task Link */
+.kanban-task-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  transition: var(--transition-fast);
+}
+
+.kanban-task-link:hover {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Task Badges */
+.kanban-task-badges .tag {
+  transition: all 0.2s ease;
+}
+
+.kanban-task-badges .tag:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(10, 10, 10, 0.1);
+}
+
+/* Task Avatar */
+.kanban-task-avatar,
+.kanban-task-avatar-fallback {
+  border: 2px solid #f5f5f5;
+  transition: border-color 0.2s ease;
+}
+
+.kanban-task-card:hover .kanban-task-avatar,
+.kanban-task-card:hover .kanban-task-avatar-fallback {
+  border-color: #485fc7;
+}
+
+/* Focus States */
+.kanban-task-card:focus {
+  outline: 2px solid #485fc7;
+  outline-offset: 2px;
+}
+
+.kanban-task-card:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.kanban-task-card:focus-visible {
+  outline: 2px solid #485fc7;
+  outline-offset: 2px;
+}
+
+.kanban-task-card:focus-within {
+  outline: 2px solid #485fc7;
+  outline-offset: 2px;
+}
+
+/* Disabled State */
+.kanban-task-card[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+  .kanban-task-card {
+    margin: 0.5rem 0;
+  }
+  
+  .kanban-task-badges {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .kanban-task-badges .tag {
+    margin-bottom: 0.25rem;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .kanban-task-card {
+    transition: none;
+    animation: none;
+  }
+  
+  .kanban-task-card:hover {
+    transform: none;
+  }
+  
+  .kanban-task-card.is-dragging {
+    transform: none;
+  }
+  
+  .kanban-task-badges .tag:hover {
+    transform: none;
+  }
+} 

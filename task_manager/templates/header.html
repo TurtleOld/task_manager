@@ -23,7 +23,7 @@
                         {% if user.is_authenticated %}
                             <form class="mt-1" id="theme-switch-form">
                                 {% csrf_token %}
-                                <button type="submit" class="btn me-1">
+                                <button type="button" class="btn me-1" id="theme-switch-btn">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-brilliance" viewBox="0 0 16 16">
                                         <path d="M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16M1 8a7 7 0 0 0 7 7 3.5 3.5 0 1 0 0-7 3.5 3.5 0 1 1 0-7 7 7 0 0 0-7 7"/>
                                     </svg>
@@ -46,9 +46,9 @@
 </nav>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const form = document.getElementById('theme-switch-form');
+        const themeSwitchBtn = document.getElementById('theme-switch-btn');
 
-        form.addEventListener('submit', (event) => {
+        themeSwitchBtn.addEventListener('click', (event) => {
             event.preventDefault();
 
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
