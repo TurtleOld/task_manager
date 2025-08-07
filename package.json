@@ -1,0 +1,21 @@
+{
+  "name": "task-manager",
+  "version": "1.0.0",
+  "description": "Django Task Manager Application",
+  "type": "module",
+  "scripts": {
+    "lint:js": "eslint task_manager/static/js/checklist.js task_manager/static/js/color-theme.js task_manager/static/js/kanban.js task_manager/static/js/labels.js task_manager/static/js/logout-button.js task_manager/static/js/modal.js task_manager/static/js/script.js task_manager/static/js/task-detail.js",
+    "lint:css": "stylelint task_manager/static/css/",
+    "lint": "npm run lint:js && npm run lint:css"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0",
+    "globals": "^15.0.0",
+    "stylelint": "^16.0.0",
+    "stylelint-config-standard": "^36.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
