@@ -1,0 +1,84 @@
+[MASTER]
+# Использовать несколько процессов для анализа
+jobs=0
+
+# Добавить пути к модулям
+init-hook='import sys; sys.path.append(".")'
+
+[MESSAGES CONTROL]
+# Отключить некоторые правила для Django проекта
+disable=
+    C0114, # Missing module docstring
+    C0115, # Missing class docstring
+    C0116, # Missing function docstring
+    C0103, # Invalid name
+    R0903, # Too few public methods
+    R0913, # Too many arguments
+    W0621, # Redefining name from outer scope
+    C0301, # Line too long
+    W0611, # Unused import
+    W0612, # Unused variable
+    W0613, # Unused argument
+    R0801, # Duplicate code
+    C0330, # Bad hanging indentation
+    C0326, # Bad whitespace
+
+[REPORTS]
+# Включить оценку
+score=yes
+
+# Включить статистику
+reports=yes
+
+# Показать все сообщения
+reports=no
+
+[FORMAT]
+# Максимальная длина строки
+max-line-length=120
+
+# Максимальная длина модуля
+max-module-lines=1000
+
+[BASIC]
+# Хорошие имена переменных
+good-names=i,j,k,ex,Run,_,id,db
+
+# Плохие имена переменных
+bad-names=foo,bar,baz,toto,tutu,tata
+
+# Имена констант
+const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__))$
+
+# Имена переменных
+variable-rgx=[a-z_][a-z0-9_]{2,30}$
+
+# Имена функций
+function-rgx=[a-z_][a-z0-9_]{2,30}$
+
+# Имена классов
+class-rgx=[A-Z_][a-zA-Z0-9_]+$
+
+[SIMILARITIES]
+# Минимальное количество строк для дублирования
+min-similarity-lines=4
+
+# Игнорировать комментарии при поиске дублирования
+ignore-comments=yes
+
+# Игнорировать строки документации при поиске дублирования
+ignore-docstrings=yes
+
+# Игнорировать импорты при поиске дублирования
+ignore-imports=yes
+
+[TYPECHECK]
+# Игнорировать модули
+ignored-modules=six.moves,future.moves,builtins
+
+# Игнорировать классы
+ignored-classes=SQLObject,SQLAlchemy,scoped_session,Session,BaseQuery,Query
+
+[MISCELLANEOUS]
+# Список заметок
+notes=

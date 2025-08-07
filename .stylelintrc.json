@@ -1,0 +1,65 @@
+{
+  "extends": [
+    "stylelint-config-standard"
+  ],
+  "rules": {
+    "no-descending-specificity": null,
+    "no-duplicate-selectors": null,
+    "no-empty-source": null,
+    "no-invalid-double-slash-comments": null,
+    "no-unknown-animations": null,
+    "property-no-vendor-prefix": null,
+    "selector-no-vendor-prefix": null,
+    "value-no-vendor-prefix": null,
+    "at-rule-no-vendor-prefix": null,
+    "media-feature-name-no-vendor-prefix": null,
+    "selector-pseudo-element-no-unknown": [
+      true,
+      {
+        "ignorePseudoElements": ["v-deep"]
+      }
+    ],
+    "selector-pseudo-class-no-unknown": [
+      true,
+      {
+        "ignorePseudoClasses": ["deep", "global"]
+      }
+    ],
+    "property-no-unknown": [
+      true,
+      {
+        "ignoreProperties": [
+          "composes",
+          "hyphenate-limit-before",
+          "hyphenate-limit-after"
+        ]
+      }
+    ],
+    "at-rule-no-unknown": [
+      true,
+      {
+        "ignoreAtRules": ["tailwind", "apply", "variants", "responsive", "screen"]
+      }
+    ],
+    "color-function-notation": null,
+    "alpha-value-notation": null,
+    "color-hex-length": null,
+    "keyframes-name-pattern": null,
+    "media-feature-range-notation": null,
+    "declaration-block-no-redundant-longhand-properties": null,
+    "rule-empty-line-before": null,
+    "comment-empty-line-before": null,
+    "declaration-block-single-line-max-declarations": null,
+    "font-family-name-quotes": null,
+    "value-keyword-case": null,
+    "selector-id-pattern": null,
+    "custom-property-empty-line-before": null,
+    "at-rule-empty-line-before": null
+  },
+  "ignoreFiles": [
+    "**/staticfiles/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**"
+  ]
+}

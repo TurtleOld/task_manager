@@ -1,16 +1,57 @@
 {% extends '../base.html' %}
 {% load crispy_forms_tags %}
-
 {% load i18n %}
+{% load static %}
 
 {% block title %}{% translate 'Создать тег' %}{% endblock %}
 
 {% block content %}
-    <title>{{ title_label_create }}</title>
-    <h1 class="my-4">{% translate 'Создать тег' %}</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form | crispy }}
-        <button class="button" type="submit">{% translate 'Создать' %}</button>
-    </form>
+<div class="labels-container">
+    <div class="labels-header">
+        <div class="labels-header-content">
+            <h1 class="labels-title">
+                <i class="fa fa-plus"></i>
+                {% translate 'Создать новый тег' %}
+            </h1>
+            <p class="labels-subtitle">{% translate 'Добавьте новый тег для организации задач' %}</p>
+        </div>
+        <a href="{% url 'labels:list' %}" class="label-create-btn">
+            <i class="fa fa-arrow-left"></i>
+            {% translate 'Назад к списку' %}
+        </a>
+    </div>
+
+    <div class="label-form-container">
+        <form method="post" class="label-form">
+            {% csrf_token %}
+            <div class="label-form-group">
+                <label for="{{ form.name.id_for_label }}" class="label-form-label">
+                    <i class="fa fa-tag"></i>
+                    {{ form.name.label }}
+                </label>
+                {{ form.name }}
+                {% if form.name.help_text %}
+                <div class="label-form-help">{{ form.name.help_text }}</div>
+                {% endif %}
+                {% if form.name.errors %}
+                <div class="label-form-error">
+                    {% for error in form.name.errors %}
+                    <i class="fa fa-exclamation-circle"></i> {{ error }}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="label-form-actions">
+                <a href="{% url 'labels:list' %}" class="label-btn secondary">
+                    {% translate 'Отмена' %}
+                </a>
+                <button type="submit" class="label-btn primary">
+                    <i class="fa fa-plus"></i>
+                    {% translate 'Создать тег' %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}

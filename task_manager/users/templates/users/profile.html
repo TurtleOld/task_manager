@@ -1,32 +1,173 @@
 {% extends '../base.html' %}
 {% load crispy_forms_tags %}
 {% load i18n %}
+{% load static %}
 
 {% block title %}{% translate 'Профиль' %}{% endblock %}
 
 {% block content %}
-<div class="container">
-    <a href="{% url 'labels:list' %}" class="button has-background-info">
-        <i class="bi bi-tags-fill"></i>
-        {% translate 'Теги' %}
-    </a>
-    <div class="container is-fullhd">
-        <div class="card mt-5">
-            <div class="card-content">
-                <div class="title">
-                    {% translate 'Пользователь' %}: {{ user.username }}
-                </div>
-                <!-- /.title -->
-                <ul>
-                    <li>{% translate 'Дата создания' %}: {{ user.date_joined | date:"d M Y H:m" }}</li>
-                    <li>{% translate 'Последний вход' %}: {{ user.last_login | date:"d M Y H:m" }}</li>
-                </ul>
+{% csrf_token %}
+<div class="user-profile-container">
+    <!-- Profile Header -->
+    <div class="profile-header">
+        <div class="profile-avatar">
+            <i class="fa fa-user"></i>
+        </div>
+        <div class="profile-info">
+            <h1 class="profile-username">{{ user.username }}</h1>
+            <p class="profile-subtitle">{% translate 'Активный пользователь' %}</p>
+        </div>
+        
+        <!-- Color Theme Selector -->
+        <div class="color-theme-selector">
+            <h3 class="color-theme-title">{% translate 'Цвет темы' %}</h3>
+            <div class="color-circles">
+                <button class="color-circle red {% if user.theme_color == 'red' %}active{% endif %}" 
+                        data-color="red" 
+                        title="Красный">
+                </button>
+                <button class="color-circle orange {% if user.theme_color == 'orange' %}active{% endif %}" 
+                        data-color="orange" 
+                        title="Оранжевый">
+                </button>
+                <button class="color-circle yellow {% if user.theme_color == 'yellow' %}active{% endif %}" 
+                        data-color="yellow" 
+                        title="Желтый">
+                </button>
+                <button class="color-circle green {% if user.theme_color == 'green' %}active{% endif %}" 
+                        data-color="green" 
+                        title="Зеленый">
+                </button>
+                <button class="color-circle blue {% if user.theme_color == 'blue' %}active{% endif %}" 
+                        data-color="blue" 
+                        title="Синий">
+                </button>
+                <button class="color-circle indigo {% if user.theme_color == 'indigo' %}active{% endif %}" 
+                        data-color="indigo" 
+                        title="Индиго">
+                </button>
+                <button class="color-circle purple {% if user.theme_color == 'purple' %}active{% endif %}" 
+                        data-color="purple" 
+                        title="Фиолетовый">
+                </button>
             </div>
-            <!-- /.content -->
+        </div>
     </div>
-    <!-- /.card -->
-    </div>
-    <!-- /.container -->
 
-</div>
+    <!-- Profile Stats -->
+    <div class="profile-stats">
+        <div class="profile-stat-card">
+            <div class="profile-stat-icon">
+                <i class="fa fa-calendar-check"></i>
+            </div>
+            <div class="profile-stat-value">{{ user.date_joined|date:"d" }}</div>
+            <div class="profile-stat-label">{% translate 'Дней в системе' %}</div>
+        </div>
+        
+        <div class="profile-stat-card">
+            <div class="profile-stat-icon">
+                <i class="fa fa-clock"></i>
+            </div>
+            <div class="profile-stat-value">{{ user.last_login|date:"H" }}</div>
+            <div class="profile-stat-label">{% translate 'Часов активности' %}</div>
+        </div>
+        
+        <div class="profile-stat-card">
+            <div class="profile-stat-icon">
+                <i class="fa fa-star"></i>
+            </div>
+            <div class="profile-stat-value">{% if user.is_staff %}⭐{% else %}👤{% endif %}</div>
+            <div class="profile-stat-label">{% translate 'Статус' %}</div>
+        </div>
+    </div>
+
+    <!-- Profile Information -->
+    <div class="profile-info-section">
+        <h2 class="profile-section-title">
+            <i class="fa fa-info-circle"></i>
+            {% translate 'Информация о пользователе' %}
+        </h2>
+        
+        <ul class="profile-info-list">
+            <li class="profile-info-item">
+                <div class="profile-info-icon">
+                    <i class="fa fa-user-plus"></i>
+                </div>
+                <div class="profile-info-content">
+                    <div class="profile-info-label">{% translate 'Дата регистрации' %}</div>
+                    <div class="profile-info-value">{{ user.date_joined|date:"d.m.Y в H:i" }}</div>
+                </div>
+            </li>
+            
+            <li class="profile-info-item">
+                <div class="profile-info-icon">
+                    <i class="fa fa-sign-in-alt"></i>
+                </div>
+                <div class="profile-info-content">
+                    <div class="profile-info-label">{% translate 'Последний вход' %}</div>
+                    <div class="profile-info-value">
+                        {% if user.last_login %}
+                            {{ user.last_login|date:"d.m.Y в H:i" }}
+                        {% else %}
+                            {% translate 'Никогда' %}
+                        {% endif %}
+                    </div>
+                </div>
+            </li>
+            
+            <li class="profile-info-item">
+                <div class="profile-info-icon">
+                    <i class="fa fa-envelope"></i>
+                </div>
+                <div class="profile-info-content">
+                    <div class="profile-info-label">{% translate 'Email' %}</div>
+                    <div class="profile-info-value">
+                        {% if user.email %}
+                            {{ user.email }}
+                        {% else %}
+                            {% translate 'Не указан' %}
+                        {% endif %}
+                    </div>
+                </li>
+                
+                <li class="profile-info-item">
+                    <div class="profile-info-icon">
+                        <i class="fa fa-shield-alt"></i>
+                    </div>
+                    <div class="profile-info-content">
+                        <div class="profile-info-label">{% translate 'Права доступа' %}</div>
+                        <div class="profile-info-value">
+                            {% if user.is_superuser %}
+                                {% translate 'Администратор' %}
+                            {% elif user.is_staff %}
+                                {% translate 'Модератор' %}
+                            {% else %}
+                                {% translate 'Пользователь' %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="profile-actions">
+            <a href="{% url 'labels:list' %}" class="profile-action-btn primary">
+                <i class="fa fa-tags"></i>
+                {% translate 'Управление тегами' %}
+            </a>
+            
+            <a href="{% url 'tasks:list' %}" class="profile-action-btn secondary">
+                <i class="fa fa-tasks"></i>
+                {% translate 'Мои задачи' %}
+            </a>
+            
+            {% if user.is_staff %}
+            <a href="{% url 'admin:index' %}" class="profile-action-btn secondary">
+                <i class="fa fa-cog"></i>
+                {% translate 'Админ панель' %}
+            </a>
+            {% endif %}
+        </div>
+    </div>
 {% endblock %}

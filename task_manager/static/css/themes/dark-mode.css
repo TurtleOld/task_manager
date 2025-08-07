@@ -1,0 +1,596 @@
+/* === THEMES: DARK MODE === */
+
+/* Dark theme overrides */
+
+[data-theme="dark"] {
+
+  /* Background */
+  background-color: #1a1a1a;
+  color: #fff;
+
+  /* Kanban Board Container */
+
+  .box.has-background-white-ter {
+    background-color: #2c2c2c !important;
+    border-color: #404040;
+  }
+
+  /* Kanban Column */
+
+  .has-background-white {
+    background-color: #2c2c2c !important;
+    color: #fff;
+  }
+
+  /* Column Header */
+
+  .has-background-primary {
+    background-color: var(--color-primary) !important;
+  }
+
+  .has-background-primary .title {
+    color: #fff !important;
+  }
+
+  /* Task Cards */
+
+  .box.has-shadow {
+    background-color: #363636 !important;
+    border-color: #404040;
+    color: #fff;
+  }
+
+  .box.has-shadow:hover {
+    background-color: #404040 !important;
+    border-color: var(--color-primary);
+  }
+
+  /* Task Card Title */
+
+  .title.is-5.has-text-primary {
+    color: var(--color-primary) !important;
+  }
+
+  .title.is-5.has-text-success {
+    color: #48c774 !important;
+  }
+
+                .kanban-task-card .title.is-5 {
+                  word-break: keep-all !important;
+                  overflow-wrap: break-word !important;
+                  hyphens: auto !important;
+                  line-height: 1.4 !important;
+                  text-shadow: 0 1px 2px rgb(0 0 0 / 10%) !important;
+                }
+
+  .has-text-grey-light {
+    color: #b5b5b5 !important;
+  }
+
+  .tag.is-light {
+    background-color: #404040 !important;
+    color: #fff !important;
+    border-color: #505050;
+  }
+
+  .tag.is-primary.is-light {
+    background-color: var(--color-primary) !important;
+      color: #fff !important;
+    border-color: #3b82f6;
+  }
+
+  .tag.is-warning.is-light {
+    background-color: #78350f !important;
+    color: #fbbf24 !important;
+    border-color: #f59e0b;
+  }
+
+  .tag.is-info.is-light {
+    background-color: var(--color-primary) !important;
+      color: #fff !important;
+      border-color: #3b82f6;
+    }
+    
+    .button.is-info {
+      background-color: var(--color-primary) !important;
+      color: #fff !important;
+    border-color: #3b82f6;
+  }
+
+  /* Empty Message */
+
+  .has-background-light {
+    background-color: #404040 !important;
+    color: #b5b5b5;
+  }
+
+  .has-text-grey {
+    color: #d1d5db !important;
+  }
+
+  /* Dropdown */
+
+  .dropdown-menu {
+    background-color: #363636 !important;
+    border-color: #404040;
+  }
+
+  .dropdown-content {
+    background-color: #363636 !important;
+    border-color: #404040;
+  }
+
+  .dropdown-item {
+    color: #fff !important;
+  }
+
+  .dropdown-item:hover {
+    background-color: #404040 !important;
+    color: var(--color-primary) !important;
+  }
+
+  .dropdown-item.has-text-danger {
+    color: #f87171 !important;
+  }
+
+  .dropdown-item.has-text-danger:hover {
+    background-color: #7f1d1d !important;
+    color: #fca5a5 !important;
+  }
+
+  /* Button */
+
+  .button.is-light {
+    background-color: #404040 !important;
+    color: #fff !important;
+    border-color: #505050;
+  }
+
+  .button.is-light:hover {
+    background-color: #505050 !important;
+    border-color: #606060;
+  }
+
+  /* Drag and Drop */
+
+  .has-background-primary-light {
+    background-color: rgb(var(--color-primary-rgb), 0.1) !important;
+      border: 2px dashed var(--color-primary) !important;
+  }
+
+  /* Modal */
+
+  .modal-card-head,
+  .modal-card-foot {
+    background-color: #363636 !important;
+    border-color: #404040;
+  }
+
+  .modal-card-body {
+    background-color: #2c2c2c !important;
+    color: #fff;
+  }
+
+  .modal-card-title {
+    color: #fff !important;
+  }
+
+  /* Status-based colors for task cards */
+
+  .box[data-status="todo"] {
+    border-left: 4px solid #f14668;
+  }
+
+  .box[data-status="in_progress"] {
+    border-left: 4px solid #ffdd57;
+  }
+
+  .box[data-status="review"] {
+    border-left: 4px solid #3298dc;
+  }
+
+  .box[data-status="done"] {
+    border-left: 4px solid #48c774;
+  }
+
+  /* Focus states */
+
+  .box:focus-visible,
+  .button:focus-visible {
+    outline: 2px solid #3273dc;
+    outline-offset: 2px;
+  }
+
+  /* Form Elements */
+
+  .input, .textarea, .select select {
+    background-color: #2c2c2c !important;
+    border-color: #404040 !important;
+    color: #fff !important;
+    padding: 0.5em 0.75em !important;
+    line-height: 1.5 !important;
+    vertical-align: middle !important;
+  }
+
+  .input:focus, .textarea:focus, .select select:focus {
+    border-color: #3273dc !important;
+    box-shadow: 0 0 0 0.125em rgb(50 115 220 / 25%) !important;
+  }
+
+  .input::placeholder, .textarea::placeholder {
+    color: #9ca3af !important;
+  }
+
+  /* Select specific styling */
+
+  .select {
+    position: relative;
+  }
+
+  .select select {
+    padding: 0.5em 2.5em 0.5em 0.75em !important;
+    line-height: 1.5 !important;
+    height: auto !important;
+    min-height: 2.5em !important;
+    width: 100% !important;
+    background-color: #2c2c2c !important;
+    border: 1px solid #404040 !important;
+    border-radius: 4px !important;
+    color: #fff !important;
+    font-size: 1rem !important;
+    vertical-align: middle !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    text-align: left !important;
+    text-align-last: left !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+  }
+
+  .select::after {
+    border-color: #fff !important;
+    border-width: 0.125em 0.125em 0 0 !important;
+    content: "" !important;
+    display: block !important;
+    height: 0.625em !important;
+    left: calc(50% - 0.3125em) !important;
+    position: absolute !important;
+    top: calc(50% - 0.4375em) !important;
+    transform: rotate(-45deg) !important;
+    transform-origin: center !important;
+    width: 0.625em !important;
+    pointer-events: none !important;
+  }
+
+  /* Label styling */
+
+  .label {
+    color: #fff !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.5em !important;
+  }
+
+  /* Field styling */
+
+  .field {
+    margin-bottom: 1rem !important;
+  }
+
+  .field:not(:last-child) {
+    margin-bottom: 0.75rem !important;
+  }
+
+  /* Scrollbar */
+
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #2c2c2c;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #505050;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #606060;
+  }
+}
+
+/* Light theme (default) */
+
+[data-theme="light"] {
+
+  /* Background */
+  background-color: #f5f5f5;
+  color: #4a4a4a;
+
+  /* Kanban Board Container */
+
+  .box.has-background-white-ter {
+    background-color: #f8f9fa !important;
+    border-color: #e9ecef;
+  }
+
+  /* Kanban Column */
+
+  .has-background-white {
+    background-color: #fff !important;
+    color: #4a4a4a;
+  }
+
+  .has-background-primary .title {
+    color: #fff !important;
+  }
+
+  /* Task Cards */
+
+  .box.has-shadow {
+    background-color: #fff !important;
+    border-color: #e9ecef;
+    color: #4a4a4a;
+  }
+
+  .box.has-shadow:hover {
+    background-color: #f8f9fa !important;
+    border-color: var(--color-primary);
+  }
+
+  /* Task Card Title */
+
+  .title.is-5.has-text-primary {
+    color: var(--color-primary) !important;
+  }
+
+  .title.is-5.has-text-success {
+    color: #48c774 !important;
+  }
+
+                /* Improved word wrapping for task titles in light theme */
+
+                .kanban-task-card .title.is-5 {
+                  word-break: keep-all !important;
+                  overflow-wrap: break-word !important;
+                  hyphens: auto !important;
+                  line-height: 1.4 !important;
+
+                  /* Better readability in light theme */
+                  text-shadow: 0 1px 1px rgb(255 255 255 / 80%) !important;
+                }
+
+  /* Tags */
+
+  .tag.is-light {
+    background-color: #f8f9fa !important;
+    color: #6c757d !important;
+    border-color: #e9ecef;
+  }
+
+  .tag.is-primary.is-light {
+    background-color: #e3f2fd !important;
+    color: #1976d2 !important;
+    border-color: #2196f3;
+  }
+
+  .tag.is-warning.is-light {
+    background-color: #fff3e0 !important;
+    color: #f57c00 !important;
+    border-color: #ff9800;
+  }
+
+  .tag.is-info.is-light {
+    background-color: #e1f5fe !important;
+    color: #0277bd !important;
+    border-color: #03a9f4;
+  }
+
+  /* Empty Message */
+
+  .has-background-light {
+    background-color: #f8f9fa !important;
+    color: #6c757d;
+  }
+
+  .has-text-grey {
+    color: #495057 !important;
+  }
+
+
+  /* Dropdown */
+
+  .dropdown-menu {
+    background-color: #fff !important;
+    border-color: #e9ecef;
+  }
+
+  .dropdown-content {
+    background-color: #fff !important;
+    border-color: #e9ecef;
+  }
+
+  .dropdown-item {
+    color: #4a4a4a !important;
+  }
+
+  .dropdown-item:hover {
+    background-color: #f8f9fa !important;
+    color: #3273dc !important;
+  }
+
+  .dropdown-item.has-text-danger {
+    color: #dc3545 !important;
+  }
+
+  .dropdown-item.has-text-danger:hover {
+    background-color: #f8d7da !important;
+    color: #721c24 !important;
+  }
+
+  /* Button */
+
+  .button.is-light {
+    background-color: #f8f9fa !important;
+    color: #4a4a4a !important;
+    border-color: #e9ecef;
+  }
+
+  .button.is-light:hover {
+    background-color: #e9ecef !important;
+    border-color: #dee2e6;
+  }
+
+  /* Drag and Drop */
+
+  .has-background-primary-light {
+    background-color: rgb(0 209 178 / 10%) !important;
+    border: 2px dashed #00d1b2 !important;
+  }
+
+  /* Modal */
+
+  .modal-card-head,
+  .modal-card-foot {
+    background-color: #fff !important;
+    border-color: #e9ecef;
+  }
+
+  .modal-card-body {
+    background-color: #fff !important;
+    color: #4a4a4a;
+  }
+
+  .modal-card-title {
+    color: #4a4a4a !important;
+  }
+
+  /* Status-based colors for task cards */
+
+  .box[data-status="todo"] {
+    border-left: 4px solid #f14668;
+  }
+
+  .box[data-status="in_progress"] {
+    border-left: 4px solid #ffdd57;
+  }
+
+  .box[data-status="review"] {
+    border-left: 4px solid #3298dc;
+  }
+
+  .box[data-status="done"] {
+    border-left: 4px solid #48c774;
+  }
+
+  /* Focus states */
+
+  .box:focus-visible,
+  .button:focus-visible {
+    outline: 2px solid #3273dc;
+    outline-offset: 2px;
+  }
+
+  /* Form Elements */
+
+  .input, .textarea, .select select {
+    background-color: #fff !important;
+    border-color: #dbdbdb !important;
+    color: #4a4a4a !important;
+    padding: 0.5em 0.75em !important;
+    line-height: 1.5 !important;
+    vertical-align: middle !important;
+  }
+
+  .input:focus, .textarea:focus, .select select:focus {
+    border-color: #3273dc !important;
+    box-shadow: 0 0 0 0.125em rgb(50 115 220 / 25%) !important;
+  }
+
+  .input::placeholder, .textarea::placeholder {
+    color: #b5b5b5 !important;
+  }
+
+  /* Select specific styling */
+
+  .select {
+    position: relative;
+  }
+
+  .select select {
+    padding: 0.5em 2.5em 0.5em 0.75em !important;
+    line-height: 1.5 !important;
+    height: auto !important;
+    min-height: 2.5em !important;
+    width: 100% !important;
+    background-color: #fff !important;
+    border: 1px solid #dbdbdb !important;
+    border-radius: 4px !important;
+    color: #4a4a4a !important;
+    font-size: 1rem !important;
+    vertical-align: middle !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    text-align: left !important;
+    text-align-last: left !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+  }
+
+  .select::after {
+    border-color: #4a4a4a !important;
+    border-width: 0.125em 0.125em 0 0 !important;
+    content: "" !important;
+    display: block !important;
+    height: 0.625em !important;
+    left: calc(50% - 0.3125em) !important;
+    position: absolute !important;
+    top: calc(50% - 0.4375em) !important;
+    transform: rotate(-45deg) !important;
+    transform-origin: center !important;
+    width: 0.625em !important;
+    pointer-events: none !important;
+  }
+
+  /* Label styling */
+
+  .label {
+    color: #4a4a4a !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.5em !important;
+  }
+
+  /* Field styling */
+
+  .field {
+    margin-bottom: 1rem !important;
+  }
+
+  .field:not(:last-child) {
+    margin-bottom: 0.75rem !important;
+  }
+
+  /* Scrollbar */
+
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f8f9fa;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #dee2e6;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #adb5bd;
+  }
+} 

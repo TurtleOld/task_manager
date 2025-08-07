@@ -1,0 +1,43 @@
+/* === COMPONENTS: EMPTY MESSAGE === */
+
+.empty-message {
+  transition: all 0.3s ease;
+}
+
+.empty-message:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgb(10 10 10 / 10%);
+}
+
+.empty-message .icon {
+  transition: all 0.3s ease;
+}
+
+.empty-message:hover .icon {
+  transform: scale(1.1);
+}
+
+/* Responsive adjustments */
+@media screen and (width <= 768px) {
+
+  .empty-message {
+    padding: 2rem 1rem !important;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+
+  .empty-message,
+  .empty-message .icon {
+    transition: none;
+  }
+  
+  .empty-message:hover {
+    transform: none;
+  }
+  
+  .empty-message:hover .icon {
+    transform: none;
+  }
+} 

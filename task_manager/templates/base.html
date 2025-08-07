@@ -30,15 +30,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <link rel="icon" href="{% static 'favicon/favicon.ico' %}" type="image/x-icon">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <script defer src="{% static 'js/font-loader.js' %}"></script>
+    <script defer src="{% static 'js/logout-button.js' %}"></script>
     <script defer src="{% static 'js/checklist.js' %}"></script>
     <script defer src="{% static 'js/modal.js' %}"></script>
     <script defer src="{% static 'js/kanban.js' %}"></script>
+    <script defer src="{% static 'js/task-detail.js' %}"></script>
+    <script defer src="{% static 'js/color-theme.js' %}"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
     <title>{% block title %}{% endblock %} - Task Manager</title>
 </head>
-<body data-theme="{{ theme_mode }}" x-data="{ dragging: null }">
+<body data-theme="{{ theme_mode }}" data-theme-color="{{ user.theme_color|default:'blue' }}" x-data="{ dragging: null }">
 {% include "header.html" %}
 
 {% if messages %}

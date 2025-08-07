@@ -1,0 +1,903 @@
+/* === COMPONENTS: HEADER === */
+
+/* Navbar Base */
+
+.navbar.nav-height {
+  min-height: 70px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  box-shadow: var(--shadow-md);
+  border-bottom: 1px solid var(--color-border-light);
+  position: relative;
+  overflow: hidden;
+}
+
+.navbar.nav-height::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+  opacity: 0.3;
+}
+
+/* Navbar Brand */
+
+.navbar-brand {
+  position: relative;
+  z-index: 1;
+}
+
+/* Global navbar-item hover override to prevent green color */
+
+.navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+/* More specific overrides for Bulma navbar-item hover */
+
+.navbar .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+.navbar.is-primary .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+.navbar-brand .navbar-item {
+  color: var(--color-white);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-xl);
+  text-decoration: none;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.navbar-brand .navbar-item:hover {
+  color: var(--color-white);
+  transform: translateY(-1px);
+  text-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+}
+
+.navbar-brand .navbar-item i {
+  font-size: var(--font-size-lg);
+  opacity: 0.9;
+}
+
+/* Navbar Menu */
+
+.navbar-menu {
+  position: relative;
+  z-index: 1;
+}
+
+.navbar-end {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+/* Theme Switch Button */
+
+#theme-switch-form {
+  margin: 0;
+}
+
+#theme-switch-btn {
+  background: rgb(255 255 255 / 20%);
+  border: 1px solid rgb(255 255 255 / 30%);
+  color: var(--color-white);
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-normal);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+#theme-switch-btn:hover {
+  background: rgb(255 255 255 / 30%);
+  border-color: rgb(255 255 255 / 50%);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+#theme-switch-btn svg {
+  width: 18px;
+  height: 18px;
+  transition: var(--transition-fast);
+}
+
+#theme-switch-btn:hover svg {
+  transform: rotate(15deg);
+}
+
+/* User Profile Button */
+
+.navbar-item .button {
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  transition: var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.navbar-item .button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 20%), transparent);
+  transition: left 0.5s;
+}
+
+.navbar-item .button:hover::before {
+  left: 100%;
+}
+
+.navbar-item .button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Logout Button */
+
+.navbar-item form {
+  margin: 0;
+}
+
+.navbar-item input[type="submit"] {
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  transition: var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  font-family: var(--font-family-primary);
+    letter-spacing: var(--letter-spacing-wide);
+    text-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+}
+
+.navbar-item input[type="submit"]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 20%), transparent);
+  transition: left 0.5s;
+}
+
+.navbar-item input[type="submit"]:hover::before {
+  left: 100%;
+}
+
+.navbar-item input[type="submit"]:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Enhanced Logout Button Styles */
+
+.navbar-item input[type="submit"].has-background-danger.is-outlined {
+  background: transparent !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-white) !important;
+  font-weight: var(--font-weight-semibold);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  transition: var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  font-family: var(--font-family-primary);
+  letter-spacing: var(--letter-spacing-wide);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+}
+
+.navbar-item input[type="submit"].has-background-danger.is-outlined::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 20%), transparent);
+  transition: left 0.5s;
+}
+
+.navbar-item input[type="submit"].has-background-danger.is-outlined:hover::before {
+  left: 100%;
+}
+
+.navbar-item input[type="submit"].has-background-danger.is-outlined:hover {
+  background: var(--color-white) !important;
+  color: var(--color-danger) !important;
+  border-color: var(--color-white) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  text-shadow: none;
+}
+
+/* Logout button with icon */
+
+.navbar-item input[type="submit"].has-background-danger.is-outlined::after {
+  content: '🚪';
+  margin-left: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  opacity: 0.8;
+  transition: var(--transition-fast);
+}
+
+.navbar-item input[type="submit"].has-background-danger.is-outlined:hover::after {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+/* Enhanced logout button with additional styling */
+
+.navbar-item input[type="submit"].logout-btn {
+  min-width: 80px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+}
+
+.navbar-item input[type="submit"].logout-btn::before {
+  content: '🚪';
+  font-size: var(--font-size-sm);
+  opacity: 0.8;
+  transition: var(--transition-fast);
+}
+
+.navbar-item input[type="submit"].logout-btn:hover::before {
+  opacity: 1;
+  transform: translateX(-2px);
+}
+
+/* Focus states for logout button */
+
+.navbar-item input[type="submit"].logout-btn:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+/* Auth Buttons (Login/Register) */
+
+.navbar-item .button.is-primary {
+  background: var(--color-white);
+  color: var(--color-primary);
+  border: 2px solid var(--color-white);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  transition: var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.navbar-item .button.is-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgb(50 115 220 / 10%), transparent);
+  transition: left 0.5s;
+}
+
+.navbar-item .button.is-primary:hover::before {
+  left: 100%;
+}
+
+.navbar-item .button.is-primary:hover {
+  background: var(--color-primary);
+  color: var(--color-white);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.navbar-item .button.is-light {
+  background: rgb(255 255 255 / 20%);
+  color: var(--color-white);
+  border: 2px solid rgb(255 255 255 / 30%);
+  font-weight: var(--font-weight-semibold);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  transition: var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.navbar-item .button.is-light::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 20%), transparent);
+  transition: left 0.5s;
+}
+
+.navbar-item .button.is-light:hover::before {
+  left: 100%;
+}
+
+.navbar-item .button.is-light:hover {
+  background: rgb(255 255 255 / 30%);
+  border-color: rgb(255 255 255 / 50%);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* User Profile Button - has-background-primary is-outlined */
+
+.navbar-item .button.has-background-primary.is-outlined {
+  background: transparent !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-white) !important;
+  font-weight: var(--font-weight-semibold);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  transition: var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.navbar-item .button.has-background-primary.is-outlined::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 20%), transparent);
+  transition: left 0.5s;
+}
+
+.navbar-item .button.has-background-primary.is-outlined:hover::before {
+  left: 100%;
+}
+
+.navbar-item .button.has-background-primary.is-outlined:hover {
+  background: var(--color-white) !important;
+  color: var(--color-primary) !important;
+  border-color: var(--color-white) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Navbar Burger */
+
+.navbar-burger {
+  background: rgb(255 255 255 / 20%);
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: var(--radius-sm);
+  color: var(--color-white);
+  transition: var(--transition-fast);
+  backdrop-filter: blur(10px);
+}
+
+.navbar-burger:hover {
+  background: rgb(255 255 255 / 30%);
+  border-color: rgb(255 255 255 / 50%);
+}
+
+.navbar-burger span {
+  background-color: var(--color-white);
+  transition: var(--transition-fast);
+}
+
+/* Dark Theme Adjustments */
+
+[data-theme="dark"] .navbar.nav-height {
+  background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
+}
+
+[data-theme="dark"] .navbar-item .button.is-primary {
+  background: var(--color-white);
+  color: var(--color-primary-dark);
+}
+
+[data-theme="dark"] .navbar-item .button.is-primary:hover {
+  background: var(--color-primary-dark);
+  color: var(--color-white);
+}
+
+/* Dark theme navbar-item hover fixes */
+
+[data-theme="dark"] .navbar-brand .navbar-item:hover {
+  color: var(--color-white) !important;
+  transform: translateY(-1px);
+  text-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+}
+
+[data-theme="dark"] .navbar.is-compact .navbar-brand .navbar-item:hover {
+  color: var(--color-white) !important;
+  transform: translateY(-1px);
+  text-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+}
+
+/* Override any Bulma or other framework hover styles for navbar-item */
+
+[data-theme="dark"] .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+[data-theme="dark"] .navbar .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+[data-theme="dark"] .navbar.is-primary .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+/* Dark theme user profile button styles */
+
+[data-theme="dark"] .navbar-item .button.has-background-primary.is-outlined {
+  background: transparent !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-white) !important;
+}
+
+[data-theme="dark"] .navbar-item .button.has-background-primary.is-outlined:hover {
+  background: var(--color-white) !important;
+  color: var(--color-primary-dark) !important;
+  border-color: var(--color-white) !important;
+}
+
+/* Dark theme logout button styles */
+
+[data-theme="dark"] .navbar-item input[type="submit"].has-background-danger.is-outlined {
+  background: transparent !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-white) !important;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 30%);
+}
+
+[data-theme="dark"] .navbar-item input[type="submit"].has-background-danger.is-outlined:hover {
+  background: var(--color-white) !important;
+  color: var(--color-danger) !important;
+  border-color: var(--color-white) !important;
+  text-shadow: none;
+}
+
+/* Light Theme Adjustments */
+
+[data-theme="light"] .navbar.nav-height {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+}
+
+/* Light theme navbar-item hover fixes */
+
+[data-theme="light"] .navbar-brand .navbar-item:hover {
+  color: var(--color-white) !important;
+  transform: translateY(-1px);
+  text-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+}
+
+[data-theme="light"] .navbar.is-compact .navbar-brand .navbar-item:hover {
+  color: var(--color-white) !important;
+  transform: translateY(-1px);
+  text-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+}
+
+/* Override any Bulma or other framework hover styles for navbar-item */
+
+[data-theme="light"] .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+[data-theme="light"] .navbar .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+[data-theme="light"] .navbar.is-primary .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+/* Light theme user profile button styles */
+
+[data-theme="light"] .navbar-item .button.has-background-primary.is-outlined {
+  background: transparent !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-white) !important;
+}
+
+[data-theme="light"] .navbar-item .button.has-background-primary.is-outlined:hover {
+  background: var(--color-white) !important;
+  color: var(--color-primary) !important;
+  border-color: var(--color-white) !important;
+}
+
+/* Light theme logout button styles */
+
+[data-theme="light"] .navbar-item input[type="submit"].has-background-danger.is-outlined {
+  background: transparent !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-white) !important;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 20%);
+}
+
+[data-theme="light"] .navbar-item input[type="submit"].has-background-danger.is-outlined:hover {
+  background: var(--color-white) !important;
+  color: var(--color-danger) !important;
+  border-color: var(--color-white) !important;
+  text-shadow: none;
+}
+
+/* Compact Header for Auth Pages */
+
+.navbar.is-compact {
+  min-height: 50px;
+  padding: 0.5rem 0;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  box-shadow: var(--shadow-sm);
+}
+
+.navbar.is-compact .navbar-brand .navbar-item {
+  font-size: var(--font-size-lg);
+  padding: 0.5rem 0;
+}
+
+.navbar.is-compact .navbar-brand .navbar-item i {
+  font-size: var(--font-size-base);
+}
+
+/* Hover styles for compact header logo */
+
+.navbar.is-compact .navbar-brand .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+  transform: translateY(-1px);
+  text-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+}
+
+.navbar.is-compact .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+.navbar.is-compact .navbar .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+/* Responsive Design */
+@media (width <= 768px) {
+
+  .navbar.nav-height {
+    min-height: 60px;
+  }
+  
+  .navbar-brand .navbar-item {
+    font-size: var(--font-size-lg);
+  }
+  
+  .navbar-brand .navbar-item i {
+    font-size: var(--font-size-base);
+  }
+  
+  .navbar-end {
+    gap: var(--spacing-sm);
+  }
+  
+  .navbar-item .button {
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: var(--font-size-sm);
+  }
+  
+  #theme-switch-btn {
+    width: 36px;
+    height: 36px;
+  }
+  
+  #theme-switch-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+    /* Compact header mobile adjustments */
+
+    .navbar.is-compact {
+      min-height: 45px;
+    }
+  
+    .navbar.is-compact .navbar-brand .navbar-item {
+      font-size: var(--font-size-base);
+    }
+
+                                                                                                                                /* Hover styles for compact header logo on mobile */
+
+                                                                                                                                .navbar.is-compact .navbar-brand .navbar-item:hover {
+                                                                                                                                  color: var(--color-white) !important;
+                                                                                                                                  background-color: transparent !important;
+                                                                                                                                  transform: translateY(-1px);
+                                                                                                                                  text-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+                                                                                                                                }
+                                                                
+                                                                                                                                /* Mobile user profile button styles */
+
+                                                                                                                                .navbar-item .button.has-background-primary.is-outlined {
+                                                                                                                                  padding: var(--spacing-xs) var(--spacing-md);
+                                                                                                                                  font-size: var(--font-size-sm);
+                                                                                                                                }
+                                                                
+                                                                                                                                /* Mobile logout button styles */
+
+                                                                                                                                .navbar-item input[type="submit"].has-background-danger.is-outlined {
+                                                                                                                                  padding: var(--spacing-xs) var(--spacing-md);
+                                                                                                                                  font-size: var(--font-size-sm);
+                                                                                                                                }
+                                                                
+                                                                                                                                .navbar-item input[type="submit"].has-background-danger.is-outlined::after {
+                                                                                                                                  font-size: var(--font-size-xs);
+                                                                                                                                }
+                                                                
+                                                                                                                                /* Mobile enhanced logout button styles */
+
+                                                                                                                                .navbar-item input[type="submit"].logout-btn {
+                                                                                                                                  min-width: 70px;
+                                                                                                                                  padding: var(--spacing-xs) var(--spacing-md);
+                                                                                                                                  font-size: var(--font-size-sm);
+                                                                                                                                }
+                                                                
+                                                                                                                                .navbar-item input[type="submit"].logout-btn::before {
+                                                                                                                                  font-size: var(--font-size-xs);
+                                                                                                                                }
+}
+
+/* Accessibility Improvements */
+@media (prefers-reduced-motion: reduce) {
+
+  .navbar-brand .navbar-item:hover {
+    transform: none;
+  }
+  
+    .navbar.is-compact .navbar-brand .navbar-item:hover {
+      transform: none;
+    }
+
+  .navbar-item .button:hover,
+  .navbar-item input[type="submit"]:hover,
+  #theme-switch-btn:hover {
+    transform: none;
+  }
+  
+    .navbar-item .button.has-background-primary.is-outlined:hover {
+      transform: none;
+    }
+  
+    .navbar-item input[type="submit"].logout-btn:hover {
+      transform: none;
+    }
+  
+    .navbar-item input[type="submit"].logout-btn:hover::before {
+      transform: none;
+    }
+
+  #theme-switch-btn:hover svg {
+    transform: none;
+  }
+  
+  .navbar-item .button::before,
+  .navbar-item input[type="submit"]::before,
+  #theme-switch-btn::before {
+    animation: none;
+  }
+}
+
+/* Focus States */
+
+#theme-switch-btn:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+}
+
+.navbar-item .button:focus-visible,
+.navbar-item input[type="submit"]:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+}
+
+.navbar-item .button.has-background-primary.is-outlined:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+}
+
+.navbar-burger:focus-visible {
+  outline: 2px solid var(--color-white);
+  outline-offset: 2px;
+}
+
+/* Additional Bulma overrides to prevent green hover effects */
+
+.navbar-item:hover,
+.navbar-item.is-active,
+.navbar-item.is-active:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+.navbar.is-primary .navbar-item:hover,
+.navbar.is-primary .navbar-item.is-active,
+.navbar.is-primary .navbar-item.is-active:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+/* Ensure no green colors from Bulma's success/primary classes */
+
+.navbar-item.is-success:hover,
+.navbar-item.is-primary:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+/* Override any potential green background from Bulma */
+
+.navbar-item:hover::before,
+.navbar-item:hover::after {
+  background-color: transparent !important;
+}
+
+/* Maximum specificity overrides for Bulma navbar-item */
+
+html body .navbar.nav-height .navbar-item:hover,
+html body .navbar.is-primary .navbar-item:hover,
+html body .navbar.is-compact .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+/* Override any Bulma success/primary color classes */
+
+html body .navbar-item.is-success:hover,
+html body .navbar-item.is-primary:hover,
+html body .navbar-item.is-info:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+/* Ensure no green colors in any state */
+
+html body .navbar-item:hover,
+html body .navbar-item:focus,
+html body .navbar-item:active {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+/* Theme-specific maximum specificity overrides */
+
+html body[data-theme="dark"] .navbar.nav-height .navbar-item:hover,
+html body[data-theme="dark"] .navbar.is-primary .navbar-item:hover,
+html body[data-theme="dark"] .navbar.is-compact .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+html body[data-theme="light"] .navbar.nav-height .navbar-item:hover,
+html body[data-theme="light"] .navbar.is-primary .navbar-item:hover,
+html body[data-theme="light"] .navbar.is-compact .navbar-item:hover {
+  color: var(--color-white) !important;
+  background-color: transparent !important;
+}
+
+/* Maximum specificity overrides for user profile button */
+
+html body .navbar-item .button.has-background-primary.is-outlined {
+  background: transparent !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-white) !important;
+}
+
+html body .navbar-item .button.has-background-primary.is-outlined:hover {
+  background: var(--color-white) !important;
+  color: var(--color-primary) !important;
+  border-color: var(--color-white) !important;
+}
+
+/* Maximum specificity overrides for logout button */
+
+html body .navbar-item input[type="submit"].has-background-danger.is-outlined {
+  background: transparent !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-white) !important;
+  font-weight: var(--font-weight-semibold);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  transition: var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  font-family: var(--font-family-primary);
+  letter-spacing: var(--letter-spacing-wide);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+}
+
+html body .navbar-item input[type="submit"].has-background-danger.is-outlined:hover {
+  background: var(--color-white) !important;
+  color: var(--color-danger) !important;
+  border-color: var(--color-white) !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  text-shadow: none;
+}
+
+/* Theme-specific maximum specificity overrides for user profile button */
+
+html body[data-theme="dark"] .navbar-item .button.has-background-primary.is-outlined {
+  background: transparent !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-white) !important;
+}
+
+html body[data-theme="dark"] .navbar-item .button.has-background-primary.is-outlined:hover {
+  background: var(--color-white) !important;
+  color: var(--color-primary-dark) !important;
+  border-color: var(--color-white) !important;
+}
+
+html body[data-theme="light"] .navbar-item .button.has-background-primary.is-outlined {
+  background: transparent !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-white) !important;
+}
+
+html body[data-theme="light"] .navbar-item .button.has-background-primary.is-outlined:hover {
+  background: var(--color-white) !important;
+  color: var(--color-primary) !important;
+  border-color: var(--color-white) !important;
+}
+
+/* Theme-specific maximum specificity overrides for logout button */
+
+html body[data-theme="dark"] .navbar-item input[type="submit"].has-background-danger.is-outlined {
+  background: transparent !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-white) !important;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 30%);
+}
+
+html body[data-theme="dark"] .navbar-item input[type="submit"].has-background-danger.is-outlined:hover {
+  background: var(--color-white) !important;
+  color: var(--color-danger) !important;
+  border-color: var(--color-white) !important;
+  text-shadow: none;
+}
+
+html body[data-theme="light"] .navbar-item input[type="submit"].has-background-danger.is-outlined {
+  background: transparent !important;
+  color: var(--color-white) !important;
+  border: 2px solid var(--color-white) !important;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 20%);
+}
+
+html body[data-theme="light"] .navbar-item input[type="submit"].has-background-danger.is-outlined:hover {
+  background: var(--color-white) !important;
+  color: var(--color-danger) !important;
+  border-color: var(--color-white) !important;
+  text-shadow: none;
+}

@@ -5,41 +5,109 @@
 {% block title %}{% translate 'Список задач' %}{% endblock %}
 
 {% block content %}
-<main x-data="kanbanBoard" x-init="init()" class="container kanban-negative-margin" data-tasks='{{ tasks|safe }}' role="main" aria-label="{% translate 'Доска задач' %}">
-    <header class="mb-4">
-        <a href="{% url 'tasks:create' %}" 
-           class="button is-primary is-large has-text-weight-bold kanban-create-btn"
-           aria-label="{% translate 'Создать новую задачу' %}"
-           title="{% translate 'Создать новую задачу' %}">
-            <span class="icon" aria-hidden="true"><i class="fas fa-plus"></i></span>
-            <span>{% translate 'Создать задачу' %}</span>
-        </a>
+<main x-data="kanbanBoard" x-init="init()" class="container" data-tasks='{{ tasks|safe }}' role="main" aria-label="{% translate 'Доска задач' %}">
+    <!-- Mobile Instructions -->
+    <div class="notification is-info is-light is-hidden-desktop mb-4" x-show="isMobile">
+        <div class="content">
+            <h4 class="title is-6">
+                <span class="icon-text">
+                    <span class="icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </span>
+                    <span>Мобильная версия</span>
+                </span>
+            </h4>
+            <p>Для перемещения карточек на мобильном устройстве:</p>
+            <ol>
+                <li>Нажмите и удерживайте карточку</li>
+                <li>Перетащите её в нужную колонку</li>
+                <li>Отпустите для завершения перемещения</li>
+            </ol>
+        </div>
+    </div>
+
+    <header class="mb-5 mt-5">
+        <div class="columns is-multiline is-align-items-center">
+            <div class="column is-narrow">
+                <a href="{% url 'tasks:create' %}" 
+                   class="button has-background-primary is-large has-text-weight-bold is-rounded"
+                   aria-label="{% translate 'Создать новую задачу' %}"
+                   title="{% translate 'Создать новую задачу' %}">
+                    <span class="icon" aria-hidden="true"><i class="fas fa-plus"></i></span>
+                    <span>{% translate 'Создать задачу' %}</span>
+                </a>
+            </div>
+            
+            <!-- Filter Section -->
+            <div class="column">
+                <div class="kanban-filters">
+                    <div class="filter-header">
+                        <h3 class="title is-5">
+                            <i class="fas fa-filter"></i>
+                            {% translate 'Фильтр по тегам' %}
+                        </h3>
+                    </div>
+                    
+                    <form method="get" class="filter-form" id="labelFilterForm">
+                        <div class="filter-tags">
+                            {% for label in labels %}
+                            <label class="filter-tag-checkbox">
+                                <input type="checkbox" 
+                                       name="labels" 
+                                       value="{{ label.id }}"
+                                       {% if label.id|stringformat:"s" in selected_labels %}checked{% endif %}
+                                       class="filter-checkbox">
+                                <span class="filter-tag">
+                                    <i class="fas fa-tag"></i>
+                                    {{ label.name }}
+                                </span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="filter-actions">
+                            <button type="submit" class="button is-info is-small">
+                                <i class="fas fa-search"></i>
+                                {% translate 'Применить фильтр' %}
+                            </button>
+                            <a href="{% url 'tasks:list' %}" class="button is-light is-small">
+                                <i class="fas fa-times"></i>
+                                {% translate 'Сбросить' %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </header>
     
-    <section class="columns is-multiline" role="region" aria-label="{% translate 'Колонки задач' %}">
+    <section class="columns is-multiline is-gapless" role="region" aria-label="{% translate 'Колонки задач' %}">
         {% for stage in stages %}
             <article class="column is-one-quarter is-full-mobile" 
                      data-stage-id="{{ stage.id }}"
                      role="region" 
                      aria-label="{% translate 'Колонка' %}: {{ stage.name }}">
-                <div class="box kanban-box">
+                <div class="box has-background-white-ter has-shadow">
                     <div
-                        class="kanban-column"
+                        class="has-background-white has-radius-large p-4"
                         @dragover.prevent="onDragOver($event, {{ stage.id }})"
                         @dragleave="onDragLeave($event, {{ stage.id }})"
                         @drop="drop($event, {{ stage.id }})"
-                        :class="dragOverStage == {{ stage.id }} ? 'is-dragover' : ''"
+                        :class="dragOverStage == {{ stage.id }} ? 'has-background-primary-light' : ''"
                         role="list"
                         aria-label="{% translate 'Список задач в колонке' %}: {{ stage.name }}"
                         :aria-describedby="'stage-count-{{ stage.id }}'"
+                        class="task-list-container"
                     >
-                        <header class="kanban-header">
-                            <h2 class="subtitle is-4 has-text-weight-bold">
-                                <span class="icon is-small mr-1" aria-hidden="true">
-                                    <i class="fas fa-layer-group"></i>
+                        <header class="has-background-primary has-text-white has-radius-large p-3 mb-4">
+                            <h2 class="title is-5 has-text-white has-text-weight-bold is-flex is-align-items-center is-justify-content-space-between">
+                                <span class="is-flex is-align-items-center">
+                                    <span class="icon is-small mr-2" aria-hidden="true">
+                                        <i class="fas fa-layer-group"></i>
+                                    </span>
+                                    <span class="stage-name">{{ stage.name }}</span>
                                 </span>
-                                {{ stage.name }}
-                                <span class="tag is-light ml-2" 
+                                <span class="tag is-white is-rounded has-text-primary has-text-weight-bold" 
                                       x-text="tasks['{{ stage.id }}']?.length || 0"
                                       id="stage-count-{{ stage.id }}"
                                       aria-label="{% translate 'Количество задач' %}: "
@@ -48,14 +116,20 @@
                             </h2>
                         </header>
                         
-                        <template x-for="(task, idx) in tasks['{{ stage.id }}']" :key="task.id ? task.id : 'placeholder-' + idx">
-                            <div role="listitem">
-                                <div x-show="task.placeholder" class="kanban-placeholder" aria-hidden="true"></div>
-                                {% include 'tasks/_task_card.html' %}
-                            </div>
-                        </template>
-                        
-                        {% include 'tasks/_empty_column_message.html' with stage_id=stage.id %}
+                        <div class="task-list">
+                            <template x-for="(task, idx) in tasks['{{ stage.id }}']" :key="task.id ? task.id : 'placeholder-' + idx">
+                                <div role="listitem" class="mb-1">
+                                    <div x-show="task.placeholder" class="has-background-light has-radius-large p-4 has-text-centered has-text-grey-light" aria-hidden="true">
+                                        <span class="icon is-large">
+                                            <i class="fas fa-spinner fa-spin"></i>
+                                        </span>
+                                    </div>
+                                    {% include 'tasks/_task_card.html' %}
+                                </div>
+                            </template>
+                            
+                            {% include 'tasks/_empty_column_message.html' with stage_id=stage.id %}
+                        </div>
                     </div>
                 </div>
             </article>
@@ -63,8 +137,7 @@
     </section>
     
     <div x-show="showDeleteModal" 
-         class="modal is-active fade-in" 
-         style="z-index: 1000;" 
+         class="modal is-active delete-modal" 
          aria-modal="true" 
          role="dialog" 
          aria-labelledby="deleteModalTitle"

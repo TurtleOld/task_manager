@@ -9,6 +9,10 @@ document.addEventListener('alpine:init', () => {
         dropdownTaskId: null,
         showDeleteModal: false,
         deleteTaskObj: null,
+        isMobile: false,
+        selectedTask: null,
+        touchStartY: 0,
+        touchStartX: 0,
         init() {
             const rawTasks = JSON.parse(this.$el.getAttribute('data-tasks'));
             const groupedTasks = {};
@@ -26,6 +30,9 @@ document.addEventListener('alpine:init', () => {
             });
             Object.assign(this.tasks, groupedTasks);
             
+            // Определяем мобильное устройство
+            this.isMobile = window.innerWidth <= 768;
+            
             // Добавляем обработчик клика вне dropdown для его закрытия
             document.addEventListener('click', (event) => {
                 // Проверяем, что клик не по dropdown-меню и не по кнопке открытия
@@ -41,6 +48,7 @@ document.addEventListener('alpine:init', () => {
             
             // Добавляем обработчик изменения размера окна
             window.addEventListener('resize', () => {
+                this.isMobile = window.innerWidth <= 768;
                 if (this.dropdownTaskId) {
                     this.dropdownTaskId = null;
                 }
@@ -52,6 +60,243 @@ document.addEventListener('alpine:init', () => {
                     this.dropdownTaskId = null;
                 }
             });
+            
+            // Инициализируем мобильные обработчики
+            if (this.isMobile) {
+                this.initMobileHandlers();
+            }
+        },
+        initMobileHandlers() {
+            // Добавляем обработчики touch событий для мобильных устройств
+            document.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+            document.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+            document.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+            
+            // Предотвращаем конфликты с click событиями
+            document.addEventListener('click', this.handleMobileClick.bind(this), true);
+        },
+        handleMobileClick(event) {
+            if (!this.isMobile) return;
+            
+            // Если была выбрана задача, предотвращаем click события
+            if (this.selectedTask) {
+                event.preventDefault();
+                event.stopPropagation();
+                return false;
+            }
+        },
+        handleTouchStart(event) {
+            if (!this.isMobile) return;
+            
+            const taskCard = event.target.closest('.kanban-task-card');
+            if (taskCard) {
+                event.preventDefault();
+                const taskId = taskCard.getAttribute('data-task-id');
+                if (taskId) {
+                    this.selectedTask = taskId;
+                    this.draggingTaskObj = this.getTaskObjById(taskId);
+                    const stageElement = taskCard.closest('[data-stage-id]');
+                    this.draggingStage = stageElement.getAttribute('data-stage-id');
+                    
+                    // Добавляем визуальную обратную связь
+                    taskCard.classList.add('is-selected');
+                    
+                    // Показываем индикатор выбора с более понятными инструкциями
+                    this.showMobileSelectionIndicator(taskCard);
+                    
+                    // Запоминаем начальные координаты для определения типа жеста
+                    this.touchStartX = event.touches[0].clientX;
+                    this.touchStartY = event.touches[0].clientY;
+                    
+                    // Добавляем haptic feedback (если поддерживается)
+                    if (navigator.vibrate) {
+                        navigator.vibrate(50);
+                    }
+                }
+            }
+        },
+        handleTouchMove(event) {
+            if (!this.isMobile || !this.selectedTask) return;
+            
+            event.preventDefault();
+            
+            const touch = event.touches[0];
+            const deltaX = Math.abs(touch.clientX - this.touchStartX);
+            const deltaY = Math.abs(touch.clientY - this.touchStartY);
+            
+            // Если движение достаточно большое, считаем это drag жестом
+            if (deltaX > 10 || deltaY > 10) {
+                const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                const column = elementBelow?.closest('[data-stage-id]');
+                
+                if (column) {
+                    const stageId = column.getAttribute('data-stage-id');
+                    this.onMobileDragOver(touch, stageId);
+                    
+                    // Обновляем индикатор с инструкциями
+                    this.updateMobileIndicator(touch);
+                }
+            }
+        },
+        handleTouchEnd(event) {
+            if (!this.isMobile || !this.selectedTask) return;
+            
+            event.preventDefault();
+            
+            const touch = event.changedTouches[0];
+            const deltaX = Math.abs(touch.clientX - this.touchStartX);
+            const deltaY = Math.abs(touch.clientY - this.touchStartY);
+            
+            // Если движение было достаточно большим, выполняем drop
+            if (deltaX > 10 || deltaY > 10) {
+                const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                const column = elementBelow?.closest('[data-stage-id]');
+                
+                if (column) {
+                    const stageId = column.getAttribute('data-stage-id');
+                    this.onMobileDrop(touch, stageId);
+                    
+                    // Haptic feedback для успешного drop
+                    if (navigator.vibrate) {
+                        navigator.vibrate([50, 50, 50]);
+                    }
+                }
+            }
+            
+            // Очищаем состояние
+            this.clearMobileSelection();
+        },
+        onMobileDragOver(touch, stageId) {
+            this.dragOverStage = stageId;
+            
+            const column = document.querySelector(`[data-stage-id="${stageId}"]`);
+            if (!column) return;
+            
+            const taskElements = Array.from(column.querySelectorAll('.kanban-task-card'));
+            const mouseY = touch.clientY;
+            
+            // Находим позицию для вставки
+            let insertIndex = this.findInsertPosition(taskElements, mouseY);
+            
+            // Если перетаскиваем в ту же колонку, исключаем текущую задачу
+            if (this.draggingStage === stageId) {
+                const currentTaskIndex = this.tasks[stageId].findIndex(t => t.id === this.selectedTask);
+                if (currentTaskIndex !== -1) {
+                    if (insertIndex > currentTaskIndex) {
+                        insertIndex--;
+                    }
+                    if (insertIndex === currentTaskIndex) {
+                        return;
+                    }
+                }
+            }
+            
+            this.insertPlaceholder(stageId, insertIndex);
+            this.placeholderIndex = insertIndex;
+        },
+        onMobileDrop(touch, newStageId) {
+            const taskId = this.selectedTask;
+            if (!taskId) return;
+            if (!this.tasks[newStageId]) this.tasks[newStageId] = [];
+            const arr = this.tasks[newStageId];
+            let newIndex = arr.findIndex(t => t.placeholder);
+            if (newIndex === -1) newIndex = arr.length;
+            this.removePlaceholder(newStageId);
+
+            // Удалить задачу из всех колонок
+            for (const sid in this.tasks) {
+                const idx = this.tasks[sid].findIndex(t => t.id === taskId);
+                if (idx !== -1) this.tasks[sid].splice(idx, 1);
+            }
+            // Вставить полный объект задачи
+            if (this.draggingTaskObj) arr.splice(newIndex, 0, this.draggingTaskObj);
+
+            fetch('/tasks/update-task-stage/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: JSON.stringify({
+                    task_id: taskId,
+                    new_stage_id: newStageId,
+                    new_order: newIndex,
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    this.init();
+                }
+            })
+            .catch(() => {
+                this.init();
+            });
+        },
+        showMobileSelectionIndicator(taskCard) {
+            // Создаем индикатор выбора
+            const indicator = document.createElement('div');
+            indicator.className = 'mobile-selection-indicator';
+            indicator.innerHTML = `
+                <div class="mobile-selection-content">
+                    <span class="icon">
+                        <i class="fas fa-hand-pointer"></i>
+                    </span>
+                    <span>Переместите карточку</span>
+                </div>
+            `;
+            document.body.appendChild(indicator);
+            
+            // Позиционируем индикатор
+            const rect = taskCard.getBoundingClientRect();
+            indicator.style.position = 'fixed';
+            indicator.style.top = `${rect.top - 60}px`;
+            indicator.style.left = `${rect.left}px`;
+            indicator.style.zIndex = '1000';
+        },
+        updateMobileIndicator(touch) {
+            const indicator = document.querySelector('.mobile-selection-indicator');
+            if (indicator) {
+                const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                const column = elementBelow?.closest('[data-stage-id]');
+                
+                if (column) {
+                    const stageId = column.getAttribute('data-stage-id');
+                    const stageName = column.querySelector('.column-header h3')?.textContent || 'колонку';
+                    
+                    indicator.innerHTML = `
+                        <div class="mobile-selection-content">
+                            <span class="icon">
+                                <i class="fas fa-arrow-right"></i>
+                            </span>
+                            <span>Переместить в ${stageName}</span>
+                        </div>
+                    `;
+                    
+                    // Обновляем позицию индикатора
+                    indicator.style.top = `${touch.clientY - 80}px`;
+                    indicator.style.left = `${touch.clientX - 100}px`;
+                }
+            }
+        },
+        clearMobileSelection() {
+            this.selectedTask = null;
+            this.draggingTaskObj = null;
+            this.draggingStage = null;
+            this.dragOverStage = null;
+            this.placeholderIndex = null;
+            this.removePlaceholder();
+            
+            // Убираем визуальные эффекты
+            document.querySelectorAll('.kanban-task-card.is-selected').forEach(card => {
+                card.classList.remove('is-selected');
+            });
+            
+            // Убираем индикатор
+            const indicator = document.querySelector('.mobile-selection-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
         },
         dragStart(taskId) {
             this.dragging = taskId;
@@ -74,18 +319,82 @@ document.addEventListener('alpine:init', () => {
             this.removePlaceholder();
         },
         onDragOver(event, stageId) {
+            event.preventDefault();
             this.dragOverStage = stageId;
-            const column = event.target.closest('.kanban-column');
-            const arr = this.tasks[stageId] || [];
-            let insertIndex = Array.from(column.querySelectorAll('.kanban-task')).findIndex(el => {
-                const rect = el.getBoundingClientRect();
-                return event.clientY < rect.top + rect.height / 2;
-            });
-            if (insertIndex === -1) insertIndex = arr.length;
+            
+            // Ищем колонку по data-stage-id, начиная с текущего элемента и поднимаясь вверх по DOM
+            const column = event.target.closest('[data-stage-id]');
+            if (!column) return;
+            
+            const taskElements = Array.from(column.querySelectorAll('.kanban-task-card'));
+            const mouseY = event.clientY;
+            
+            // Находим позицию для вставки
+            let insertIndex = this.findInsertPosition(taskElements, mouseY);
+            
+            // Если перетаскиваем в ту же колонку, исключаем текущую задачу
+            if (this.draggingStage === stageId) {
+                const currentTaskIndex = this.tasks[stageId].findIndex(t => t.id === this.dragging);
+                if (currentTaskIndex !== -1) {
+                    // Если вставляем после текущей позиции, уменьшаем индекс на 1
+                    if (insertIndex > currentTaskIndex) {
+                        insertIndex--;
+                    }
+                    // Если вставляем на ту же позицию, не делаем ничего
+                    if (insertIndex === currentTaskIndex) {
+                        return;
+                    }
+                }
+            }
+            
             this.insertPlaceholder(stageId, insertIndex);
             this.placeholderIndex = insertIndex;
         },
+        findInsertPosition(taskElements, mouseY) {
+            if (taskElements.length === 0) {
+                return 0;
+            }
+            
+            // Проверяем, находится ли курсор выше первой карточки
+            const firstTask = taskElements[0];
+            const firstTaskRect = firstTask.getBoundingClientRect();
+            if (mouseY < firstTaskRect.top + firstTaskRect.height / 2) {
+                return 0;
+            }
+            
+            // Проверяем, находится ли курсор ниже последней карточки
+            const lastTask = taskElements[taskElements.length - 1];
+            const lastTaskRect = lastTask.getBoundingClientRect();
+            if (mouseY > lastTaskRect.bottom - lastTaskRect.height / 2) {
+                return taskElements.length;
+            }
+            
+            // Находим позицию между карточками
+            for (let i = 0; i < taskElements.length - 1; i++) {
+                const currentTask = taskElements[i];
+                const nextTask = taskElements[i + 1];
+                const currentRect = currentTask.getBoundingClientRect();
+                const nextRect = nextTask.getBoundingClientRect();
+                
+                // Проверяем, находится ли курсор между текущей и следующей карточкой
+                const middleY = (currentRect.bottom + nextRect.top) / 2;
+                if (mouseY < middleY) {
+                    return i + 1;
+                }
+            }
+            
+            // Если не нашли позицию, вставляем в конец
+            return taskElements.length;
+        },
         onDragLeave(event, stageId) {
+            // Проверяем, что мы действительно покидаем колонку, а не переходим к дочернему элементу
+            const relatedTarget = event.relatedTarget;
+            const currentColumn = event.target.closest('[data-stage-id]');
+            
+            if (relatedTarget && currentColumn && currentColumn.contains(relatedTarget)) {
+                return;
+            }
+            
             if (this.dragOverStage == stageId) {
                 this.dragOverStage = null;
                 this.placeholderIndex = null;

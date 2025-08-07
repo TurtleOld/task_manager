@@ -4,26 +4,24 @@
 <nav class="navbar nav-height is-primary">
     <div class="container is-max-widescreen">
         <div class="navbar-brand mt-0 is-block">
-            <a href="/" class="navbar-item title mb-2">
+            <a href="/" class="navbar-item title mb-0 mt-4">
+                <i class="fas fa-tasks mr-2"></i>
                 {% translate 'Менеджер задач'%}
             </a>
-            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
-              <span aria-hidden="true"></span>
-              <span aria-hidden="true"></span>
-              <span aria-hidden="true"></span>
+            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarMenu">
               <span aria-hidden="true"></span>
               <span aria-hidden="true"></span>
               <span aria-hidden="true"></span>
             </a>
         </div>
-        <div class="navbar-menu is-block">
+        <div class="navbar-menu" id="navbarMenu">
             <div class="navbar-end">
                 <div class="navbar-item">
                     <div class="buttons">
                         {% if user.is_authenticated %}
                             <form class="mt-1" id="theme-switch-form">
                                 {% csrf_token %}
-                                <button type="submit" class="btn me-1">
+                                <button type="button" class="btn me-1" id="theme-switch-btn">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-brilliance" viewBox="0 0 16 16">
                                         <path d="M8 16A8 8 0 1 1 8 0a8 8 0 0 1 0 16M1 8a7 7 0 0 0 7 7 3.5 3.5 0 1 0 0-7 3.5 3.5 0 1 1 0-7 7 7 0 0 0-7 7"/>
                                     </svg>
@@ -32,11 +30,22 @@
                             <div class="navbar-item">
                                 <a href="{% url 'users:profile' %}" class="button has-background-primary is-outlined">{{ user.username }}</a>
                             </div>
-                            <form action="/logout/" method="post">
+                            <form action="{% url 'users:logout' %}" method="post">
                                 {% csrf_token %}
-                                <input type="submit" class="me-md-5 button has-background-danger is-outlined"
+                                <input type="submit" class="me-md-5 button has-background-danger is-outlined logout-btn"
                                     value="{% translate 'Выйти' %}">
                             </form>
+                        {% else %}
+                            <a href="{% url 'login' %}" class="button is-primary">
+                                <i class="fas fa-sign-in-alt mr-2"></i>
+                                {% translate 'Войти' %}
+                            </a>
+                            {% if registration_available %}
+                                <a href="{% url 'users:create' %}" class="button is-light">
+                                    <i class="fas fa-user-plus mr-2"></i>
+                                    {% translate 'Регистрация' %}
+                                </a>
+                            {% endif %}
                         {% endif %}
                     </div>
                 </div>
@@ -46,28 +55,41 @@
 </nav>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const form = document.getElementById('theme-switch-form');
-
-        form.addEventListener('submit', (event) => {
-            event.preventDefault();
-
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-            fetch("{% url 'users:switch_theme_mode' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken,
-                },
-                body: JSON.stringify({}),
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.body.setAttribute('data-theme', data.theme_mode);
-            })
-            .catch(error => {
-                console.error('Ошибка при переключении темы:', error);
+        // Burger menu functionality
+        const burger = document.querySelector('.navbar-burger');
+        const menu = document.querySelector('.navbar-menu');
+        
+        if (burger && menu) {
+            burger.addEventListener('click', () => {
+                burger.classList.toggle('is-active');
+                menu.classList.toggle('is-active');
             });
-        });
+        }
+
+        // Theme switch functionality
+        const themeSwitchBtn = document.getElementById('theme-switch-btn');
+        if (themeSwitchBtn) {
+            themeSwitchBtn.addEventListener('click', (event) => {
+                event.preventDefault();
+
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                fetch("{% url 'users:switch_theme_mode' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify({}),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    document.body.setAttribute('data-theme', data.theme_mode);
+                })
+                .catch(error => {
+                    console.error('Ошибка при переключении темы:', error);
+                });
+            });
+        }
     });
 </script>

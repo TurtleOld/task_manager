@@ -1,29 +1,222 @@
 {% extends '../base.html' %}
 {% load crispy_forms_tags %}
-
 {% load i18n %}
+{% load static %}
+
+{% block title %}{% translate 'Управление тегами' %}{% endblock %}
 
 {% block content %}
-    <title>{% translate 'Список меток' %}</title>
-    <h1 class="my-4">{% translate 'Метки' %}</h1>
-    <a class="text-decoration-none" href="{% url 'labels:create' %}">{% translate 'Создать метку' %}</a>
-    <table class="bg-white mt-1 border table table-striped">
-        <tr>
-            <th class="border p-2">ID</th>
-            <th class="border p-2">{% translate 'Имя' %}</th>
-            <th class="border p-2">{% translate 'Дата создания' %}</th>
-            <th class="border p-2"></th>
-        </tr>
+<div class="labels-container">
+    <!-- Header Section -->
+    <div class="labels-header">
+        <div class="labels-header-content">
+            <h1 class="labels-title">
+                <i class="fa fa-tags"></i>
+                {% translate 'Управление тегами' %}
+            </h1>
+            <p class="labels-subtitle">{% translate 'Создавайте и управляйте тегами для организации задач' %}</p>
+        </div>
+        <button class="label-create-btn" onclick="openCreateModal()">
+            <i class="fa fa-plus"></i>
+            {% translate 'Создать тег' %}
+        </button>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="labels-stats">
+        <div class="label-stat-card">
+            <div class="label-stat-icon">
+                <i class="fa fa-tag"></i>
+            </div>
+            <div class="label-stat-value">{{ labels.count }}</div>
+            <div class="label-stat-label">{% translate 'Всего тегов' %}</div>
+        </div>
+        
+        <div class="label-stat-card">
+            <div class="label-stat-icon">
+                <i class="fa fa-tasks"></i>
+            </div>
+            <div class="label-stat-value">{{ active_labels_count|default:0 }}</div>
+            <div class="label-stat-label">{% translate 'Активных тегов' %}</div>
+        </div>
+        
+        <div class="label-stat-card">
+            <div class="label-stat-icon">
+                <i class="fa fa-clock"></i>
+            </div>
+            <div class="label-stat-value">{{ recent_labels_count|default:0 }}</div>
+            <div class="label-stat-label">{% translate 'За этот месяц' %}</div>
+        </div>
+    </div>
+
+    <!-- Labels Grid -->
+    {% if labels %}
+    <div class="labels-grid">
         {% for label in labels %}
-        <tr>
-            <td class="border p-2">{{ label.id }}</td>
-            <td class="border p-2">{{ label.name }}</td>
-            <td class="border p-2">{{ label.created_at|date:"d.m.Y H:i" }}</td>
-            <td class="border p-2">
-                <a class="text-decoration-none" href="{% url 'labels:update_label' label.id %}">{% translate 'Изменить' %}</a><br>
-                <a class="text-decoration-none" href="{% url 'labels:delete_label' label.id %}">{% translate 'Удалить' %}</a>
-            </td>
-        </tr>
+        <div class="label-card" data-label-id="{{ label.id }}">
+            <div class="label-card-header">
+                <div class="label-icon">
+                    <i class="fa fa-tag"></i>
+                </div>
+                <div class="label-actions">
+                    <button class="label-action-btn edit-btn" onclick="openEditModal({{ label.id }}, '{{ label.name }}')" title="{% translate 'Редактировать' %}">
+                        <i class="fa fa-edit"></i>
+                    </button>
+                    <button class="label-action-btn delete-btn" onclick="openDeleteModal({{ label.id }}, '{{ label.name }}')" title="{% translate 'Удалить' %}">
+                        <i class="fa fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="label-card-content">
+                <h3 class="label-name">{{ label.name }}</h3>
+                <div class="label-meta">
+                    <div class="label-date">
+                        <i class="fa fa-calendar"></i>
+                        {{ label.created_at|date:"d.m.Y" }}
+                    </div>
+                    <div class="label-time">
+                        <i class="fa fa-clock"></i>
+                        {{ label.created_at|date:"H:i" }}
+                    </div>
+                </div>
+                <div class="label-usage">
+                    <span class="label-usage-count">{{ label.tasks.count }}</span>
+                    <span class="label-usage-text">{% translate 'задач' %}</span>
+                </div>
+            </div>
+        </div>
         {% endfor %}
-    </table>
+    </div>
+    {% else %}
+    <div class="labels-empty">
+        <div class="labels-empty-icon">
+            <i class="fa fa-tags"></i>
+        </div>
+        <h3 class="labels-empty-title">{% translate 'Теги не найдены' %}</h3>
+        <p class="labels-empty-text">{% translate 'Создайте первый тег для организации ваших задач' %}</p>
+        <button class="label-create-btn primary" onclick="openCreateModal()">
+            <i class="fa fa-plus"></i>
+            {% translate 'Создать первый тег' %}
+        </button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create Label Modal -->
+<div id="createLabelModal" class="label-modal">
+    <div class="label-modal-content">
+        <div class="label-modal-header">
+            <h2 class="label-modal-title">
+                <i class="fa fa-plus"></i>
+                {% translate 'Создать новый тег' %}
+            </h2>
+            <button class="label-modal-close" onclick="closeCreateModal()">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+        
+        <form method="post" action="{% url 'labels:create' %}" class="label-form">
+            {% csrf_token %}
+            <div class="label-form-group">
+                <label for="id_name" class="label-form-label">
+                    <i class="fa fa-tag"></i>
+                    {% translate 'Название тега' %}
+                </label>
+                <input type="text" name="name" id="id_name" class="label-form-input" 
+                       placeholder="{% translate 'Введите название тега' %}" required>
+            </div>
+            
+            <div class="label-form-actions">
+                <button type="button" class="label-btn secondary" onclick="closeCreateModal()">
+                    {% translate 'Отмена' %}
+                </button>
+                <button type="submit" class="label-btn primary">
+                    <i class="fa fa-plus"></i>
+                    {% translate 'Создать тег' %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Label Modal -->
+<div id="editLabelModal" class="label-modal">
+    <div class="label-modal-content">
+        <div class="label-modal-header">
+            <h2 class="label-modal-title">
+                <i class="fa fa-edit"></i>
+                {% translate 'Редактировать тег' %}
+            </h2>
+            <button class="label-modal-close" onclick="closeEditModal()">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+        
+        <form method="post" class="label-form" id="editLabelForm">
+            {% csrf_token %}
+            <div class="label-form-group">
+                <label for="edit_name" class="label-form-label">
+                    <i class="fa fa-tag"></i>
+                    {% translate 'Название тега' %}
+                </label>
+                <input type="text" name="name" id="edit_name" class="label-form-input" required>
+            </div>
+            
+            <div class="label-form-actions">
+                <button type="button" class="label-btn secondary" onclick="closeEditModal()">
+                    {% translate 'Отмена' %}
+                </button>
+                <button type="submit" class="label-btn primary">
+                    <i class="fa fa-save"></i>
+                    {% translate 'Сохранить' %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Label Modal -->
+<div id="deleteLabelModal" class="label-modal">
+    <div class="label-modal-content">
+        <div class="label-modal-header">
+            <h2 class="label-modal-title">
+                <i class="fa fa-trash"></i>
+                {% translate 'Удалить тег' %}
+            </h2>
+            <button class="label-modal-close" onclick="closeDeleteModal()">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="label-delete-content">
+            <div class="label-delete-icon">
+                <i class="fa fa-exclamation-triangle"></i>
+            </div>
+            <h3 class="label-delete-title">{% translate 'Подтверждение удаления' %}</h3>
+            <p class="label-delete-text">
+                {% translate 'Вы уверены, что хотите удалить тег' %} <strong id="deleteLabelName"></strong>?
+            </p>
+            <p class="label-delete-warning">
+                <i class="fa fa-info-circle"></i>
+                {% translate 'Это действие нельзя отменить' %}
+            </p>
+        </div>
+        
+        <form method="post" class="label-form" id="deleteLabelForm">
+            {% csrf_token %}
+            <div class="label-form-actions">
+                <button type="button" class="label-btn secondary" onclick="closeDeleteModal()">
+                    {% translate 'Отмена' %}
+                </button>
+                <button type="submit" class="label-btn danger">
+                    <i class="fa fa-trash"></i>
+                    {% translate 'Удалить' %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="{% static 'js/labels.js' %}"></script>
 {% endblock %}

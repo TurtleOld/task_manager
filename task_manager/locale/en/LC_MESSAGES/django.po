@@ -250,3 +250,16 @@ msgstr "Tip: You can add checklist items for better task organization."
 
 msgid "Отменить изменения и вернуться к списку задач"
 msgstr "Cancel changes and return to task list"
+
+# Переводы для ограничения регистрации
+msgid "Регистрация недоступна. В системе уже есть пользователи."
+msgstr "Registration is not available. There are already users in the system."
+
+msgid "Доступ запрещен"
+msgstr "Access Denied"
+
+msgid "Для получения доступа к системе обратитесь к администратору."
+msgstr "To get access to the system, contact the administrator."
+
+msgid "Вернуться к входу"
+msgstr "Return to login"

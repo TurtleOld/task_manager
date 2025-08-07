@@ -4,6 +4,8 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models.base import Model as Model
+from django.utils import timezone
+from datetime import timedelta
 
 from django.http import HttpRequest
 from django.http.response import HttpResponseBase
@@ -30,10 +32,30 @@ class LabelsList(LoginRequiredMixin, ListView[Label]):
     )
     no_permission_url = 'login'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
 
-class CreateLabel(
-    LoginRequiredMixin, SuccessMessageMixin[Any], CreateView[Label, Any]
-):
+        # Get all labels with task counts
+        labels = context['labels'].prefetch_related('tasks')
+
+        # Calculate statistics
+        active_labels = labels.filter(tasks__isnull=False).distinct().count()
+
+        # Labels created this month
+        month_ago = timezone.now() - timedelta(days=30)
+        recent_labels = labels.filter(created_at__gte=month_ago).count()
+
+        context.update(
+            {
+                'active_labels_count': active_labels,
+                'recent_labels_count': recent_labels,
+            }
+        )
+
+        return context
+
+
+class CreateLabel(LoginRequiredMixin, SuccessMessageMixin[Any], CreateView[Label, Any]):
     model = Label
     template_name = 'labels/create_label.html'
     form_class = LabelForm

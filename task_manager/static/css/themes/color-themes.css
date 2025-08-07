@@ -1,0 +1,70 @@
+/* === COLOR THEMES === */
+
+/* Red Theme */
+
+[data-theme-color="red"] {
+  --color-primary: #ff3860;
+  --color-primary-dark: #cc2a4a;
+  --color-primary-light: #ff5a7a;
+  --color-primary-rgb: 255, 56, 96;
+}
+
+/* Orange Theme */
+
+[data-theme-color="orange"] {
+  --color-primary: #ff7f50;
+  --color-primary-dark: #e65a2b;
+  --color-primary-light: #ff9a6b;
+  --color-primary-rgb: 255, 127, 80;
+}
+
+/* Yellow Theme */
+
+[data-theme-color="yellow"] {
+  --color-primary: #ffdd57;
+  --color-primary-dark: #e6c74e;
+  --color-primary-light: #ffe066;
+  --color-primary-rgb: 255, 221, 87;
+}
+
+/* Green Theme */
+
+[data-theme-color="green"] {
+  --color-primary: #48c774;
+  --color-primary-dark: #3aa85e;
+  --color-primary-light: #5dd485;
+  --color-primary-rgb: 72, 199, 116;
+}
+
+/* Blue Theme (Default) */
+
+[data-theme-color="blue"] {
+  --color-primary: #3273dc;
+  --color-primary-dark: #205081;
+  --color-primary-light: #4fc08d;
+  --color-primary-rgb: 50, 115, 220;
+}
+
+/* Indigo Theme */
+
+[data-theme-color="indigo"] {
+  --color-primary: #4b0082;
+  --color-primary-dark: #3a0066;
+  --color-primary-light: #5a1a99;
+  --color-primary-rgb: 75, 0, 130;
+}
+
+/* Purple Theme */
+
+[data-theme-color="purple"] {
+  --color-primary: #8b5cf6;
+  --color-primary-dark: #7c3aed;
+  --color-primary-light: #a78bfa;
+  --color-primary-rgb: 139, 92, 246;
+}
+
+/* Apply theme color to body when user has selected a color */
+
+body[data-theme-color] {
+  transition: all 0.3s ease;
+}

@@ -25,9 +25,8 @@ class ChecklistManager {
         // Загружаем существующие данные
         this.loadInitialData();
         
-        // Добавляем пустой пункт по умолчанию, если нет данных
         if (this.initialData.length === 0) {
-            this.addItem();
+            this.createItem('', false, false);
         }
     }
     
@@ -37,7 +36,7 @@ class ChecklistManager {
         });
     }
     
-    createItem(description = '', isCompleted = false) {
+    createItem(description = '', isCompleted = false, shouldFocus = true) {
         const itemDiv = document.createElement('div');
         itemDiv.className = 'checklist-item field has-addons mb-2';
         itemDiv.setAttribute('data-item-index', this.itemCounter);
@@ -78,6 +77,12 @@ class ChecklistManager {
         this.container.appendChild(itemDiv);
         this.itemCounter++;
         
+        // Устанавливаем фокус только если это требуется
+        if (shouldFocus) {
+            const input = itemDiv.querySelector('.checklist-item-input');
+            input.focus();
+        }
+        
         return itemDiv;
     }
     
@@ -105,10 +110,7 @@ class ChecklistManager {
     }
     
     addItem() {
-        const newItem = this.createItem();
-        // Фокусируемся на новом поле
-        const input = newItem.querySelector('.checklist-item-input');
-        input.focus();
+        const newItem = this.createItem('', false, true); // Устанавливаем фокус при добавлении нового пункта
         
         // Добавляем анимацию появления
         newItem.style.opacity = '0';
@@ -192,6 +194,7 @@ class ChecklistManager {
     validate() {
         const items = this.container.querySelectorAll('.checklist-item');
         let isValid = true;
+        let hasValidItems = false;
         
         items.forEach(item => {
             const input = item.querySelector('.checklist-item-input');
@@ -202,8 +205,14 @@ class ChecklistManager {
                 isValid = false;
             } else {
                 input.classList.remove('is-danger');
+                hasValidItems = true;
             }
         });
+        
+        // Если нет валидных пунктов, но есть пустые - это ошибка
+        if (!hasValidItems && items.length > 0) {
+            isValid = false;
+        }
         
         return isValid;
     }
@@ -237,7 +246,13 @@ document.addEventListener('DOMContentLoaded', function() {
         );
     }
     
-    // Добавляем валидацию формы
+    // Устанавливаем фокус на первое поле формы (название задачи)
+    const firstInput = document.querySelector('input[name="name"]');
+    if (firstInput) {
+        firstInput.focus();
+    }
+    
+    // Добавляем валидацию формы только при отправке
     const form = document.querySelector('form');
     if (form && window.checklistManager) {
         form.addEventListener('submit', function(e) {

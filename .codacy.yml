@@ -1,0 +1,145 @@
+# Codacy Configuration File
+# Настройки для Django проекта с Python, JavaScript и CSS
+
+# Исключаемые пути
+exclude_paths:
+  - "**/migrations/**"
+  - "**/staticfiles/**"
+  - "**/media/**"
+  - "**/node_modules/**"
+  - "**/venv/**"
+  - "**/env/**"
+  - "**/.git/**"
+  - "**/__pycache__/**"
+  - "**/*.pyc"
+  - "**/manage.py"
+  - "**/wsgi.py"
+  - "**/asgi.py"
+  - "**/celery.py"
+  - "**/settings.py"
+  - "**/urls.py"
+  - "**/requirements.txt"
+  - "**/pyproject.toml"
+  - "**/poetry.lock"
+  - "**/Dockerfile"
+  - "**/docker-compose.yaml"
+  - "**/Makefile"
+  - "**/README.md"
+  - "**/INSTALLATION.md"
+  - "**/renovate.json"
+
+# Инструменты анализа
+tools:
+  # Python анализ
+  - name: "pylint"
+    patterns:
+      - "**/*.py"
+    exclude_paths:
+      - "**/migrations/**"
+      - "**/manage.py"
+      - "**/wsgi.py"
+      - "**/asgi.py"
+      - "**/celery.py"
+      - "**/settings.py"
+      - "**/urls.py"
+  
+  # JavaScript анализ
+  - name: "eslint"
+    patterns:
+      - "**/*.js"
+    exclude_paths:
+      - "**/node_modules/**"
+      - "**/staticfiles/**"
+  
+  # CSS анализ
+  - name: "stylelint"
+    patterns:
+      - "**/*.css"
+    exclude_paths:
+      - "**/staticfiles/**"
+
+# Настройки качества кода
+code_patterns:
+  # Python
+  - name: "Unused import"
+    pattern: "import.*"
+    language: "python"
+    severity: "Info"
+  
+  - name: "Unused variable"
+    pattern: ".*=.*"
+    language: "python"
+    severity: "Warning"
+  
+  # JavaScript
+  - name: "Unused function parameter"
+    pattern: "function.*\\(.*\\)"
+    language: "javascript"
+    severity: "Warning"
+  
+  - name: "Undefined variable"
+    pattern: "\\b[a-zA-Z_$][a-zA-Z0-9_$]*\\b"
+    language: "javascript"
+    severity: "Error"
+
+# Настройки безопасности
+security:
+  # Проверка на SQL инъекции
+  - name: "SQL Injection"
+    pattern: "raw\\(.*\\)"
+    language: "python"
+    severity: "Error"
+  
+  # Проверка на XSS
+  - name: "XSS Vulnerability"
+    pattern: "innerHTML|outerHTML"
+    language: "javascript"
+    severity: "Warning"
+
+# Метрики качества
+metrics:
+  # Максимальная сложность функции
+  max_complexity: 10
+  
+  # Максимальная длина функции
+  max_function_length: 50
+  
+  # Максимальная длина строки
+  max_line_length: 120
+  
+  # Минимальное покрытие тестами
+  min_test_coverage: 70
+
+# Игнорируемые правила
+ignore:
+  # Python
+  - "C0114"  # Missing module docstring
+  - "C0115"  # Missing class docstring
+  - "C0116"  # Missing function docstring
+  - "C0103"  # Invalid name
+  - "R0903"  # Too few public methods
+  - "R0913"  # Too many arguments
+  - "W0621"  # Redefining name from outer scope
+  
+  # JavaScript
+  - "no-unused-vars"  # Unused variables
+  - "no-console"      # Console statements
+  - "no-alert"        # Alert statements
+  
+  # CSS
+  - "no-descending-specificity"  # Descending specificity
+  - "no-duplicate-selectors"     # Duplicate selectors
+
+# Настройки отчетов
+reports:
+  # Включить отчет о покрытии тестами
+  coverage: true
+  
+  # Включить отчет о дублировании кода
+  duplication: true
+  
+  # Включить отчет о сложности кода
+  complexity: true
+  
+  # Включить отчет о безопасности
+  security: true

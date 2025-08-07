@@ -18,8 +18,10 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import TemplateView
 from task_manager.users.views import LoginUser, LogoutUser, IndexView
 from task_manager.users.webhooks import webhooks
+from django.shortcuts import render
 
 urlpatterns = [
     path('', IndexView.as_view(), name='index'),
@@ -39,6 +41,16 @@ urlpatterns = [
     ),
     path('admin/', admin.site.urls),
     path('webhooks/', webhooks, name='webhooks'),
+    path(
+        'test-themes/',
+        TemplateView.as_view(template_name='test-themes.html'),
+        name='test_themes',
+    ),
+    path(
+        'test-mobile/',
+        lambda request: render(request, 'test-mobile.html'),
+        name='test_mobile',
+    ),
 ]
 
 if settings.DEBUG:
