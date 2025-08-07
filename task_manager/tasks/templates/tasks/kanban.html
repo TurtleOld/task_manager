@@ -27,13 +27,58 @@
     </div>
 
     <header class="mb-5 mt-5">
-        <a href="{% url 'tasks:create' %}" 
-           class="button is-primary is-large has-text-weight-bold is-rounded"
-           aria-label="{% translate 'Создать новую задачу' %}"
-           title="{% translate 'Создать новую задачу' %}">
-            <span class="icon" aria-hidden="true"><i class="fas fa-plus"></i></span>
-            <span>{% translate 'Создать задачу' %}</span>
-        </a>
+        <div class="columns is-multiline is-align-items-center">
+            <div class="column is-narrow">
+                <a href="{% url 'tasks:create' %}" 
+                   class="button has-background-primary is-large has-text-weight-bold is-rounded"
+                   aria-label="{% translate 'Создать новую задачу' %}"
+                   title="{% translate 'Создать новую задачу' %}">
+                    <span class="icon" aria-hidden="true"><i class="fas fa-plus"></i></span>
+                    <span>{% translate 'Создать задачу' %}</span>
+                </a>
+            </div>
+            
+            <!-- Filter Section -->
+            <div class="column">
+                <div class="kanban-filters">
+                    <div class="filter-header">
+                        <h3 class="title is-5">
+                            <i class="fas fa-filter"></i>
+                            {% translate 'Фильтр по тегам' %}
+                        </h3>
+                    </div>
+                    
+                    <form method="get" class="filter-form" id="labelFilterForm">
+                        <div class="filter-tags">
+                            {% for label in labels %}
+                            <label class="filter-tag-checkbox">
+                                <input type="checkbox" 
+                                       name="labels" 
+                                       value="{{ label.id }}"
+                                       {% if label.id|stringformat:"s" in selected_labels %}checked{% endif %}
+                                       class="filter-checkbox">
+                                <span class="filter-tag">
+                                    <i class="fas fa-tag"></i>
+                                    {{ label.name }}
+                                </span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="filter-actions">
+                            <button type="submit" class="button is-info is-small">
+                                <i class="fas fa-search"></i>
+                                {% translate 'Применить фильтр' %}
+                            </button>
+                            <a href="{% url 'tasks:list' %}" class="button is-light is-small">
+                                <i class="fas fa-times"></i>
+                                {% translate 'Сбросить' %}
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </header>
     
     <section class="columns is-multiline is-gapless" role="region" aria-label="{% translate 'Колонки задач' %}">
@@ -52,7 +97,7 @@
                         role="list"
                         aria-label="{% translate 'Список задач в колонке' %}: {{ stage.name }}"
                         :aria-describedby="'stage-count-{{ stage.id }}'"
-                        style="min-height: 500px;"
+                        class="task-list-container"
                     >
                         <header class="has-background-primary has-text-white has-radius-large p-3 mb-4">
                             <h2 class="title is-5 has-text-white has-text-weight-bold is-flex is-align-items-center is-justify-content-space-between">
@@ -92,8 +137,7 @@
     </section>
     
     <div x-show="showDeleteModal" 
-         class="modal is-active" 
-         style="z-index: 1000;" 
+         class="modal is-active delete-modal" 
          aria-modal="true" 
          role="dialog" 
          aria-labelledby="deleteModalTitle"

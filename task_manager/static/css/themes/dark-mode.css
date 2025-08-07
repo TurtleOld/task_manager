@@ -1,68 +1,81 @@
 /* === THEMES: DARK MODE === */
 
 /* Dark theme overrides */
+
 [data-theme="dark"] {
+
   /* Background */
   background-color: #1a1a1a;
-  color: #ffffff;
+  color: #fff;
 
   /* Kanban Board Container */
+
   .box.has-background-white-ter {
     background-color: #2c2c2c !important;
     border-color: #404040;
   }
 
   /* Kanban Column */
+
   .has-background-white {
     background-color: #2c2c2c !important;
-    color: #ffffff;
+    color: #fff;
   }
 
   /* Column Header */
+
   .has-background-primary {
-    background-color: #3273dc !important;
+    background-color: var(--color-primary) !important;
   }
 
   .has-background-primary .title {
-    color: #ffffff !important;
+    color: #fff !important;
   }
 
   /* Task Cards */
+
   .box.has-shadow {
     background-color: #363636 !important;
     border-color: #404040;
-    color: #ffffff;
+    color: #fff;
   }
 
   .box.has-shadow:hover {
     background-color: #404040 !important;
-    border-color: #3273dc;
+    border-color: var(--color-primary);
   }
 
   /* Task Card Title */
+
   .title.is-5.has-text-primary {
-    color: #3273dc !important;
+    color: var(--color-primary) !important;
   }
 
   .title.is-5.has-text-success {
     color: #48c774 !important;
   }
 
-  /* Task Card Footer */
+                .kanban-task-card .title.is-5 {
+                  word-break: keep-all !important;
+                  overflow-wrap: break-word !important;
+                  hyphens: auto !important;
+                  line-height: 1.4 !important;
+                  text-shadow: 0 1px 2px rgb(0 0 0 / 10%) !important;
+                }
+
   .has-text-grey-light {
     color: #b5b5b5 !important;
   }
 
-  /* Tags */
   .tag.is-light {
     background-color: #404040 !important;
-    color: #ffffff !important;
+    color: #fff !important;
     border-color: #505050;
   }
 
   .tag.is-primary.is-light {
-    background-color: #1e3a8a !important;
-    color: #93c5fd !important;
+    background-color: var(--color-primary) !important;
+      color: #fff !important;
     border-color: #3b82f6;
   }
 
@@ -73,12 +86,19 @@
   }
 
   .tag.is-info.is-light {
-    background-color: #1e40af !important;
-    color: #93c5fd !important;
+    background-color: var(--color-primary) !important;
+      color: #fff !important;
+      border-color: #3b82f6;
+    }
+    
+    .button.is-info {
+      background-color: var(--color-primary) !important;
+      color: #fff !important;
     border-color: #3b82f6;
   }
 
   /* Empty Message */
+
   .has-background-light {
     background-color: #404040 !important;
     color: #b5b5b5;
@@ -89,6 +109,7 @@
   }
 
   /* Dropdown */
+
   .dropdown-menu {
     background-color: #363636 !important;
     border-color: #404040;
@@ -100,12 +121,12 @@
   }
 
   .dropdown-item {
-    color: #ffffff !important;
+    color: #fff !important;
   }
 
   .dropdown-item:hover {
     background-color: #404040 !important;
-    color: #3273dc !important;
+    color: var(--color-primary) !important;
   }
 
   .dropdown-item.has-text-danger {
@@ -118,9 +139,10 @@
   }
 
   /* Button */
+
   .button.is-light {
     background-color: #404040 !important;
-    color: #ffffff !important;
+    color: #fff !important;
     border-color: #505050;
   }
 
@@ -130,12 +152,14 @@
   }
 
   /* Drag and Drop */
+
   .has-background-primary-light {
-    background-color: rgba(50, 115, 220, 0.1) !important;
-    border: 2px dashed #3273dc !important;
+    background-color: rgb(var(--color-primary-rgb), 0.1) !important;
+      border: 2px dashed var(--color-primary) !important;
   }
 
   /* Modal */
+
   .modal-card-head,
   .modal-card-foot {
     background-color: #363636 !important;
@@ -144,14 +168,15 @@
 
   .modal-card-body {
     background-color: #2c2c2c !important;
-    color: #ffffff;
+    color: #fff;
   }
 
   .modal-card-title {
-    color: #ffffff !important;
+    color: #fff !important;
   }
 
   /* Status-based colors for task cards */
+
   .box[data-status="todo"] {
     border-left: 4px solid #f14668;
   }
@@ -169,6 +194,7 @@
   }
 
   /* Focus states */
+
   .box:focus-visible,
   .button:focus-visible {
     outline: 2px solid #3273dc;
@@ -176,10 +202,11 @@
   }
 
   /* Form Elements */
+
   .input, .textarea, .select select {
     background-color: #2c2c2c !important;
     border-color: #404040 !important;
-    color: #ffffff !important;
+    color: #fff !important;
     padding: 0.5em 0.75em !important;
     line-height: 1.5 !important;
     vertical-align: middle !important;
@@ -187,7 +214,7 @@
 
   .input:focus, .textarea:focus, .select select:focus {
     border-color: #3273dc !important;
-    box-shadow: 0 0 0 0.125em rgba(50, 115, 220, 0.25) !important;
+    box-shadow: 0 0 0 0.125em rgb(50 115 220 / 25%) !important;
   }
 
   .input::placeholder, .textarea::placeholder {
@@ -195,15 +222,13 @@
   }
 
   /* Select specific styling */
+
   .select {
     position: relative;
   }
 
   .select select {
-    padding-right: 2.5em !important;
-    padding-left: 0.75em !important;
-    padding-top: 0.5em !important;
-    padding-bottom: 0.5em !important;
+    padding: 0.5em 2.5em 0.5em 0.75em !important;
     line-height: 1.5 !important;
     height: auto !important;
     min-height: 2.5em !important;
@@ -211,7 +236,7 @@
     background-color: #2c2c2c !important;
     border: 1px solid #404040 !important;
     border-radius: 4px !important;
-    color: #ffffff !important;
+    color: #fff !important;
     font-size: 1rem !important;
     vertical-align: middle !important;
     appearance: none !important;
@@ -225,7 +250,7 @@
   }
 
   .select::after {
-    border-color: #ffffff !important;
+    border-color: #fff !important;
     border-width: 0.125em 0.125em 0 0 !important;
     content: "" !important;
     display: block !important;
@@ -240,13 +265,15 @@
   }
 
   /* Label styling */
+
   .label {
-    color: #ffffff !important;
+    color: #fff !important;
     font-weight: 600 !important;
     margin-bottom: 0.5em !important;
   }
 
   /* Field styling */
+
   .field {
     margin-bottom: 1rem !important;
   }
@@ -256,6 +283,7 @@
   }
 
   /* Scrollbar */
+
   ::-webkit-scrollbar {
     width: 8px;
   }
@@ -275,49 +303,68 @@
 }
 
 /* Light theme (default) */
+
 [data-theme="light"] {
+
   /* Background */
   background-color: #f5f5f5;
   color: #4a4a4a;
 
   /* Kanban Board Container */
+
   .box.has-background-white-ter {
     background-color: #f8f9fa !important;
     border-color: #e9ecef;
   }
 
   /* Kanban Column */
+
   .has-background-white {
-    background-color: #ffffff !important;
+    background-color: #fff !important;
     color: #4a4a4a;
   }
 
   .has-background-primary .title {
-    color: #ffffff !important;
+    color: #fff !important;
   }
 
   /* Task Cards */
+
   .box.has-shadow {
-    background-color: #ffffff !important;
+    background-color: #fff !important;
     border-color: #e9ecef;
     color: #4a4a4a;
   }
 
   .box.has-shadow:hover {
     background-color: #f8f9fa !important;
-    border-color: #00d1b2;
+    border-color: var(--color-primary);
   }
 
   /* Task Card Title */
+
   .title.is-5.has-text-primary {
-    color: #3273dc !important;
+    color: var(--color-primary) !important;
   }
 
   .title.is-5.has-text-success {
     color: #48c774 !important;
   }
 
+                /* Improved word wrapping for task titles in light theme */
+
+                .kanban-task-card .title.is-5 {
+                  word-break: keep-all !important;
+                  overflow-wrap: break-word !important;
+                  hyphens: auto !important;
+                  line-height: 1.4 !important;
+
+                  /* Better readability in light theme */
+                  text-shadow: 0 1px 1px rgb(255 255 255 / 80%) !important;
+                }
+
   /* Tags */
+
   .tag.is-light {
     background-color: #f8f9fa !important;
     color: #6c757d !important;
@@ -343,6 +390,7 @@
   }
 
   /* Empty Message */
+
   .has-background-light {
     background-color: #f8f9fa !important;
     color: #6c757d;
@@ -354,13 +402,14 @@
 
 
   /* Dropdown */
+
   .dropdown-menu {
-    background-color: #ffffff !important;
+    background-color: #fff !important;
     border-color: #e9ecef;
   }
 
   .dropdown-content {
-    background-color: #ffffff !important;
+    background-color: #fff !important;
     border-color: #e9ecef;
   }
 
@@ -383,6 +432,7 @@
   }
 
   /* Button */
+
   .button.is-light {
     background-color: #f8f9fa !important;
     color: #4a4a4a !important;
@@ -395,20 +445,22 @@
   }
 
   /* Drag and Drop */
+
   .has-background-primary-light {
-    background-color: rgba(0, 209, 178, 0.1) !important;
+    background-color: rgb(0 209 178 / 10%) !important;
     border: 2px dashed #00d1b2 !important;
   }
 
   /* Modal */
+
   .modal-card-head,
   .modal-card-foot {
-    background-color: #ffffff !important;
+    background-color: #fff !important;
     border-color: #e9ecef;
   }
 
   .modal-card-body {
-    background-color: #ffffff !important;
+    background-color: #fff !important;
     color: #4a4a4a;
   }
 
@@ -417,6 +469,7 @@
   }
 
   /* Status-based colors for task cards */
+
   .box[data-status="todo"] {
     border-left: 4px solid #f14668;
   }
@@ -434,6 +487,7 @@
   }
 
   /* Focus states */
+
   .box:focus-visible,
   .button:focus-visible {
     outline: 2px solid #3273dc;
@@ -441,8 +495,9 @@
   }
 
   /* Form Elements */
+
   .input, .textarea, .select select {
-    background-color: #ffffff !important;
+    background-color: #fff !important;
     border-color: #dbdbdb !important;
     color: #4a4a4a !important;
     padding: 0.5em 0.75em !important;
@@ -452,7 +507,7 @@
 
   .input:focus, .textarea:focus, .select select:focus {
     border-color: #3273dc !important;
-    box-shadow: 0 0 0 0.125em rgba(50, 115, 220, 0.25) !important;
+    box-shadow: 0 0 0 0.125em rgb(50 115 220 / 25%) !important;
   }
 
   .input::placeholder, .textarea::placeholder {
@@ -460,20 +515,18 @@
   }
 
   /* Select specific styling */
+
   .select {
     position: relative;
   }
 
   .select select {
-    padding-right: 2.5em !important;
-    padding-left: 0.75em !important;
-    padding-top: 0.5em !important;
-    padding-bottom: 0.5em !important;
+    padding: 0.5em 2.5em 0.5em 0.75em !important;
     line-height: 1.5 !important;
     height: auto !important;
     min-height: 2.5em !important;
     width: 100% !important;
-    background-color: #ffffff !important;
+    background-color: #fff !important;
     border: 1px solid #dbdbdb !important;
     border-radius: 4px !important;
     color: #4a4a4a !important;
@@ -505,6 +558,7 @@
   }
 
   /* Label styling */
+
   .label {
     color: #4a4a4a !important;
     font-weight: 600 !important;
@@ -512,6 +566,7 @@
   }
 
   /* Field styling */
+
   .field {
     margin-bottom: 1rem !important;
   }
@@ -521,6 +576,7 @@
   }
 
   /* Scrollbar */
+
   ::-webkit-scrollbar {
     width: 8px;
   }

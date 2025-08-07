@@ -1,0 +1,64 @@
+{{ '<' }}{{'!doctype html>'}}
+{% load i18n %}
+{% load static %}
+
+{% translate 'Создать' as button_text_create %}
+{% translate 'Изменить' as button_text_update %}
+
+{% translate 'Создание метки' as title_label_create %}
+{% translate 'Изменение метки' as title_label_update %}
+
+{% translate 'Список пользователей' as users_list %}
+{% translate 'Зарегистрировать' as button_text_user_create %}
+{% translate 'Войти' as button_text_user_signin %}
+
+{% translate 'Показать' as button_filter_text %}
+{% translate 'Создание задачи' as title_task_create %}
+{% translate 'Обновление задачи' as title_task_update %}
+
+<html lang="ru">
+<head>
+    <script src="{% static 'js/script.js' %}"></script>
+    <script src="{% static 'js/htmx.min.js' %}" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css"
+    >
+    <script src="{% static 'js/jquery-3.7.1.min.js' %}" defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="icon" href="{% static 'favicon/favicon.ico' %}" type="image/x-icon">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <script defer src="{% static 'js/checklist.js' %}"></script>
+    <script defer src="{% static 'js/modal.js' %}"></script>
+    <script defer src="{% static 'js/kanban.js' %}"></script>
+    <script defer src="{% static 'js/task-detail.js' %}"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <title>{% block title %}{% endblock %} - Task Manager</title>
+</head>
+<body data-theme="{{ theme_mode }}" x-data="{ dragging: null }">
+{% include "header-compact.html" %}
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert mt-3 has-text-centered">
+            <span
+                {% if message.tags %}
+                {% if message.tags == 'error' %}
+                    class="{{ message.tags }} notification has-background-danger has-text-white"
+                {% else %}
+                    class="{{ message.tags }} notification is-primary has-text-white"
+                {% endif %}
+                {% endif %}
+                >{{ message }}
+            </span>
+        </div>
+    {% endfor %}
+{% endif %}
+{% block content %}
+{% endblock %}
+</body>
+</html>

@@ -1,9 +1,47 @@
 /* === CSS VARIABLES === */
+
 :root {
+
+  /* Typography - Font Families */
+    --font-family-primary: 'Inter', -apple-system, blinkmacsystemfont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    --font-family-mono: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Consolas', 'Monaco', 'Courier New', monospace;
+    --font-family-display: 'Inter', -apple-system, blinkmacsystemfont, 'Segoe UI', 'Roboto', sans-serif;
+  
+    /* Typography - Font Sizes */
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 2rem;
+  
+    /* Typography - Font Weights */
+    --font-weight-light: 300;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+  
+    /* Typography - Line Heights */
+    --line-height-tight: 1.2;
+    --line-height-normal: 1.4;
+    --line-height-relaxed: 1.6;
+    --line-height-loose: 1.8;
+  
+    /* Typography - Letter Spacing */
+    --letter-spacing-tight: -0.025em;
+    --letter-spacing-normal: 0;
+    --letter-spacing-wide: 0.025em;
+    --letter-spacing-wider: 0.05em;
+    --letter-spacing-widest: 0.1em;
+
   /* Colors - Primary */
   --color-primary: #3273dc;
   --color-primary-light: #4fc08d;
   --color-primary-dark: #205081;
+  --color-primary-rgb: 50, 115, 220;
   --color-secondary: #4fc08d;
   --color-secondary-light: #48c774;
   --color-secondary-dark: #3ec46d;
@@ -15,8 +53,8 @@
   --color-info: #209cee;
   
   /* Colors - Neutral */
-  --color-white: #ffffff;
-  --color-black: #000000;
+  --color-white: #fff;
+  --color-black: #000;
   --color-gray-50: #f8f9fa;
   --color-gray-100: #f5f5f5;
   --color-gray-200: #e9ecef;
@@ -35,7 +73,7 @@
   --color-text-light: #f5f5f5;
   
   /* Colors - Background */
-  --color-bg-primary: #ffffff;
+  --color-bg-primary: #fff;
   --color-bg-secondary: #f8f9fa;
   --color-bg-tertiary: #e9ecef;
   --color-bg-dark: #121212;
@@ -65,29 +103,11 @@
   --radius-full: 50%;
   
   /* Shadows */
-  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
-  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.15);
-  --shadow-2xl: 0 20px 60px rgba(0, 0, 0, 0.3);
-  
-  /* Typography */
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.875rem;
-  --font-size-base: 1rem;
-  --font-size-lg: 1.125rem;
-  --font-size-xl: 1.25rem;
-  --font-size-2xl: 1.5rem;
-  --font-size-3xl: 2rem;
-  
-  --font-weight-normal: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  --font-weight-bold: 700;
-  
-  --line-height-tight: 1.2;
-  --line-height-normal: 1.4;
-  --line-height-relaxed: 1.6;
+  --shadow-sm: 0 2px 4px rgb(0 0 0 / 10%);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 15%);
+  --shadow-lg: 0 8px 24px rgb(0 0 0 / 15%);
+  --shadow-xl: 0 12px 32px rgb(0 0 0 / 15%);
+  --shadow-2xl: 0 20px 60px rgb(0 0 0 / 30%);
   
   /* Transitions */
   --transition-fast: 0.2s ease;
@@ -108,19 +128,18 @@
 }
 
 /* Dark theme variables */
+
 [data-theme="dark"] {
   --color-text-primary: #f5f5f5;
   --color-text-secondary: #b5b5b5;
   --color-text-muted: #7a7a7a;
   --color-text-light: #2c3e50;
-  
   --color-bg-primary: #121212;
   --color-bg-secondary: #2c313a;
   --color-bg-tertiary: #23272f;
-  --color-bg-dark: #ffffff;
+  --color-bg-dark: #fff;
   --color-bg-dark-secondary: #f8f9fa;
   --color-bg-dark-tertiary: #e9ecef;
-  
   --color-border-light: #4a4a4a;
   --color-border-medium: #7a7a7a;
   --color-border-dark: #b5b5b5;

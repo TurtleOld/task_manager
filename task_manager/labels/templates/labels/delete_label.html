@@ -1,14 +1,60 @@
 {% extends '../base.html' %}
 {% load i18n %}
+{% load static %}
 
-{% translate 'Удаление метки' as title_label_delete %}
+{% block title %}{% translate 'Удалить тег' %}{% endblock %}
 
 {% block content %}
-    <title>{{ title_label_delete }}</title>
-    <h1 class="my-4">{% translate 'Удаление метки' %}</h1>
-    <p>{% translate 'Вы уверены, что хотите удалить метку'%} <i>{{ label.name }}</i>?</p>
-    <form method="post" class="pb-4 pt-2">
-        {% csrf_token %}
-        <input class="btn btn-danger" type="submit" value="{% translate 'Да, удалить' %}">
-    </form>
+<div class="labels-container">
+    <div class="labels-header">
+        <div class="labels-header-content">
+            <h1 class="labels-title">
+                <i class="fa fa-trash"></i>
+                {% translate 'Удалить тег' %}
+            </h1>
+            <p class="labels-subtitle">{% translate 'Подтвердите удаление тега' %}</p>
+        </div>
+        <a href="{% url 'labels:list' %}" class="label-create-btn">
+            <i class="fa fa-arrow-left"></i>
+            {% translate 'Назад к списку' %}
+        </a>
+    </div>
+
+    <div class="label-delete-container">
+        <div class="label-delete-content">
+            <div class="label-delete-icon">
+                <i class="fa fa-exclamation-triangle"></i>
+            </div>
+            <h3 class="label-delete-title">{% translate 'Подтверждение удаления' %}</h3>
+            <p class="label-delete-text">
+                {% translate 'Вы уверены, что хотите удалить тег' %} <strong>{{ label.name }}</strong>?
+            </p>
+            
+            {% if label.tasks.exists %}
+            <div class="label-delete-warning">
+                <i class="fa fa-info-circle"></i>
+                {% translate 'Этот тег используется в' %} {{ label.tasks.count }} {% translate 'задачах' %}
+            </div>
+            {% endif %}
+            
+            <p class="label-delete-warning">
+                <i class="fa fa-exclamation-triangle"></i>
+                {% translate 'Это действие нельзя отменить' %}
+            </p>
+        </div>
+        
+        <form method="post" class="label-form">
+            {% csrf_token %}
+            <div class="label-form-actions">
+                <a href="{% url 'labels:list' %}" class="label-btn secondary">
+                    {% translate 'Отмена' %}
+                </a>
+                <button type="submit" class="label-btn danger">
+                    <i class="fa fa-trash"></i>
+                    {% translate 'Да, удалить' %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}

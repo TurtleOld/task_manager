@@ -1,40 +1,53 @@
 /* === COMPONENTS: KANBAN BOARD === */
 
 /* Kanban Column Drag & Drop */
+
 .kanban-column.is-dragover {
-  background: rgba(72, 95, 199, 0.1) !important;
-  border: 2px dashed #485fc7 !important;
+  background: rgb(var(--color-primary-rgb), 0.1) !important;
+    border: 2px dashed var(--color-primary) !important;
   border-radius: 8px !important;
 }
 
+/* Task List Container */
+.task-list-container {
+  min-height: 500px;
+}
+
+/* Delete Modal */
+.delete-modal {
+  z-index: 1000;
+}
 /* Task Card Drag States */
+
 .kanban-task-card.is-dragging {
   opacity: 0.7;
   transform: rotate(3deg) scale(1.05);
-  box-shadow: 0 16px 40px rgba(50,115,220,0.25);
+  box-shadow: 0 16px 40px rgb(var(--color-primary-rgb), 0.25);
   z-index: 1000;
-  border-color: #485fc7;
+  border-color: var(--color-primary);
 }
 
 /* Mobile Selection State */
+
 .kanban-task-card.is-selected {
   opacity: 0.8;
   transform: scale(1.02);
-  box-shadow: 0 8px 25px rgba(50,115,220,0.3);
-  border-color: #3273dc;
+  box-shadow: 0 8px 25px rgb(var(--color-primary-rgb), 0.3);
+    border-color: var(--color-primary);
   border-width: 2px;
   border-style: solid;
 }
 
 /* Mobile Selection Indicator */
+
 .mobile-selection-indicator {
-  background: rgba(50, 115, 220, 0.9);
+  background: rgb(var(--color-primary-rgb), 0.9);
   color: white;
   padding: 0.5rem 1rem;
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
   animation: mobileIndicatorPulse 1.5s ease-in-out infinite;
 }
 
@@ -45,10 +58,12 @@
 }
 
 @keyframes mobileIndicatorPulse {
+
   0%, 100% {
     opacity: 0.9;
     transform: scale(1);
   }
+
   50% {
     opacity: 1;
     transform: scale(1.05);
@@ -56,13 +71,15 @@
 }
 
 /* Hover effects for task cards */
+
 .box.is-clickable:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(10, 10, 10, 0.1);
+  box-shadow: 0 8px 25px rgb(10 10 10 / 10%);
   transition: all 0.3s ease;
 }
 
 /* Stage-specific colors for task cards */
+
 .box[data-status="todo"] {
   border-left: 4px solid #f14668;
 }
@@ -80,17 +97,20 @@
 }
 
 /* Placeholder styles for drag and drop */
+
 .task-list .has-background-light.has-radius-large {
-  border: 2px dashed #485fc7;
-  background: rgba(72, 95, 199, 0.05) !important;
+  border: 2px dashed var(--color-primary);
+    background: rgb(var(--color-primary-rgb), 0.05) !important;
   animation: placeholderPulse 1.5s ease-in-out infinite;
 }
 
 @keyframes placeholderPulse {
+
   0%, 100% {
     opacity: 0.6;
     transform: scale(1);
   }
+
   50% {
     opacity: 1;
     transform: scale(1.02);
@@ -98,15 +118,17 @@
 }
 
 /* Drag over state for columns */
+
 .has-background-primary-light {
-  background: rgba(72, 95, 199, 0.1) !important;
+  background: rgb(72 95 199 / 10%) !important;
   border: 2px dashed #485fc7 !important;
   border-radius: 8px !important;
   transition: all 0.3s ease;
 }
 
 /* Responsive adjustments */
-@media screen and (max-width: 768px) {
+@media screen and (width <= 768px) {
+
   .columns.is-gapless {
     margin: 0;
   }
@@ -120,6 +142,7 @@
   }
   
   /* Улучшаем touch targets для мобильных устройств */
+
   .kanban-task-card {
     min-height: 60px;
     touch-action: manipulation;
@@ -131,16 +154,19 @@
   }
   
   /* Увеличиваем отступы для лучшего touch взаимодействия */
+
   .task-list .mb-1 {
     margin-bottom: 0.75rem !important;
   }
   
   /* Скрываем hover эффекты на мобильных устройствах */
+
   .box.is-clickable:hover {
     transform: none;
   }
   
   /* Улучшаем видимость placeholder на мобильных */
+
   .task-list .has-background-light.has-radius-large {
     min-height: 40px;
     display: flex;
@@ -149,36 +175,202 @@
   }
   
   /* Улучшаем видимость инструкций */
+
   .notification.is-info.is-light {
     border-radius: 8px;
     margin-bottom: 1rem;
   }
   
   /* Улучшаем touch targets для кнопок */
+
   .button {
     min-height: 44px;
     min-width: 44px;
   }
   
   /* Улучшаем видимость выбранной карточки */
+
   .kanban-task-card.is-selected {
     transform: scale(1.02);
-    box-shadow: 0 8px 25px rgba(50,115,220,0.4);
+    box-shadow: 0 8px 25px rgb(50 115 220 / 40%);
     border: 2px solid #3273dc;
     z-index: 100;
   }
   
   /* Улучшаем индикатор выбора */
+
   .mobile-selection-indicator {
     font-size: 0.875rem;
     padding: 0.75rem 1rem;
     border-radius: 12px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 25px rgb(0 0 0 / 30%);
+  }
+}
+
+/* Kanban Filters */
+
+.kanban-filters {
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  border: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-sm);
+}
+
+.filter-header {
+  margin-bottom: var(--spacing-md);
+}
+
+.filter-header h3 {
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin: 0;
+}
+
+.filter-header i {
+  color: var(--color-primary);
+}
+
+.filter-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.filter-tag-checkbox {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.filter-checkbox {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  border: 2px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  transition: var(--transition-fast);
+  cursor: pointer;
+}
+
+.filter-tag:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-primary-light);
+  transform: translateY(-1px);
+}
+
+.filter-checkbox:checked + .filter-tag {
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
+  color: var(--color-white);
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.filter-checkbox:checked + .filter-tag i {
+  color: var(--color-white);
+}
+
+.filter-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+/* Dark theme adjustments for filters */
+
+[data-theme="dark"] .kanban-filters {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-light);
+}
+
+[data-theme="dark"] .filter-tag {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+[data-theme="dark"] .filter-tag:hover {
+  background: var(--color-bg-primary);
+  border-color: var(--color-primary);
+}
+
+[data-theme="dark"] .filter-checkbox:checked + .filter-tag {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+}
+
+/* Light theme adjustments for filters */
+
+[data-theme="light"] .kanban-filters {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-light);
+}
+
+[data-theme="light"] .filter-tag {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-light);
+}
+
+[data-theme="light"] .filter-tag:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-primary-light);
+}
+
+[data-theme="light"] .filter-checkbox:checked + .filter-tag {
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
+}
+
+/* Responsive design for filters */
+@media (width <= 768px) {
+
+  .kanban-filters {
+    padding: var(--spacing-md);
+  }
+  
+  .filter-tags {
+    gap: var(--spacing-xs);
+  }
+  
+  .filter-tag {
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-xs);
+  }
+  
+  .filter-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .filter-actions .button {
+    width: 100%;
   }
 }
 
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
+
   .box.is-clickable:hover {
     transform: none;
   }
@@ -194,4 +386,15 @@
   .mobile-selection-indicator {
     animation: none;
   }
+  
+  .filter-tag:hover {
+    transform: none;
+  }
+}
+
+/* Focus states for accessibility */
+
+.filter-tag-checkbox:focus-visible .filter-tag {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 } 
