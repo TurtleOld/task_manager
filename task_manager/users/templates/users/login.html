@@ -94,14 +94,16 @@
             </div>
         </form>
         
+        {% if not user.is_authenticated %}
         <div class="login-footer">
             <p class="register-link">
                 {% translate 'Нет аккаунта?' %}
-                <a href="{% url 'register' %}" class="register-button">
+                <a href="{% url 'users:create' %}" class="register-button">
                     {% translate 'Зарегистрироваться' %}
                 </a>
             </p>
         </div>
+        {% endif %}
     </div>
 </div>
 
