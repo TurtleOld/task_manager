@@ -120,21 +120,21 @@ function closeDeleteModal() {
 function setupFormSubmissions() {
     // Create form
     const createForm = modalManager.createModal.querySelector('form');
-    createForm.addEventListener('submit', function(e) {
+    createForm.addEventListener('submit', function() {
         const submitBtn = this.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Создание...';
     });
     
     // Edit form
-    modalManager.editForm.addEventListener('submit', function(e) {
+    modalManager.editForm.addEventListener('submit', function() {
         const submitBtn = this.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Сохранение...';
     });
     
     // Delete form
-    modalManager.deleteForm.addEventListener('submit', function(e) {
+    modalManager.deleteForm.addEventListener('submit', function() {
         const submitBtn = this.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Удаление...';
