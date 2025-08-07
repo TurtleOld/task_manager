@@ -185,25 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Search functionality (if needed in future)
-function setupSearch() {
-    const searchInput = document.querySelector('.labels-search');
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const labelCards = document.querySelectorAll('.label-card');
-            
-            labelCards.forEach(card => {
-                const labelName = card.querySelector('.label-name').textContent.toLowerCase();
-                if (labelName.includes(searchTerm)) {
-                    card.style.display = 'block';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        });
-    }
-}
+// Search functionality removed - not currently used in the UI
 
 // Animation for label cards
 function animateLabelCards() {

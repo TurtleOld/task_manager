@@ -2,7 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', function () {
     // Modal manager
-    if (typeof modalManager !== 'undefined') {
+    if (typeof modalManager !== 'undefined' && modalManager && typeof modalManager.attach === 'function') {
         modalManager.attach(
             'preview-image-button',
             'image-modal',

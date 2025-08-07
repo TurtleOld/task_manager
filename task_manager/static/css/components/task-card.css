@@ -8,40 +8,29 @@
   overflow: hidden;
 }
 
-/* Task Card Title - Improved Word Wrapping */
 .kanban-task-card .title.is-5 {
   font-family: var(--font-family-display);
   font-weight: var(--font-weight-medium);
   font-size: var(--font-size-lg);
   letter-spacing: var(--letter-spacing-tight);
   word-wrap: break-word;
-  word-break: keep-all;
-  overflow-wrap: break-word;
   line-height: var(--line-height-tight);
   margin-bottom: 0.5rem;
-  /* Prevent breaking of Russian words inappropriately */
   -webkit-hyphens: auto;
   -moz-hyphens: auto;
   -ms-hyphens: auto;
   hyphens: auto;
-  /* Better word breaking for Russian text */
   word-break: normal;
   overflow-wrap: anywhere;
-  /* Improved readability */
   color: var(--color-text-primary);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-/* Specific improvements for Russian text */
 .kanban-task-card .title.is-5[lang="ru"],
 .kanban-task-card .title.is-5 {
-  /* Prevent breaking after single characters */
   word-break: keep-all;
-  /* Allow breaking only at appropriate points */
   overflow-wrap: break-word;
-  /* Use soft hyphens for better control */
   hyphens: manual;
-  /* Ensure minimum word length before breaking */
   -webkit-hyphenate-limit-before: 3;
   -webkit-hyphenate-limit-after: 3;
   -moz-hyphenate-limit-before: 3;
