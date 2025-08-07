@@ -1,6 +1,7 @@
 /* === USER PROFILE STYLES === */
 
 /* Profile Container */
+
 .user-profile-container {
   max-width: 800px;
   margin: var(--spacing-lg) auto;
@@ -8,6 +9,7 @@
 }
 
 /* Profile Header */
+
 .profile-header {
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   color: var(--color-white);
@@ -25,10 +27,7 @@
 .profile-header::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="profile-grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23profile-grain)"/></svg>');
   opacity: 0.3;
 }
@@ -37,14 +36,14 @@
   width: 80px;
   height: 80px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.2);
+  background: rgb(255 255 255 / 20%);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: var(--font-size-2xl);
   position: relative;
   z-index: 1;
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  border: 3px solid rgb(255 255 255 / 30%);
   flex-shrink: 0;
 }
 
@@ -66,6 +65,7 @@
 }
 
 /* Color Theme Selector */
+
 .color-theme-selector {
   position: relative;
   z-index: 1;
@@ -92,7 +92,7 @@
   width: 32px;
   height: 32px;
   border-radius: var(--radius-full);
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  border: 3px solid rgb(255 255 255 / 30%);
   cursor: pointer;
   transition: var(--transition-normal);
   position: relative;
@@ -102,13 +102,13 @@
 
 .color-circle:hover {
   transform: scale(1.1);
-  border-color: rgba(255, 255, 255, 0.8);
+  border-color: rgb(255 255 255 / 80%);
   box-shadow: var(--shadow-md);
 }
 
 .color-circle.active {
   border-color: var(--color-white);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 30%);
   transform: scale(1.15);
 }
 
@@ -121,7 +121,7 @@
   color: var(--color-white);
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-sm);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 50%);
 }
 
 /* Color circle backgrounds */
@@ -134,6 +134,7 @@
 .color-circle.purple { background: #8b5cf6; }
 
 /* Profile Stats */
+
 .profile-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -178,6 +179,7 @@
 }
 
 /* Profile Info Section */
+
 .profile-info-section {
   background: var(--color-bg-primary);
   border-radius: var(--radius-lg);
@@ -259,6 +261,7 @@
 }
 
 /* Quick Actions */
+
 .profile-actions {
   display: flex;
   gap: var(--spacing-md);
@@ -287,7 +290,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 20%), transparent);
   transition: left 0.5s;
 }
 
@@ -320,7 +323,8 @@
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (width <= 768px) {
+
   .user-profile-container {
     margin: var(--spacing-md);
     padding: 0;
@@ -386,6 +390,7 @@
 }
 
 /* Dark Theme Adjustments */
+
 [data-theme="dark"] .profile-stat-card {
   background: var(--color-bg-secondary);
   border-color: var(--color-border-light);
@@ -410,6 +415,7 @@
 }
 
 /* Light Theme Adjustments */
+
 [data-theme="light"] .profile-stat-card {
   background: var(--color-bg-primary);
   border-color: var(--color-border-light);
@@ -427,10 +433,12 @@
 /* Animation for page load - merged with existing .user-profile-container */
 
 @keyframes slideInUp {
+
   from {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -438,6 +446,7 @@
 }
 
 /* Focus states for accessibility */
+
 .profile-action-btn:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;

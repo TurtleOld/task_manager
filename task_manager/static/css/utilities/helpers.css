@@ -1,6 +1,7 @@
 /* === UTILITIES: HELPER CLASSES === */
 
 /* Layout Utilities */
+
 .container {
   max-width: 1200px;
   margin: 0 auto;
@@ -12,11 +13,13 @@
 }
 
 /* Card Utilities */
+
 .card-mobile {
   margin-bottom: var(--spacing-lg);
 }
 
 /* Task Utilities */
+
 .task {
   margin-bottom: var(--spacing-md);
 }
@@ -26,6 +29,7 @@
 }
 
 /* Form Utilities */
+
 .form-remove-task {
   display: inline-block;
   margin-left: var(--spacing-sm);
@@ -40,6 +44,7 @@
 }
 
 /* Card Task */
+
 .card-task {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
@@ -59,6 +64,7 @@
 }
 
 /* Task Change */
+
 .task-change {
   background: var(--color-bg-primary);
   border-radius: var(--radius-lg);
@@ -141,9 +147,9 @@
 }
 
 .task-change .notification.is-info.is-light {
-  background: linear-gradient(135deg, rgba(32, 156, 238, 0.1) 0%, rgba(79, 192, 141, 0.1) 100%);
+  background: linear-gradient(135deg, rgb(32 156 238 / 10%) 0%, rgb(79 192 141 / 10%) 100%);
   color: var(--color-text-primary);
-  border: 1px solid rgba(32, 156, 238, 0.2);
+  border: 1px solid rgb(32 156 238 / 20%);
 }
 
 .task-change .notification .content {
@@ -186,7 +192,7 @@
 .task-change textarea:focus,
 .task-change select:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(50, 115, 220, 0.1);
+  box-shadow: 0 0 0 3px rgb(50 115 220 / 10%);
   outline: none;
 }
 
@@ -276,6 +282,7 @@
 }
 
 /* Alert */
+
 .alert {
   border-radius: var(--radius-lg);
   padding: var(--spacing-lg);
@@ -285,11 +292,13 @@
 }
 
 /* Navigation */
+
 .nav-height {
   min-height: 60px;
 }
 
 /* Avatar */
+
 .avatar img {
   border-radius: var(--radius-full);
   object-fit: cover;
@@ -308,6 +317,7 @@
 }
 
 /* Remove Stage */
+
 .remove-stage {
   color: var(--color-danger);
   cursor: pointer;
@@ -320,11 +330,13 @@
 }
 
 /* No Border */
+
 .no-border {
   border: none !important;
 }
 
 /* Screen Reader Only */
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -332,7 +344,7 @@
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
 } 

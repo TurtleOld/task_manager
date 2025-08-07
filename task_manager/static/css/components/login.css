@@ -1,6 +1,7 @@
 /* === COMPONENTS: LOGIN PAGE === */
 
 /* Login Container */
+
 .login-container {
   min-height: 100vh;
   display: flex;
@@ -15,15 +16,13 @@
 .login-container::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
   opacity: 0.3;
 }
 
 /* Login Card */
+
 .login-card {
   background: var(--color-bg-primary);
   border-radius: var(--radius-xl);
@@ -37,10 +36,12 @@
 }
 
 @keyframes slideInUp {
+
   from {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -48,6 +49,7 @@
 }
 
 /* Login Header */
+
 .login-header {
   text-align: center;
   margin-bottom: var(--spacing-2xl);
@@ -74,7 +76,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 30%), transparent);
   animation: shimmer 2s infinite;
 }
 
@@ -103,6 +105,7 @@
 }
 
 /* Login Form */
+
 .login-form {
   margin-bottom: var(--spacing-xl);
 }
@@ -146,12 +149,12 @@
 
 .form-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(50, 115, 220, 0.1);
+  box-shadow: 0 0 0 3px rgb(50 115 220 / 10%);
 }
 
 .form-input.has-error {
   border-color: var(--color-danger);
-  box-shadow: 0 0 0 3px rgba(255, 56, 96, 0.1);
+  box-shadow: 0 0 0 3px rgb(255 56 96 / 10%);
 }
 
 .form-input::placeholder {
@@ -187,6 +190,7 @@
 }
 
 /* Error Messages */
+
 .error-message {
   margin-top: var(--spacing-xs);
   font-size: var(--font-size-sm);
@@ -197,8 +201,8 @@
 }
 
 .global-error {
-  background: rgba(255, 56, 96, 0.1);
-  border: 1px solid rgba(255, 56, 96, 0.2);
+  background: rgb(255 56 96 / 10%);
+  border: 1px solid rgb(255 56 96 / 20%);
   border-radius: var(--radius-md);
   padding: var(--spacing-sm);
   margin-bottom: var(--spacing-md);
@@ -209,6 +213,7 @@
 }
 
 /* Form Actions */
+
 .form-actions {
   margin-top: var(--spacing-xl);
 }
@@ -239,7 +244,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 20%), transparent);
   transition: left 0.5s;
 }
 
@@ -276,6 +281,7 @@
 }
 
 /* Login Footer */
+
 .login-footer {
   text-align: center;
   padding-top: var(--spacing-lg);
@@ -302,6 +308,7 @@
 }
 
 /* Dark Theme Adjustments */
+
 [data-theme="dark"] .login-container {
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
 }
@@ -325,6 +332,7 @@
 }
 
 /* Light Theme Adjustments */
+
 [data-theme="light"] .login-container {
   background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
 }
@@ -335,10 +343,12 @@
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (width <= 768px) {
+
   .login-container {
     padding: var(--spacing-sm);
       min-height: calc(100vh - 50px);
+
       /* Account for compact header */
   }
   
@@ -389,7 +399,8 @@
     }
     }
     
-    @media (max-width: 480px) {
+    @media (width <= 480px) {
+
       .login-container {
         padding: var(--spacing-xs);
       }
@@ -428,6 +439,7 @@
 
 /* Accessibility Improvements */
 @media (prefers-reduced-motion: reduce) {
+
   .login-card {
     animation: none;
   }
@@ -446,6 +458,7 @@
 }
 
 /* Focus States */
+
 .form-input:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;

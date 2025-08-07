@@ -1,4 +1,5 @@
 /* === MAIN CSS FILE === */
+
 /* Task Manager - Refactored CSS Architecture */
 
 /* Import order is important for cascade and specificity */
@@ -38,8 +39,8 @@
 /* === BULMA ENHANCEMENTS === */
 
 /* Global word wrapping improvements for better readability */
+
 .title {
-  word-wrap: break-word;
   word-break: keep-all;
   overflow-wrap: break-word;
   hyphens: auto;
@@ -47,11 +48,13 @@
 }
 
 /* Specific improvements for Russian text */
+
 [lang="ru"] .title,
 .title[lang="ru"] {
   word-break: keep-all;
   overflow-wrap: break-word;
   hyphens: manual;
+
   /* Ensure minimum word length before breaking */
   -webkit-hyphenate-limit-before: 3;
   -webkit-hyphenate-limit-after: 3;
@@ -62,26 +65,30 @@
   hyphenate-limit-before: 3;
   hyphenate-limit-after: 3;
 }
+
 /* Box component enhancements */
+
 .box {
   transition: all 0.3s ease;
 }
 
 .box:hover {
-  box-shadow: 0 8px 25px rgba(10, 10, 10, 0.1);
+  box-shadow: 0 8px 25px rgb(10 10 10 / 10%);
 }
 
 /* Tag component enhancements */
+
 .tag {
   transition: all 0.2s ease;
 }
 
 .tag:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(10, 10, 10, 0.1);
+  box-shadow: 0 2px 4px rgb(10 10 10 / 10%);
 }
 
 /* Button component enhancements */
+
 .button {
   transition: all 0.3s ease;
   position: relative;
@@ -95,7 +102,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 20%), transparent);
   transition: left 0.5s;
 }
 
@@ -105,7 +112,8 @@
 
 /* === RESPONSIVE ADJUSTMENTS === */
 
-@media screen and (max-width: 768px) {
+@media screen and (width <= 768px) {
+
   .title.is-size-1 {
     font-size: 2rem;
   }
@@ -119,7 +127,8 @@
   }
 }
 
-@media screen and (max-width: 480px) {
+@media screen and (width <= 480px) {
+
   .title.is-size-1 {
     font-size: 1.5rem;
   }
@@ -128,6 +137,7 @@
 /* === ACCESSIBILITY ENHANCEMENTS === */
 
 /* Focus visible improvements */
+
 .box:focus-visible,
 .button:focus-visible {
   outline: 2px solid var(--color-primary);
@@ -136,6 +146,7 @@
 
 /* High contrast mode support */
 @media (prefers-contrast: high) {
+
   .box {
     border: 2px solid #4a4a4a;
   }
@@ -157,6 +168,7 @@
 
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
+
   .box,
   .tag,
   .button,

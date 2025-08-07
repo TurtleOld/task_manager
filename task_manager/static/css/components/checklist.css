@@ -1,6 +1,7 @@
 /* === COMPONENTS: CHECKLIST === */
 
 /* Checklist Container */
+
 .checklist-container {
   background: var(--color-bg-secondary);
   border-radius: var(--radius-lg);
@@ -16,6 +17,7 @@
 }
 
 /* Checklist Items */
+
 .checklist-items {
   margin-top: var(--spacing-md);
 }
@@ -42,6 +44,7 @@
 }
 
 /* Checklist Item Input */
+
 .checklist-item-input {
   flex: 1;
   border: 1px solid var(--color-border-light);
@@ -52,11 +55,12 @@
 
 .checklist-item-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(50, 115, 220, 0.1);
+  box-shadow: 0 0 0 2px rgb(50 115 220 / 10%);
   outline: none;
 }
 
 /* Checklist Checkbox */
+
 .checklist-item .checkbox {
   display: flex;
   align-items: center;
@@ -77,6 +81,7 @@
 }
 
 /* Remove Checklist Item */
+
 .remove-checklist-item {
   color: var(--color-danger);
   cursor: pointer;
@@ -89,11 +94,13 @@
 }
 
 /* Removing Animation */
+
 .checklist-item.removing {
   animation: slideOutDown 0.3s ease-out forwards;
 }
 
 /* Empty Checklist */
+
 .checklist-items:empty::before {
   content: 'Нет элементов в чеклисте';
   display: block;
@@ -107,6 +114,7 @@
 }
 
 /* Checklist Counter */
+
 .checklist-counter {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
@@ -114,6 +122,7 @@
 }
 
 /* Checklist Progress */
+
 #checklist-progress {
   margin-top: var(--spacing-md);
 }
@@ -128,6 +137,7 @@
 }
 
 /* Drag and Drop States */
+
 .checklist-item.dragging {
   opacity: 0.5;
   transform: rotate(2deg);
@@ -139,6 +149,7 @@
 }
 
 /* List Group Items */
+
 .list-group-item {
   display: flex;
   align-items: center;
@@ -200,11 +211,12 @@
 }
 
 .list-group-item.updating {
-  background: rgba(79, 192, 141, 0.1);
+  background: rgb(79 192 141 / 10%);
   animation: updatePulse 1s ease-in-out;
 }
 
 /* Checklist item text styling */
+
 .list-group-item span {
   flex: 1;
   font-size: var(--font-size-base);
@@ -215,6 +227,7 @@
 
 /* Animation for checklist updates */
 @keyframes updatePulse {
+
   0% {
     transform: scale(1);
   }
@@ -227,7 +240,9 @@
     transform: scale(1);
   }
 }
+
 /* Add Checklist Item Button */
+
 #add-checklist-item {
   margin-top: var(--spacing-md);
   transition: var(--transition-normal);

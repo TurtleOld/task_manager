@@ -1,6 +1,7 @@
 /* === TASK DETAIL PAGE STYLES === */
 
 /* Task Detail Card */
+
 .task-detail-card {
   background: var(--color-bg-primary);
   border-radius: var(--radius-lg);
@@ -18,6 +19,7 @@
 }
 
 /* Task Header */
+
 .task-detail-header {
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   color: var(--color-white);
@@ -29,10 +31,7 @@
 .task-detail-header::before {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.05)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.05)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
   opacity: 0.3;
 }
@@ -46,8 +45,8 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+
   /* Improved word wrapping for task detail titles */
-    word-wrap: break-word;
     word-break: keep-all;
     overflow-wrap: break-word;
     hyphens: auto;
@@ -66,23 +65,25 @@
   position: relative;
   z-index: 1;
   margin: 0;
+
   /* Improved word wrapping for task descriptions */
-    word-wrap: break-word;
     word-break: keep-all;
     overflow-wrap: break-word;
     hyphens: auto;
 }
 
 /* Description Container */
+
 .task-description-container {
   position: relative;
   z-index: 1;
 }
 
 /* Description Toggle Button */
+
 .description-toggle-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgb(255 255 255 / 20%);
+  border: 1px solid rgb(255 255 255 / 30%);
   color: var(--color-white);
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--radius-md);
@@ -97,8 +98,8 @@
 }
 
 .description-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.5);
+  background: rgb(255 255 255 / 30%);
+  border-color: rgb(255 255 255 / 50%);
   transform: translateY(-1px);
 }
 
@@ -112,6 +113,7 @@
 }
 
 /* Description Text Transitions */
+
 .description-short,
 .description-full {
   transition: var(--transition-normal);
@@ -119,10 +121,11 @@
 
 .description-full {
   white-space: pre-wrap;
-  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Status Tags */
+
 .task-status-tag {
   display: inline-flex;
   align-items: center;
@@ -139,23 +142,25 @@
 }
 
 .task-status-tag.success {
-  background: rgba(72, 199, 116, 0.2);
+  background: rgb(72 199 116 / 20%);
   color: #48c774;
-  border: 1px solid rgba(72, 199, 116, 0.3);
+  border: 1px solid rgb(72 199 116 / 30%);
 }
 
 .task-status-tag.danger {
-  background: rgba(255, 56, 96, 0.2);
+  background: rgb(255 56 96 / 20%);
   color: #ff3860;
-  border: 1px solid rgba(255, 56, 96, 0.3);
+  border: 1px solid rgb(255 56 96 / 30%);
 }
 
 /* Task Content */
+
 .task-detail-content {
   padding: var(--spacing-xl);
 }
 
 /* Info Row */
+
 .task-info-row {
   display: flex;
   align-items: center;
@@ -202,6 +207,7 @@
 }
 
 /* Checklist Section */
+
 .task-checklist-section {
   margin-top: var(--spacing-lg);
 }
@@ -232,11 +238,8 @@
 .checklist-progress-fill::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 30%), transparent);
   animation: shimmer 2s infinite;
 }
 
@@ -252,6 +255,7 @@
 }
 
 /* File Attachments */
+
 .task-file-section {
   display: flex;
   align-items: center;
@@ -278,6 +282,7 @@
 }
 
 /* Action Buttons */
+
 .task-action-buttons {
   display: flex;
   gap: var(--spacing-md);
@@ -309,7 +314,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 20%), transparent);
   transition: left 0.5s;
 }
 
@@ -351,7 +356,8 @@
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (width <= 768px) {
+
   .task-detail-card {
     margin: var(--spacing-md);
     border-radius: var(--radius-md);
@@ -399,6 +405,7 @@
 }
 
 /* Dark Theme Specific Adjustments */
+
 [data-theme="dark"] .task-detail-card {
   background: var(--color-bg-secondary);
   border-color: var(--color-border-light);
@@ -421,6 +428,7 @@
 }
 
 /* Light Theme Specific Adjustments */
+
 [data-theme="light"] .task-detail-card {
   background: var(--color-bg-primary);
   border-color: var(--color-border-light);
@@ -435,24 +443,27 @@
 }
 
 /* Light theme description toggle button */
+
 [data-theme="light"] .description-toggle-btn {
-  background: rgba(50, 115, 220, 0.2);
-  border: 1px solid rgba(50, 115, 220, 0.3);
+  background: rgb(50 115 220 / 20%);
+  border: 1px solid rgb(50 115 220 / 30%);
   color: var(--color-primary);
 }
 
 [data-theme="light"] .description-toggle-btn:hover {
-  background: rgba(50, 115, 220, 0.3);
-  border-color: rgba(50, 115, 220, 0.5);
+  background: rgb(50 115 220 / 30%);
+  border-color: rgb(50 115 220 / 50%);
 }
 
 /* Animation for page load - merged with existing .task-detail-card */
 
 @keyframes slideInUp {
+
   from {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -460,12 +471,14 @@
 }
 
 /* Hover effects for interactive elements */
+
 .task-info-row:hover .task-info-label i {
   transform: scale(1.1);
   transition: var(--transition-fast);
 }
 
 /* Task Tags */
+
 .task-tags {
   display: flex;
   flex-wrap: wrap;
@@ -486,8 +499,8 @@
   box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
+
   /* Improved word wrapping for task tags */
-    word-wrap: break-word;
     word-break: keep-all;
     overflow-wrap: break-word;
     hyphens: auto;
@@ -502,7 +515,7 @@
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 20%), transparent);
   transition: left 0.5s;
 }
 
@@ -521,16 +534,19 @@
 }
 
 /* Dark theme adjustments for tags */
+
 [data-theme="dark"] .task-tag {
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
 }
 
 /* Light theme adjustments for tags */
+
 [data-theme="light"] .task-tag {
   background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
 }
 
 /* Focus states for accessibility */
+
 .task-action-button:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
