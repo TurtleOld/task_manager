@@ -178,9 +178,7 @@ class Task(models.Model):
 
 
 def reorder_tasks_in_stage(stage_id):
-    tasks = Task.objects.filter(stage_id=stage_id).order_by(
-        'order', 'created_at'
-    )
+    tasks = Task.objects.filter(stage_id=stage_id).order_by('order', 'created_at')
     for index, task in enumerate(tasks):
         task.order = index
         task.save(update_fields=['order'])

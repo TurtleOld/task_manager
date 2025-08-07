@@ -58,19 +58,21 @@ class CreateUser(SuccessMessageMixin[Any], CreateView[User, Any]):
         # Проверяем, есть ли уже пользователи в БД
         if User.objects.exists():
             # Если пользователи уже есть, запрещаем регистрацию
-            raise PermissionDenied(gettext('Регистрация недоступна. В системе уже есть пользователи.'))
+            raise PermissionDenied(
+                gettext('Регистрация недоступна. В системе уже есть пользователи.')
+            )
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         # Создаем пользователя
         user = form.save(commit=False)
         user.set_password(form.cleaned_data['password1'])
-        
+
         # Если это первый пользователь, делаем его суперадмином
         if not User.objects.exists():
             user.is_superuser = True
             user.is_staff = True
-        
+
         user.save()
         return super().form_valid(form)
 
@@ -87,13 +89,11 @@ class LogoutUser(LogoutView, SuccessMessageMixin[Any]):
     success_message = gettext_lazy('Вы разлогинены')
 
     def dispatch(self, request, *args, **kwargs):
-        print(f"LogoutUser.dispatch called with method: {request.method}")
+        print(f'LogoutUser.dispatch called with method: {request.method}')
         redirect_to = self.get_success_url()
         if redirect_to != request.get_full_path():
             return HttpResponseRedirect(redirect_to)
-        messages.add_message(
-            request, messages.SUCCESS, gettext('Вы разлогинены')
-        )
+        messages.add_message(request, messages.SUCCESS, gettext('Вы разлогинены'))
         return super().dispatch(request, *args, **kwargs)
 
 
@@ -177,9 +177,7 @@ class UpdateThemeColor(LoginRequiredMixin, TemplateView):
             theme_color = data.get('theme_color')
 
             if not theme_color:
-                return JsonResponse(
-                    {'success': False, 'error': 'Цвет темы не указан'}
-                )
+                return JsonResponse({'success': False, 'error': 'Цвет темы не указан'})
 
             # Проверяем, что цвет входит в допустимые значения
             valid_colors = [
@@ -204,8 +202,6 @@ class UpdateThemeColor(LoginRequiredMixin, TemplateView):
             return JsonResponse({'success': True, 'theme_color': theme_color})
 
         except json.JSONDecodeError:
-            return JsonResponse(
-                {'success': False, 'error': 'Неверный формат данных'}
-            )
+            return JsonResponse({'success': False, 'error': 'Неверный формат данных'})
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})

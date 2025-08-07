@@ -73,11 +73,12 @@ class KanbanBoard(
     def get(self, request, *args, **kwargs):
         # Получаем все теги для фильтра
         from task_manager.labels.models import Label
+
         labels = Label.objects.all().order_by('name')
-        
+
         # Получаем выбранные теги из GET параметров
         selected_labels = request.GET.getlist('labels')
-        
+
         stages = Stage.objects.prefetch_related('tasks').order_by('order')
 
         tasks_data = []
@@ -85,12 +86,14 @@ class KanbanBoard(
             # Фильтруем задачи по выбранным тегам
             stage_tasks = stage.tasks.all()
             if selected_labels:
-                stage_tasks = stage_tasks.filter(labels__id__in=selected_labels).distinct()
-            
+                stage_tasks = stage_tasks.filter(
+                    labels__id__in=selected_labels
+                ).distinct()
+
             for task in stage_tasks:
                 # Получаем теги для задачи
                 task_labels = list(task.labels.values('id', 'name'))
-                
+
                 tasks_data.append(
                     {
                         'id': task.id,

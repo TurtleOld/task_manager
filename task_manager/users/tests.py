@@ -44,7 +44,7 @@ class TestUser(TestCase):
         """Тест: первый пользователь становится суперадмином"""
         # Удаляем всех пользователей
         User.objects.all().delete()
-        
+
         url = reverse('users:create')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
@@ -75,7 +75,7 @@ class TestUser(TestCase):
         """Тест: регистрация доступна, когда в системе нет пользователей"""
         # Удаляем всех пользователей
         User.objects.all().delete()
-        
+
         url = reverse('users:create')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
@@ -84,18 +84,18 @@ class TestUser(TestCase):
         """Тест: контекстный процессор registration_available работает правильно"""
         from task_manager.context_processors import registration_available
         from django.test import RequestFactory
-        
+
         # Создаем фейковый запрос
         factory = RequestFactory()
         request = factory.get('/')
-        
+
         # Когда есть пользователи, регистрация недоступна
         context = registration_available(request)
         self.assertFalse(context['registration_available'])
-        
+
         # Удаляем всех пользователей
         User.objects.all().delete()
-        
+
         # Когда нет пользователей, регистрация доступна
         context = registration_available(request)
         self.assertTrue(context['registration_available'])

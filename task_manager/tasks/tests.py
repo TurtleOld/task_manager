@@ -52,9 +52,7 @@ class TestTask(TestCase):
             'deadline': (datetime.now() + timedelta(days=1)).isoformat(),
             'reminder_periods': [2, 3],
         }
-        response = self.client.post(
-            reverse_lazy('tasks:create'), new_task, follow=True
-        )
+        response = self.client.post(reverse_lazy('tasks:create'), new_task, follow=True)
 
         self.assertRedirects(response, '/tasks/')
         created_task = Task.objects.get(name=new_task['name'])

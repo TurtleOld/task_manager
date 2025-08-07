@@ -45,17 +45,17 @@ class LabelsList(LoginRequiredMixin, ListView[Label]):
         month_ago = timezone.now() - timedelta(days=30)
         recent_labels = labels.filter(created_at__gte=month_ago).count()
 
-        context.update({
-            'active_labels_count': active_labels,
-            'recent_labels_count': recent_labels,
-        })
+        context.update(
+            {
+                'active_labels_count': active_labels,
+                'recent_labels_count': recent_labels,
+            }
+        )
 
         return context
 
 
-class CreateLabel(
-    LoginRequiredMixin, SuccessMessageMixin[Any], CreateView[Label, Any]
-):
+class CreateLabel(LoginRequiredMixin, SuccessMessageMixin[Any], CreateView[Label, Any]):
     model = Label
     template_name = 'labels/create_label.html'
     form_class = LabelForm
