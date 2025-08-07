@@ -4,20 +4,17 @@
 <nav class="navbar nav-height is-primary">
     <div class="container is-max-widescreen">
         <div class="navbar-brand mt-0 is-block">
-            <a href="/" class="navbar-item title mb-2">
+            <a href="/" class="navbar-item title mb-0 mt-2">
                 <i class="fas fa-tasks mr-2"></i>
                 {% translate 'Менеджер задач'%}
             </a>
-            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
-              <span aria-hidden="true"></span>
-              <span aria-hidden="true"></span>
-              <span aria-hidden="true"></span>
+            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarMenu">
               <span aria-hidden="true"></span>
               <span aria-hidden="true"></span>
               <span aria-hidden="true"></span>
             </a>
         </div>
-        <div class="navbar-menu is-block">
+        <div class="navbar-menu" id="navbarMenu">
             <div class="navbar-end">
                 <div class="navbar-item">
                     <div class="buttons">
@@ -43,10 +40,12 @@
                                 <i class="fas fa-sign-in-alt mr-2"></i>
                                 {% translate 'Войти' %}
                             </a>
-                            <a href="{% url 'users:create' %}" class="button is-light">
-                                <i class="fas fa-user-plus mr-2"></i>
-                                {% translate 'Регистрация' %}
-                            </a>
+                            {% if registration_available %}
+                                <a href="{% url 'users:create' %}" class="button is-light">
+                                    <i class="fas fa-user-plus mr-2"></i>
+                                    {% translate 'Регистрация' %}
+                                </a>
+                            {% endif %}
                         {% endif %}
                     </div>
                 </div>
@@ -56,28 +55,41 @@
 </nav>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const themeSwitchBtn = document.getElementById('theme-switch-btn');
-
-        themeSwitchBtn.addEventListener('click', (event) => {
-            event.preventDefault();
-
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-            fetch("{% url 'users:switch_theme_mode' %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken,
-                },
-                body: JSON.stringify({}),
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.body.setAttribute('data-theme', data.theme_mode);
-            })
-            .catch(error => {
-                console.error('Ошибка при переключении темы:', error);
+        // Burger menu functionality
+        const burger = document.querySelector('.navbar-burger');
+        const menu = document.querySelector('.navbar-menu');
+        
+        if (burger && menu) {
+            burger.addEventListener('click', () => {
+                burger.classList.toggle('is-active');
+                menu.classList.toggle('is-active');
             });
-        });
+        }
+
+        // Theme switch functionality
+        const themeSwitchBtn = document.getElementById('theme-switch-btn');
+        if (themeSwitchBtn) {
+            themeSwitchBtn.addEventListener('click', (event) => {
+                event.preventDefault();
+
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+                fetch("{% url 'users:switch_theme_mode' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify({}),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    document.body.setAttribute('data-theme', data.theme_mode);
+                })
+                .catch(error => {
+                    console.error('Ошибка при переключении темы:', error);
+                });
+            });
+        }
     });
 </script>

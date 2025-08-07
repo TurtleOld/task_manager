@@ -22,6 +22,7 @@ from django.views.generic.edit import (
     UpdateView,
     DeleteView,
 )
+from django.core.exceptions import PermissionDenied
 from task_manager.users.models import User
 from task_manager.users.forms import RegisterUserForm, AuthUserForm
 
@@ -45,6 +46,26 @@ class CreateUser(SuccessMessageMixin[Any], CreateView[User, Any]):
     form_class = RegisterUserForm
     success_url = reverse_lazy('login')
     success_message = gettext_lazy('Пользователь успешно зарегистрирован')
+
+    def dispatch(self, request, *args, **kwargs):
+        # Проверяем, есть ли уже пользователи в БД
+        if User.objects.exists():
+            # Если пользователи уже есть, запрещаем регистрацию
+            raise PermissionDenied(gettext('Регистрация недоступна. В системе уже есть пользователи.'))
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        # Создаем пользователя
+        user = form.save(commit=False)
+        user.set_password(form.cleaned_data['password1'])
+        
+        # Если это первый пользователь, делаем его суперадмином
+        if not User.objects.exists():
+            user.is_superuser = True
+            user.is_staff = True
+        
+        user.save()
+        return super().form_valid(form)
 
 
 class LoginUser(SuccessMessageMixin[Any], LoginView):

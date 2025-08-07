@@ -272,6 +272,22 @@
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
 }
 
+/* Compact Header for Auth Pages */
+.navbar.is-compact {
+  min-height: 50px;
+  padding: 0.5rem 0;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+  box-shadow: var(--shadow-sm);
+}
+
+.navbar.is-compact .navbar-brand .navbar-item {
+  font-size: var(--font-size-lg);
+  padding: 0.5rem 0;
+}
+
+.navbar.is-compact .navbar-brand .navbar-item i {
+  font-size: var(--font-size-base);
+}
 /* Responsive Design */
 @media (max-width: 768px) {
   .navbar.nav-height {
@@ -304,6 +320,14 @@
     width: 16px;
     height: 16px;
   }
+    /* Compact header mobile adjustments */
+    .navbar.is-compact {
+      min-height: 45px;
+    }
+  
+    .navbar.is-compact .navbar-brand .navbar-item {
+      font-size: var(--font-size-base);
+    }
 }
 
 /* Accessibility Improvements */

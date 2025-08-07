@@ -139,6 +139,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'task_manager.context_processors.theme_mode',
+                'task_manager.context_processors.registration_available',
             ],
         },
     },

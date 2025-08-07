@@ -1,4 +1,4 @@
-{% extends '../base.html' %}
+{% extends '../base-compact.html' %}
 {% load crispy_forms_tags %}
 {% load i18n %}
 {% load static %}
@@ -94,7 +94,7 @@
             </div>
         </form>
         
-        {% if not user.is_authenticated %}
+        {% if not user.is_authenticated and registration_available %}
         <div class="login-footer">
             <p class="register-link">
                 {% translate 'Нет аккаунта?' %}
