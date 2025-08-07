@@ -23,8 +23,8 @@
             </h1>
             <div class="task-description-container">
                 <p class="task-detail-description" id="task-description">
-                    <span class="description-short">{{ task.description|truncatechars:100 }}</span>
-                    <span class="description-full">{{ task.description }}</span>
+                    <span class="description-short">{{ task.description|truncatechars:100|linebreaks }}</span>
+                    <span class="description-full">{{ task.description|linebreaks }}</span>
                 </p>
                 {% if task.description|length > 100 %}
                     <button class="description-toggle-btn" id="description-toggle">
