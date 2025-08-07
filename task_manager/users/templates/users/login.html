@@ -1,24 +1,147 @@
 {% extends '../base.html' %}
 {% load crispy_forms_tags %}
 {% load i18n %}
+{% load static %}
+
+{% block title %}{% translate 'Вход в систему' %}{% endblock %}
 
 {% block content %}
-<div class="section">
-    <div class="container">
-        <div class="columns is-mobile">
-            <div class="column">
-                <h1 class="title is-size-4-mobile">{% translate 'Страница входа в ваш аккаунт' %}</h1>
-                <form method="post">
-                    {% csrf_token %}
-                    {{ form | crispy }}
-                    <button type="submit" class="button is-centered">Войти</button>
-                </form>
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-logo">
+                <i class="fas fa-tasks"></i>
             </div>
-            <!-- /.column -->
+            <h1 class="login-title">{% translate 'Добро пожаловать' %}</h1>
+            <p class="login-subtitle">{% translate 'Войдите в свой аккаунт для продолжения работы' %}</p>
         </div>
-        <!-- /.columns -->
+        
+        <form method="post" class="login-form" id="loginForm">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="{{ form.username.id_for_label }}" class="form-label">
+                    <i class="fas fa-user"></i>
+                    {% translate 'Имя пользователя' %}
+                </label>
+                <div class="input-wrapper">
+                    <input type="text" 
+                           name="{{ form.username.name }}" 
+                           id="{{ form.username.id_for_label }}"
+                           class="form-input {% if form.username.errors %}has-error{% endif %}"
+                           placeholder="{% translate 'Введите имя пользователя' %}"
+                           value="{{ form.username.value|default:'' }}"
+                           required>
+                    <div class="input-icon">
+                        <i class="fas fa-user"></i>
+                    </div>
+                </div>
+                {% if form.username.errors %}
+                    <div class="error-message">
+                        {% for error in form.username.errors %}
+                            <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="form-group">
+                <label for="{{ form.password.id_for_label }}" class="form-label">
+                    <i class="fas fa-lock"></i>
+                    {% translate 'Пароль' %}
+                </label>
+                <div class="input-wrapper">
+                    <input type="password" 
+                           name="{{ form.password.name }}" 
+                           id="{{ form.password.id_for_label }}"
+                           class="form-input {% if form.password.errors %}has-error{% endif %}"
+                           placeholder="{% translate 'Введите пароль' %}"
+                           required>
+                    <div class="input-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <button type="button" class="password-toggle" id="passwordToggle">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                {% if form.password.errors %}
+                    <div class="error-message">
+                        {% for error in form.password.errors %}
+                            <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            {% if form.non_field_errors %}
+                <div class="form-errors">
+                    {% for error in form.non_field_errors %}
+                        <div class="error-message global-error">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>{{ error }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            
+            <div class="form-actions">
+                <button type="submit" class="login-button" id="loginButton">
+                    <span class="button-text">{% translate 'Войти' %}</span>
+                    <span class="button-loader" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </span>
+                </button>
+            </div>
+        </form>
+        
+        <div class="login-footer">
+            <p class="register-link">
+                {% translate 'Нет аккаунта?' %}
+                <a href="{% url 'register' %}" class="register-button">
+                    {% translate 'Зарегистрироваться' %}
+                </a>
+            </p>
+        </div>
     </div>
-    <!-- /.container -->
 </div>
-<!-- /.section -->
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Password toggle functionality
+    const passwordToggle = document.getElementById('passwordToggle');
+    const passwordInput = document.getElementById('{{ form.password.id_for_label }}');
+    
+    if (passwordToggle && passwordInput) {
+        passwordToggle.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            const icon = this.querySelector('i');
+            icon.className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+        });
+    }
+    
+    // Form submission with loading state
+    const loginForm = document.getElementById('loginForm');
+    const loginButton = document.getElementById('loginButton');
+    const buttonText = loginButton.querySelector('.button-text');
+    const buttonLoader = loginButton.querySelector('.button-loader');
+    
+    if (loginForm) {
+        loginForm.addEventListener('submit', function() {
+            // Show loading state
+            buttonText.style.display = 'none';
+            buttonLoader.style.display = 'inline-block';
+            loginButton.disabled = true;
+            loginButton.classList.add('loading');
+        });
+    }
+    
+    // Auto-focus on username field
+    const usernameInput = document.getElementById('{{ form.username.id_for_label }}');
+    if (usernameInput) {
+        usernameInput.focus();
+    }
+});
+</script>
 {% endblock %}
