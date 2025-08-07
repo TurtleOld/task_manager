@@ -14,7 +14,7 @@ charset-normalizer==3.4.2 ; python_version >= "3.11"
 click-didyoumean==0.3.1 ; python_version >= "3.11"
 click-plugins==1.1.1 ; python_version >= "3.11"
 click-repl==0.3.0 ; python_version >= "3.11"
-click==8.2.0 ; python_version >= "3.11"
+click==8.2.1 ; python_version >= "3.11"
 colorama==0.4.6 ; python_version >= "3.11" and (sys_platform == "win32" or platform_system == "Windows")
 constantly==23.10.4 ; python_version >= "3.11"
 coverage==7.10.2 ; python_version >= "3.11"
