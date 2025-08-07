@@ -53,6 +53,8 @@ class TasksList(
     SuccessMessageMixin[Any],
     FilterView[Task],
 ):
+    """Display a filtered list of tasks."""
+
     model = Task
     template_name = 'tasks/kanban.html'
     context_object_name = 'tasks'
@@ -68,22 +70,20 @@ class KanbanBoard(
     SuccessMessageMixin[Any],
     FilterView[Task],
 ):
+    """Display tasks in a Kanban board format with label filtering."""
+
     template_name = 'tasks/kanban.html'
 
     def get(self, request, *args, **kwargs):
-        # Получаем все теги для фильтра
+        """Handle GET request to display Kanban board with filtered tasks."""
         from task_manager.labels.models import Label
 
         labels = Label.objects.all().order_by('name')
-
-        # Получаем выбранные теги из GET параметров
         selected_labels = request.GET.getlist('labels')
-
         stages = Stage.objects.prefetch_related('tasks').order_by('order')
 
         tasks_data = []
         for stage in stages:
-            # Фильтруем задачи по выбранным тегам
             stage_tasks = stage.tasks.all()
             if selected_labels:
                 stage_tasks = stage_tasks.filter(
@@ -91,7 +91,6 @@ class KanbanBoard(
                 ).distinct()
 
             for task in stage_tasks:
-                # Получаем теги для задачи
                 task_labels = list(task.labels.values('id', 'name'))
 
                 tasks_data.append(
@@ -131,6 +130,8 @@ class KanbanBoard(
 
 
 class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
+    """Create a new stage for task organization."""
+
     model = Stage
     template_name = 'tasks/create_stage.html'
     fields = '__all__'
@@ -138,7 +139,10 @@ class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
 
 
 class UpdateTaskStageView(View):
+    """Handle AJAX requests to update task stage and order."""
+
     def post(self, request, *args, **kwargs):
+        """Update task stage and/or order via AJAX."""
         try:
             data = json.loads(request.body)
             task_id = data.get('task_id')
@@ -177,7 +181,10 @@ class UpdateTaskStageView(View):
 
 
 class UpdateTaskOrderView(View):
+    """Handle bulk task order updates via AJAX."""
+
     def post(self, request):
+        """Update multiple task orders in a single request."""
         try:
             data = json.loads(request.body)
             tasks_data = data.get('tasks', [])
@@ -209,6 +216,8 @@ class CreateTask(
     SuccessMessageMixin[Any],
     CreateView[Task, Any],
 ):
+    """Create a new task with checklist items and notifications."""
+
     model = Task
     template_name = 'tasks/create_task.html'
     form_class = TaskForm
@@ -221,11 +230,13 @@ class CreateTask(
     query_pk_and_slug = True
 
     def get_form_kwargs(self) -> dict[str, Any]:
+        """Pass request to form for dynamic field population."""
         kwargs = super().get_form_kwargs()
         kwargs['request'] = self.request
         return kwargs
 
     def form_valid(self, form: TaskForm) -> HttpResponse:
+        """Process valid form submission with checklist and notifications."""
         try:
             form.instance.author = User.objects.get(pk=self.request.user.pk)
             task = form.save(commit=False)
@@ -235,7 +246,7 @@ class CreateTask(
             task = form.save()
             task_slug = task.slug
 
-            # Обрабатываем данные чеклиста из POST запроса
+            # Parse checklist items from POST data
             checklist_items = []
             i = 0
             while f'checklist_items[{i}][description]' in self.request.POST:
@@ -248,13 +259,12 @@ class CreateTask(
                     )
                     == 'true'
                 )
-                if description:  # Добавляем только непустые пункты
+                if description:  # Only add non-empty items
                     checklist_items.append(
                         {'description': description, 'is_completed': is_completed}
                     )
                 i += 1
 
-            # Добавляем данные чеклиста в cleaned_data формы
             form.cleaned_data = form.cleaned_data or {}
             form.cleaned_data['checklist_items'] = checklist_items
 
@@ -287,6 +297,8 @@ class UpdateTask(
     SuccessMessageMixin[Any],
     UpdateView[Task, Any],
 ):
+    """Update an existing task with checklist items."""
+
     template_name = 'tasks/update_task.html'
     query_pk_and_slug = True
     form_class = TaskForm
@@ -294,19 +306,21 @@ class UpdateTask(
     context_object_name = 'tasks'
 
     def get_form_kwargs(self) -> dict[str, Any]:
+        """Pass request to form for dynamic field population."""
         kwargs = super().get_form_kwargs()
         kwargs['request'] = self.request
         return kwargs
 
     def get_context_data(self, **kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Add checklist data to context for JavaScript processing."""
         context = super().get_context_data(**kwargs)
         form = context['form']
-        # Передаем данные чеклиста в контекст для JavaScript
         context['checklist_data'] = json.dumps(form.checklist_data)
         return context
 
     def form_valid(self, form: TaskForm) -> HttpResponse:
-        # Обрабатываем данные чеклиста из POST запроса
+        """Process valid form submission with checklist items."""
+        # Parse checklist items from POST data
         checklist_items = []
         i = 0
         while f'checklist_items[{i}][description]' in self.request.POST:
@@ -317,13 +331,12 @@ class UpdateTask(
                 self.request.POST.get(f'checklist_items[{i}][is_completed]', 'false')
                 == 'true'
             )
-            if description:  # Добавляем только непустые пункты
+            if description:  # Only add non-empty items
                 checklist_items.append(
                     {'description': description, 'is_completed': is_completed}
                 )
             i += 1
 
-        # Добавляем данные чеклиста в cleaned_data формы
         form.cleaned_data = form.cleaned_data or {}
         form.cleaned_data['checklist_items'] = checklist_items
 
@@ -336,6 +349,8 @@ class DeleteTask(
     UserPassesTestMixin,
     DeleteView,
 ):
+    """Delete a task with authorization check and notification."""
+
     template_name = 'tasks/task_confirm_delete.html'
     model = Task
     success_url = reverse_lazy('tasks:list')
@@ -343,10 +358,12 @@ class DeleteTask(
     context_object_name = 'tasks'
 
     def test_func(self):
+        """Check if user is the task author."""
         task = self.get_object()
         return self.request.user == task.author
 
     def handle_no_permission(self):
+        """Handle unauthorized deletion attempts."""
         messages.error(
             self.request,
             'Вы не можете удалить чужую задачу!',
@@ -354,6 +371,7 @@ class DeleteTask(
         return redirect(self.success_url)
 
     def delete(self, request, *args, **kwargs):
+        """Delete task and send notification."""
         task = self.get_object()
 
         task_name = task.name
@@ -365,6 +383,7 @@ class DeleteTask(
         return redirect(self.success_url)
 
     def form_invalid(self, form: ModelForm[Task]) -> HttpResponse:
+        """Handle invalid form submission."""
         messages.error(
             self.request,
             gettext_lazy('Вы не можете удалить чужую задачу!'),
@@ -373,6 +392,8 @@ class DeleteTask(
 
 
 class CloseTask(View):
+    """Toggle task completion status."""
+
     model = Task
     template_name = 'tasks/kanban.html'
     form_class = TaskForm
@@ -380,6 +401,7 @@ class CloseTask(View):
     slug_url_kwarg = 'slug'
 
     def post(self, request: HttpRequest, slug: str) -> HttpResponse:
+        """Toggle task state and send appropriate notifications."""
         task = get_object_or_404(Task, slug=slug)
         task_url = self.request.build_absolute_uri(f'/tasks/{slug}')
         if task.author != request.user or task.executor != request.user:
@@ -407,6 +429,8 @@ class TaskView(
     SuccessMessageMixin[BaseForm],
     DetailView[Task],
 ):
+    """Display detailed view of a task with checklist progress."""
+
     model = Task
     template_name = 'tasks/view_task.html'
     context_object_name = 'task'
@@ -417,6 +441,7 @@ class TaskView(
     query_pk_and_slug = True
 
     def get_context_data(self, **kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Add task labels and checklist progress to context."""
         context = super().get_context_data(**kwargs)
         task = self.get_object()
         context['labels'] = self.get_object().labels.all()
@@ -441,9 +466,12 @@ class TaskView(
 
 
 class ChecklistItemToggle(View):
+    """Toggle completion status of a checklist item via AJAX."""
+
     template_name = 'tasks/checklist_item.html'
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
+        """Toggle checklist item completion status."""
         checklist_item = get_object_or_404(ChecklistItem, pk=pk)
         checklist_item.is_completed = not checklist_item.is_completed
         checklist_item.save()
@@ -454,9 +482,12 @@ class ChecklistItemToggle(View):
 
 
 class DownloadFileView(DetailView[Task]):
+    """Download task attachment file."""
+
     model = Task
 
     def get(self, request: HttpRequest, *args, **kwargs) -> FileResponse:  # type: ignore
+        """Serve task image as downloadable file."""
         task = self.get_object()
         image_path = task.image.path
         image_name = task.image.name
@@ -478,6 +509,7 @@ class DownloadFileView(DetailView[Task]):
 
 
 def checklist_progress_view(request, task_id):
+    """Return HTML fragment with checklist progress for AJAX updates."""
     task = get_object_or_404(Task, pk=task_id)
     if hasattr(task, 'checklist'):
         checklist_items = task.checklist.items.all()
