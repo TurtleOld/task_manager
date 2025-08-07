@@ -1,4 +1,5 @@
 /* === TASK DETAIL PAGE JAVASCRIPT === */
+/* global modalManager */
 
 document.addEventListener('DOMContentLoaded', function () {
     // Modal manager
