@@ -721,7 +721,6 @@ html body .navbar.is-primary .navbar-item:hover,
 html body .navbar.is-compact .navbar-item:hover {
   color: var(--color-white) !important;
   background-color: transparent !important;
-  background: transparent !important;
 }
 
 /* Override any Bulma success/primary color classes */
@@ -730,7 +729,6 @@ html body .navbar-item.is-primary:hover,
 html body .navbar-item.is-info:hover {
   color: var(--color-white) !important;
   background-color: transparent !important;
-  background: transparent !important;
 }
 
 /* Ensure no green colors in any state */
@@ -739,7 +737,6 @@ html body .navbar-item:focus,
 html body .navbar-item:active {
   color: var(--color-white) !important;
   background-color: transparent !important;
-  background: transparent !important;
 }
 
 /* Theme-specific maximum specificity overrides */
@@ -748,7 +745,6 @@ html body[data-theme="dark"] .navbar.is-primary .navbar-item:hover,
 html body[data-theme="dark"] .navbar.is-compact .navbar-item:hover {
   color: var(--color-white) !important;
   background-color: transparent !important;
-  background: transparent !important;
 }
 
 html body[data-theme="light"] .navbar.nav-height .navbar-item:hover,
@@ -756,7 +752,6 @@ html body[data-theme="light"] .navbar.is-primary .navbar-item:hover,
 html body[data-theme="light"] .navbar.is-compact .navbar-item:hover {
   color: var(--color-white) !important;
   background-color: transparent !important;
-  background: transparent !important;
 }
 
 /* Maximum specificity overrides for user profile button */

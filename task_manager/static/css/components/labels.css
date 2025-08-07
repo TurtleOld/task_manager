@@ -353,13 +353,12 @@
 }
 
 .label-form-label {
-  display: block;
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-  margin-bottom: var(--spacing-sm);
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-sm);
 }
 
 .label-form-input {
@@ -568,12 +567,7 @@
   color: var(--color-text-primary);
 }
 
-/* Animation for page load */
-.labels-container {
-  animation: slideInUp 0.6s ease-out;
-}
-
-/* Form Container Styles */
+/* Animation for page load and Form Container Styles */
 .label-form-container {
   background: var(--color-bg-primary);
   border-radius: var(--radius-lg);

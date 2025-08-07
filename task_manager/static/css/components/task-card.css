@@ -17,7 +17,6 @@
   word-wrap: break-word;
   word-break: keep-all;
   overflow-wrap: break-word;
-  hyphens: auto;
   line-height: var(--line-height-tight);
   margin-bottom: 0.5rem;
   /* Prevent breaking of Russian words inappropriately */

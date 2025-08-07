@@ -424,10 +424,7 @@
   background: var(--color-bg-secondary);
 }
 
-/* Animation for page load */
-.user-profile-container {
-  animation: slideInUp 0.6s ease-out;
-}
+/* Animation for page load - merged with existing .user-profile-container */
 
 @keyframes slideInUp {
   from {

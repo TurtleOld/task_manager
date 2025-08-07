@@ -162,6 +162,7 @@
   padding: var(--spacing-md) 0;
   border-bottom: 1px solid var(--color-border-light);
   transition: var(--transition-fast);
+  cursor: pointer;
 }
 
 .task-info-row:hover {
@@ -445,10 +446,7 @@
   border-color: rgba(50, 115, 220, 0.5);
 }
 
-/* Animation for page load */
-.task-detail-card {
-  animation: slideInUp 0.6s ease-out;
-}
+/* Animation for page load - merged with existing .task-detail-card */
 
 @keyframes slideInUp {
   from {
@@ -462,10 +460,6 @@
 }
 
 /* Hover effects for interactive elements */
-.task-info-row {
-  cursor: pointer;
-}
-
 .task-info-row:hover .task-info-label i {
   transform: scale(1.1);
   transition: var(--transition-fast);
