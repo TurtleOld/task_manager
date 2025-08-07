@@ -54,6 +54,27 @@
             
             <div class="task-info-row">
                 <div class="task-info-label">
+                    <i class="fa fa-tags"></i>
+                    {% translate 'Теги' %}
+                </div>
+                <div class="task-info-value">
+                    {% if task.labels.all %}
+                        <div class="task-tags">
+                            {% for label in task.labels.all %}
+                                <span class="task-tag">
+                                    <i class="fa fa-tag"></i>
+                                    {{ label.name }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <span class="has-text-grey">{% translate 'Теги не назначены' %}</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="task-info-row">
+                <div class="task-info-label">
                     <i class="fa fa-bell"></i>
                     {% translate 'Напоминание до' %}
                 </div>

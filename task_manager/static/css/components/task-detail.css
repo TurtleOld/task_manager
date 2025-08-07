@@ -460,6 +460,64 @@
   transition: var(--transition-fast);
 }
 
+/* Task Tags */
+.task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.task-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
+  color: var(--color-white);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  transition: var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.task-tag::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.task-tag:hover::before {
+  left: 100%;
+}
+
+.task-tag:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.task-tag i {
+  font-size: var(--font-size-xs);
+  opacity: 0.9;
+}
+
+/* Dark theme adjustments for tags */
+[data-theme="dark"] .task-tag {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+}
+
+/* Light theme adjustments for tags */
+[data-theme="light"] .task-tag {
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
+}
+
 /* Focus states for accessibility */
 .task-action-button:focus-visible {
   outline: 2px solid var(--color-primary);
