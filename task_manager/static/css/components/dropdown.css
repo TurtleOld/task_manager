@@ -223,7 +223,7 @@ body[data-theme="dark"] .kanban-dropdown-fix .dropdown-trigger .button:focus {
 /* === ACCESSIBILITY === */
 
 /* High contrast mode */
-@media (prefers-contrast: high) {
+@media (prefers-contrast: more) {
 
   .kanban-dropdown-fix .dropdown-menu {
     border: 2px solid var(--color-text-primary);

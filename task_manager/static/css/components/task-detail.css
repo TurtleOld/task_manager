@@ -18,6 +18,15 @@
   transform: translateY(-2px);
 }
 
+/* Image Modal */
+.task-image-modal {
+  /* Modal styles are handled by modal.css */
+}
+
+.task-image-preview {
+  width: 350px;
+  height: 300px;
+}
 /* Task Header */
 
 .task-detail-header {
@@ -99,29 +108,29 @@
 
 .description-toggle-btn:hover {
   background: rgb(255 255 255 / 30%);
-  border-color: rgb(255 255 255 / 50%);
   transform: translateY(-1px);
 }
 
 .description-toggle-btn i {
-  transition: var(--transition-normal);
-  font-size: var(--font-size-xs);
+  transition: transform 0.3s ease;
 }
 
 .description-toggle-btn.expanded i {
   transform: rotate(180deg);
 }
 
-/* Description Text Transitions */
-
+/* Description Display States */
 .description-short,
 .description-full {
-  transition: var(--transition-normal);
+  transition: opacity 0.3s ease;
 }
 
 .description-full {
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
+  display: none;
+  }
+  
+  .description-full.show {
+    display: block;
 }
 
 /* Status Tags */
@@ -229,15 +238,20 @@
 
 .checklist-progress-fill {
   height: 100%;
-  background-color: var(--color-primary);
+  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-dark));
   border-radius: var(--radius-sm);
-  transition: width 0.3s ease;
+  transition: width 0.5s ease;
+    position: relative;
+    overflow: hidden;
 }
 
 .checklist-progress-fill::after {
   content: '';
   position: absolute;
-  inset: 0;
+  top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
   background: linear-gradient(90deg, transparent, rgb(255 255 255 / 30%), transparent);
   animation: shimmer 2s infinite;
 }

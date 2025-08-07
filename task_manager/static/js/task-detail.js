@@ -14,6 +14,9 @@ document.addEventListener('DOMContentLoaded', function () {
         );
     }
     
+    // Initialize progress bars
+    initializeProgressBars();
+
     // Description toggle functionality
     const descriptionToggle = document.getElementById('description-toggle');
     if (descriptionToggle) {
@@ -44,11 +47,29 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
+// Function to initialize progress bars
+function initializeProgressBars() {
+    const progressBars = document.querySelectorAll('.checklist-progress-fill[data-progress]');
+    progressBars.forEach(function (progressBar) {
+        const progress = progressBar.getAttribute('data-progress');
+        if (progress !== null && progress !== undefined) {
+            progressBar.style.width = progress + '%';
+        }
+    });
+}
+
 // После успешного HTMX запроса чеклиста, инициируем обновление прогресса
 document.body.addEventListener('htmx:afterSwap', function(event) {
     if (event.target && event.target.matches('.list-group-item')) {
         if (typeof htmx !== 'undefined' && htmx && typeof htmx.trigger === 'function') {
             htmx.trigger(document.body, 'checklist-updated');
         }
+    }
+});
+
+// Update progress bars after HTMX updates
+document.body.addEventListener('htmx:afterRequest', function (event) {
+    if (event.target && event.target.matches('#checklist-progress-block')) {
+        setTimeout(initializeProgressBars, 100);
     }
 });

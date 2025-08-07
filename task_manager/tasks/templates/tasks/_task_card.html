@@ -31,8 +31,7 @@
                              class="is-rounded">
                     </template>
                     <template x-if="!task.executor?.avatar">
-                        <div class="has-background-primary has-text-white is-rounded has-text-centered has-text-weight-bold"
-                             style="width: 32px; height: 32px; line-height: 32px;"
+                        <div class="has-background-primary has-text-white is-rounded has-text-centered has-text-weight-bold task-avatar-fallback"
                              :aria-label="`Исполнитель: ${task.executor?.full_name || 'Не назначен'}`">
                             <span x-text="task.executor?.full_name ? task.executor.full_name[0] : '?'" />
                         </div>

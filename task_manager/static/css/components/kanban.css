@@ -8,6 +8,15 @@
   border-radius: 8px !important;
 }
 
+/* Task List Container */
+.task-list-container {
+  min-height: 500px;
+}
+
+/* Delete Modal */
+.delete-modal {
+  z-index: 1000;
+}
 /* Task Card Drag States */
 
 .kanban-task-card.is-dragging {

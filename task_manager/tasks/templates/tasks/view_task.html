@@ -24,7 +24,7 @@
             <div class="task-description-container">
                 <p class="task-detail-description" id="task-description">
                     <span class="description-short">{{ task.description|truncatechars:100 }}</span>
-                    <span class="description-full" style="display: none;">{{ task.description }}</span>
+                    <span class="description-full">{{ task.description }}</span>
                 </p>
                 {% if task.description|length > 100 %}
                     <button class="description-toggle-btn" id="description-toggle">
@@ -109,11 +109,11 @@
                                 </button>
                             </div>
                         </div>
-                        <div id="image-modal" class="modal">
+                        <div id="image-modal" class="modal task-image-modal">
                             <div class="modal-background"></div>
                             <div class="modal-content has-text-centered">
                                 <a id="link-image" href="" target="_blank">
-                                    <img src="{{ task.image.url }}" width="350" height="300" id="preview-image" class="mt-1" src="" alt="Preview" />
+                                    <img src="{{ task.image.url }}" id="preview-image" class="mt-1 task-image-preview" alt="Preview" />
                                 </a>
                             </div>
                             <button class="modal-close is-large" aria-label="close"></button>
@@ -148,7 +148,7 @@
                         {% if total_checklist > 0 %}
                             <div class="checklist-progress-container" id="checklist-progress-block" hx-get="{% url 'tasks:checklist_progress' task.pk %}" hx-trigger="load, checklist-updated from:body">
                                 <div class="checklist-progress-bar">
-                                    <div class="checklist-progress-fill" style="width: {{ progress_checklist }}%"></div>
+                                    <div class="checklist-progress-fill" data-progress="{{ progress_checklist }}"></div>
                                 </div>
                                 <div class="checklist-progress-text">{{ done_checklist }} / {{ total_checklist }} выполнено</div>
                             </div>

@@ -78,7 +78,9 @@
 
 /* Word Break Utilities */
 .break-normal { word-break: normal !important; overflow-wrap: normal !important; }
-.break-words { word-break: break-word !important; overflow-wrap: break-word !important; }
+.break-words {
+  overflow-wrap: break-word !important;
+}
 .break-all { word-break: break-all !important; }
 .break-keep { word-break: keep-all !important; overflow-wrap: break-word !important; }
 

@@ -41,6 +41,12 @@
   hyphenate-limit-after: 3;
 }
 
+/* Task Avatar Fallback */
+.task-avatar-fallback {
+  width: 32px;
+  height: 32px;
+  line-height: 32px;
+}
 /* Task Card States */
 
 .kanban-task-card.is-dragging {

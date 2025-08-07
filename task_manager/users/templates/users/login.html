@@ -87,7 +87,7 @@
             <div class="form-actions">
                 <button type="submit" class="login-button" id="loginButton">
                     <span class="button-text">{% translate 'Войти' %}</span>
-                    <span class="button-loader" style="display: none;">
+                    <span class="button-loader button-loader-hidden">
                         <i class="fas fa-spinner fa-spin"></i>
                     </span>
                 </button>
@@ -133,6 +133,7 @@ document.addEventListener('DOMContentLoaded', function() {
         loginForm.addEventListener('submit', function() {
             // Show loading state
             buttonText.style.display = 'none';
+            buttonLoader.classList.remove('button-loader-hidden');
             buttonLoader.style.display = 'inline-block';
             loginButton.disabled = true;
             loginButton.classList.add('loading');
