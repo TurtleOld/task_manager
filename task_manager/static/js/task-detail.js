@@ -46,6 +46,8 @@ document.addEventListener('DOMContentLoaded', function () {
 // После успешного HTMX запроса чеклиста, инициируем обновление прогресса
 document.body.addEventListener('htmx:afterSwap', function(event) {
     if (event.target && event.target.matches('.list-group-item')) {
-        htmx.trigger(document.body, 'checklist-updated');
+        if (typeof htmx !== 'undefined' && htmx && typeof htmx.trigger === 'function') {
+            htmx.trigger(document.body, 'checklist-updated');
+        }
     }
 });
