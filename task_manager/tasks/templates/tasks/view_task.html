@@ -98,7 +98,7 @@
                     {% if task.image and task.image.url != '' %}
                         <div class="task-file-section">
                             <div class="task-file-preview">
-                                <img src="{{ task.image.url }}" alt="Превью файла" style="max-width: 80px; max-height: 60px; display: block;">
+                                <img src="{{ task.image.url }}" alt="Превью файла">
                             </div>
                             <div class="task-file-actions">
                                 <a class="button is-small is-primary" href="{% url 'tasks:download' task.slug %}" download>

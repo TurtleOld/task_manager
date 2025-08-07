@@ -229,10 +229,9 @@
 
 .checklist-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-success), var(--color-primary));
-  border-radius: var(--radius-full);
-  transition: width 0.5s ease;
-  position: relative;
+  background-color: var(--color-primary);
+  border-radius: var(--radius-sm);
+  transition: width 0.3s ease;
 }
 
 .checklist-progress-fill::after {
@@ -556,4 +555,11 @@
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
   border-radius: var(--radius-md);
+}
+
+/* Task file preview styles */
+.task-file-preview img {
+  max-width: 80px;
+  max-height: 60px;
+  display: block;
 }

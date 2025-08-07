@@ -134,18 +134,13 @@
   }
 }
 
-/* === ACCESSIBILITY ENHANCEMENTS === */
-
-/* Focus visible improvements */
-
 .box:focus-visible,
 .button:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
-/* High contrast mode support */
-@media (prefers-contrast: high) {
+@media (prefers-contrast: more) {
 
   .box {
     border: 2px solid #4a4a4a;
