@@ -125,4 +125,119 @@
 /* Modal Animation */
 .fade-in {
   animation: modalFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-} 
+}
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes gradientShift {
+
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Image Preview Modal */
+.modal-content {
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-2xl);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.modal-content img {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  transition: var(--transition-normal);
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.modal-content img:hover {
+  transform: scale(1.02);
+}
+
+.modal-content a {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.modal-background {
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+.modal-close {
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: var(--radius-full);
+  width: 40px;
+  height: 40px;
+  transition: var(--transition-normal);
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  z-index: 10;
+}
+
+.modal-close:hover {
+  background: var(--color-white);
+  transform: scale(1.1);
+  box-shadow: var(--shadow-md);
+}
+
+.modal-close::before,
+.modal-close::after {
+  background-color: var(--color-text-primary);
+  height: 2px;
+  width: 20px;
+  transition: var(--transition-fast);
+}
+
+.modal-close:hover::before,
+.modal-close:hover::after {
+  background-color: var(--color-danger);
+}
+
+/* Dark theme adjustments for image modal */
+[data-theme="dark"] .modal-content {
+  background: var(--color-bg-secondary);
+}
+
+[data-theme="dark"] .modal-close {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-white);
+}
+
+[data-theme="dark"] .modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .modal-close::before,
+[data-theme="dark"] .modal-close::after {
+  background-color: var(--color-white);
+}
+
+[data-theme="dark"] .modal-close:hover::before,
+[data-theme="dark"] .modal-close:hover::after {
+  background-color: var(--color-danger);
+}

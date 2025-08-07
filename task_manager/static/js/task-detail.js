@@ -1,0 +1,51 @@
+/* === TASK DETAIL PAGE JAVASCRIPT === */
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Modal manager
+    if (typeof modalManager !== 'undefined') {
+        modalManager.attach(
+            'preview-image-button',
+            'image-modal',
+            function() {
+                const imageElement = document.getElementById('preview-image');
+                return imageElement ? imageElement.src : '';
+            }
+        );
+    }
+    
+    // Description toggle functionality
+    const descriptionToggle = document.getElementById('description-toggle');
+    if (descriptionToggle) {
+        const descriptionShort = document.querySelector('.description-short');
+        const descriptionFull = document.querySelector('.description-full');
+        const toggleText = descriptionToggle.querySelector('.toggle-text');
+        const toggleIcon = descriptionToggle.querySelector('i');
+        
+        descriptionToggle.addEventListener('click', function() {
+            const isExpanded = descriptionToggle.classList.contains('expanded');
+            
+            if (isExpanded) {
+                // Collapse
+                descriptionShort.style.display = 'inline';
+                descriptionFull.style.display = 'none';
+                descriptionToggle.classList.remove('expanded');
+                toggleText.textContent = 'Показать больше';
+                toggleIcon.className = 'fa fa-chevron-down';
+            } else {
+                // Expand
+                descriptionShort.style.display = 'none';
+                descriptionFull.style.display = 'inline';
+                descriptionToggle.classList.add('expanded');
+                toggleText.textContent = 'Показать меньше';
+                toggleIcon.className = 'fa fa-chevron-up';
+            }
+        });
+    }
+});
+
+// После успешного HTMX запроса чеклиста, инициируем обновление прогресса
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.target && event.target.matches('.list-group-item')) {
+        htmx.trigger(document.body, 'checklist-updated');
+    }
+});

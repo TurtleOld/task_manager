@@ -1,54 +1,93 @@
 {% extends '../base.html' %}
 {% load crispy_forms_tags %}
 {% load i18n %}
+{% load static %}
 
 {% block title %}{{ task.name }}{% endblock %}
 
 {% block content %}
-    <div class="card card-task">
-        <div class="card-header">
-            <h2 class="card-header-title is-size-4 has-text-weight-bold">
-                <i class="fa fa-tasks"></i> {{ task.name }}
+    <div class="task-detail-card">
+        <div class="task-detail-header">
+            <h1 class="task-detail-title">
+                <i class="fa fa-tasks"></i>
+                {{ task.name }}
                 {% if task.state == 'done' %}
-                    <span class="tag is-success ml-2">Выполнена</span>
+                    <span class="task-status-tag success">
+                        <i class="fa fa-check"></i> Выполнена
+                    </span>
                 {% elif task.deadline and task.deadline < now %}
-                    <span class="tag is-danger ml-2">Просрочена</span>
+                    <span class="task-status-tag danger">
+                        <i class="fa fa-exclamation-triangle"></i> Просрочена
+                    </span>
                 {% endif %}
-            </h2>
-            <p class="has-text-grey mt-2" title="{{ task.description }}">{{ task.description|truncatechars:100 }}</p>
+            </h1>
+            <div class="task-description-container">
+                <p class="task-detail-description" id="task-description">
+                    <span class="description-short">{{ task.description|truncatechars:100 }}</span>
+                    <span class="description-full" style="display: none;">{{ task.description }}</span>
+                </p>
+                {% if task.description|length > 100 %}
+                    <button class="description-toggle-btn" id="description-toggle">
+                        <i class="fa fa-chevron-down"></i>
+                        <span class="toggle-text">Показать больше</span>
+                    </button>
+                {% endif %}
+            </div>
         </div>
-        <div class="card-content">
-            <div class="columns is-mobile">
-                <div class="column"><i class="fa fa-user"></i> {% translate 'Автор' %}</div>
-                <div class="column">{{ task.author }}</div>
+        
+        <div class="task-detail-content">
+            <div class="task-info-row">
+                <div class="task-info-label">
+                    <i class="fa fa-user"></i>
+                    {% translate 'Автор' %}
+                </div>
+                <div class="task-info-value">{{ task.author }}</div>
             </div>
-            <div class="columns is-mobile">
-                <div class="column"><i class="fa fa-user-check"></i> {% translate 'Исполнитель' %}</div>
-                <div class="column">{{ task.executor }}</div>
+            
+            <div class="task-info-row">
+                <div class="task-info-label">
+                    <i class="fa fa-user-check"></i>
+                    {% translate 'Исполнитель' %}
+                </div>
+                <div class="task-info-value">{{ task.executor }}</div>
             </div>
-            <hr>
-            <div class="columns is-mobile">
-                <div class="column"><i class="fa fa-bell"></i> {% translate 'Напоминание до' %}</div>
-                <div class="column">
+            
+            <div class="task-info-row">
+                <div class="task-info-label">
+                    <i class="fa fa-bell"></i>
+                    {% translate 'Напоминание до' %}
+                </div>
+                <div class="task-info-value">
                     {% if task.reminder_periods.all %}
-                        {% for period in task.reminder_periods.all %} {{ period }}<br/> {% endfor %}
+                        {% for period in task.reminder_periods.all %}
+                            <span class="tag is-info is-light">{{ period }}</span>
+                        {% endfor %}
                     {% else %}
-                        <span>Напоминания не установлены</span>
+                        <span class="has-text-grey">Напоминания не установлены</span>
                     {% endif %}
                 </div>
             </div>
-            <hr>
-            <div class="columns is-mobile">
-                <div class="column"><i class="fa fa-paperclip"></i> {% translate 'Приложенные файлы' %}</div>
-                <div class="column">
+            
+            <div class="task-info-row">
+                <div class="task-info-label">
+                    <i class="fa fa-paperclip"></i>
+                    {% translate 'Приложенные файлы' %}
+                </div>
+                <div class="task-info-value">
                     {% if task.image and task.image.url != '' %}
-                        <img src="{{ task.image.url }}" alt="thumb" style="max-width: 60px; max-height: 40px; margin-right: 10px; vertical-align: middle;">
-                        <a class="button is-small is-link is-light me-1" href="{% url 'tasks:download' task.slug %}" download>
-                            <i class="fa fa-download"></i> Скачать изображение
-                        </a>
-                        <button id="preview-image-button" class="button is-small is-info is-light">
-                            <i class="fa fa-image"></i> Просмотреть изображение
-                        </button>
+                        <div class="task-file-section">
+                            <div class="task-file-preview">
+                                <img src="{{ task.image.url }}" alt="Превью файла" style="max-width: 80px; max-height: 60px; display: block;">
+                            </div>
+                            <div class="task-file-actions">
+                                <a class="button is-small is-primary" href="{% url 'tasks:download' task.slug %}" download>
+                                    <i class="fa fa-download"></i> Скачать
+                                </a>
+                                <button id="preview-image-button" class="button is-small is-info">
+                                    <i class="fa fa-image"></i> Просмотр
+                                </button>
+                            </div>
+                        </div>
                         <div id="image-modal" class="modal">
                             <div class="modal-background"></div>
                             <div class="modal-content has-text-centered">
@@ -59,24 +98,38 @@
                             <button class="modal-close is-large" aria-label="close"></button>
                         </div>
                     {% else %}
-                        <span>Нет файлов</span>
+                        <span class="has-text-grey">Нет файлов</span>
                     {% endif %}
                 </div>
             </div>
-            <hr>
-            <div class="columns is-mobile">
-                <div class="column"><i class="fa fa-calendar"></i> {% translate 'Дата' %}</div>
-                <div class="column">{% if task.deadline %}{{ task.deadline|date:"d.m.Y H:i" }}{% else %} Бессрочно{% endif %}</div>
+            
+            <div class="task-info-row">
+                <div class="task-info-label">
+                    <i class="fa fa-calendar"></i>
+                    {% translate 'Дата' %}
+                </div>
+                <div class="task-info-value">
+                    {% if task.deadline %}
+                        <span class="tag is-warning is-light">{{ task.deadline|date:"d.m.Y H:i" }}</span>
+                    {% else %}
+                        <span class="has-text-grey">Бессрочно</span>
+                    {% endif %}
+                </div>
             </div>
-            <hr>
-            <div class="columns is-mobile">
-                <div class="column"><i class="fa fa-tasks"></i> {% translate 'Чек-лист' %}</div>
-                <div class="column">
+            
+            <div class="task-info-row">
+                <div class="task-info-label">
+                    <i class="fa fa-tasks"></i>
+                    {% translate 'Чек-лист' %}
+                </div>
+                <div class="task-info-value">
                     {% if checklist_items %}
                         {% if total_checklist > 0 %}
-                            <div id="checklist-progress-block" hx-get="{% url 'tasks:checklist_progress' task.pk %}" hx-trigger="load, checklist-updated from:body">
-                                <progress id="checklist-progress" class="progress is-success" value="{{ progress_checklist }}" max="100">{{ progress_checklist }}%</progress>
-                                <span id="checklist-progress-count">{{ done_checklist }} / {{ total_checklist }}</span>
+                            <div class="checklist-progress-container" id="checklist-progress-block" hx-get="{% url 'tasks:checklist_progress' task.pk %}" hx-trigger="load, checklist-updated from:body">
+                                <div class="checklist-progress-bar">
+                                    <div class="checklist-progress-fill" style="width: {{ progress_checklist }}%"></div>
+                                </div>
+                                <div class="checklist-progress-text">{{ done_checklist }} / {{ total_checklist }} выполнено</div>
                             </div>
                         {% endif %}
                         <ul class="list-group">
@@ -85,46 +138,38 @@
                             {% endfor %}
                         </ul>
                     {% else %}
-                        <p>Чеклист пуст.</p>
+                        <p class="has-text-grey">Чеклист пуст.</p>
                     {% endif %}
                 </div>
             </div>
-            <hr>
-            <div class="columns is-mobile">
-                <div class="column"><i class="fa fa-calendar-plus"></i> {% translate 'Дата создания' %}</div>
-                <div class="column">{{ task.created_at|date:'d.m.Y H:i' }}</div>
+            
+            <div class="task-info-row">
+                <div class="task-info-label">
+                    <i class="fa fa-calendar-plus"></i>
+                    {% translate 'Дата создания' %}
+                </div>
+                <div class="task-info-value">
+                    <span class="tag is-light">{{ task.created_at|date:'d.m.Y H:i' }}</span>
+                </div>
             </div>
-            <hr>
-            <div class="columns btn-card-task is-mobile">
-                <a class="button is-link is-light column mr-1" href="{% url 'tasks:list' %}">
-                    <i class="fa fa-list"></i> Список задач
+            
+            <div class="task-action-buttons">
+                <a class="task-action-button primary" href="{% url 'tasks:list' %}">
+                    <i class="fa fa-list"></i>
+                    Список задач
                 </a>
-                <a class="button is-warning is-light column mr-1 {% if task.state %}disabled{% endif %}" href="{% url 'tasks:update' task.slug %}">
-                    <i class="fa fa-edit"></i> Изменить
+                <a class="task-action-button warning {% if task.state == 'done' %}disabled{% endif %}" href="{% url 'tasks:update' task.slug %}">
+                    <i class="fa fa-edit"></i>
+                    Изменить
                 </a>
-                <a class="button is-danger is-light column" href="{% url 'tasks:delete_task' task.slug %}">
-                    <i class="fa fa-trash"></i> Удалить
+                <a class="task-action-button danger" href="{% url 'tasks:delete_task' task.slug %}">
+                    <i class="fa fa-trash"></i>
+                    Удалить
                 </a>
             </div>
         </div>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            modalManager.attach(
-                'preview-image-button',
-                'image-modal',
-                function() {
-                    return "{% if task.image %}{{ task.image.url }}{% endif %}";
-                }
-            );
-        });
-        // После успешного HTMX запроса чеклиста, инициируем обновление прогресса
-        document.body.addEventListener('htmx:afterSwap', function(event) {
-            if (event.target && event.target.matches('.list-group-item')) {
-                htmx.trigger(document.body, 'checklist-updated');
-            }
-        });
-    </script>
+    
 
 {% endblock %}
     
