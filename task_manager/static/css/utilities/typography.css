@@ -1,0 +1,121 @@
+/* === TYPOGRAPHY UTILITIES === */
+
+/* Font Family Utilities */
+.font-primary { font-family: var(--font-family-primary) !important; }
+.font-mono { font-family: var(--font-family-mono) !important; }
+.font-display { font-family: var(--font-family-display) !important; }
+
+/* Font Size Utilities */
+.text-xs { font-size: var(--font-size-xs) !important; }
+.text-sm { font-size: var(--font-size-sm) !important; }
+.text-base { font-size: var(--font-size-base) !important; }
+.text-lg { font-size: var(--font-size-lg) !important; }
+.text-xl { font-size: var(--font-size-xl) !important; }
+.text-2xl { font-size: var(--font-size-2xl) !important; }
+.text-3xl { font-size: var(--font-size-3xl) !important; }
+
+/* Font Weight Utilities */
+.font-light { font-weight: var(--font-weight-light) !important; }
+.font-normal { font-weight: var(--font-weight-normal) !important; }
+.font-medium { font-weight: var(--font-weight-medium) !important; }
+.font-semibold { font-weight: var(--font-weight-semibold) !important; }
+.font-bold { font-weight: var(--font-weight-bold) !important; }
+.font-extrabold { font-weight: var(--font-weight-extrabold) !important; }
+
+/* Line Height Utilities */
+.leading-tight { line-height: var(--line-height-tight) !important; }
+.leading-normal { line-height: var(--line-height-normal) !important; }
+.leading-relaxed { line-height: var(--line-height-relaxed) !important; }
+.leading-loose { line-height: var(--line-height-loose) !important; }
+
+/* Letter Spacing Utilities */
+.tracking-tight { letter-spacing: var(--letter-spacing-tight) !important; }
+.tracking-normal { letter-spacing: var(--letter-spacing-normal) !important; }
+.tracking-wide { letter-spacing: var(--letter-spacing-wide) !important; }
+.tracking-wider { letter-spacing: var(--letter-spacing-wider) !important; }
+.tracking-widest { letter-spacing: var(--letter-spacing-widest) !important; }
+
+/* Text Color Utilities */
+.text-primary { color: var(--color-text-primary) !important; }
+.text-secondary { color: var(--color-text-secondary) !important; }
+.text-muted { color: var(--color-text-muted) !important; }
+.text-light { color: var(--color-text-light) !important; }
+
+/* Text Alignment Utilities */
+.text-left { text-align: left !important; }
+.text-center { text-align: center !important; }
+.text-right { text-align: right !important; }
+.text-justify { text-align: justify !important; }
+
+/* Text Transform Utilities */
+.uppercase { text-transform: uppercase !important; }
+.lowercase { text-transform: lowercase !important; }
+.capitalize { text-transform: capitalize !important; }
+.normal-case { text-transform: none !important; }
+
+/* Text Decoration Utilities */
+.underline { text-decoration: underline !important; }
+.line-through { text-decoration: line-through !important; }
+.no-underline { text-decoration: none !important; }
+
+/* Text Shadow Utilities */
+.text-shadow-sm { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important; }
+.text-shadow-md { text-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important; }
+.text-shadow-lg { text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important; }
+.text-shadow-none { text-shadow: none !important; }
+
+/* Font Rendering Utilities */
+.antialiased {
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
+.subpixel-antialiased {
+  -webkit-font-smoothing: auto !important;
+  -moz-osx-font-smoothing: auto !important;
+}
+
+/* Word Break Utilities */
+.break-normal { word-break: normal !important; overflow-wrap: normal !important; }
+.break-words { word-break: break-word !important; overflow-wrap: break-word !important; }
+.break-all { word-break: break-all !important; }
+.break-keep { word-break: keep-all !important; overflow-wrap: break-word !important; }
+
+/* Hyphenation Utilities */
+.hyphens-none { hyphens: none !important; }
+.hyphens-manual { hyphens: manual !important; }
+.hyphens-auto { hyphens: auto !important; }
+
+/* Truncate Utilities */
+.truncate {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.overflow-ellipsis {
+  text-overflow: ellipsis !important;
+}
+
+/* Responsive Typography */
+@media (max-width: 768px) {
+  .text-responsive-sm { font-size: var(--font-size-sm) !important; }
+  .text-responsive-xs { font-size: var(--font-size-xs) !important; }
+}
+
+@media (max-width: 480px) {
+  .text-responsive-xs { font-size: var(--font-size-xs) !important; }
+}
+
+/* Dark Theme Text Improvements */
+[data-theme="dark"] .text-shadow-sm {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] .text-shadow-md {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .text-shadow-lg {
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.5) !important;
+}

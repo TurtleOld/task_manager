@@ -1,0 +1,93 @@
+/* === FONT IMPORTS === */
+
+/* Google Fonts - Inter (Primary font) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* Google Fonts - JetBrains Mono (Monospace font) */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+/* Fallback fonts for better performance */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Inter'), local('Inter-Regular');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local('Inter'), local('Inter-Medium');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local('Inter'), local('Inter-SemiBold');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Inter'), local('Inter-Bold');
+}
+
+/* Font optimization for better rendering */
+* {
+  font-family: var(--font-family-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Specific font assignments */
+.title, .subtitle, h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+code, pre, .mono {
+  font-family: var(--font-family-mono);
+  font-feature-settings: "liga" 1, "calt" 1;
+}
+
+/* Improved typography for task cards */
+.kanban-task-card .title {
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-normal);
+  line-height: var(--line-height-tight);
+}
+
+.kanban-task-card .tag,
+.task-card-tag {
+  font-family: var(--font-family-primary);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+/* Better readability for small text */
+small, .is-small {
+  font-family: var(--font-family-primary);
+  font-weight: var(--font-weight-normal);
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+/* Font loading optimization */
+.fonts-loaded * {
+  font-display: swap;
+}
+
+/* Fallback for slow connections */
+@media (max-width: 768px) {
+  * {
+    font-display: swap;
+  }
+}

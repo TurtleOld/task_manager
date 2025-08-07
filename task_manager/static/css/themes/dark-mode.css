@@ -20,7 +20,7 @@
 
   /* Column Header */
   .has-background-primary {
-    background-color: #3273dc !important;
+    background-color: var(--color-primary) !important;
   }
 
   .has-background-primary .title {
@@ -36,24 +36,30 @@
 
   .box.has-shadow:hover {
     background-color: #404040 !important;
-    border-color: #3273dc;
+    border-color: var(--color-primary);
   }
 
   /* Task Card Title */
   .title.is-5.has-text-primary {
-    color: #3273dc !important;
+    color: var(--color-primary) !important;
   }
 
   .title.is-5.has-text-success {
     color: #48c774 !important;
   }
 
-  /* Task Card Footer */
+                .kanban-task-card .title.is-5 {
+                  word-wrap: break-word !important;
+                  word-break: keep-all !important;
+                  overflow-wrap: break-word !important;
+                  hyphens: auto !important;
+                  line-height: 1.4 !important;
+                  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+                }
   .has-text-grey-light {
     color: #b5b5b5 !important;
   }
 
-  /* Tags */
   .tag.is-light {
     background-color: #404040 !important;
     color: #ffffff !important;
@@ -61,8 +67,8 @@
   }
 
   .tag.is-primary.is-light {
-    background-color: #1e3a8a !important;
-    color: #93c5fd !important;
+    background-color: var(--color-primary) !important;
+      color: #ffffff !important;
     border-color: #3b82f6;
   }
 
@@ -73,8 +79,14 @@
   }
 
   .tag.is-info.is-light {
-    background-color: #1e40af !important;
-    color: #93c5fd !important;
+    background-color: var(--color-primary) !important;
+      color: #ffffff !important;
+      border-color: #3b82f6;
+    }
+    
+    .button.is-info {
+      background-color: var(--color-primary) !important;
+      color: #ffffff !important;
     border-color: #3b82f6;
   }
 
@@ -105,7 +117,7 @@
 
   .dropdown-item:hover {
     background-color: #404040 !important;
-    color: #3273dc !important;
+    color: var(--color-primary) !important;
   }
 
   .dropdown-item.has-text-danger {
@@ -131,8 +143,8 @@
 
   /* Drag and Drop */
   .has-background-primary-light {
-    background-color: rgba(50, 115, 220, 0.1) !important;
-    border: 2px dashed #3273dc !important;
+    background-color: rgba(var(--color-primary-rgb), 0.1) !important;
+      border: 2px dashed var(--color-primary) !important;
   }
 
   /* Modal */
@@ -305,18 +317,28 @@
 
   .box.has-shadow:hover {
     background-color: #f8f9fa !important;
-    border-color: #00d1b2;
+    border-color: var(--color-primary);
   }
 
   /* Task Card Title */
   .title.is-5.has-text-primary {
-    color: #3273dc !important;
+    color: var(--color-primary) !important;
   }
 
   .title.is-5.has-text-success {
     color: #48c774 !important;
   }
 
+                /* Improved word wrapping for task titles in light theme */
+                .kanban-task-card .title.is-5 {
+                  word-wrap: break-word !important;
+                  word-break: keep-all !important;
+                  overflow-wrap: break-word !important;
+                  hyphens: auto !important;
+                  line-height: 1.4 !important;
+                  /* Better readability in light theme */
+                  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.8) !important;
+                }
   /* Tags */
   .tag.is-light {
     background-color: #f8f9fa !important;

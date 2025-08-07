@@ -6,14 +6,52 @@
 {% block title %}{% translate 'Профиль' %}{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="user-profile-container">
     <!-- Profile Header -->
     <div class="profile-header">
         <div class="profile-avatar">
             <i class="fa fa-user"></i>
         </div>
-        <h1 class="profile-username">{{ user.username }}</h1>
-        <p class="profile-subtitle">{% translate 'Активный пользователь' %}</p>
+        <div class="profile-info">
+            <h1 class="profile-username">{{ user.username }}</h1>
+            <p class="profile-subtitle">{% translate 'Активный пользователь' %}</p>
+        </div>
+        
+        <!-- Color Theme Selector -->
+        <div class="color-theme-selector">
+            <h3 class="color-theme-title">{% translate 'Цвет темы' %}</h3>
+            <div class="color-circles">
+                <button class="color-circle red {% if user.theme_color == 'red' %}active{% endif %}" 
+                        data-color="red" 
+                        title="Красный">
+                </button>
+                <button class="color-circle orange {% if user.theme_color == 'orange' %}active{% endif %}" 
+                        data-color="orange" 
+                        title="Оранжевый">
+                </button>
+                <button class="color-circle yellow {% if user.theme_color == 'yellow' %}active{% endif %}" 
+                        data-color="yellow" 
+                        title="Желтый">
+                </button>
+                <button class="color-circle green {% if user.theme_color == 'green' %}active{% endif %}" 
+                        data-color="green" 
+                        title="Зеленый">
+                </button>
+                <button class="color-circle blue {% if user.theme_color == 'blue' %}active{% endif %}" 
+                        data-color="blue" 
+                        title="Синий">
+                </button>
+                <button class="color-circle indigo {% if user.theme_color == 'indigo' %}active{% endif %}" 
+                        data-color="indigo" 
+                        title="Индиго">
+                </button>
+                <button class="color-circle purple {% if user.theme_color == 'purple' %}active{% endif %}" 
+                        data-color="purple" 
+                        title="Фиолетовый">
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Profile Stats -->

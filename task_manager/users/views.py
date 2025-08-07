@@ -16,13 +16,17 @@ from django.shortcuts import redirect
 from django.utils.translation import gettext, gettext_lazy
 from django_stubs_ext import StrPromise
 from django.urls import reverse_lazy
-from django.views.generic.list import ListView
+
 from django.views.generic.edit import (
     CreateView,
     UpdateView,
     DeleteView,
 )
 from django.core.exceptions import PermissionDenied
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
+import json
 from task_manager.users.models import User
 from task_manager.users.forms import RegisterUserForm, AuthUserForm
 
@@ -34,10 +38,13 @@ class IndexView(TemplateView):
         return redirect('login')
 
 
-class ProfileUser(LoginRequiredMixin, ListView[User]):
-    model = User
+class ProfileUser(LoginRequiredMixin, TemplateView):
     template_name = 'users/profile.html'
-    context_object_name = 'profile'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['user'] = self.request.user
+        return context
 
 
 class CreateUser(SuccessMessageMixin[Any], CreateView[User, Any]):
@@ -77,7 +84,13 @@ class LoginUser(SuccessMessageMixin[Any], LoginView):
 
 
 class LogoutUser(LogoutView, SuccessMessageMixin[Any]):
+    success_message = gettext_lazy('Вы разлогинены')
+
     def dispatch(self, request, *args, **kwargs):
+        print(f"LogoutUser.dispatch called with method: {request.method}")
+        redirect_to = self.get_success_url()
+        if redirect_to != request.get_full_path():
+            return HttpResponseRedirect(redirect_to)
         messages.add_message(
             request, messages.SUCCESS, gettext('Вы разлогинены')
         )
@@ -154,3 +167,45 @@ class SwitchThemeMode(TemplateView):
 
         # Возвращаем JSON с новой темой
         return JsonResponse({'theme_mode': current_user.theme_mode})
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class UpdateThemeColor(LoginRequiredMixin, TemplateView):
+    def post(self, request: HttpRequest, *args, **kwargs) -> JsonResponse:
+        try:
+            data = json.loads(request.body)
+            theme_color = data.get('theme_color')
+
+            if not theme_color:
+                return JsonResponse(
+                    {'success': False, 'error': 'Цвет темы не указан'}
+                )
+
+            # Проверяем, что цвет входит в допустимые значения
+            valid_colors = [
+                'red',
+                'orange',
+                'yellow',
+                'green',
+                'blue',
+                'indigo',
+                'purple',
+            ]
+            if theme_color not in valid_colors:
+                return JsonResponse(
+                    {'success': False, 'error': 'Недопустимый цвет темы'}
+                )
+
+            # Обновляем цвет темы пользователя
+            current_user = request.user
+            current_user.theme_color = theme_color
+            current_user.save()
+
+            return JsonResponse({'success': True, 'theme_color': theme_color})
+
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {'success': False, 'error': 'Неверный формат данных'}
+            )
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})

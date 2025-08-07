@@ -4,6 +4,7 @@
 /* Import order is important for cascade and specificity */
 
 /* 1. Base Layer */
+@import url('./base/fonts.css');
 @import url('./base/variables.css');
 @import url('./base/reset.css');
 
@@ -22,9 +23,11 @@
 
 /* 3. Utilities Layer */
 @import url('./utilities/helpers.css');
+@import url('./utilities/typography.css');
 
 /* 4. Themes Layer */
 @import url('./themes/dark-mode.css');
+@import url('./themes/color-themes.css');
 
 /* 5. Media Layer (must be last for proper cascade) */
 @import url('./media/responsive.css');
@@ -34,6 +37,31 @@
 
 /* === BULMA ENHANCEMENTS === */
 
+/* Global word wrapping improvements for better readability */
+.title {
+  word-wrap: break-word;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  line-height: 1.4;
+}
+
+/* Specific improvements for Russian text */
+[lang="ru"] .title,
+.title[lang="ru"] {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  hyphens: manual;
+  /* Ensure minimum word length before breaking */
+  -webkit-hyphenate-limit-before: 3;
+  -webkit-hyphenate-limit-after: 3;
+  -moz-hyphenate-limit-before: 3;
+  -moz-hyphenate-limit-after: 3;
+  -ms-hyphenate-limit-before: 3;
+  -ms-hyphenate-limit-after: 3;
+  hyphenate-limit-before: 3;
+  hyphenate-limit-after: 3;
+}
 /* Box component enhancements */
 .box {
   transition: all 0.3s ease;
@@ -102,7 +130,7 @@
 /* Focus visible improvements */
 .box:focus-visible,
 .button:focus-visible {
-  outline: 2px solid #485fc7;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -113,8 +141,8 @@
   }
   
   .box:focus {
-    border: 3px solid #485fc7;
-    outline: 2px solid #485fc7;
+    border: 3px solid var(--color-primary);
+      outline: 2px solid var(--color-primary);
   }
   
   .button {
@@ -122,8 +150,8 @@
   }
   
   .button:focus {
-    border: 3px solid #485fc7;
-    outline: 2px solid #485fc7;
+    border: 3px solid var(--color-primary);
+      outline: 2px solid var(--color-primary);
   }
 }
 

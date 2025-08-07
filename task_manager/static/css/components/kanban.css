@@ -2,8 +2,8 @@
 
 /* Kanban Column Drag & Drop */
 .kanban-column.is-dragover {
-  background: rgba(72, 95, 199, 0.1) !important;
-  border: 2px dashed #485fc7 !important;
+  background: rgba(var(--color-primary-rgb), 0.1) !important;
+    border: 2px dashed var(--color-primary) !important;
   border-radius: 8px !important;
 }
 
@@ -11,24 +11,24 @@
 .kanban-task-card.is-dragging {
   opacity: 0.7;
   transform: rotate(3deg) scale(1.05);
-  box-shadow: 0 16px 40px rgba(50,115,220,0.25);
+  box-shadow: 0 16px 40px rgba(var(--color-primary-rgb), 0.25);
   z-index: 1000;
-  border-color: #485fc7;
+  border-color: var(--color-primary);
 }
 
 /* Mobile Selection State */
 .kanban-task-card.is-selected {
   opacity: 0.8;
   transform: scale(1.02);
-  box-shadow: 0 8px 25px rgba(50,115,220,0.3);
-  border-color: #3273dc;
+  box-shadow: 0 8px 25px rgba(var(--color-primary-rgb), 0.3);
+    border-color: var(--color-primary);
   border-width: 2px;
   border-style: solid;
 }
 
 /* Mobile Selection Indicator */
 .mobile-selection-indicator {
-  background: rgba(50, 115, 220, 0.9);
+  background: rgba(var(--color-primary-rgb), 0.9);
   color: white;
   padding: 0.5rem 1rem;
   border-radius: 8px;
@@ -81,8 +81,8 @@
 
 /* Placeholder styles for drag and drop */
 .task-list .has-background-light.has-radius-large {
-  border: 2px dashed #485fc7;
-  background: rgba(72, 95, 199, 0.05) !important;
+  border: 2px dashed var(--color-primary);
+    background: rgba(var(--color-primary-rgb), 0.05) !important;
   animation: placeholderPulse 1.5s ease-in-out infinite;
 }
 

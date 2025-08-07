@@ -17,6 +17,9 @@
   position: relative;
   overflow: hidden;
   box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
 }
 
 .profile-header::before {
@@ -39,26 +42,96 @@
   align-items: center;
   justify-content: center;
   font-size: var(--font-size-2xl);
-  margin-bottom: var(--spacing-md);
   position: relative;
   z-index: 1;
   border: 3px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.profile-info {
+  flex: 1;
+  position: relative;
+  z-index: 1;
 }
 
 .profile-username {
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
   margin-bottom: var(--spacing-sm);
-  position: relative;
-  z-index: 1;
 }
 
 .profile-subtitle {
   font-size: var(--font-size-base);
   opacity: 0.9;
+}
+
+/* Color Theme Selector */
+.color-theme-selector {
   position: relative;
   z-index: 1;
+  text-align: center;
 }
+
+.color-theme-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--spacing-sm);
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.color-circles {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.color-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: var(--transition-normal);
+  position: relative;
+  background: var(--color-circle-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.color-circle:hover {
+  transform: scale(1.1);
+  border-color: rgba(255, 255, 255, 0.8);
+  box-shadow: var(--shadow-md);
+}
+
+.color-circle.active {
+  border-color: var(--color-white);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+  transform: scale(1.15);
+}
+
+.color-circle.active::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--color-white);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Color circle backgrounds */
+.color-circle.red { background: #ff3860; }
+.color-circle.orange { background: #ff7f50; }
+.color-circle.yellow { background: #ffdd57; }
+.color-circle.green { background: #48c774; }
+.color-circle.blue { background: #3273dc; }
+.color-circle.indigo { background: #4b0082; }
+.color-circle.purple { background: #8b5cf6; }
 
 /* Profile Stats */
 .profile-stats {
@@ -255,7 +328,32 @@
   
   .profile-header {
     padding: var(--spacing-lg) var(--spacing-md);
+    flex-direction: column;
     text-align: center;
+    gap: var(--spacing-md);
+  }
+  
+  .profile-avatar {
+    width: 60px;
+    height: 60px;
+    font-size: var(--font-size-xl);
+  }
+  
+  .profile-username {
+    font-size: var(--font-size-xl);
+  }
+  
+  .color-theme-selector {
+    margin-top: var(--spacing-sm);
+  }
+  
+  .color-circles {
+    gap: var(--spacing-xs);
+  }
+  
+  .color-circle {
+    width: 28px;
+    height: 28px;
   }
   
   .profile-stats {

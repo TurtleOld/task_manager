@@ -8,13 +8,57 @@
   overflow: hidden;
 }
 
+/* Task Card Title - Improved Word Wrapping */
+.kanban-task-card .title.is-5 {
+  font-family: var(--font-family-display);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-lg);
+  letter-spacing: var(--letter-spacing-tight);
+  word-wrap: break-word;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  line-height: var(--line-height-tight);
+  margin-bottom: 0.5rem;
+  /* Prevent breaking of Russian words inappropriately */
+  -webkit-hyphens: auto;
+  -moz-hyphens: auto;
+  -ms-hyphens: auto;
+  hyphens: auto;
+  /* Better word breaking for Russian text */
+  word-break: normal;
+  overflow-wrap: anywhere;
+  /* Improved readability */
+  color: var(--color-text-primary);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Specific improvements for Russian text */
+.kanban-task-card .title.is-5[lang="ru"],
+.kanban-task-card .title.is-5 {
+  /* Prevent breaking after single characters */
+  word-break: keep-all;
+  /* Allow breaking only at appropriate points */
+  overflow-wrap: break-word;
+  /* Use soft hyphens for better control */
+  hyphens: manual;
+  /* Ensure minimum word length before breaking */
+  -webkit-hyphenate-limit-before: 3;
+  -webkit-hyphenate-limit-after: 3;
+  -moz-hyphenate-limit-before: 3;
+  -moz-hyphenate-limit-after: 3;
+  -ms-hyphenate-limit-before: 3;
+  -ms-hyphenate-limit-after: 3;
+  hyphenate-limit-before: 3;
+  hyphenate-limit-after: 3;
+}
 /* Task Card States */
 .kanban-task-card.is-dragging {
   opacity: 0.7;
   transform: rotate(3deg) scale(1.05);
-  box-shadow: 0 16px 40px rgba(50,115,220,0.25);
+  box-shadow: 0 16px 40px rgba(var(--color-primary-rgb), 0.25);
   z-index: 1000;
-  border-color: #485fc7;
+  border-color: var(--color-primary);
 }
 
 .kanban-task-card.is-loading {
@@ -84,12 +128,12 @@
 
 .kanban-task-card:hover .kanban-task-avatar,
 .kanban-task-card:hover .kanban-task-avatar-fallback {
-  border-color: #485fc7;
+  border-color: var(--color-primary);
 }
 
 /* Focus States */
 .kanban-task-card:focus {
-  outline: 2px solid #485fc7;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -98,12 +142,12 @@
 }
 
 .kanban-task-card:focus-visible {
-  outline: 2px solid #485fc7;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
 .kanban-task-card:focus-within {
-  outline: 2px solid #485fc7;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
 
@@ -137,6 +181,49 @@
   gap: var(--spacing-xs);
 }
 
+/* Improved word wrapping for task card content */
+.kanban-task-card .tag,
+.kanban-task-card .task-card-tag {
+  word-wrap: break-word;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  white-space: normal;
+  line-height: 1.3;
+}
+
+/* Better text wrapping for user names in tags */
+.kanban-task-card .tag span,
+.kanban-task-card .task-card-tag span {
+  word-wrap: break-word;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Improved word wrapping for task card footer */
+.kanban-task-card footer {
+  word-wrap: break-word;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  line-height: var(--line-height-normal);
+}
+
+.kanban-task-card footer small {
+  font-family: var(--font-family-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  letter-spacing: var(--letter-spacing-wide);
+  line-height: var(--line-height-normal);
+  word-wrap: break-word;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  color: var(--color-text-muted);
+  /* Improved readability for dates */
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+}
 .task-card-tag {
   display: inline-flex;
   align-items: center;
@@ -145,12 +232,17 @@
   background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
   color: var(--color-white);
   border-radius: var(--radius-sm);
+  font-family: var(--font-family-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-wide);
+    line-height: var(--line-height-tight);
   transition: var(--transition-fast);
   box-shadow: var(--shadow-sm);
   position: relative;
   overflow: hidden;
+  /* Improved readability */
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .task-card-tag::before {

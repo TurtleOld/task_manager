@@ -4,7 +4,7 @@
 <nav class="navbar nav-height is-primary">
     <div class="container is-max-widescreen">
         <div class="navbar-brand mt-0 is-block">
-            <a href="/" class="navbar-item title mb-0 mt-2">
+            <a href="/" class="navbar-item title mb-0 mt-4">
                 <i class="fas fa-tasks mr-2"></i>
                 {% translate 'Менеджер задач'%}
             </a>
@@ -30,9 +30,9 @@
                             <div class="navbar-item">
                                 <a href="{% url 'users:profile' %}" class="button has-background-primary is-outlined">{{ user.username }}</a>
                             </div>
-                            <form action="/logout/" method="post">
+                            <form action="{% url 'users:logout' %}" method="post">
                                 {% csrf_token %}
-                                <input type="submit" class="me-md-5 button has-background-danger is-outlined"
+                                <input type="submit" class="me-md-5 button has-background-danger is-outlined logout-btn"
                                     value="{% translate 'Выйти' %}">
                             </form>
                         {% else %}
