@@ -1,0 +1,94 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "jquery": true
+  },
+  "extends": [
+    "eslint:recommended"
+  ],
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "rules": {
+    // Отключить правила, которые не подходят для Django проекта
+    "no-unused-vars": "warn",
+    "no-console": "off",
+    "no-alert": "warn",
+    "no-undef": "error",
+    "no-unused-expressions": "warn",
+    "no-unreachable": "error",
+    "no-dupe-keys": "error",
+    "no-dupe-args": "error",
+    "no-dupe-class-members": "error",
+    "no-dupe-else-if": "error",
+    "no-constant-condition": "warn",
+    "no-empty": "warn",
+    "no-extra-semi": "warn",
+    "no-irregular-whitespace": "error",
+    "no-multiple-empty-lines": "warn",
+    "no-trailing-spaces": "warn",
+    "no-unreachable-loop": "error",
+    "no-unsafe-finally": "error",
+    "no-unsafe-negation": "error",
+    "no-unsafe-optional-chaining": "error",
+    "no-unsafe-unary-negation": "error",
+    "no-useless-backreference": "error",
+    "no-useless-catch": "warn",
+    "no-useless-escape": "warn",
+    "no-useless-return": "warn",
+    "prefer-const": "warn",
+    "valid-typeof": "error",
+    "curly": "warn",
+    "eqeqeq": "warn",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "no-script-url": "error",
+    "no-sequences": "error",
+    "no-throw-literal": "error",
+    "no-unmodified-loop-condition": "warn",
+    "no-unused-labels": "error",
+    "no-useless-call": "warn",
+    "no-useless-concat": "warn",
+    "no-useless-rename": "warn",
+    "no-var": "warn",
+    "object-shorthand": "warn",
+    "prefer-arrow-callback": "warn",
+    "prefer-template": "warn",
+    "yoda": "warn"
+  },
+  "globals": {
+    // Глобальные переменные Django
+    "Django": "readonly",
+    "gettext": "readonly",
+    "ngettext": "readonly",
+    "interpolate": "readonly",
+    "get_format": "readonly",
+    "date_format": "readonly",
+    "number_format": "readonly",
+    "pluralidx": "readonly",
+    "get_available_language_codes": "readonly",
+    "get_language_info": "readonly",
+    "get_language_bidi": "readonly",
+    "csrf_token": "readonly",
+    "csrfmiddlewaretoken": "readonly",
+    
+    // Глобальные переменные HTMX
+    "htmx": "readonly",
+    
+    // Глобальные переменные jQuery
+    "$": "readonly",
+    "jQuery": "readonly",
+    
+    // Глобальные переменные Alpine.js
+    "Alpine": "readonly",
+    
+    // Глобальные переменные Bulma
+    "bulma": "readonly",
+    
+    // Глобальные переменные FontAwesome
+    "FontAwesome": "readonly"
+  }
+}
