@@ -81,6 +81,20 @@
                 </span>
             </div>
             
+            <!-- Task Labels -->
+            <div class="mb-3" x-show="task.labels && task.labels.length > 0">
+                <div class="task-card-labels">
+                    <template x-for="label in task.labels" :key="label.id">
+                        <span class="task-card-tag"
+                              :title="`Тег: ${label.name}`"
+                              :aria-label="`Тег: ${label.name}`">
+                            <i class="fas fa-tag"></i>
+                            <span x-text="label.name"></span>
+                        </span>
+                    </template>
+                </div>
+            </div>
+            
             <footer class="has-text-grey-light">
                 <small>{% translate 'Создана' %}: <time x-text="task.created_at"></time></small>
             </footer>

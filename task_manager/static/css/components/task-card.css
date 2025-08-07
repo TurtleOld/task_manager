@@ -130,6 +130,64 @@
   }
 }
 
+/* Task Card Labels */
+.task-card-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.task-card-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
+  color: var(--color-white);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  transition: var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.task-card-tag::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.task-card-tag:hover::before {
+  left: 100%;
+}
+
+.task-card-tag:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.task-card-tag i {
+  font-size: var(--font-size-xs);
+  opacity: 0.9;
+}
+
+/* Dark theme adjustments for task card tags */
+[data-theme="dark"] .task-card-tag {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+}
+
+/* Light theme adjustments for task card tags */
+[data-theme="light"] .task-card-tag {
+  background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary));
+}
+
 /* Accessibility improvements */
 @media (prefers-reduced-motion: reduce) {
   .kanban-task-card {
@@ -146,6 +204,10 @@
   }
   
   .kanban-task-badges .tag:hover {
+    transform: none;
+  }
+  
+  .task-card-tag:hover {
     transform: none;
   }
 } 
