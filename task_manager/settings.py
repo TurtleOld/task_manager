@@ -168,13 +168,13 @@ AUTH_PASSWORD_VALIDATORS = [
         '.UserAttributeSimilarityValidator',
     },
     {
-        'NAME': 'django.contrib.auth.' 'password_validation.MinimumLengthValidator',
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation' '.CommonPasswordValidator',
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation' '.NumericPasswordValidator',
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
 
@@ -224,7 +224,8 @@ CELERY_TIMEZONE = 'Europe/Moscow'
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERYD_TASK_TIME_LIMIT = 600
-CELERY_BROKER_URL = os.environ.get('BROKER_URL')
+CELERY_BROKER_URL = os.environ.get('BROKER_URL', 'memory://')
+CELERY_RESULT_BACKEND = None
 
 if 'test' in sys.argv or 'test_coverage' in sys.argv:
     CELERY_TASK_ALWAYS_EAGER = True
