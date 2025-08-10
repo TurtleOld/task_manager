@@ -14,11 +14,14 @@ USER root
 RUN chmod -R 755 /home/superuser
 RUN chown -R superuser:superuser /home/superuser
 USER superuser
+
+# Install uv
 RUN pip install --upgrade pip || true
 ENV PATH="/home/superuser/.local/bin:$PATH"
-RUN curl -sSL https://install.python-poetry.org | python3 - && poetry --version \
-&& poetry install
-RUN pip install -r /home/superuser/requirements.txt
+RUN pip install uv
+
+# Install dependencies using uv
+RUN uv pip install -e .
 
 EXPOSE 8000
 

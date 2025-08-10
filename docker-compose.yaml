@@ -20,7 +20,9 @@ services:
 
   task-manager-server:
     container_name: task_manager_server
-    image: ghcr.io/turtleold/task_manager:main
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - ${LOCATION:-./app_data}:/app_data/files
     command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && daphne task_manager.asgi:application --port ${PORT:-8000} --bind 0.0.0.0 -v2"
@@ -46,7 +48,9 @@ services:
       - default
 
   worker-celery:
-    image: ghcr.io/turtleold/task_manager:main
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: task_manager_celery
     command: celery -A task_manager worker -l INFO
     env_file:
