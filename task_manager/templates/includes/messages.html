@@ -1,0 +1,16 @@
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert mt-5 has-text-centered">
+            <span
+                {% if message.tags %}
+                {% if message.tags == 'error' %}
+                    class="{{ message.tags }} notification has-background-danger has-text-white"
+                {% else %}
+                    class="{{ message.tags }} notification is-primary has-text-white"
+                {% endif %}
+                {% endif %}
+                >{{ message }}
+            </span>
+        </div>
+    {% endfor %}
+{% endif %}

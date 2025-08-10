@@ -2,38 +2,42 @@
 
 // Font loading optimization
 document.addEventListener('DOMContentLoaded', function() {
-  // Check if fonts are loaded
-  if ('fonts' in document) {
-    // Load Inter font
-    const interFont = new FontFace('Inter', 'url(https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap)');
-    
-    // Load JetBrains Mono font
-    const jetbrainsFont = new FontFace('JetBrains Mono', 'url(https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap)');
-    
-    // Promise to load all fonts
-    Promise.all([
-      interFont.load(),
-      jetbrainsFont.load()
-    ]).then(function(fonts) {
-      // Add fonts to document
-      fonts.forEach(font => document.fonts.add(font));
-      
-      // Add class to body when fonts are loaded
-      document.body.classList.add('fonts-loaded');
-      
-      // Trigger custom event
-      document.dispatchEvent(new CustomEvent('fontsLoaded'));
-      
-      console.log('Fonts loaded successfully');
-    }).catch(function(error) {
-      console.warn('Font loading failed:', error);
-      // Fallback to system fonts
+  // Load Google Fonts using link elements
+  const fontLinks = [
+    {
+      href: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap',
+      rel: 'stylesheet'
+    },
+    {
+      href: 'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap',
+      rel: 'stylesheet'
+    }
+  ];
+  
+  // Add font links to head
+  fontLinks.forEach(fontLink => {
+    const link = document.createElement('link');
+    link.href = fontLink.href;
+    link.rel = fontLink.rel;
+    link.crossOrigin = 'anonymous';
+    document.head.appendChild(link);
+  });
+  
+  // Check if fonts are available after a short delay
+  setTimeout(function() {
+    if ('fonts' in document) {
+      // Check if fonts are loaded
+      document.fonts.ready.then(function() {
+        document.body.classList.add('fonts-loaded');
+        document.dispatchEvent(new CustomEvent('fontsLoaded'));
+      }).catch(function(error) {
+        document.body.classList.add('fonts-fallback');
+      });
+    } else {
+      // Fallback for browsers that don't support Font Loading API
       document.body.classList.add('fonts-fallback');
-    });
-  } else {
-    // Fallback for browsers that don't support Font Loading API
-    document.body.classList.add('fonts-fallback');
-  }
+    }
+  }, 1000);
 });
 
 // Font display optimization
@@ -96,9 +100,7 @@ if ('performance' in window) {
       .filter(entry => entry.name.includes('fonts.googleapis.com'))
       .reduce((total, entry) => total + entry.duration, 0);
     
-    if (fontLoadTime > 1000) {
-      console.warn('Font loading took longer than expected:', fontLoadTime + 'ms');
-    }
+    // Font loading performance monitoring (silent)
   });
 }
 

@@ -14,7 +14,7 @@ from django.http import (
 )
 from django.db import transaction
 from django.template.loader import render_to_string
-
+from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.messages.views import SuccessMessageMixin
@@ -123,7 +123,7 @@ class KanbanBoard(
             template_name=self.template_name,
             context={
                 'stages': stages,
-                'tasks': json.dumps(tasks_data, default=str),
+                'tasks': json.dumps(tasks_data, default=str, ensure_ascii=False),
                 'labels': labels,
                 'selected_labels': selected_labels,
             },
@@ -162,21 +162,54 @@ class UpdateTaskStageView(View):
                         Stage.objects.get(id=new_stage_id) if new_stage_id else None
                     )
 
-                    # Отправляем уведомление только если задача действительно перемещается в другую колонку
+                    if (
+                        new_stage
+                        and new_stage.name == 'Done'
+                        and task.author != request.user
+                    ):
+                        messages.error(
+                            request,
+                            _('Only the task author can move it to Done'),
+                        )
+                        # Return HTML with messages for AJAX requests
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                            from django.template.loader import render_to_string
+
+                            messages_html = render_to_string(
+                                'includes/messages.html',
+                                {'messages': messages.get_messages(request)},
+                            )
+                            return JsonResponse(
+                                {
+                                    'success': False,
+                                    'error': 'Only the task author can move it to Done',
+                                    'messages_html': messages_html,
+                                }
+                            )
+                        return JsonResponse(
+                            {
+                                'success': False,
+                                'error': 'Only the task author can move it to Done',
+                            }
+                        )
+
                     if old_stage != new_stage and new_stage:
+                        task.stage = new_stage
+                        task.save()
+
                         task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
                         moved_by = request.user.get_full_name() or request.user.username
                         send_about_moving_task.delay(
-                            task.name, moved_by, new_stage.name, task_url
+                            task.name,
+                            moved_by,
+                            new_stage.name,
+                            task_url,
                         )
 
-                    task.stage = new_stage
-                    task.save()
-
-                    if old_stage:
-                        reorder_tasks_in_stage(old_stage.pk)
-                    if new_stage:
-                        reorder_tasks_in_stage(new_stage.pk)
+                        if old_stage:
+                            reorder_tasks_in_stage(old_stage.pk)
+                        if new_stage:
+                            reorder_tasks_in_stage(new_stage.pk)
 
                 if new_order is not None:
                     reorder_task_within_stage(task, new_order)
