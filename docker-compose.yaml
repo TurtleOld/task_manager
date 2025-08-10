@@ -69,7 +69,7 @@ services:
 
   rabbitmq:
     container_name: task_manager_rabbitmq
-    image: rabbitmq:4.0.4-management
+    image: rabbitmq:4.1.3-management
     hostname: rabbitmq
     restart: always
     environment:
