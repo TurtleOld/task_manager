@@ -21,7 +21,7 @@ ENV PATH="/home/superuser/.local/bin:$PATH"
 RUN pip install uv
 
 # Install dependencies using uv
-RUN uv pip install -e .
+RUN uv pip install -e . --system
 
 EXPOSE 8000
 
