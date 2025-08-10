@@ -1,50 +1,58 @@
-[tool.poetry]
-name = "Task-Manager"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "task-manager"
 version = "0.1.0"
-description = ""
-authors = ["TurtleOld <shurpo.alexander@gmail.com>"]
-packages = [
-    { include = "task_manager" },
+description = "A Django-based task management application"
+authors = [
+    {name = "TurtleOld", email = "shurpo.alexander@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "gunicorn>=23.0.0",
+    "Django>=5.1.2",
+    "python-dotenv>=1.0.1",
+    "dj-database-url>=0.5.0",
+    "psycopg2-binary>=2.9.3",
+    "whitenoise>=6.1",
+    "django-filter>=24.3",
+    "rollbar>=0.16.2",
+    "daphne>=4.1.2",
+    "twisted[http2,tls]>=22.2.0",
+    "pytelegrambotapi>=4.23.0",
+    "flower>=2.0.1",
+    "eventlet>=0.37.0",
+    "django-htmx>=1.21.0",
+    "transliterate>=1.10.2",
+    "pillow>=11.0.0",
+    "celery[amqp]>=5.4.0",
+    "django-crispy-forms>=2.3",
+    "crispy-bulma>=0.11.0",
+    "pytest>=8.3.5",
+    "pytest-django>=4.11.1",
+    "django-stubs[compatible-mypy]>=5.1.1",
+    "django-extensions>=4.1",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.11"
-gunicorn = ">=23.0.0"
-Django = ">=5.1.2"
-python-dotenv = ">=1.0.1"
-dj-database-url = ">=0.5.0"
-psycopg2-binary = ">=2.9.3"
-whitenoise = ">=6.1"
-django-filter = ">=24.3"
-rollbar = ">=0.16.2"
-daphne = ">=4.1.2"
-twisted = {extras = ["http2", "tls"], version = ">=22.2.0"}
-pytelegrambotapi = ">=4.23.0"
-flower = "^2.0.1"
-eventlet = "^0.37.0"
-django-htmx = "^1.21.0"
-transliterate = "^1.10.2"
-pillow = "^11.0.0"
-celery = {extras = ["amqp"], version = "^5.4.0"}
-django-crispy-forms = "^2.3"
+[project.optional-dependencies]
+dev = [
+    "flake8>=4.0.1",
+    "PyYAML>=6.0",
+    "Faker>=13.7.0",
+    "coverage>=6.3.2",
+    "black>=24.10.0",
+    "ruff>=0.7.1",
+    "mypy>=1.13.0",
+    "pylint>=3.3.1",
+]
 
-crispy-bulma = "^0.12.0"
-pytest = "^8.3.5"
-pytest-django = "^4.11.1"
-[tool.poetry.dev-dependencies]
-flake8 = ">=4.0.1"
-PyYAML = ">=6.0"
-Faker = ">=13.7.0"
-coverage = ">=6.3.2"
+[tool.hatch.build.targets.wheel]
+packages = ["task_manager"]
 
-[tool.poetry.group.dev.dependencies]
-black = ">=24.10.0"
-ruff = "^0.12.0"
-mypy = "^1.13.0"
-django-stubs = {extras = ["compatible-mypy"], version = "^5.1.1"}
-pylint = "^3.3.1"
 
-django-extensions = "^4.1"
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "task_manager.settings"
 python_files = ["test_*.py", "*_test.py", "tests.py"]
@@ -96,9 +104,34 @@ exclude = '''
 )
 '''
 
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
 
-[tool.poetry.plugins."poetry.application.plugin"]
-export = "poetry_plugin_export.plugins:ExportApplicationPlugin"
+[[tool.mypy.overrides]]
+module = [
+    "django.*",
+    "django_crispy_forms.*",
+    "crispy_bulma.*",
+    "celery.*",
+    "flower.*",
+    "rollbar.*",
+    "telebot.*",
+    "transliterate.*",
+    "whitenoise.*",
+    "daphne.*",
+    "twisted.*",
+    "eventlet.*",
+]
+ignore_missing_imports = true

@@ -11,9 +11,7 @@ from task_manager.users.bot import bot_admin
 def send_message_about_adding_task(task_name, task_url) -> None:
     bot_admin.send_message(
         chat_id=os.environ.get('CHAT_ID'),
-        text=(
-            f'Создана новая задача: {task_name}\n' f'Посмотреть подробнее: {task_url}'
-        ),
+        text=(f'Создана новая задача: {task_name}\nПосмотреть подробнее: {task_url}'),
     )
 
 
@@ -21,9 +19,7 @@ def send_message_about_adding_task(task_name, task_url) -> None:
 def send_about_updating_task(task_name, task_url) -> None:
     bot_admin.send_message(
         chat_id=os.environ.get('CHAT_ID'),
-        text=(
-            f'Задача "{task_name}" была изменена!\n' f'Посмотреть подробнее: {task_url}'
-        ),
+        text=(f'Задача "{task_name}" была изменена!\nПосмотреть подробнее: {task_url}'),
     )
 
 
@@ -82,4 +78,12 @@ def send_about_opening_task(task_name, task_url) -> None:
     bot_admin.send_message(
         chat_id=os.environ.get('CHAT_ID'),
         text=f'Задача "{task_name}" была переоткрыта!\n{task_url}',
+    )
+
+
+@shared_task  # type: ignore
+def send_about_moving_task(task_name, moved_by, stage_name, task_url) -> None:
+    bot_admin.send_message(
+        chat_id=os.environ.get('CHAT_ID'),
+        text=f'{moved_by} переместил задачу "{task_name}" в {stage_name}.\n{task_url}',
     )
