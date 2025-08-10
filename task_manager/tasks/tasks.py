@@ -92,14 +92,11 @@ def send_about_moving_task(task_name, moved_by, stage_name, task_url) -> None:
 
 @shared_task  # type: ignore
 def send_comment_notification(comment_id: int) -> None:
-    """Отправляет уведомление о новом комментарии."""
-
     try:
         comment = Comment.objects.get(id=comment_id)
         task = comment.task
         author = comment.author
 
-        # Формируем сообщение
         from django.urls import reverse
         from django.conf import settings
 
@@ -121,5 +118,4 @@ def send_comment_notification(comment_id: int) -> None:
             text=message,
         )
     except Comment.DoesNotExist:
-        # Комментарий был удален или не найден
         pass

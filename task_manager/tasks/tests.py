@@ -96,10 +96,7 @@ class TestTask(TestCase):
 
 
 class TestComments(TestCase):
-    """Тесты для функциональности комментариев."""
-
     def setUp(self):
-        """Настройка тестовых данных."""
         self.user1 = User.objects.create_user(
             username='commentuser1',
             email='comment1@example.com',
@@ -111,10 +108,8 @@ class TestComments(TestCase):
             password='testpass123',
         )
 
-        # Создаем тестовую стадию
         self.stage = Stage.objects.create(name='Comment Test Stage', order=0)
 
-        # Создаем тестовую задачу
         self.task = Task.objects.create(
             name='Comment Test Task',
             description='Test task for comments',
@@ -127,11 +122,8 @@ class TestComments(TestCase):
         self.client = Client()
 
     def test_comment_creation(self):
-        """Тест создания комментария."""
-        # Авторизуемся как автор задачи
         self.client.login(username='commentuser1', password='testpass123')
 
-        # Создаем комментарий
         response = self.client.post(
             reverse('tasks:comment_create', kwargs={'task_slug': self.task.slug}),
             {'content': 'Test comment content'},
@@ -141,46 +133,35 @@ class TestComments(TestCase):
         self.assertTrue(Comment.objects.filter(content='Test comment content').exists())
 
     def test_comment_permissions(self):
-        """Тест прав доступа к комментариям."""
-        # Создаем комментарий
         comment = Comment.objects.create(
             task=self.task, author=self.user1, content='Test comment'
         )
 
-        # Проверяем права редактирования
         self.assertTrue(comment.can_edit(self.user1))
         self.assertFalse(comment.can_edit(self.user2))
 
-        # Проверяем права удаления
         self.assertTrue(comment.can_delete(self.user1))
         self.assertFalse(comment.can_delete(self.user2))
 
     def test_comment_soft_delete(self):
-        """Тест мягкого удаления комментария."""
         comment = Comment.objects.create(
             task=self.task, author=self.user1, content='Test comment'
         )
 
-        # Мягко удаляем комментарий
         comment.soft_delete()
 
-        # Проверяем, что комментарий помечен как удаленный
         self.assertTrue(comment.is_deleted)
         self.assertTrue(Comment.objects.filter(id=comment.id).exists())
 
     def test_comment_pagination(self):
-        """Тест пагинации комментариев."""
-        # Создаем 15 комментариев
         for i in range(15):
             Comment.objects.create(
                 task=self.task, author=self.user1, content=f'Comment {i+1}'
             )
 
-        # Проверяем, что комментарии отсортированы по дате создания (новые сначала)
         comments = self.task.comments.filter(is_deleted=False).order_by('-created_at')
         self.assertEqual(comments.count(), 15)
 
-        # Проверяем пагинацию (10 комментариев на страницу)
         from django.core.paginator import Paginator
 
         paginator = Paginator(comments, 10)
@@ -189,18 +170,14 @@ class TestComments(TestCase):
         self.assertEqual(len(paginator.page(2)), 5)
 
     def test_comment_access_control(self):
-        """Тест контроля доступа к комментариям."""
-        # Создаем пользователя, который не является автором или исполнителем
         User.objects.create_user(
             username='commentuser3',
             email='comment3@example.com',
             password='testpass123',
         )
 
-        # Авторизуемся как пользователь без прав
         self.client.login(username='commentuser3', password='testpass123')
 
-        # Пытаемся создать комментарий
         response = self.client.post(
             reverse('tasks:comment_create', kwargs={'task_slug': self.task.slug}),
             {'content': 'Unauthorized comment'},
@@ -212,15 +189,12 @@ class TestComments(TestCase):
         )
 
     def test_comment_edit_permissions(self):
-        """Тест прав на редактирование комментариев."""
         comment = Comment.objects.create(
             task=self.task, author=self.user1, content='Original comment'
         )
 
-        # Авторизуемся как автор комментария
         self.client.login(username='commentuser1', password='testpass123')
 
-        # Редактируем комментарий
         response = self.client.post(
             reverse('tasks:comment_update', kwargs={'comment_id': comment.id}),
             {'content': 'Updated comment'},
@@ -231,15 +205,12 @@ class TestComments(TestCase):
         self.assertEqual(comment.content, 'Updated comment')
 
     def test_comment_delete_permissions(self):
-        """Тест прав на удаление комментариев."""
         comment = Comment.objects.create(
             task=self.task, author=self.user1, content='Comment to delete'
         )
 
-        # Авторизуемся как автор комментария
         self.client.login(username='commentuser1', password='testpass123')
 
-        # Удаляем комментарий
         response = self.client.post(
             reverse('tasks:comment_delete', kwargs={'comment_id': comment.id})
         )
@@ -249,19 +220,14 @@ class TestComments(TestCase):
         self.assertTrue(comment.is_deleted)
 
     def test_comment_edit_status_display(self):
-        """Тест правильного отображения статуса редактирования."""
-        # Создаем комментарий
         comment = Comment.objects.create(
             task=self.task, author=self.user1, content='Original comment'
         )
 
-        # Проверяем, что при создании updated_at равен None
         self.assertIsNone(comment.updated_at)
 
-        # Авторизуемся как автор комментария
         self.client.login(username='commentuser1', password='testpass123')
 
-        # Редактируем комментарий
         response = self.client.post(
             reverse('tasks:comment_update', kwargs={'comment_id': comment.id}),
             {'content': 'Updated comment'},
@@ -270,6 +236,5 @@ class TestComments(TestCase):
         self.assertEqual(response.status_code, 200)
         comment.refresh_from_db()
 
-        # Проверяем, что updated_at установлен после редактирования
         self.assertIsNotNone(comment.updated_at)
         self.assertNotEqual(comment.created_at, comment.updated_at)

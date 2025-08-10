@@ -58,8 +58,6 @@ class TasksList(
     SuccessMessageMixin[Any],
     FilterView[Task],
 ):
-    """Display a filtered list of tasks."""
-
     model = Task
     template_name = 'tasks/kanban.html'
     context_object_name = 'tasks'
@@ -75,12 +73,9 @@ class KanbanBoard(
     SuccessMessageMixin[Any],
     FilterView[Task],
 ):
-    """Display tasks in a Kanban board format with label filtering."""
-
     template_name = 'tasks/kanban.html'
 
     def get(self, request, *args, **kwargs):
-        """Handle GET request to display Kanban board with filtered tasks."""
         from task_manager.labels.models import Label
 
         labels = Label.objects.all().order_by('name')
@@ -135,8 +130,6 @@ class KanbanBoard(
 
 
 class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
-    """Create a new stage for task organization."""
-
     model = Stage
     template_name = 'tasks/create_stage.html'
     fields = '__all__'
@@ -144,10 +137,7 @@ class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
 
 
 class UpdateTaskStageView(View):
-    """Handle AJAX requests to update task stage and order."""
-
     def post(self, request, *args, **kwargs):
-        """Update task stage and/or order via AJAX."""
         try:
             data = json.loads(request.body)
             task_id = data.get('task_id')
@@ -175,7 +165,6 @@ class UpdateTaskStageView(View):
                             request,
                             _('Only the task author can move it to Done'),
                         )
-                        # Return HTML with messages for AJAX requests
                         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                             from django.template.loader import render_to_string
 
@@ -228,10 +217,7 @@ class UpdateTaskStageView(View):
 
 
 class UpdateTaskOrderView(View):
-    """Handle bulk task order updates via AJAX."""
-
     def post(self, request):
-        """Update multiple task orders in a single request."""
         try:
             data = json.loads(request.body)
             tasks_data = data.get('tasks', [])
@@ -251,7 +237,6 @@ class UpdateTaskOrderView(View):
                     task.order = order
                     task.save()
 
-                    # Отправляем уведомление только если задача перемещается в другую колонку
                     if old_stage_id != stage_id:
                         new_stage = Stage.objects.get(id=stage_id)
                         task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
@@ -273,8 +258,6 @@ class CreateTask(
     SuccessMessageMixin[Any],
     CreateView[Task, Any],
 ):
-    """Create a new task with checklist items and notifications."""
-
     model = Task
     template_name = 'tasks/create_task.html'
     form_class = TaskForm
@@ -287,13 +270,11 @@ class CreateTask(
     query_pk_and_slug = True
 
     def get_form_kwargs(self) -> dict[str, Any]:
-        """Pass request to form for dynamic field population."""
         kwargs = super().get_form_kwargs()
         kwargs['request'] = self.request
         return kwargs
 
     def form_valid(self, form: TaskForm) -> HttpResponse:
-        """Process valid form submission with checklist and notifications."""
         try:
             form.instance.author = User.objects.get(pk=self.request.user.pk)
             task = form.save(commit=False)
@@ -303,7 +284,6 @@ class CreateTask(
             task = form.save()
             task_slug = task.slug
 
-            # Parse checklist items from POST data
             checklist_items = []
             i = 0
             while f'checklist_items[{i}][description]' in self.request.POST:
@@ -316,7 +296,7 @@ class CreateTask(
                     )
                     == 'true'
                 )
-                if description:  # Only add non-empty items
+                if description:
                     checklist_items.append(
                         {'description': description, 'is_completed': is_completed}
                     )
@@ -354,8 +334,6 @@ class UpdateTask(
     SuccessMessageMixin[Any],
     UpdateView[Task, Any],
 ):
-    """Update an existing task with checklist items."""
-
     template_name = 'tasks/update_task.html'
     query_pk_and_slug = True
     form_class = TaskForm
@@ -363,21 +341,17 @@ class UpdateTask(
     context_object_name = 'tasks'
 
     def get_form_kwargs(self) -> dict[str, Any]:
-        """Pass request to form for dynamic field population."""
         kwargs = super().get_form_kwargs()
         kwargs['request'] = self.request
         return kwargs
 
     def get_context_data(self, **kwargs: dict[str, Any]) -> dict[str, Any]:
-        """Add checklist data to context for JavaScript processing."""
         context = super().get_context_data(**kwargs)
         form = context['form']
         context['checklist_data'] = json.dumps(form.checklist_data)
         return context
 
     def form_valid(self, form: TaskForm) -> HttpResponse:
-        """Process valid form submission with checklist items."""
-        # Parse checklist items from POST data
         checklist_items = []
         i = 0
         while f'checklist_items[{i}][description]' in self.request.POST:
@@ -388,7 +362,7 @@ class UpdateTask(
                 self.request.POST.get(f'checklist_items[{i}][is_completed]', 'false')
                 == 'true'
             )
-            if description:  # Only add non-empty items
+            if description:
                 checklist_items.append(
                     {'description': description, 'is_completed': is_completed}
                 )
@@ -406,8 +380,6 @@ class DeleteTask(
     UserPassesTestMixin,
     DeleteView,
 ):
-    """Delete a task with authorization check and notification."""
-
     template_name = 'tasks/task_confirm_delete.html'
     model = Task
     success_url = reverse_lazy('tasks:list')
@@ -415,12 +387,10 @@ class DeleteTask(
     context_object_name = 'tasks'
 
     def test_func(self):
-        """Check if user is the task author."""
         task = self.get_object()
         return self.request.user == task.author
 
     def handle_no_permission(self):
-        """Handle unauthorized deletion attempts."""
         messages.error(
             self.request,
             'Вы не можете удалить чужую задачу!',
@@ -428,7 +398,6 @@ class DeleteTask(
         return redirect(self.success_url)
 
     def delete(self, request, *args, **kwargs):
-        """Delete task and send notification."""
         task = self.get_object()
 
         task_name = task.name
@@ -440,7 +409,6 @@ class DeleteTask(
         return redirect(self.success_url)
 
     def form_invalid(self, form: ModelForm[Task]) -> HttpResponse:
-        """Handle invalid form submission."""
         messages.error(
             self.request,
             gettext_lazy('Вы не можете удалить чужую задачу!'),
@@ -449,8 +417,6 @@ class DeleteTask(
 
 
 class CloseTask(View):
-    """Toggle task completion status."""
-
     model = Task
     template_name = 'tasks/kanban.html'
     form_class = TaskForm
@@ -458,7 +424,6 @@ class CloseTask(View):
     slug_url_kwarg = 'slug'
 
     def post(self, request: HttpRequest, slug: str) -> HttpResponse:
-        """Toggle task state and send appropriate notifications."""
         task = get_object_or_404(Task, slug=slug)
         task_url = self.request.build_absolute_uri(f'/tasks/{slug}')
         if task.author != request.user or task.executor != request.user:
@@ -486,8 +451,6 @@ class TaskView(
     SuccessMessageMixin[BaseForm],
     DetailView[Task],
 ):
-    """Display detailed view of a task with checklist progress."""
-
     model = Task
     template_name = 'tasks/view_task.html'
     context_object_name = 'task'
@@ -498,7 +461,6 @@ class TaskView(
     query_pk_and_slug = True
 
     def get_context_data(self, **kwargs: dict[str, Any]) -> dict[str, Any]:
-        """Add task labels, checklist progress and comments to context."""
         context = super().get_context_data(**kwargs)
         task = self.get_object()
         context['labels'] = self.get_object().labels.all()
@@ -520,7 +482,6 @@ class TaskView(
             context['done_checklist'] = 0
             context['progress_checklist'] = 0
 
-        # Добавляем комментарии с пагинацией
         from django.core.paginator import Paginator
 
         comments = task.comments.filter(is_deleted=False).order_by('-created_at')
@@ -529,19 +490,15 @@ class TaskView(
         page_obj = paginator.get_page(page_number)
         context['comments'] = page_obj
 
-        # Добавляем форму для комментариев
         context['comment_form'] = CommentForm()
 
         return context
 
 
 class ChecklistItemToggle(View):
-    """Toggle completion status of a checklist item via AJAX."""
-
     template_name = 'tasks/checklist_item.html'
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
-        """Toggle checklist item completion status."""
         checklist_item = get_object_or_404(ChecklistItem, pk=pk)
         checklist_item.is_completed = not checklist_item.is_completed
         checklist_item.save()
@@ -552,12 +509,9 @@ class ChecklistItemToggle(View):
 
 
 class DownloadFileView(DetailView[Task]):
-    """Download task attachment file."""
-
     model = Task
 
     def get(self, request: HttpRequest, *args, **kwargs) -> FileResponse:  # type: ignore
-        """Serve task image as downloadable file."""
         task = self.get_object()
         image_path = task.image.path
         image_name = task.image.name
@@ -579,7 +533,6 @@ class DownloadFileView(DetailView[Task]):
 
 
 def checklist_progress_view(request, task_id):
-    """Return HTML fragment with checklist progress for AJAX updates."""
     task = get_object_or_404(Task, pk=task_id)
     if hasattr(task, 'checklist'):
         checklist_items = task.checklist.items.all()
@@ -604,13 +557,9 @@ def checklist_progress_view(request, task_id):
 
 
 class CommentCreateView(LoginRequiredMixin, View):
-    """Создание нового комментария к задаче."""
-
     def post(self, request: HttpRequest, task_slug: str) -> HttpResponse:
-        """Создать новый комментарий."""
         task = get_object_or_404(Task, slug=task_slug)
 
-        # Проверяем права доступа
         if request.user not in [task.author, task.executor] and task.executor:
             messages.error(
                 request, 'У вас нет прав для добавления комментариев к этой задаче.'
@@ -624,14 +573,11 @@ class CommentCreateView(LoginRequiredMixin, View):
             comment.author = request.user
             comment.save()
 
-            # Отправляем уведомление
             if task.executor and task.executor != request.user:
                 send_comment_notification.delay(comment.id)
 
-            # Возвращаем обновленный список комментариев для HTMX
             response = comments_list_view(request, task_slug)
 
-            # Добавляем заголовок с обновленным количеством комментариев
             comments_count = task.comments.filter(is_deleted=False).count()
             response['HX-Trigger'] = json.dumps(
                 {'updateCommentsCount': {'count': comments_count}}
@@ -646,10 +592,7 @@ class CommentCreateView(LoginRequiredMixin, View):
 
 
 class CommentUpdateView(LoginRequiredMixin, View):
-    """Редактирование комментария."""
-
     def post(self, request: HttpRequest, comment_id: int) -> HttpResponse:
-        """Обновить комментарий."""
         comment = get_object_or_404(Comment, id=comment_id)
 
         if not comment.can_edit(request.user):
@@ -664,11 +607,9 @@ class CommentUpdateView(LoginRequiredMixin, View):
             comment.updated_at = timezone.now()
             comment.save()
 
-            # Возвращаем обновленный список комментариев для HTMX
             task = comment.task
             response = comments_list_view(request, task.slug)
 
-            # Добавляем заголовок с обновленным количеством комментариев
             comments_count = task.comments.filter(is_deleted=False).count()
             response['HX-Trigger'] = json.dumps(
                 {'updateCommentsCount': {'count': comments_count}}
@@ -683,10 +624,7 @@ class CommentUpdateView(LoginRequiredMixin, View):
 
 
 class CommentDeleteView(LoginRequiredMixin, View):
-    """Удаление комментария."""
-
     def post(self, request: HttpRequest, comment_id: int) -> HttpResponse:
-        """Удалить комментарий."""
         comment = get_object_or_404(Comment, id=comment_id)
 
         if not comment.can_delete(request.user):
@@ -695,11 +633,9 @@ class CommentDeleteView(LoginRequiredMixin, View):
 
         comment.soft_delete()
 
-        # Возвращаем обновленный список комментариев для HTMX
         task = comment.task
         response = comments_list_view(request, task.slug)
 
-        # Добавляем заголовок с обновленным количеством комментариев
         comments_count = task.comments.filter(is_deleted=False).count()
         response['HX-Trigger'] = json.dumps(
             {'updateCommentsCount': {'count': comments_count}}
@@ -709,10 +645,7 @@ class CommentDeleteView(LoginRequiredMixin, View):
 
 
 class CommentEditFormView(LoginRequiredMixin, View):
-    """Отображение формы редактирования комментария."""
-
     def get(self, request: HttpRequest, comment_id: int) -> HttpResponse:
-        """Показать форму редактирования."""
         comment = get_object_or_404(Comment, id=comment_id)
 
         if not comment.can_edit(request.user):
@@ -721,25 +654,19 @@ class CommentEditFormView(LoginRequiredMixin, View):
             )
             return HttpResponse(status=403)
 
-        # Возвращаем только форму редактирования
         return render(request, 'tasks/_comment_edit_form.html', {'comment': comment})
 
 
 class CommentViewView(LoginRequiredMixin, View):
-    """Отображение комментария."""
-
     def get(self, request: HttpRequest, comment_id: int) -> HttpResponse:
-        """Показать комментарий."""
         comment = get_object_or_404(Comment, id=comment_id)
         return render(request, 'tasks/_comment.html', {'comment': comment})
 
 
 def comments_list_view(request: HttpRequest, task_slug: str) -> HttpResponse:
-    """Отображение списка комментариев с пагинацией."""
     task = get_object_or_404(Task, slug=task_slug)
     comments = task.comments.filter(is_deleted=False).order_by('-created_at')
 
-    # Пагинация
     from django.core.paginator import Paginator
 
     paginator = Paginator(comments, 10)

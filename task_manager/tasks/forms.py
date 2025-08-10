@@ -16,8 +16,6 @@ from task_manager.tasks.models import Comment
 
 
 class ChecklistItemForm(forms.Form):
-    """Форма для отдельного пункта чеклиста"""
-
     description = forms.CharField(
         max_length=255,
         widget=forms.TextInput(
@@ -32,17 +30,6 @@ class ChecklistItemForm(forms.Form):
 
 
 class TaskForm(ModelForm[Any]):
-    # Убираем старое поле checklist_items
-    # checklist_items = forms.CharField(
-    #     widget=forms.Textarea(
-    #         attrs={
-    #             'placeholder': 'Введите пункты чеклиста, разделяя их новой строкой'
-    #         }
-    #     ),
-    #     required=False,
-    #     label='Пункты чеклиста',
-    # )
-
     class Meta:
         model = Task
         fields = (
@@ -97,7 +84,6 @@ class TaskForm(ModelForm[Any]):
             ]
 
     def save_checklist_items(self, task: Task) -> None:
-        """Сохраняет пункты чеклиста из POST данных"""
         if hasattr(self, 'cleaned_data') and 'checklist_items' in self.cleaned_data:
             items_data = self.cleaned_data.get('checklist_items', [])
             if items_data:
@@ -153,8 +139,6 @@ class TasksFilter(django_filters.FilterSet):
 
 
 class CommentForm(forms.ModelForm):
-    """Форма для создания и редактирования комментариев."""
-
     class Meta:
         model = Comment
         fields = ['content']

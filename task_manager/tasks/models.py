@@ -165,9 +165,6 @@ class Task(models.Model):
         reorder_tasks_in_stage(new_stage_id)
 
     def reorder_within_stage(self, new_order):
-        """
-        Reorders the task within its current stage.
-        """
         reorder_task_within_stage(self, new_order)
 
     def save(self, *args, **kwargs):
@@ -178,8 +175,6 @@ class Task(models.Model):
 
 
 class Comment(models.Model):
-    """Модель для комментариев к задачам."""
-
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
@@ -207,15 +202,12 @@ class Comment(models.Model):
         return f'Комментарий от {self.author} к задаче {self.task.name}'
 
     def can_edit(self, user: User) -> bool:
-        """Проверяет, может ли пользователь редактировать комментарий."""
         return user == self.author and not self.is_deleted
 
     def can_delete(self, user: User) -> bool:
-        """Проверяет, может ли пользователь удалить комментарий."""
         return user == self.author and not self.is_deleted
 
     def soft_delete(self) -> None:
-        """Мягкое удаление комментария."""
         self.is_deleted = True
         self.save(update_fields=['is_deleted'])
 

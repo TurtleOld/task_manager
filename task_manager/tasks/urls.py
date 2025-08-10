@@ -53,7 +53,6 @@ urlpatterns = [
         checklist_progress_view,
         name='checklist_progress',
     ),
-    # Комментарии
     path(
         '<slug:task_slug>/comments/',
         comments_list_view,
