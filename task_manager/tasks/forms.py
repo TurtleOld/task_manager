@@ -12,6 +12,7 @@ from task_manager.tasks.models import (
 )
 from django.utils.translation import gettext_lazy
 from task_manager.users.models import User
+from task_manager.tasks.models import Comment
 
 
 class ChecklistItemForm(forms.Form):
@@ -149,3 +150,27 @@ class TasksFilter(django_filters.FilterSet):
     class Meta:
         model = Task
         fields = ['executor', 'labels']
+
+
+class CommentForm(forms.ModelForm):
+    """Форма для создания и редактирования комментариев."""
+
+    class Meta:
+        model = Comment
+        fields = ['content']
+        widgets = {
+            'content': forms.Textarea(
+                attrs={
+                    'class': 'textarea comment-textarea',
+                    'placeholder': 'Введите ваш комментарий...',
+                    'rows': 3,
+                    'aria-label': 'Текст комментария',
+                }
+            ),
+        }
+        labels = {
+            'content': gettext_lazy('Комментарий'),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)

@@ -177,6 +177,49 @@ class Task(models.Model):
         super().save(*args, **kwargs)
 
 
+class Comment(models.Model):
+    """Модель для комментариев к задачам."""
+
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name='comments',
+        verbose_name=_('Задача'),
+    )
+    author = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='comments', verbose_name=_('Автор')
+    )
+    content = models.TextField(verbose_name=_('Содержание комментария'))
+    created_at = models.DateTimeField(
+        auto_now_add=True, verbose_name=_('Дата создания')
+    )
+    updated_at = models.DateTimeField(
+        null=True, blank=True, verbose_name=_('Дата обновления')
+    )
+    is_deleted = models.BooleanField(default=False, verbose_name=_('Удалён'))
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = _('Комментарий')
+        verbose_name_plural = _('Комментарии')
+
+    def __str__(self) -> str:
+        return f'Комментарий от {self.author} к задаче {self.task.name}'
+
+    def can_edit(self, user: User) -> bool:
+        """Проверяет, может ли пользователь редактировать комментарий."""
+        return user == self.author and not self.is_deleted
+
+    def can_delete(self, user: User) -> bool:
+        """Проверяет, может ли пользователь удалить комментарий."""
+        return user == self.author and not self.is_deleted
+
+    def soft_delete(self) -> None:
+        """Мягкое удаление комментария."""
+        self.is_deleted = True
+        self.save(update_fields=['is_deleted'])
+
+
 def reorder_tasks_in_stage(stage_id):
     tasks = Task.objects.filter(stage_id=stage_id).order_by('order', 'created_at')
     for index, task in enumerate(tasks):

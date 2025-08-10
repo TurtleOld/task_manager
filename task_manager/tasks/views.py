@@ -21,6 +21,7 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.translation import gettext, gettext_lazy
+from django.utils import timezone
 from django.views import View
 from django.views.generic import (
     CreateView,
@@ -35,6 +36,7 @@ from task_manager.tasks.models import (
     ChecklistItem,
     Task,
     Stage,
+    Comment,
     reorder_tasks_in_stage,
     reorder_task_within_stage,
 )
@@ -47,6 +49,8 @@ from task_manager.tasks.tasks import (
     send_about_deleting_task,
     send_about_moving_task,
 )
+from task_manager.tasks.forms import CommentForm
+from task_manager.tasks.tasks import send_comment_notification
 
 
 class TasksList(
@@ -494,7 +498,7 @@ class TaskView(
     query_pk_and_slug = True
 
     def get_context_data(self, **kwargs: dict[str, Any]) -> dict[str, Any]:
-        """Add task labels and checklist progress to context."""
+        """Add task labels, checklist progress and comments to context."""
         context = super().get_context_data(**kwargs)
         task = self.get_object()
         context['labels'] = self.get_object().labels.all()
@@ -515,6 +519,19 @@ class TaskView(
             context['total_checklist'] = 0
             context['done_checklist'] = 0
             context['progress_checklist'] = 0
+
+        # Добавляем комментарии с пагинацией
+        from django.core.paginator import Paginator
+
+        comments = task.comments.filter(is_deleted=False).order_by('-created_at')
+        paginator = Paginator(comments, 10)
+        page_number = self.request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        context['comments'] = page_obj
+
+        # Добавляем форму для комментариев
+        context['comment_form'] = CommentForm()
+
         return context
 
 
@@ -584,3 +601,156 @@ def checklist_progress_view(request, task_id):
         },
     )
     return HttpResponse(html)
+
+
+class CommentCreateView(LoginRequiredMixin, View):
+    """Создание нового комментария к задаче."""
+
+    def post(self, request: HttpRequest, task_slug: str) -> HttpResponse:
+        """Создать новый комментарий."""
+        task = get_object_or_404(Task, slug=task_slug)
+
+        # Проверяем права доступа
+        if request.user not in [task.author, task.executor] and task.executor:
+            messages.error(
+                request, 'У вас нет прав для добавления комментариев к этой задаче.'
+            )
+            return HttpResponse(status=403)
+
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.task = task
+            comment.author = request.user
+            comment.save()
+
+            # Отправляем уведомление
+            if task.executor and task.executor != request.user:
+                send_comment_notification.delay(comment.id)
+
+            # Возвращаем обновленный список комментариев для HTMX
+            response = comments_list_view(request, task_slug)
+
+            # Добавляем заголовок с обновленным количеством комментариев
+            comments_count = task.comments.filter(is_deleted=False).count()
+            response['HX-Trigger'] = json.dumps(
+                {'updateCommentsCount': {'count': comments_count}}
+            )
+
+            return response
+        else:
+            return HttpResponse(
+                f'<div class="notification is-danger">Ошибка: {form.errors}</div>',
+                status=400,
+            )
+
+
+class CommentUpdateView(LoginRequiredMixin, View):
+    """Редактирование комментария."""
+
+    def post(self, request: HttpRequest, comment_id: int) -> HttpResponse:
+        """Обновить комментарий."""
+        comment = get_object_or_404(Comment, id=comment_id)
+
+        if not comment.can_edit(request.user):
+            messages.error(
+                request, 'У вас нет прав для редактирования этого комментария.'
+            )
+            return HttpResponse(status=403)
+
+        form = CommentForm(request.POST, instance=comment)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.updated_at = timezone.now()
+            comment.save()
+
+            # Возвращаем обновленный список комментариев для HTMX
+            task = comment.task
+            response = comments_list_view(request, task.slug)
+
+            # Добавляем заголовок с обновленным количеством комментариев
+            comments_count = task.comments.filter(is_deleted=False).count()
+            response['HX-Trigger'] = json.dumps(
+                {'updateCommentsCount': {'count': comments_count}}
+            )
+
+            return response
+        else:
+            return HttpResponse(
+                f'<div class="notification is-danger">Ошибка: {form.errors}</div>',
+                status=400,
+            )
+
+
+class CommentDeleteView(LoginRequiredMixin, View):
+    """Удаление комментария."""
+
+    def post(self, request: HttpRequest, comment_id: int) -> HttpResponse:
+        """Удалить комментарий."""
+        comment = get_object_or_404(Comment, id=comment_id)
+
+        if not comment.can_delete(request.user):
+            messages.error(request, 'У вас нет прав для удаления этого комментария.')
+            return HttpResponse(status=403)
+
+        comment.soft_delete()
+
+        # Возвращаем обновленный список комментариев для HTMX
+        task = comment.task
+        response = comments_list_view(request, task.slug)
+
+        # Добавляем заголовок с обновленным количеством комментариев
+        comments_count = task.comments.filter(is_deleted=False).count()
+        response['HX-Trigger'] = json.dumps(
+            {'updateCommentsCount': {'count': comments_count}}
+        )
+
+        return response
+
+
+class CommentEditFormView(LoginRequiredMixin, View):
+    """Отображение формы редактирования комментария."""
+
+    def get(self, request: HttpRequest, comment_id: int) -> HttpResponse:
+        """Показать форму редактирования."""
+        comment = get_object_or_404(Comment, id=comment_id)
+
+        if not comment.can_edit(request.user):
+            messages.error(
+                request, 'У вас нет прав для редактирования этого комментария.'
+            )
+            return HttpResponse(status=403)
+
+        # Возвращаем только форму редактирования
+        return render(request, 'tasks/_comment_edit_form.html', {'comment': comment})
+
+
+class CommentViewView(LoginRequiredMixin, View):
+    """Отображение комментария."""
+
+    def get(self, request: HttpRequest, comment_id: int) -> HttpResponse:
+        """Показать комментарий."""
+        comment = get_object_or_404(Comment, id=comment_id)
+        return render(request, 'tasks/_comment.html', {'comment': comment})
+
+
+def comments_list_view(request: HttpRequest, task_slug: str) -> HttpResponse:
+    """Отображение списка комментариев с пагинацией."""
+    task = get_object_or_404(Task, slug=task_slug)
+    comments = task.comments.filter(is_deleted=False).order_by('-created_at')
+
+    # Пагинация
+    from django.core.paginator import Paginator
+
+    paginator = Paginator(comments, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(
+        request,
+        'tasks/_comments_container.html',
+        {
+            'comments': page_obj,
+            'task': task,
+        },
+    )

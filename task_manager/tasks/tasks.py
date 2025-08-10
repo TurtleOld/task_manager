@@ -5,6 +5,7 @@ from celery import shared_task
 from django.conf import settings
 
 from task_manager.users.bot import bot_admin
+from task_manager.tasks.models import Comment
 
 
 @shared_task  # type: ignore
@@ -87,3 +88,38 @@ def send_about_moving_task(task_name, moved_by, stage_name, task_url) -> None:
         chat_id=os.environ.get('CHAT_ID'),
         text=f'{moved_by} переместил задачу "{task_name}" в {stage_name}.\n{task_url}',
     )
+
+
+@shared_task  # type: ignore
+def send_comment_notification(comment_id: int) -> None:
+    """Отправляет уведомление о новом комментарии."""
+
+    try:
+        comment = Comment.objects.get(id=comment_id)
+        task = comment.task
+        author = comment.author
+
+        # Формируем сообщение
+        from django.urls import reverse
+        from django.conf import settings
+
+        task_url = reverse('tasks:view_task', args=[task.slug])
+        full_url = (
+            f'{settings.SITE_URL}{task_url}'
+            if hasattr(settings, 'SITE_URL')
+            else task_url
+        )
+        message = (
+            f'Новый комментарий к задаче "{task.name}"\n'
+            f'Автор: {author}\n'
+            f'Комментарий: {comment.content[:100]}{"..." if len(comment.content) > 100 else ""}\n'
+            f'Посмотреть задачу: {full_url}'
+        )
+
+        bot_admin.send_message(
+            chat_id=str(os.environ.get('CHAT_ID')),
+            text=message,
+        )
+    except Comment.DoesNotExist:
+        # Комментарий был удален или не найден
+        pass

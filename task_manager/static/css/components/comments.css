@@ -1,0 +1,249 @@
+/* Стили для секции комментариев */
+.comments-section-wrapper {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--card-bg);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.comment-form-container {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.comment-form-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.comment-form-title i {
+    margin-right: 0.5rem;
+    color: var(--primary-color);
+}
+
+.comment-textarea {
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.75rem;
+    font-family: inherit;
+    font-size: 0.9rem;
+    background: var(--input-bg);
+    color: var(--text-color);
+}
+
+.comment-textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.2);
+}
+
+/* Стили для списка комментариев */
+.comments-section {
+    margin-top: 1rem;
+}
+
+.comments-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+.comments-title i {
+    margin-right: 0.5rem;
+    color: var(--primary-color);
+}
+
+.comments-container {
+    margin-bottom: 1.5rem;
+}
+
+/* Стили для отдельного комментария */
+.comment-item {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.comment-item:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.comment-author {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 0.9rem;
+}
+
+.comment-author i {
+    margin-right: 0.25rem;
+}
+
+.comment-date {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.comment-date i {
+    margin-right: 0.25rem;
+}
+
+.comment-edited {
+    font-style: italic;
+    color: var(--text-muted);
+}
+
+.comment-content {
+    line-height: 1.5;
+}
+
+.comment-text {
+    color: var(--text-color);
+    margin-bottom: 0.75rem;
+}
+
+.comment-text p {
+    margin-bottom: 0.5rem;
+}
+
+.comment-text p:last-child {
+    margin-bottom: 0;
+}
+
+.comment-deleted {
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 0.5rem;
+    background: var(--bg-muted);
+    border-radius: 4px;
+    text-align: center;
+}
+
+.comment-deleted i {
+    margin-right: 0.5rem;
+    color: var(--danger-color);
+}
+
+/* Стили для действий с комментариями */
+.comment-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.comment-edit-btn,
+.comment-delete-btn {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.comment-edit-btn:hover {
+    background: var(--info-color);
+    color: white;
+}
+
+.comment-delete-btn:hover {
+    background: var(--danger-color);
+    color: white;
+}
+
+/* Стили для пагинации */
+.pagination {
+    margin-top: 1.5rem;
+}
+
+.pagination-link {
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+.pagination-link:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.pagination-link.is-current {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+/* Стили для пустого состояния */
+.no-comments {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+}
+
+.no-comments p {
+    font-size: 1rem;
+    margin: 0;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .comments-section-wrapper {
+        padding: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .comment-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .comment-actions {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .comment-edit-btn,
+    .comment-delete-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Темная тема */
+@media (prefers-color-scheme: dark) {
+    .comment-item {
+        background: var(--card-bg-dark);
+        border-color: var(--border-color-dark);
+    }
+    
+    .comment-textarea {
+        background: var(--input-bg-dark);
+        border-color: var(--border-color-dark);
+        color: var(--text-color-dark);
+    }
+    
+    .comment-deleted {
+        background: var(--bg-muted-dark);
+        color: var(--text-muted-dark);
+    }
+}
