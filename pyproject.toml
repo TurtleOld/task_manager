@@ -28,13 +28,13 @@ dependencies = [
     "django-htmx>=1.21.0",
     "transliterate>=1.10.2",
     "pillow>=11.0.0",
-    "celery[amqp]>=5.4.0",
     "django-crispy-forms>=2.3",
     "crispy-bulma>=0.11.0",
     "pytest>=8.3.5",
     "pytest-django>=4.11.1",
     "django-stubs[compatible-mypy]>=5.1.1",
     "django-extensions>=4.1",
+    "celery>=5.5.3",
 ]
 
 [project.optional-dependencies]
