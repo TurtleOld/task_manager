@@ -165,9 +165,6 @@ class Task(models.Model):
         reorder_tasks_in_stage(new_stage_id)
 
     def reorder_within_stage(self, new_order):
-        """
-        Reorders the task within its current stage.
-        """
         reorder_task_within_stage(self, new_order)
 
     def save(self, *args, **kwargs):
@@ -175,6 +172,44 @@ class Task(models.Model):
         if not os.path.exists(image_dir):
             os.makedirs(image_dir)
         super().save(*args, **kwargs)
+
+
+class Comment(models.Model):
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name='comments',
+        verbose_name=_('Задача'),
+    )
+    author = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='comments', verbose_name=_('Автор')
+    )
+    content = models.TextField(verbose_name=_('Содержание комментария'))
+    created_at = models.DateTimeField(
+        auto_now_add=True, verbose_name=_('Дата создания')
+    )
+    updated_at = models.DateTimeField(
+        null=True, blank=True, verbose_name=_('Дата обновления')
+    )
+    is_deleted = models.BooleanField(default=False, verbose_name=_('Удалён'))
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = _('Комментарий')
+        verbose_name_plural = _('Комментарии')
+
+    def __str__(self) -> str:
+        return f'Комментарий от {self.author} к задаче {self.task.name}'
+
+    def can_edit(self, user: User) -> bool:
+        return user == self.author and not self.is_deleted
+
+    def can_delete(self, user: User) -> bool:
+        return user == self.author and not self.is_deleted
+
+    def soft_delete(self) -> None:
+        self.is_deleted = True
+        self.save(update_fields=['is_deleted'])
 
 
 def reorder_tasks_in_stage(stage_id):

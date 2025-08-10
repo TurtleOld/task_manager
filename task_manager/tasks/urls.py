@@ -15,6 +15,12 @@ from task_manager.tasks.views import (
     UpdateTaskStageView,
     UpdateTask,
     checklist_progress_view,
+    CommentCreateView,
+    CommentUpdateView,
+    CommentDeleteView,
+    CommentEditFormView,
+    CommentViewView,
+    comments_list_view,
 )
 
 app_name = 'tasks'
@@ -46,5 +52,35 @@ urlpatterns = [
         'checklist_progress/<int:task_id>/',
         checklist_progress_view,
         name='checklist_progress',
+    ),
+    path(
+        '<slug:task_slug>/comments/',
+        comments_list_view,
+        name='comments_list',
+    ),
+    path(
+        '<slug:task_slug>/comment/create/',
+        CommentCreateView.as_view(),
+        name='comment_create',
+    ),
+    path(
+        'comment/<int:comment_id>/update/',
+        CommentUpdateView.as_view(),
+        name='comment_update',
+    ),
+    path(
+        'comment/<int:comment_id>/delete/',
+        CommentDeleteView.as_view(),
+        name='comment_delete',
+    ),
+    path(
+        'comment/<int:comment_id>/edit-form/',
+        CommentEditFormView.as_view(),
+        name='comment_edit_form',
+    ),
+    path(
+        'comment/<int:comment_id>/view/',
+        CommentViewView.as_view(),
+        name='comment_view',
     ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
