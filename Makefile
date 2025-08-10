@@ -1,7 +1,7 @@
 lint:
 		@cd ./task_manager && \
 			echo "Running ruff check..." && \
-			poetry run ruff check . --fix
+			uv run ruff check . --fix
 start:
 		docker compose up -d
 

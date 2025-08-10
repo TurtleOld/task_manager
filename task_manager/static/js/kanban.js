@@ -1,4 +1,28 @@
 document.addEventListener('alpine:init', () => {
+    // Добавляем CSS анимации для уведомлений
+    if (!document.getElementById('kanban-notifications-style')) {
+        const style = document.createElement('style');
+        style.id = 'kanban-notifications-style';
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+            
+            .notification.is-danger.is-light {
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                border-left: 4px solid #f14668;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     Alpine.data('kanbanBoard', () => ({
         tasks: {},
         dragging: null,
@@ -14,21 +38,42 @@ document.addEventListener('alpine:init', () => {
         touchStartY: 0,
         touchStartX: 0,
         init() {
-            const rawTasks = JSON.parse(this.$el.getAttribute('data-tasks'));
-            const groupedTasks = {};
-            rawTasks.forEach(task => {
-                const key = String(task.stage);
-                if (!groupedTasks[key]) {
-                    groupedTasks[key] = [];
+            const tasksDataScript = document.getElementById('tasks-data');
+            const rawTasksData = tasksDataScript ? tasksDataScript.textContent : null;
+            
+            if (!rawTasksData || rawTasksData.trim() === '') {
+                console.warn('No tasks data found or data is empty');
+                this.tasks = {};
+                return;
+            }
+            
+            try {
+                const rawTasks = JSON.parse(rawTasksData);
+                
+                if (!rawTasks || !Array.isArray(rawTasks)) {
+                    console.warn('Invalid tasks data format - expected array, got:', typeof rawTasks);
+                    this.tasks = {};
+                    return;
                 }
-                groupedTasks[key].push(task);
-            });
-            // Инициализируем пустые массивы для всех стадий из DOM
-            document.querySelectorAll('[data-stage-id]').forEach(el => {
-                const key = el.getAttribute('data-stage-id');
-                if (!groupedTasks[key]) groupedTasks[key] = [];
-            });
-            Object.assign(this.tasks, groupedTasks);
+                
+                const groupedTasks = {};
+                rawTasks.forEach(task => {
+                    const key = String(task.stage);
+                    if (!groupedTasks[key]) {
+                        groupedTasks[key] = [];
+                    }
+                    groupedTasks[key].push(task);
+                });
+                // Инициализируем пустые массивы для всех стадий из DOM
+                document.querySelectorAll('[data-stage-id]').forEach(el => {
+                    const key = el.getAttribute('data-stage-id');
+                    if (!groupedTasks[key]) groupedTasks[key] = [];
+                });
+                Object.assign(this.tasks, groupedTasks);
+            } catch (error) {
+                console.error('Error parsing tasks data:', error, 'Raw data:', rawTasksData);
+                this.tasks = {};
+            }
             
             // Определяем мобильное устройство
             this.isMobile = window.innerWidth <= 768;
@@ -203,6 +248,12 @@ document.addEventListener('alpine:init', () => {
             if (newIndex === -1) newIndex = arr.length;
             this.removePlaceholder(newStageId);
 
+            // Сохраняем оригинальное состояние для восстановления в случае ошибки
+            const originalState = {};
+            for (const sid in this.tasks) {
+                originalState[sid] = [...this.tasks[sid]];
+            }
+
             // Удалить задачу из всех колонок
             for (const sid in this.tasks) {
                 const idx = this.tasks[sid].findIndex(t => t.id === taskId);
@@ -216,6 +267,7 @@ document.addEventListener('alpine:init', () => {
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
                 body: JSON.stringify({
                     task_id: taskId,
@@ -226,15 +278,26 @@ document.addEventListener('alpine:init', () => {
             .then(response => response.json())
             .then(data => {
                 if (!data.success) {
-                    this.init();
+                    // Восстанавливаем оригинальное состояние при ошибке
+                    if (originalState && Object.keys(originalState).length > 0) {
+                        Object.assign(this.tasks, originalState);
+                    }
+                    
+                    if (data.messages_html) {
+                        this.showDjangoMessages(data.messages_html);
+                    } else {
+                        this.showErrorNotification(data.error || 'Не удалось переместить задачу.');
+                    }
                 }
             })
-            .catch(() => {
-                this.init();
+            .catch((error) => {
+                if (originalState && Object.keys(originalState).length > 0) {
+                    Object.assign(this.tasks, originalState);
+                }
+                this.showErrorNotification('Произошла ошибка сети при перемещении задачи.');
             });
         },
         showMobileSelectionIndicator(taskCard) {
-            // Создаем индикатор выбора
             const indicator = document.createElement('div');
             indicator.className = 'mobile-selection-indicator';
             indicator.innerHTML = `
@@ -247,7 +310,6 @@ document.addEventListener('alpine:init', () => {
             `;
             document.body.appendChild(indicator);
             
-            // Позиционируем индикатор
             const rect = taskCard.getBoundingClientRect();
             indicator.style.position = 'fixed';
             indicator.style.top = `${rect.top - 60}px`;
@@ -421,6 +483,73 @@ document.addEventListener('alpine:init', () => {
                 }
             }
         },
+        showDjangoMessages(messagesHtml) {
+            // Удаляем существующие сообщения
+            const existingAlerts = document.querySelectorAll('.alert');
+            existingAlerts.forEach(alert => alert.remove());
+            
+            // Добавляем новые сообщения в начало body
+            if (messagesHtml) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = messagesHtml;
+                const messages = tempDiv.querySelectorAll('.alert');
+                
+                messages.forEach(message => {
+                    // Добавляем анимацию появления
+                    message.style.opacity = '0';
+                    message.style.transform = 'translateY(-20px)';
+                    message.style.transition = 'all 0.3s ease-out';
+                    
+                    document.body.insertBefore(message, document.body.firstChild);
+                    
+                    // Анимация появления
+                    setTimeout(() => {
+                        message.style.opacity = '1';
+                        message.style.transform = 'translateY(0)';
+                    }, 10);
+                    
+                    // Автоматически удаляем через 5 секунд
+                    setTimeout(() => {
+                        if (message.parentElement) {
+                            message.style.opacity = '0';
+                            message.style.transform = 'translateY(-20px)';
+                            setTimeout(() => {
+                                if (message.parentElement) {
+                                    message.remove();
+                                }
+                            }, 300);
+                        }
+                    }, 5000);
+                });
+            }
+        },
+        showErrorNotification(message) {
+            // Создаем уведомление об ошибке
+            const notification = document.createElement('div');
+            notification.className = 'notification is-danger is-light';
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '9999';
+            notification.style.maxWidth = '400px';
+            notification.style.animation = 'slideInRight 0.3s ease-out';
+            
+            notification.innerHTML = `
+                <button class="delete" onclick="this.parentElement.remove()"></button>
+                <div class="content">
+                    <p><strong>Ошибка:</strong> ${message}</p>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Автоматически удаляем уведомление через 5 секунд
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    notification.remove();
+                }
+            }, 5000);
+        },
         drop(event, newStageId) {
             const taskId = this.dragging;
             if (!taskId) return;
@@ -429,6 +558,12 @@ document.addEventListener('alpine:init', () => {
             let newIndex = arr.findIndex(t => t.placeholder);
             if (newIndex === -1) newIndex = arr.length;
             this.removePlaceholder(newStageId);
+
+            // Сохраняем оригинальное состояние для восстановления в случае ошибки
+            const originalState = {};
+            for (const sid in this.tasks) {
+                originalState[sid] = [...this.tasks[sid]];
+            }
 
             // Удалить задачу из всех колонок
             for (const sid in this.tasks) {
@@ -443,6 +578,7 @@ document.addEventListener('alpine:init', () => {
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
                 body: JSON.stringify({
                     task_id: taskId,
@@ -453,11 +589,25 @@ document.addEventListener('alpine:init', () => {
             .then(response => response.json())
             .then(data => {
                 if (!data.success) {
-                    this.init();
+                    // Восстанавливаем оригинальное состояние при ошибке
+                    if (originalState && Object.keys(originalState).length > 0) {
+                        Object.assign(this.tasks, originalState);
+                    }
+                    
+                    // Показываем Django messages если они есть, иначе показываем обычное уведомление
+                    if (data.messages_html) {
+                        this.showDjangoMessages(data.messages_html);
+                    } else {
+                        this.showErrorNotification(data.error || 'Не удалось переместить задачу.');
+                    }
                 }
             })
-            .catch(() => {
-                this.init();
+            .catch((error) => {
+                // Восстанавливаем оригинальное состояние при ошибке сети
+                if (originalState && Object.keys(originalState).length > 0) {
+                    Object.assign(this.tasks, originalState);
+                }
+                this.showErrorNotification('Произошла ошибка сети при перемещении задачи.');
             });
             this.dragEnd();
         },

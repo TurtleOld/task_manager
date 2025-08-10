@@ -2,22 +2,14 @@ document.addEventListener('DOMContentLoaded', function() {
   const logoutBtn = document.querySelector('input[type="submit"].logout-btn');
   const logoutForm = logoutBtn ? logoutBtn.closest('form') : null;
   
-  console.log('Logout button found:', !!logoutBtn);
-  console.log('Logout form found:', !!logoutForm);
-  
   if (logoutBtn && logoutForm) {
     // Обработчик для подтверждения и загрузки
     logoutBtn.addEventListener('click', function(e) {
-      console.log('Logout button clicked');
-      
       // Сначала показываем диалог подтверждения
       if (!confirm('Вы уверены, что хотите выйти?')) {
-        console.log('Logout cancelled by user');
         e.preventDefault();
         return;
       }
-      
-      console.log('Logout confirmed, submitting form...');
       
       // Если пользователь подтвердил, показываем состояние загрузки
       this.classList.add('is-loading');
