@@ -45,6 +45,7 @@ from task_manager.tasks.tasks import (
     send_about_opening_task,
     send_message_about_adding_task,
     send_about_deleting_task,
+    send_about_moving_task,
 )
 
 
@@ -160,13 +161,22 @@ class UpdateTaskStageView(View):
                     new_stage = (
                         Stage.objects.get(id=new_stage_id) if new_stage_id else None
                     )
+
+                    # Отправляем уведомление только если задача действительно перемещается в другую колонку
+                    if old_stage != new_stage and new_stage:
+                        task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
+                        moved_by = request.user.get_full_name() or request.user.username
+                        send_about_moving_task.delay(
+                            task.name, moved_by, new_stage.name, task_url
+                        )
+
                     task.stage = new_stage
                     task.save()
 
                     if old_stage:
-                        reorder_tasks_in_stage(old_stage.id)
+                        reorder_tasks_in_stage(old_stage.pk)
                     if new_stage:
-                        reorder_tasks_in_stage(new_stage.id)
+                        reorder_tasks_in_stage(new_stage.pk)
 
                 if new_order is not None:
                     reorder_task_within_stage(task, new_order)
@@ -199,9 +209,19 @@ class UpdateTaskOrderView(View):
 
                 task = Task.objects.filter(pk=task_id).first()
                 if task:
+                    old_stage_id = task.stage_id
                     task.stage_id = stage_id
                     task.order = order
                     task.save()
+
+                    # Отправляем уведомление только если задача перемещается в другую колонку
+                    if old_stage_id != stage_id:
+                        new_stage = Stage.objects.get(id=stage_id)
+                        task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
+                        moved_by = request.user.get_full_name() or request.user.username
+                        send_about_moving_task.delay(
+                            task.name, moved_by, new_stage.name, task_url
+                        )
                 else:
                     raise ValueError(f'Task with ID {task_id} not found')
 
