@@ -723,13 +723,13 @@ toml = ["tomli"]
 
 [[package]]
 name = "crispy-bulma"
-version = "0.11.0"
+version = "0.12.0"
 description = "Bulma template pack for django-crispy-forms"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "crispy-bulma-0.11.0.tar.gz", hash = "sha256:27eccd09a5a77754d64462f61ff585c00feb8c15f65d0d8f9676ab26f6bc3562"},
-    {file = "crispy_bulma-0.11.0-py3-none-any.whl", hash = "sha256:bc5406d64649a3da9c61d1aa969cb2c39bb3a1802ba8ee4bccebe94a84ca94e1"},
+    {file = "crispy_bulma-0.12.0-py3-none-any.whl", hash = "sha256:6fb2b01d3fac6ad7a9d062164fc769711f47149138f00dfbd2f9a4ce14907982"},
+    {file = "crispy_bulma-0.12.0.tar.gz", hash = "sha256:15edbab15a313635b990fe64752297a37d752b2f3b6aa2c6b9060da54a33dda2"},
 ]
 
 [package.dependencies]
@@ -2800,4 +2800,4 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11"
-content-hash = "7f9b03e45e109526a688b747d34cc5800e51cea30326a17395c39b4ec17dcb80"
+content-hash = "b8f63f85537a7195d7910a22aae4571c04065e4bb5fb2156a820c0b00f5c5605"
