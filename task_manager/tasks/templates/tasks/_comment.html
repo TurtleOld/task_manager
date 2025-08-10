@@ -1,0 +1,53 @@
+{% load i18n %}
+{% load comment_tags %}
+
+<div class="comment-item" id="comment-{{ comment.id }}">
+    <div class="comment-header">
+        <div class="comment-author">
+            <i class="fa fa-user"></i>
+            {{ comment.author }}
+        </div>
+        <div class="comment-date">
+            <i class="fa fa-clock-o"></i>
+            {{ comment.created_at|date:"d.m.Y H:i" }}
+            {% if comment.updated_at and comment.updated_at != comment.created_at %}
+                <span class="comment-edited">(отредактировано {{ comment.updated_at|date:"d.m.Y H:i" }})</span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="comment-content">
+        {% if comment.is_deleted %}
+            <div class="comment-deleted">
+                <i class="fa fa-trash"></i>
+                <em>Комментарий удалён</em>
+            </div>
+        {% else %}
+            <div class="comment-text" id="comment-text-{{ comment.id }}">
+                {{ comment.content|linebreaks }}
+            </div>
+            
+                        {% if comment|can_edit_comment:request.user %}
+                <div class="comment-actions">
+                    <button class="button is-small is-info comment-edit-btn" 
+                            hx-get="{% url 'tasks:comment_edit_form' comment.id %}"
+                            hx-target="#comments-container"
+                            hx-swap="innerHTML">
+                        <i class="fa fa-edit"></i> Редактировать
+                    </button>
+                    <form hx-post="{% url 'tasks:comment_delete' comment.id %}"
+                          hx-target="#comments-container"
+                          hx-swap="innerHTML"
+                          class="inline-form">
+                        {% csrf_token %}
+                        <button type="submit" 
+                                class="button is-small is-danger comment-delete-btn"
+                                onclick="return confirm('Вы уверены, что хотите удалить этот комментарий?')">
+                            <i class="fa fa-trash"></i> Удалить
+                        </button>
+                    </form>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>

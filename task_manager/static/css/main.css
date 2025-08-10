@@ -21,6 +21,7 @@
 @import url('./components/modal.css');
 @import url('./components/empty-message.css');
 @import url('./components/checklist.css');
+@import url('./components/comments.css');
 
 /* 3. Utilities Layer */
 @import url('./utilities/helpers.css');

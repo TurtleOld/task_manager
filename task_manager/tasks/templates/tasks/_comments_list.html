@@ -1,0 +1,59 @@
+{% load i18n %}
+
+<div class="comments-section">
+    <h3 class="comments-title">
+        <i class="fa fa-comments"></i>
+        Комментарии ({{ comments.paginator.count }})
+    </h3>
+    
+    <div class="comments-container" id="comments-container">
+        {% if comments %}
+            {% for comment in comments %}
+                {% include 'tasks/_comment.html' with comment=comment %}
+            {% endfor %}
+        {% else %}
+            <div class="no-comments">
+                <p class="has-text-grey">Пока нет комментариев. Будьте первым!</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    {% if comments.has_other_pages %}
+        <nav class="pagination is-centered" role="navigation" aria-label="pagination">
+            {% if comments.has_previous %}
+                <a class="pagination-previous" 
+                   hx-get="{% url 'tasks:comments_list' task.slug %}?page={{ comments.previous_page_number }}"
+                   hx-target="#comments-container"
+                   hx-swap="innerHTML">
+                    Предыдущая
+                </a>
+            {% endif %}
+            
+            {% if comments.has_next %}
+                <a class="pagination-next"
+                   hx-get="{% url 'tasks:comments_list' task.slug %}?page={{ comments.next_page_number }}"
+                   hx-target="#comments-container"
+                   hx-swap="innerHTML">
+                    Следующая
+                </a>
+            {% endif %}
+            
+            <ul class="pagination-list">
+                {% for num in comments.paginator.page_range %}
+                    {% if comments.number == num %}
+                        <li><span class="pagination-link is-current">{{ num }}</span></li>
+                    {% elif num > comments.number|add:'-3' and num < comments.number|add:'3' %}
+                        <li>
+                            <a class="pagination-link"
+                               hx-get="{% url 'tasks:comments_list' task.slug %}?page={{ num }}"
+                               hx-target="#comments-container"
+                               hx-swap="innerHTML">
+                                {{ num }}
+                            </a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </nav>
+    {% endif %}
+</div>

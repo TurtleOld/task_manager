@@ -4,9 +4,11 @@ from django.test import TestCase
 from django.urls import reverse_lazy
 from django_filters import FilterSet
 from unittest.mock import MagicMock
+from django.test import Client
+from django.urls import reverse
 
 from task_manager.labels.models import Label
-from task_manager.tasks.models import ReminderPeriod, Task, Stage
+from task_manager.tasks.models import ReminderPeriod, Task, Stage, Comment
 from task_manager.users.models import User
 
 
@@ -91,3 +93,148 @@ class TestTask(TestCase):
         status = Task._meta.get_field('labels')
         result = FilterSet.filter_for_field(status, 'labels')
         self.assertEqual(result.field_name, 'labels')
+
+
+class TestComments(TestCase):
+    def setUp(self):
+        self.user1 = User.objects.create_user(
+            username='commentuser1',
+            email='comment1@example.com',
+            password='testpass123',
+        )
+        self.user2 = User.objects.create_user(
+            username='commentuser2',
+            email='comment2@example.com',
+            password='testpass123',
+        )
+
+        self.stage = Stage.objects.create(name='Comment Test Stage', order=0)
+
+        self.task = Task.objects.create(
+            name='Comment Test Task',
+            description='Test task for comments',
+            author=self.user1,
+            executor=self.user2,
+            stage=self.stage,
+            slug='comment-test-task',
+        )
+
+        self.client = Client()
+
+    def test_comment_creation(self):
+        self.client.login(username='commentuser1', password='testpass123')
+
+        response = self.client.post(
+            reverse('tasks:comment_create', kwargs={'task_slug': self.task.slug}),
+            {'content': 'Test comment content'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Comment.objects.filter(content='Test comment content').exists())
+
+    def test_comment_permissions(self):
+        comment = Comment.objects.create(
+            task=self.task, author=self.user1, content='Test comment'
+        )
+
+        self.assertTrue(comment.can_edit(self.user1))
+        self.assertFalse(comment.can_edit(self.user2))
+
+        self.assertTrue(comment.can_delete(self.user1))
+        self.assertFalse(comment.can_delete(self.user2))
+
+    def test_comment_soft_delete(self):
+        comment = Comment.objects.create(
+            task=self.task, author=self.user1, content='Test comment'
+        )
+
+        comment.soft_delete()
+
+        self.assertTrue(comment.is_deleted)
+        self.assertTrue(Comment.objects.filter(id=comment.id).exists())
+
+    def test_comment_pagination(self):
+        for i in range(15):
+            Comment.objects.create(
+                task=self.task, author=self.user1, content=f'Comment {i+1}'
+            )
+
+        comments = self.task.comments.filter(is_deleted=False).order_by('-created_at')
+        self.assertEqual(comments.count(), 15)
+
+        from django.core.paginator import Paginator
+
+        paginator = Paginator(comments, 10)
+        self.assertEqual(paginator.num_pages, 2)
+        self.assertEqual(len(paginator.page(1)), 10)
+        self.assertEqual(len(paginator.page(2)), 5)
+
+    def test_comment_access_control(self):
+        User.objects.create_user(
+            username='commentuser3',
+            email='comment3@example.com',
+            password='testpass123',
+        )
+
+        self.client.login(username='commentuser3', password='testpass123')
+
+        response = self.client.post(
+            reverse('tasks:comment_create', kwargs={'task_slug': self.task.slug}),
+            {'content': 'Unauthorized comment'},
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(
+            Comment.objects.filter(content='Unauthorized comment').exists()
+        )
+
+    def test_comment_edit_permissions(self):
+        comment = Comment.objects.create(
+            task=self.task, author=self.user1, content='Original comment'
+        )
+
+        self.client.login(username='commentuser1', password='testpass123')
+
+        response = self.client.post(
+            reverse('tasks:comment_update', kwargs={'comment_id': comment.id}),
+            {'content': 'Updated comment'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        comment.refresh_from_db()
+        self.assertEqual(comment.content, 'Updated comment')
+
+    def test_comment_delete_permissions(self):
+        comment = Comment.objects.create(
+            task=self.task, author=self.user1, content='Comment to delete'
+        )
+
+        self.client.login(username='commentuser1', password='testpass123')
+
+        response = self.client.post(
+            reverse('tasks:comment_delete', kwargs={'comment_id': comment.id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        comment.refresh_from_db()
+        self.assertTrue(comment.is_deleted)
+
+    def test_comment_edit_status_display(self):
+        comment = Comment.objects.create(
+            task=self.task, author=self.user1, content='Original comment'
+        )
+
+        self.assertIsNone(comment.updated_at)
+
+        self.client.login(username='commentuser1', password='testpass123')
+
+        response = self.client.post(
+            reverse('tasks:comment_update', kwargs={'comment_id': comment.id}),
+            {'content': 'Updated comment'},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        comment.refresh_from_db()
+
+        self.assertIsNotNone(comment.updated_at)
+        self.assertNotEqual(comment.created_at, comment.updated_at)

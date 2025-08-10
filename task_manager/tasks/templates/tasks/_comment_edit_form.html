@@ -1,0 +1,47 @@
+{% load i18n %}
+
+<div class="comment-item" id="comment-{{ comment.id }}">
+    <div class="comment-header">
+        <div class="comment-author">
+            <i class="fa fa-user"></i>
+            {{ comment.author }}
+        </div>
+        <div class="comment-date">
+            <i class="fa fa-clock-o"></i>
+            {{ comment.created_at|date:"d.m.Y H:i" }}
+        </div>
+    </div>
+    
+    <div class="comment-content">
+        <form hx-post="{% url 'tasks:comment_update' comment.id %}"
+              hx-target="#comments-container"
+              hx-swap="innerHTML">
+            {% csrf_token %}
+            <div class="field">
+                <div class="control">
+                    <textarea name="content" 
+                              class="textarea comment-textarea" 
+                              rows="3" 
+                              placeholder="Введите ваш комментарий..."
+                              required>{{ comment.content }}</textarea>
+                </div>
+            </div>
+            <div class="field is-grouped">
+                <div class="control">
+                    <button type="submit" class="button is-primary is-small">
+                        <i class="fa fa-save"></i> Сохранить
+                    </button>
+                </div>
+                <div class="control">
+                    <button type="button" 
+                            class="button is-light is-small"
+                            hx-get="{% url 'tasks:comments_list' comment.task.slug %}"
+                            hx-target="#comments-container"
+                            hx-swap="innerHTML">
+                        <i class="fa fa-times"></i> Отмена
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
