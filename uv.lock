@@ -1688,7 +1688,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "black", marker = "extra == 'dev'", specifier = ">=24.10.0" },
-    { name = "celery", extras = ["amqp"], specifier = ">=5.4.0" },
+    { name = "celery", specifier = ">=5.5.3" },
     { name = "coverage", marker = "extra == 'dev'", specifier = ">=6.3.2" },
     { name = "crispy-bulma", specifier = ">=0.11.0" },
     { name = "daphne", specifier = ">=4.1.2" },
