@@ -4,7 +4,7 @@
     padding: 1.5rem;
     background: var(--card-bg);
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.1);
 }
 
 .comment-form-container {
@@ -41,7 +41,7 @@
 .comment-textarea:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.2);
+    box-shadow: 0 0 0 2px rgb(var(--primary-color-rgb) / 0.2);
 }
 
 /* Стили для списка комментариев */
@@ -76,7 +76,7 @@
 }
 
 .comment-item:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
 }
 
 .comment-header {
@@ -168,6 +168,10 @@
 .comment-delete-btn:hover {
     background: var(--danger-color);
     color: white;
+}
+
+.inline-form {
+    display: inline;
 }
 
 /* Стили для пагинации */

@@ -38,7 +38,7 @@
                     <form hx-post="{% url 'tasks:comment_delete' comment.id %}"
                           hx-target="#comments-container"
                           hx-swap="innerHTML"
-                          style="display: inline;">
+                          class="inline-form">
                         {% csrf_token %}
                         <button type="submit" 
                                 class="button is-small is-danger comment-delete-btn"
