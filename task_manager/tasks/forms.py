@@ -178,6 +178,17 @@ class TasksFilter(FilterSet):
         field_name='self_task',
     )
 
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize the TasksFilter with request context.
+
+        Args:
+            *args: Additional positional arguments
+            **kwargs: Additional keyword arguments including 'request'
+        """
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+
     def filter_current_user(self, queryset, name, value):
         """
         Filter tasks to show only those created by the current user.
@@ -198,7 +209,7 @@ class TasksFilter(FilterSet):
 
     class Meta:
         model = Task
-        fields = ['executor', 'labels']
+        fields = ['executor', 'labels', 'self_task']
 
 
 class CommentForm(forms.ModelForm):
