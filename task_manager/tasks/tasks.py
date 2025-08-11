@@ -3,9 +3,10 @@ from pathlib import Path
 
 from celery import shared_task
 from django.conf import settings
+from django.urls import reverse
 
-from task_manager.users.bot import bot_admin
 from task_manager.tasks.models import Comment
+from task_manager.users.bot import bot_admin
 
 
 @shared_task  # type: ignore
@@ -96,9 +97,6 @@ def send_comment_notification(comment_id: int) -> None:
         comment = Comment.objects.get(id=comment_id)
         task = comment.task
         author = comment.author
-
-        from django.urls import reverse
-        from django.conf import settings
 
         task_url = reverse('tasks:view_task', args=[task.slug])
         full_url = (

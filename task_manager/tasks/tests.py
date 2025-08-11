@@ -1,14 +1,13 @@
 from datetime import datetime, timedelta
-from unittest.mock import patch
-from django.test import TestCase
-from django.urls import reverse_lazy
+from unittest.mock import MagicMock, patch
+
+from django.core.paginator import Paginator
+from django.test import Client, TestCase
+from django.urls import reverse, reverse_lazy
 from django_filters import FilterSet
-from unittest.mock import MagicMock
-from django.test import Client
-from django.urls import reverse
 
 from task_manager.labels.models import Label
-from task_manager.tasks.models import ReminderPeriod, Task, Stage, Comment
+from task_manager.tasks.models import Comment, ReminderPeriod, Stage, Task
 from task_manager.users.models import User
 
 
@@ -161,8 +160,6 @@ class TestComments(TestCase):
 
         comments = self.task.comments.filter(is_deleted=False).order_by('-created_at')
         self.assertEqual(comments.count(), 15)
-
-        from django.core.paginator import Paginator
 
         paginator = Paginator(comments, 10)
         self.assertEqual(paginator.num_pages, 2)

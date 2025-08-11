@@ -1,18 +1,15 @@
 from typing import Any
+
 from django import forms
 from django.db.models import Value
 from django.db.models.functions import Concat
-from django.forms import ModelForm, DateTimeInput
-import django_filters
-from task_manager.labels.models import Label
-from task_manager.tasks.models import (
-    Checklist,
-    ChecklistItem,
-    Task,
-)
+from django.forms import DateTimeInput, ModelForm
 from django.utils.translation import gettext_lazy
+from django_filters import FilterSet
+
+from task_manager.labels.models import Label
+from task_manager.tasks.models import Checklist, ChecklistItem, Comment, Task
 from task_manager.users.models import User
-from task_manager.tasks.models import Comment
 
 
 class ChecklistItemForm(forms.Form):
@@ -107,7 +104,7 @@ class TaskForm(ModelForm[Any]):
         return task
 
 
-class TasksFilter(django_filters.FilterSet):
+class TasksFilter(FilterSet):
     executors = User.objects.values_list(
         'id', Concat('first_name', Value(' '), 'last_name'), named=True
     ).all()

@@ -1,9 +1,12 @@
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Iterable
+
 from transliterate import translit
+
 from django.utils.text import slugify
 from django.utils.timezone import now
 
+from task_manager.tasks.models import ReminderPeriod
 from task_manager.tasks.tasks import (
     send_notification_about_task,
     send_notification_with_photo_about_task,
@@ -17,13 +20,13 @@ def slugify_translit(task_name: str) -> str:
 
 def notify(
     task_name: str,
-    reminder_periods: dict[str, Any],
+    reminder_periods: Iterable[ReminderPeriod],
     deadline: datetime,
     task_file_path: str | None,
     task_url: str,
 ) -> None:
     for period in reminder_periods:
-        notify_time = deadline - timedelta(minutes=period.period)  # type: ignore
+        notify_time = deadline - timedelta(minutes=period.period)
         if notify_time > now():
             if task_file_path:
                 send_notification_with_photo_about_task.apply_async(

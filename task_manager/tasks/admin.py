@@ -1,5 +1,6 @@
 from django.contrib import admin
-from task_manager.tasks.models import Task, Stage, Comment
+
+from task_manager.tasks.models import Comment, Stage, Task
 
 
 @admin.register(Task)

@@ -3,7 +3,12 @@ import mimetypes
 import os
 from typing import Any
 from urllib.parse import quote
-from django.db import IntegrityError
+
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.contrib.messages.views import SuccessMessageMixin
+from django.core.paginator import Paginator
+from django.db import IntegrityError, transaction
 from django.forms import BaseForm, ModelForm
 from django.http import (
     FileResponse,
@@ -12,16 +17,11 @@ from django.http import (
     HttpResponse,
     JsonResponse,
 )
-from django.db import transaction
-from django.template.loader import render_to_string
-from django.utils.translation import gettext_lazy as _
-from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.contrib.messages.views import SuccessMessageMixin
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse_lazy
-from django.utils.translation import gettext, gettext_lazy
 from django.utils import timezone
+from django.utils.translation import gettext, gettext_lazy as _
 from django.views import View
 from django.views.generic import (
     CreateView,
@@ -31,26 +31,26 @@ from django.views.generic import (
 )
 from django_filters.views import FilterView
 
-from task_manager.tasks.forms import TaskForm, TasksFilter
+from task_manager.labels.models import Label
+from task_manager.tasks.forms import CommentForm, TaskForm, TasksFilter
 from task_manager.tasks.models import (
     ChecklistItem,
-    Task,
-    Stage,
     Comment,
-    reorder_tasks_in_stage,
+    Stage,
+    Task,
     reorder_task_within_stage,
+    reorder_tasks_in_stage,
 )
 from task_manager.tasks.services import notify, slugify_translit
-from task_manager.users.models import User
 from task_manager.tasks.tasks import (
     send_about_closing_task,
-    send_about_opening_task,
-    send_message_about_adding_task,
     send_about_deleting_task,
     send_about_moving_task,
+    send_about_opening_task,
+    send_comment_notification,
+    send_message_about_adding_task,
 )
-from task_manager.tasks.forms import CommentForm
-from task_manager.tasks.tasks import send_comment_notification
+from task_manager.users.models import User
 
 
 class TasksList(
@@ -76,8 +76,6 @@ class KanbanBoard(
     template_name = 'tasks/kanban.html'
 
     def get(self, request, *args, **kwargs):
-        from task_manager.labels.models import Label
-
         labels = Label.objects.all().order_by('name')
         selected_labels = request.GET.getlist('labels')
         stages = Stage.objects.prefetch_related('tasks').order_by('order')
@@ -165,9 +163,10 @@ class UpdateTaskStageView(View):
                             request,
                             _('Only the task author can move it to Done'),
                         )
-                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                            from django.template.loader import render_to_string
-
+                        if (
+                            request.headers.get('X-Requested-With')
+                            == 'XMLHttpRequest'
+                        ):
                             messages_html = render_to_string(
                                 'includes/messages.html',
                                 {'messages': messages.get_messages(request)},
@@ -482,8 +481,6 @@ class TaskView(
             context['done_checklist'] = 0
             context['progress_checklist'] = 0
 
-        from django.core.paginator import Paginator
-
         comments = task.comments.filter(is_deleted=False).order_by('-created_at')
         paginator = Paginator(comments, 10)
         page_number = self.request.GET.get('page')
@@ -511,7 +508,7 @@ class ChecklistItemToggle(View):
 class DownloadFileView(DetailView[Task]):
     model = Task
 
-    def get(self, request: HttpRequest, *args, **kwargs) -> FileResponse:  # type: ignore
+    def get(self, request: HttpRequest, *args, **kwargs) -> FileResponse:
         task = self.get_object()
         image_path = task.image.path
         image_name = task.image.name
@@ -666,8 +663,6 @@ class CommentViewView(LoginRequiredMixin, View):
 def comments_list_view(request: HttpRequest, task_slug: str) -> HttpResponse:
     task = get_object_or_404(Task, slug=task_slug)
     comments = task.comments.filter(is_deleted=False).order_by('-created_at')
-
-    from django.core.paginator import Paginator
 
     paginator = Paginator(comments, 10)
     page_number = request.GET.get('page')

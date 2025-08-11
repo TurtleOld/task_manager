@@ -1,12 +1,13 @@
 import os
+
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
 from django.utils.timezone import now
+from django.utils.translation import gettext_lazy as _
 
 from task_manager.labels.models import Label
 from task_manager.users.models import User
-from django.utils.translation import gettext_lazy as _
 
 PERIOD = {
     10: '10 минут',
@@ -49,7 +50,7 @@ class Checklist(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def str(self) -> str:
+    def __str__(self) -> str:
         return f'Чеклист для задачи: {self.task.name}'
 
 
@@ -62,7 +63,7 @@ class ChecklistItem(models.Model):
     description = models.CharField(max_length=255)
     is_completed = models.BooleanField(default=False)
 
-    def str(self) -> str:
+    def __str__(self) -> str:
         return self.description
 
 
@@ -92,6 +93,9 @@ class Stage(models.Model):
 
     class Meta:
         ordering = ['order']
+
+    def __str__(self) -> str:
+        return self.name
 
 
 class Task(models.Model):
@@ -154,7 +158,7 @@ class Task(models.Model):
     def get_absolute_url(self) -> str:
         return reverse('tasks:view_task', args=[self.slug])
 
-    def move_to_stage(self, new_stage_id):
+    def move_to_stage(self, new_stage_id: int) -> None:
         old_stage_id = self.stage.id
         self.stage.id = new_stage_id
 
@@ -164,10 +168,10 @@ class Task(models.Model):
             reorder_tasks_in_stage(old_stage_id)
         reorder_tasks_in_stage(new_stage_id)
 
-    def reorder_within_stage(self, new_order):
+    def reorder_within_stage(self, new_order: int) -> None:
         reorder_task_within_stage(self, new_order)
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
         image_dir = os.path.join(settings.MEDIA_ROOT, 'images')
         if not os.path.exists(image_dir):
             os.makedirs(image_dir)
@@ -212,14 +216,14 @@ class Comment(models.Model):
         self.save(update_fields=['is_deleted'])
 
 
-def reorder_tasks_in_stage(stage_id):
+def reorder_tasks_in_stage(stage_id: int) -> None:
     tasks = Task.objects.filter(stage_id=stage_id).order_by('order', 'created_at')
     for index, task in enumerate(tasks):
         task.order = index
         task.save(update_fields=['order'])
 
 
-def reorder_task_within_stage(task, new_order):
+def reorder_task_within_stage(task: Task, new_order: int) -> None:
     stage_id = task.stage_id
     if not stage_id:
         return
