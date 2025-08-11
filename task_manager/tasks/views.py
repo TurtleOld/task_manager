@@ -21,7 +21,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.utils.translation import gettext, gettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic import (
     CreateView,
@@ -62,7 +62,7 @@ class TasksList(
     template_name = 'tasks/kanban.html'
     context_object_name = 'tasks'
     filterset_class = TasksFilter
-    error_message = gettext_lazy(
+    error_message = _(
         'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
@@ -260,9 +260,9 @@ class CreateTask(
     model = Task
     template_name = 'tasks/create_task.html'
     form_class = TaskForm
-    success_message = gettext_lazy('Задача успешно создана')
+    success_message = _('Задача успешно создана')
     success_url = reverse_lazy('tasks:list')
-    error_message = gettext_lazy(
+    error_message = _(
         'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')
@@ -410,7 +410,7 @@ class DeleteTask(
     def form_invalid(self, form: ModelForm[Task]) -> HttpResponse:
         messages.error(
             self.request,
-            gettext_lazy('Вы не можете удалить чужую задачу!'),
+            _('Вы не можете удалить чужую задачу!'),
         )
         return redirect(self.success_url)
 
@@ -428,13 +428,13 @@ class CloseTask(View):
         if task.author != request.user or task.executor != request.user:
             messages.error(
                 request,
-                gettext_lazy('У вас нет прав для изменения состояния этой задачи'),
+                _('У вас нет прав для изменения состояния этой задачи'),
             )
         else:
             task.state = not task.state
             messages.success(
                 request,
-                gettext_lazy('Статус задачи изменен.'),
+                _('Статус задачи изменен.'),
             )
             if task.state:
                 send_about_closing_task.delay(task.name, task_url)
@@ -453,7 +453,7 @@ class TaskView(
     model = Task
     template_name = 'tasks/view_task.html'
     context_object_name = 'task'
-    error_message = gettext(
+    error_message = _(
         'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
     )
     no_permission_url = reverse_lazy('login')

@@ -5,7 +5,7 @@ from django.db.models import Value
 from django.db.models.functions import Concat
 from django.forms import DateTimeInput, ModelForm
 from django.utils.translation import gettext_lazy
-from django_filters import FilterSet
+from django_filters import FilterSet, ChoiceFilter, BooleanFilter
 
 from task_manager.labels.models import Label
 from task_manager.tasks.models import Checklist, ChecklistItem, Comment, Task
@@ -108,16 +108,16 @@ class TasksFilter(FilterSet):
     executors = User.objects.values_list(
         'id', Concat('first_name', Value(' '), 'last_name'), named=True
     ).all()
-    executor = django_filters.ChoiceFilter(
+    executor = ChoiceFilter(
         label=gettext_lazy('Исполнитель'), choices=executors
     )
 
     all_labels = Label.objects.values_list('id', 'name', named=True)
-    labels = django_filters.ChoiceFilter(
+    labels = ChoiceFilter(
         label=gettext_lazy('Метка'), choices=all_labels
     )
 
-    self_task = django_filters.BooleanFilter(
+    self_task = BooleanFilter(
         label=gettext_lazy('Только свои задачи'),
         widget=forms.CheckboxInput(),
         method='filter_current_user',

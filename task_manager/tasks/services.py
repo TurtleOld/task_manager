@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Any, Iterable
+from typing import Iterable
 
 from transliterate import translit
 
