@@ -6,7 +6,11 @@
 
 {% block content %}
 <script type="application/json" id="tasks-data">{{ tasks|safe }}</script>
-<main x-data="kanbanBoard" x-init="init()" class="container" role="main" aria-label="{% translate 'Доска задач' %}">
+<main x-data="kanbanBoard" 
+      x-init="init(); showDeleteModal = false; deleteTaskObj = null; isInitialized = false;" 
+      class="container" 
+      role="main" 
+      aria-label="{% translate 'Доска задач' %}">
     <!-- Mobile Instructions -->
     <div class="notification is-info is-light is-hidden-desktop mb-4" x-show="isMobile">
         <div class="content">
@@ -137,8 +141,9 @@
         {% endfor %}
     </section>
     
-    <div x-show="showDeleteModal" 
-         class="modal is-active delete-modal" 
+    <div x-show="showDeleteModal && deleteTaskObj" 
+         class="modal delete-modal" 
+         style="display: none;"
          aria-modal="true" 
          role="dialog" 
          aria-labelledby="deleteModalTitle"
