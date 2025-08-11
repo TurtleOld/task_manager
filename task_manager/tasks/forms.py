@@ -150,7 +150,7 @@ class TaskForm(ModelForm[Any]):
         return task
 
 
-class TasksFilter(FilterSet):
+class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
     """
     Filter form for tasks with filtering options for executor, labels, and user-specific tasks.
 
