@@ -1,3 +1,10 @@
+"""
+URL configuration for the tasks app.
+
+This module defines all URL patterns for the tasks application, including
+views for task management, comments, checklists, and file downloads.
+"""
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path

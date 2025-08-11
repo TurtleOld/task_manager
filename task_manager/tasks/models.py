@@ -1,3 +1,11 @@
+"""
+Django models for the tasks app.
+
+This module contains all the database models for the task management system,
+including Task, Stage, Comment, Checklist, ChecklistItem, and ReminderPeriod models.
+It also includes utility functions for task ordering and management.
+"""
+
 import os
 
 from django.conf import settings
@@ -43,6 +51,13 @@ PERIOD = {
 
 
 class Checklist(models.Model):
+    """
+    Model representing a checklist associated with a task.
+
+    Each task can have one checklist containing multiple checklist items.
+    The checklist is automatically created when needed and provides
+    a way to organize subtasks or requirements for a main task.
+    """
     task = models.OneToOneField(
         'Task',
         on_delete=models.CASCADE,
@@ -51,10 +66,17 @@ class Checklist(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
+        """Return a string representation of the checklist."""
         return f'Чеклист для задачи: {self.task.name}'
 
 
 class ChecklistItem(models.Model):
+    """
+    Model representing individual items within a checklist.
+
+    Each checklist item has a description and completion status,
+    allowing users to track progress on subtasks or requirements.
+    """
     checklist = models.ForeignKey(
         Checklist,
         on_delete=models.CASCADE,
@@ -64,10 +86,17 @@ class ChecklistItem(models.Model):
     is_completed = models.BooleanField(default=False)
 
     def __str__(self) -> str:
+        """Return the description of the checklist item."""
         return self.description
 
 
 class ReminderPeriod(models.Model):
+    """
+    Model representing reminder periods for task deadlines.
+
+    Defines different time periods (in minutes) before a deadline
+    when notifications should be sent to remind users about upcoming tasks.
+    """
     period = models.IntegerField(
         default=60,
         blank=True,
@@ -76,12 +105,19 @@ class ReminderPeriod(models.Model):
     )
 
     def __str__(self) -> str:
+        """Return a human-readable representation of the reminder period."""
         if isinstance(self.period, int):
             return str(PERIOD.get(self.period, 60))
         return 'Не задано'
 
 
 class Stage(models.Model):
+    """
+    Model representing workflow stages for tasks.
+
+    Stages represent different phases in the task workflow (e.g., To Do, In Progress, Done).
+    Tasks can be moved between stages, and each stage has an order for display purposes.
+    """
     name = models.CharField(
         max_length=100,
         null=True,
@@ -95,10 +131,18 @@ class Stage(models.Model):
         ordering = ['order']
 
     def __str__(self) -> str:
+        """Return the name of the stage."""
         return self.name
 
 
 class Task(models.Model):
+    """
+    Model representing a task in the task management system.
+
+    Tasks are the core entities in the system, containing information about
+    what needs to be done, who is responsible, deadlines, and current status.
+    Tasks can have associated checklists, labels, and comments.
+    """
     name = models.CharField(max_length=50)
     description = models.TextField(blank=True)
 
@@ -145,20 +189,45 @@ class Task(models.Model):
         ]
 
     def __str__(self) -> str:
+        """Return the name of the task."""
         return self.name
 
     def is_deadline_overdue(self) -> bool:
+        """
+        Check if the task deadline has passed.
+
+        Returns:
+            True if the deadline has passed, False otherwise
+        """
         if self.deadline:
             return self.deadline.astimezone() < now().astimezone()
         return False
 
     def get_reminder_period_display(self) -> str:
+        """
+        Get a string representation of all reminder periods.
+
+        Returns:
+            Comma-separated string of reminder period descriptions
+        """
         return ', '.join(str(period) for period in self.reminder_periods.all())
 
     def get_absolute_url(self) -> str:
+        """
+        Get the absolute URL for viewing this task.
+
+        Returns:
+            The URL for the task detail view
+        """
         return reverse('tasks:view_task', args=[self.slug])
 
     def move_to_stage(self, new_stage_id: int) -> None:
+        """
+        Move the task to a new stage and reorder tasks in both stages.
+
+        Args:
+            new_stage_id: The ID of the stage to move the task to
+        """
         old_stage_id = self.stage.id
         self.stage.id = new_stage_id
 
@@ -169,9 +238,21 @@ class Task(models.Model):
         reorder_tasks_in_stage(new_stage_id)
 
     def reorder_within_stage(self, new_order: int) -> None:
+        """
+        Reorder the task within its current stage.
+
+        Args:
+            new_order: The new position for the task within the stage
+        """
         reorder_task_within_stage(self, new_order)
 
     def save(self, *args, **kwargs) -> None:
+        """
+        Save the task and ensure the images directory exists.
+
+        Creates the images directory if it doesn't exist before saving
+        the task instance.
+        """
         image_dir = os.path.join(settings.MEDIA_ROOT, 'images')
         if not os.path.exists(image_dir):
             os.makedirs(image_dir)
@@ -179,6 +260,12 @@ class Task(models.Model):
 
 
 class Comment(models.Model):
+    """
+    Model representing comments on tasks.
+
+    Comments allow users to discuss tasks, provide updates, or ask questions.
+    Comments support soft deletion and track creation/update timestamps.
+    """
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
@@ -203,20 +290,57 @@ class Comment(models.Model):
         verbose_name_plural = _('Комментарии')
 
     def __str__(self) -> str:
+        """Return a string representation of the comment."""
         return f'Комментарий от {self.author} к задаче {self.task.name}'
 
     def can_edit(self, user: User) -> bool:
+        """
+        Check if a user can edit this comment.
+
+        Args:
+            user: The user to check permissions for
+
+        Returns:
+            True if the user can edit the comment, False otherwise
+        """
         return user == self.author and not self.is_deleted
 
     def can_delete(self, user: User) -> bool:
+        """
+        Check if a user can delete this comment.
+
+        Args:
+            user: The user to check permissions for
+
+        Returns:
+            True if the user can delete the comment, False otherwise
+        """
         return user == self.author and not self.is_deleted
 
     def soft_delete(self) -> None:
+        """
+        Soft delete the comment by marking it as deleted.
+
+        The comment remains in the database but is marked as deleted
+        and will not be displayed in normal views.
+        """
         self.is_deleted = True
         self.save(update_fields=['is_deleted'])
 
 
 def reorder_tasks_in_stage(stage_id: int) -> None:
+    """
+    Reorder all tasks within a specific stage to ensure consistent ordering.
+
+    This function fetches all tasks in the given stage, orders them by their current
+    order and creation date, then reassigns sequential order values starting from 0.
+
+    Args:
+        stage_id: The ID of the stage whose tasks should be reordered
+
+    Returns:
+        None
+    """
     tasks = Task.objects.filter(stage_id=stage_id).order_by('order', 'created_at')
     for index, task in enumerate(tasks):
         task.order = index
@@ -224,6 +348,19 @@ def reorder_tasks_in_stage(stage_id: int) -> None:
 
 
 def reorder_task_within_stage(task: Task, new_order: int) -> None:
+    """
+    Reorder a specific task within its stage.
+
+    This function reorders a task to a new position within its current stage,
+    adjusting the order of other tasks in the stage accordingly.
+
+    Args:
+        task: The task to reorder
+        new_order: The new position for the task within the stage
+
+    Returns:
+        None
+    """
     stage_id = task.stage_id
     if not stage_id:
         return

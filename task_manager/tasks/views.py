@@ -1,3 +1,10 @@
+"""
+Django views for the tasks app.
+
+This module contains all view classes and functions for the task management system,
+including task CRUD operations, kanban board views, comment management, and file handling.
+"""
+
 import json
 import mimetypes
 import os
@@ -58,6 +65,12 @@ class TasksList(
     SuccessMessageMixin[Any],
     FilterView[Task],
 ):
+    """
+    View for displaying a filtered list of tasks.
+
+    Provides a filterable list view of tasks with authentication requirements
+    and success message handling.
+    """
     model = Task
     template_name = 'tasks/kanban.html'
     context_object_name = 'tasks'
@@ -73,9 +86,21 @@ class KanbanBoard(
     SuccessMessageMixin[Any],
     FilterView[Task],
 ):
+    """
+    Kanban board view for task management.
+
+    Displays tasks organized by stages in a kanban board format,
+    with filtering capabilities and JSON data for JavaScript interactions.
+    """
     template_name = 'tasks/kanban.html'
 
     def get(self, request, *args, **kwargs):
+        """
+        Handle GET requests for the kanban board.
+
+        Returns:
+            Rendered kanban board with task data and stage information
+        """
         labels = Label.objects.all().order_by('name')
         selected_labels = request.GET.getlist('labels')
         stages = Stage.objects.prefetch_related('tasks').order_by('order')
@@ -128,6 +153,11 @@ class KanbanBoard(
 
 
 class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
+    """
+    View for creating new task stages.
+
+    Provides a form for creating new stages in the task workflow.
+    """
     model = Stage
     template_name = 'tasks/create_stage.html'
     fields = '__all__'
@@ -135,7 +165,20 @@ class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
 
 
 class UpdateTaskStageView(View):
+    """
+    AJAX view for updating task stages and positions.
+
+    Handles drag-and-drop operations for moving tasks between stages
+    and reordering tasks within stages.
+    """
+
     def post(self, request, *args, **kwargs):
+        """
+        Handle POST requests for updating task stages and positions.
+
+        Returns:
+            JSON response indicating success or failure
+        """
         try:
             data = json.loads(request.body)
             task_id = data.get('task_id')
@@ -216,7 +259,19 @@ class UpdateTaskStageView(View):
 
 
 class UpdateTaskOrderView(View):
+    """
+    AJAX view for updating task order in bulk.
+
+    Handles bulk updates of task positions and stages from the kanban board.
+    """
+
     def post(self, request):
+        """
+        Handle POST requests for bulk task order updates.
+
+        Returns:
+            JSON response indicating success or failure
+        """
         try:
             data = json.loads(request.body)
             tasks_data = data.get('tasks', [])
@@ -257,6 +312,12 @@ class CreateTask(
     SuccessMessageMixin[Any],
     CreateView[Task, Any],
 ):
+    """
+    View for creating new tasks.
+
+    Provides a form for creating new tasks with checklist support,
+    notification scheduling, and proper validation.
+    """
     model = Task
     template_name = 'tasks/create_task.html'
     form_class = TaskForm
@@ -269,11 +330,26 @@ class CreateTask(
     query_pk_and_slug = True
 
     def get_form_kwargs(self) -> dict[str, Any]:
+        """
+        Get form keyword arguments including the request object.
+
+        Returns:
+            Dictionary of form keyword arguments
+        """
         kwargs = super().get_form_kwargs()
         kwargs['request'] = self.request
         return kwargs
 
     def form_valid(self, form: TaskForm) -> HttpResponse:
+        """
+        Handle valid form submission for task creation.
+
+        Args:
+            form: The validated task form
+
+        Returns:
+            HTTP response after successful task creation
+        """
         try:
             form.instance.author = User.objects.get(pk=self.request.user.pk)
             task = form.save(commit=False)
@@ -333,6 +409,11 @@ class UpdateTask(
     SuccessMessageMixin[Any],
     UpdateView[Task, Any],
 ):
+    """
+    View for updating existing tasks.
+
+    Provides a form for editing tasks with checklist support and proper validation.
+    """
     template_name = 'tasks/update_task.html'
     query_pk_and_slug = True
     form_class = TaskForm
@@ -340,17 +421,41 @@ class UpdateTask(
     context_object_name = 'tasks'
 
     def get_form_kwargs(self) -> dict[str, Any]:
+        """
+        Get form keyword arguments including the request object.
+
+        Returns:
+            Dictionary of form keyword arguments
+        """
         kwargs = super().get_form_kwargs()
         kwargs['request'] = self.request
         return kwargs
 
     def get_context_data(self, **kwargs: dict[str, Any]) -> dict[str, Any]:
+        """
+        Get context data including checklist information.
+
+        Args:
+            **kwargs: Additional context data
+
+        Returns:
+            Dictionary of context data
+        """
         context = super().get_context_data(**kwargs)
         form = context['form']
         context['checklist_data'] = json.dumps(form.checklist_data)
         return context
 
     def form_valid(self, form: TaskForm) -> HttpResponse:
+        """
+        Handle valid form submission for task updates.
+
+        Args:
+            form: The validated task form
+
+        Returns:
+            HTTP response after successful task update
+        """
         checklist_items = []
         i = 0
         while f'checklist_items[{i}][description]' in self.request.POST:
@@ -379,6 +484,12 @@ class DeleteTask(
     UserPassesTestMixin,
     DeleteView,
 ):
+    """
+    View for deleting tasks.
+
+    Provides task deletion functionality with permission checks
+    and notification sending.
+    """
     template_name = 'tasks/task_confirm_delete.html'
     model = Task
     success_url = reverse_lazy('tasks:list')
@@ -386,10 +497,22 @@ class DeleteTask(
     context_object_name = 'tasks'
 
     def test_func(self):
+        """
+        Test if the user can delete the task.
+
+        Returns:
+            True if the user is the task author, False otherwise
+        """
         task = self.get_object()
         return self.request.user == task.author
 
     def handle_no_permission(self):
+        """
+        Handle cases where the user doesn't have permission to delete the task.
+
+        Returns:
+            Redirect response with error message
+        """
         messages.error(
             self.request,
             'Вы не можете удалить чужую задачу!',
@@ -397,6 +520,12 @@ class DeleteTask(
         return redirect(self.success_url)
 
     def delete(self, request, *args, **kwargs):
+        """
+        Handle task deletion with notification.
+
+        Returns:
+            Redirect response after successful deletion
+        """
         task = self.get_object()
 
         task_name = task.name
@@ -408,6 +537,15 @@ class DeleteTask(
         return redirect(self.success_url)
 
     def form_invalid(self, form: ModelForm[Task]) -> HttpResponse:
+        """
+        Handle invalid form submission.
+
+        Args:
+            form: The invalid form
+
+        Returns:
+            Redirect response with error message
+        """
         messages.error(
             self.request,
             _('Вы не можете удалить чужую задачу!'),
@@ -416,6 +554,11 @@ class DeleteTask(
 
 
 class CloseTask(View):
+    """
+    View for closing and reopening tasks.
+
+    Handles task state changes with permission checks and notifications.
+    """
     model = Task
     template_name = 'tasks/kanban.html'
     form_class = TaskForm
@@ -423,6 +566,16 @@ class CloseTask(View):
     slug_url_kwarg = 'slug'
 
     def post(self, request: HttpRequest, slug: str) -> HttpResponse:
+        """
+        Handle POST requests for closing/reopening tasks.
+
+        Args:
+            request: The HTTP request
+            slug: The task slug
+
+        Returns:
+            Redirect response after state change
+        """
         task = get_object_or_404(Task, slug=slug)
         task_url = self.request.build_absolute_uri(f'/tasks/{slug}')
         if task.author != request.user or task.executor != request.user:
@@ -450,6 +603,12 @@ class TaskView(
     SuccessMessageMixin[BaseForm],
     DetailView[Task],
 ):
+    """
+    View for displaying task details.
+
+    Shows comprehensive task information including comments, checklist progress,
+    and related data with pagination support.
+    """
     model = Task
     template_name = 'tasks/view_task.html'
     context_object_name = 'task'
@@ -460,6 +619,15 @@ class TaskView(
     query_pk_and_slug = True
 
     def get_context_data(self, **kwargs: dict[str, Any]) -> dict[str, Any]:
+        """
+        Get context data including comments, checklist, and labels.
+
+        Args:
+            **kwargs: Additional context data
+
+        Returns:
+            Dictionary of context data
+        """
         context = super().get_context_data(**kwargs)
         task = self.get_object()
         context['labels'] = self.get_object().labels.all()
@@ -493,9 +661,24 @@ class TaskView(
 
 
 class ChecklistItemToggle(View):
+    """
+    AJAX view for toggling checklist item completion status.
+
+    Handles checkbox toggles for checklist items with real-time updates.
+    """
     template_name = 'tasks/checklist_item.html'
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
+        """
+        Handle POST requests for toggling checklist items.
+
+        Args:
+            request: The HTTP request
+            pk: The checklist item primary key
+
+        Returns:
+            Rendered checklist item template
+        """
         checklist_item = get_object_or_404(ChecklistItem, pk=pk)
         checklist_item.is_completed = not checklist_item.is_completed
         checklist_item.save()
@@ -506,9 +689,29 @@ class ChecklistItemToggle(View):
 
 
 class DownloadFileView(DetailView[Task]):
+    """
+    View for downloading task images.
+
+    Provides secure file download functionality for task images
+    with proper MIME type detection and filename handling.
+    """
     model = Task
 
     def get(self, request: HttpRequest, *args, **kwargs) -> FileResponse:
+        """
+        Handle GET requests for file downloads.
+
+        Args:
+            request: The HTTP request
+            *args: Additional arguments
+            **kwargs: Additional keyword arguments
+
+        Returns:
+            FileResponse for the task image
+
+        Raises:
+            Http404: If the file is not found
+        """
         task = self.get_object()
         image_path = task.image.path
         image_name = task.image.name
@@ -530,6 +733,18 @@ class DownloadFileView(DetailView[Task]):
 
 
 def checklist_progress_view(request, task_id):
+    """
+    AJAX view for getting checklist progress.
+
+    Returns HTML fragment showing the current progress of a task's checklist.
+
+    Args:
+        request: The HTTP request
+        task_id: The task ID to get progress for
+
+    Returns:
+        HTTP response with rendered progress HTML
+    """
     task = get_object_or_404(Task, pk=task_id)
     if hasattr(task, 'checklist'):
         checklist_items = task.checklist.items.all()
@@ -554,7 +769,23 @@ def checklist_progress_view(request, task_id):
 
 
 class CommentCreateView(LoginRequiredMixin, View):
+    """
+    View for creating new comments on tasks.
+
+    Handles comment creation with permission checks and notification sending.
+    """
+
     def post(self, request: HttpRequest, task_slug: str) -> HttpResponse:
+        """
+        Handle POST requests for comment creation.
+
+        Args:
+            request: The HTTP request
+            task_slug: The task slug to comment on
+
+        Returns:
+            HTTP response with comment list or error
+        """
         task = get_object_or_404(Task, slug=task_slug)
 
         if request.user not in [task.author, task.executor] and task.executor:
@@ -589,7 +820,23 @@ class CommentCreateView(LoginRequiredMixin, View):
 
 
 class CommentUpdateView(LoginRequiredMixin, View):
+    """
+    View for updating existing comments.
+
+    Handles comment updates with permission checks and timestamp tracking.
+    """
+
     def post(self, request: HttpRequest, comment_id: int) -> HttpResponse:
+        """
+        Handle POST requests for comment updates.
+
+        Args:
+            request: The HTTP request
+            comment_id: The comment ID to update
+
+        Returns:
+            HTTP response with updated comment list or error
+        """
         comment = get_object_or_404(Comment, id=comment_id)
 
         if not comment.can_edit(request.user):
@@ -621,7 +868,23 @@ class CommentUpdateView(LoginRequiredMixin, View):
 
 
 class CommentDeleteView(LoginRequiredMixin, View):
+    """
+    View for deleting comments.
+
+    Handles soft deletion of comments with permission checks.
+    """
+
     def post(self, request: HttpRequest, comment_id: int) -> HttpResponse:
+        """
+        Handle POST requests for comment deletion.
+
+        Args:
+            request: The HTTP request
+            comment_id: The comment ID to delete
+
+        Returns:
+            HTTP response with updated comment list or error
+        """
         comment = get_object_or_404(Comment, id=comment_id)
 
         if not comment.can_delete(request.user):
@@ -642,7 +905,23 @@ class CommentDeleteView(LoginRequiredMixin, View):
 
 
 class CommentEditFormView(LoginRequiredMixin, View):
+    """
+    View for displaying comment edit forms.
+
+    Provides AJAX endpoint for loading comment edit forms.
+    """
+
     def get(self, request: HttpRequest, comment_id: int) -> HttpResponse:
+        """
+        Handle GET requests for comment edit forms.
+
+        Args:
+            request: The HTTP request
+            comment_id: The comment ID to edit
+
+        Returns:
+            Rendered comment edit form or error
+        """
         comment = get_object_or_404(Comment, id=comment_id)
 
         if not comment.can_edit(request.user):
@@ -655,12 +934,40 @@ class CommentEditFormView(LoginRequiredMixin, View):
 
 
 class CommentViewView(LoginRequiredMixin, View):
+    """
+    View for displaying individual comments.
+
+    Provides AJAX endpoint for viewing individual comment details.
+    """
+
     def get(self, request: HttpRequest, comment_id: int) -> HttpResponse:
+        """
+        Handle GET requests for viewing comments.
+
+        Args:
+            request: The HTTP request
+            comment_id: The comment ID to view
+
+        Returns:
+            Rendered comment view
+        """
         comment = get_object_or_404(Comment, id=comment_id)
         return render(request, 'tasks/_comment.html', {'comment': comment})
 
 
 def comments_list_view(request: HttpRequest, task_slug: str) -> HttpResponse:
+    """
+    View for displaying task comments with pagination.
+
+    Returns a paginated list of comments for a specific task.
+
+    Args:
+        request: The HTTP request
+        task_slug: The task slug to get comments for
+
+    Returns:
+        HTTP response with rendered comments list
+    """
     task = get_object_or_404(Task, slug=task_slug)
     comments = task.comments.filter(is_deleted=False).order_by('-created_at')
 
