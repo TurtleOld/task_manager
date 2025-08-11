@@ -40,6 +40,46 @@
     <script defer src="{% static 'js/color-theme.js' %}"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     
+    <!-- Дополнительная защита от появления модального окна при загрузке -->
+    <style>
+        /* Скрываем модальное окно по умолчанию */
+        .modal.delete-modal {
+            display: none !important;
+        }
+        
+        /* Показываем модальное окно только когда Alpine.js это разрешает */
+        .modal.delete-modal[x-show="true"] {
+            display: flex !important;
+        }
+    </style>
+    
+    <script>
+        // Предотвращаем появление модального окна при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            // Скрываем все модальные окна при загрузке
+            const modals = document.querySelectorAll('.modal.is-active');
+            modals.forEach(modal => {
+                if (modal.classList.contains('delete-modal')) {
+                    console.warn('Hiding delete modal on page load');
+                    modal.classList.remove('is-active');
+                }
+            });
+        });
+        
+        // Дополнительная проверка после загрузки Alpine.js
+        document.addEventListener('alpine:init', function() {
+            setTimeout(() => {
+                const modals = document.querySelectorAll('.modal.is-active');
+                modals.forEach(modal => {
+                    if (modal.classList.contains('delete-modal')) {
+                        console.warn('Hiding delete modal after Alpine.js init');
+                        modal.classList.remove('is-active');
+                    }
+                });
+            }, 200);
+        });
+    </script>
+    
     <title>{% block title %}{% endblock %} - Task Manager</title>
 </head>
 <body data-theme="{{ theme_mode }}" data-theme-color="{{ user.theme_color|default:'blue' }}" x-data="{ dragging: null }">

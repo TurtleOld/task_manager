@@ -1,4 +1,11 @@
 document.addEventListener('alpine:init', () => {
+    // Немедленно скрываем модальное окно при загрузке скрипта
+    const deleteModal = document.querySelector('.delete-modal');
+    if (deleteModal) {
+        deleteModal.classList.remove('is-active');
+        deleteModal.style.display = 'none';
+    }
+
     // Добавляем CSS анимации для уведомлений
     if (!document.getElementById('kanban-notifications-style')) {
         const style = document.createElement('style');
@@ -23,6 +30,33 @@ document.addEventListener('alpine:init', () => {
         document.head.appendChild(style);
     }
 
+    // Дополнительная защита - убеждаемся, что модальное окно не показывается при загрузке
+    document.addEventListener('DOMContentLoaded', () => {
+        // Если модальное окно случайно открыто при загрузке, закрываем его
+        const deleteModal = document.querySelector('.delete-modal');
+        if (deleteModal && deleteModal.classList.contains('is-active')) {
+            deleteModal.classList.remove('is-active');
+        }
+
+        // Также проверяем все модальные окна на странице
+        const allModals = document.querySelectorAll('.modal.is-active');
+        allModals.forEach(modal => {
+            if (modal.classList.contains('delete-modal')) {
+                modal.classList.remove('is-active');
+            }
+        });
+    });
+
+    // Дополнительная защита - проверяем при загрузке Alpine.js
+    document.addEventListener('alpine:init', () => {
+        setTimeout(() => {
+            const deleteModal = document.querySelector('.delete-modal');
+            if (deleteModal && deleteModal.classList.contains('is-active')) {
+                deleteModal.classList.remove('is-active');
+            }
+        }, 100);
+    });
+
     Alpine.data('kanbanBoard', () => ({
         tasks: {},
         dragging: null,
@@ -37,13 +71,19 @@ document.addEventListener('alpine:init', () => {
         selectedTask: null,
         touchStartY: 0,
         touchStartX: 0,
+        isInitialized: false,
         init() {
+            // Явно устанавливаем showDeleteModal в false при инициализации
+            this.showDeleteModal = false;
+            this.deleteTaskObj = null;
+            this.isInitialized = false;
+
             const tasksDataScript = document.getElementById('tasks-data');
             const rawTasksData = tasksDataScript ? tasksDataScript.textContent : null;
             
             if (!rawTasksData || rawTasksData.trim() === '') {
-                console.warn('No tasks data found or data is empty');
                 this.tasks = {};
+                this.isInitialized = true;
                 return;
             }
             
@@ -51,8 +91,8 @@ document.addEventListener('alpine:init', () => {
                 const rawTasks = JSON.parse(rawTasksData);
                 
                 if (!rawTasks || !Array.isArray(rawTasks)) {
-                    console.warn('Invalid tasks data format - expected array, got:', typeof rawTasks);
                     this.tasks = {};
+                    this.isInitialized = true;
                     return;
                 }
                 
@@ -71,7 +111,6 @@ document.addEventListener('alpine:init', () => {
                 });
                 Object.assign(this.tasks, groupedTasks);
             } catch (error) {
-                console.error('Error parsing tasks data:', error, 'Raw data:', rawTasksData);
                 this.tasks = {};
             }
             
@@ -110,6 +149,22 @@ document.addEventListener('alpine:init', () => {
             if (this.isMobile) {
                 this.initMobileHandlers();
             }
+
+            // Дополнительная проверка - убеждаемся, что модальное окно закрыто
+            this.$nextTick(() => {
+                // Принудительно скрываем модальное окно при инициализации
+                this.showDeleteModal = false;
+                this.deleteTaskObj = null;
+
+                // Удаляем класс is-active если он есть и скрываем модальное окно
+                const modal = document.querySelector('.delete-modal');
+                if (modal) {
+                    modal.classList.remove('is-active');
+                    modal.style.display = 'none';
+                }
+
+                this.isInitialized = true;
+            });
         },
         initMobileHandlers() {
             // Добавляем обработчики touch событий для мобильных устройств
@@ -660,12 +715,49 @@ document.addEventListener('alpine:init', () => {
             });
         },
         openDeleteModal(task) {
-            this.showDeleteModal = true;
+            // Проверяем, что инициализация завершена
+            if (!this.isInitialized) {
+                return;
+            }
+
+            // Проверяем, что task существует и является объектом
+            if (!task || typeof task !== 'object') {
+                return;
+            }
+
+            // Проверяем, что у task есть необходимые свойства
+            if (!task.id || !task.name) {
+                return;
+            }
+
+            // Сначала устанавливаем данные задачи
             this.deleteTaskObj = task;
             this.dropdownTaskId = null;
+
+            // Затем показываем модальное окно
+            this.showDeleteModal = true;
+
+            // Устанавливаем видимость модального окна
+            this.$nextTick(() => {
+                const modal = document.querySelector('.delete-modal');
+                if (modal) {
+                    modal.classList.add('is-active');
+                    modal.style.display = 'flex';
+                }
+            });
         },
         closeDeleteModal() {
+            // Скрываем модальное окно
             this.showDeleteModal = false;
+
+            // Устанавливаем невидимость модального окна
+            const modal = document.querySelector('.delete-modal');
+            if (modal) {
+                modal.classList.remove('is-active');
+                modal.style.display = 'none';
+            }
+
+            // Очищаем данные задачи
             this.deleteTaskObj = null;
         },
         confirmDelete(task) {
@@ -693,8 +785,7 @@ document.addEventListener('alpine:init', () => {
                 }
                 this.closeDeleteModal();
             })
-            .catch(error => {
-                console.error('Ошибка при удалении задачи:', error);
+                .catch(error => {
                 this.closeDeleteModal();
             });
         },
