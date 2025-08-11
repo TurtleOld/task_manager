@@ -1,3 +1,10 @@
+"""
+URL configuration for the tasks app.
+
+This module defines all URL patterns for the tasks application, including
+views for task management, comments, checklists, and file downloads.
+"""
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path
@@ -5,21 +12,21 @@ from django.urls import path
 from task_manager.tasks.views import (
     ChecklistItemToggle,
     CloseTask,
-    DownloadFileView,
-    CreateTask,
-    DeleteTask,
-    TaskView,
-    KanbanBoard,
-    UpdateTaskOrderView,
-    CreateStageView,
-    UpdateTaskStageView,
-    UpdateTask,
-    checklist_progress_view,
     CommentCreateView,
-    CommentUpdateView,
     CommentDeleteView,
     CommentEditFormView,
+    CommentUpdateView,
     CommentViewView,
+    CreateStageView,
+    CreateTask,
+    DeleteTask,
+    DownloadFileView,
+    KanbanBoard,
+    TaskView,
+    UpdateTask,
+    UpdateTaskOrderView,
+    UpdateTaskStageView,
+    checklist_progress_view,
     comments_list_view,
 )
 
