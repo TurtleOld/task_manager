@@ -1,26 +1,37 @@
-FROM python:3.13.6
+FROM python:3.11-slim
 
 ENV PYTHONFAULTHANDLER=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-RUN useradd -m superuser
-USER superuser
-WORKDIR /home/superuser
+WORKDIR /app
+
+# Install system dependencies and uv
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add uv to PATH
+ENV PATH="/root/.local/bin:$PATH"
+
+# Copy project files for dependency installation
+COPY pyproject.toml uv.lock README.md ./
+
+# Install Python dependencies with uv
+RUN uv sync --frozen
+
+# Copy application code
 COPY . .
-USER root
-RUN chmod -R 755 /home/superuser && \
-    chown -R superuser:superuser /home/superuser
-USER superuser
 
-RUN pip install --upgrade pip || true && \
-    pip install uv
-ENV PATH="/home/superuser/.local/bin:$PATH"
-
-RUN uv venv
-ENV PATH="/home/superuser/.venv/bin:$PATH"
-RUN uv pip install -e .
+# Create non-root user
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+USER appuser
 
 EXPOSE 8000
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["uv", "run", "python", "manage.py", "runserver", "0.0.0.0:8000"]
