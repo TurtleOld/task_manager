@@ -35,6 +35,7 @@ services:
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-http://127.0.0.1,http://localhost}
       CHAT_ID: ${CHAT_ID:-}
       BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbitmq:5672/}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       RABBITMQ_USER: ${RMUSER:-rabbitmq}
       RABBITMQ_PASS: ${RMPASSWORD:-rabbitmq}
       RABBITMQ_HOST: ${RMHOST:-rabbitmq}
@@ -42,6 +43,7 @@ services:
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbitmq log_levels [{connection,error},{default,error}] disk_free_limit 2147483648
     depends_on:
       - rabbitmq
+      - redis
       - db
     restart: on-failure
     networks:
@@ -52,18 +54,82 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: task_manager_celery
-    command: celery -A task_manager worker -l INFO
+    command: celery -A task_manager worker -l INFO --concurrency=4
     env_file:
       - .env
     volumes:
       - ${LOCATION:-./app_data}:/app_data/files
     environment:
       BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbitmq:5672/}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       RABBITMQ_DEFAULT_USER: ${RMUSER:-rabbitmq}
       RABBITMQ_DEFAULT_PASS: ${RMPASSWORD:-rabbitmq}
       RABBITMQ_DEFAULT_HOST: ${RMHOST:-rabbitmq}
       RABBITMQ_DEFAULT_PORT: ${RMPORT:-5672}
+    depends_on:
+      - rabbitmq
+      - redis
     restart: on-failure
+    networks:
+      - default
+
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: task_manager_celery_beat
+    command: celery -A task_manager beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file:
+      - .env
+    volumes:
+      - ${LOCATION:-./app_data}:/app_data/files
+    environment:
+      BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbitmq:5672/}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      RABBITMQ_DEFAULT_USER: ${RMUSER:-rabbitmq}
+      RABBITMQ_DEFAULT_PASS: ${RMPASSWORD:-rabbitmq}
+      RABBITMQ_DEFAULT_HOST: ${RMHOST:-rabbitmq}
+      RABBITMQ_DEFAULT_PORT: ${RMPORT:-5672}
+    depends_on:
+      - rabbitmq
+      - redis
+      - db
+    restart: on-failure
+    networks:
+      - default
+
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: task_manager_flower
+    command: celery -A task_manager flower --port=5555
+    env_file:
+      - .env
+    environment:
+      BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbitmq:5672/}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    ports:
+      - "5555:5555"
+    depends_on:
+      - rabbitmq
+      - redis
+    restart: on-failure
+    networks:
+      - default
+
+  redis:
+    container_name: task_manager_redis
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - ${LOCATION:-./app_data}/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - default
 
