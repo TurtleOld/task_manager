@@ -59,7 +59,7 @@ class TestTask(TestCase):
         self.assertEqual(response.status_code, 200)
 
     @patch('task_manager.tasks.tasks.send_message_about_adding_task.delay')
-    @patch('task_manager.tasks.tasks.send_notification_about_task.apply_async')
+    @patch('task_manager.tasks.tasks.send_notification_about_task.kiq')
     def test_create_tasks(
         self,
         mock_send_massage: MagicMock,
@@ -104,7 +104,7 @@ class TestTask(TestCase):
         self.task1.refresh_from_db()
         self.assertFalse(self.task1.state)
 
-    @patch('task_manager.tasks.tasks.send_about_deleting_task.apply_async')
+    @patch('task_manager.tasks.tasks.send_about_deleting_task.kiq')
     def test_delete_task(self, mock_send_massage: MagicMock) -> None:
         """
         Test task deletion by the task author.

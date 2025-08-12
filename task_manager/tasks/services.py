@@ -47,18 +47,18 @@ def notify(
 ) -> None:
     """
     Schedule notifications for task reminders.
-    
+
     Creates scheduled notifications for each reminder period before the task deadline.
     Notifications can include task images if available, and are scheduled using
-    Celery's apply_async with specific execution times.
-    
+    TaskIQ's kiq with specific execution times.
+
     Args:
         task_name: The name of the task to send notifications about
         reminder_periods: Collection of reminder periods to schedule notifications for
         deadline: The task deadline datetime
         task_file_path: Optional path to the task's image file
         task_url: The URL to view the task details
-        
+
     Returns:
         None
     """
@@ -66,21 +66,15 @@ def notify(
         notify_time = deadline - timedelta(minutes=period.period)
         if notify_time > now():
             if task_file_path:
-                send_notification_with_photo_about_task.apply_async(
-                    (
-                        task_name,
-                        f'{period}',
-                        task_url,
-                        task_file_path,
-                    ),
-                    eta=notify_time,
-                )
+                send_notification_with_photo_about_task.kiq(
+                    task_name,
+                    f'{period}',
+                    task_url,
+                    task_file_path,
+                ).with_eta(notify_time)
             else:
-                send_notification_about_task.apply_async(
-                    (
-                        task_name,
-                        f'{period}',
-                        task_url,
-                    ),
-                    eta=notify_time,
-                )
+                send_notification_about_task.kiq(
+                    task_name,
+                    f'{period}',
+                    task_url,
+                ).with_eta(notify_time)

@@ -1,6 +1,6 @@
 # Makefile for Task Manager project
 
-.PHONY: help install migrate collectstatic run test clean docker-up docker-down docker-logs celery-worker celery-beat flower test-celery
+.PHONY: help install migrate collectstatic run test clean docker-up docker-down docker-logs taskiq-worker taskiq-scheduler taskiq-dashboard test-taskiq
 
 # Default target
 help:
@@ -14,10 +14,10 @@ help:
 	@echo "  docker-up      - Start all Docker services"
 	@echo "  docker-down    - Stop all Docker services"
 	@echo "  docker-logs    - Show Docker logs"
-	@echo "  celery-worker  - Start Celery worker"
-	@echo "  celery-beat    - Start Celery beat"
-	@echo "  flower         - Start Flower monitoring"
-	@echo "  test-celery    - Test Celery functionality"
+	@echo "  taskiq-worker  - Start TaskIQ worker"
+	@echo "  taskiq-scheduler - Start TaskIQ scheduler"
+	@echo "  taskiq-dashboard - Start TaskIQ dashboard"
+	@echo "  test-taskiq    - Test TaskIQ functionality"
 
 # Development commands
 install:
@@ -50,31 +50,28 @@ docker-down:
 docker-logs:
 	docker-compose logs -f
 
-# Celery commands
-celery-worker:
-	celery -A task_manager worker -l INFO
+# TaskIQ commands
+taskiq-worker:
+	taskiq worker task_manager.taskiq:broker --workers 4 --no-parse
 
-celery-beat:
-	celery -A task_manager beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+taskiq-scheduler:
+	taskiq scheduler task_manager.taskiq:broker
 
-flower:
-	celery -A task_manager flower --port=5555
+taskiq-dashboard:
+	taskiq dashboard task_manager.taskiq:broker --port 5555 --no-parse
 
 # Testing commands
-test-celery:
-	python manage.py test_celery --task all
+test-taskiq:
+	python manage.py test_taskiq --task all
 
-test-celery-debug:
-	python manage.py test_celery --task debug
+test-taskiq-basic:
+	python manage.py test_taskiq --task basic
 
-test-celery-simple:
-	python manage.py test_celery --task simple
+test-taskiq-email:
+	python manage.py test_taskiq --task email --email test@example.com --name "Test User"
 
-test-celery-email:
-	python manage.py test_celery --task email --email test@example.com --name "Test User"
-
-check-celery:
-	python scripts/check_celery.py
+check-taskiq:
+	python scripts/check_taskiq.py
 
 # Production commands
 prod-setup:
@@ -84,7 +81,7 @@ prod-setup:
 
 # Monitoring commands
 monitor:
-	@echo "Flower (Celery monitoring): http://localhost:5555"
+	@echo "TaskIQ Dashboard: http://localhost:5555"
 	@echo "RabbitMQ Management: http://localhost:15672"
 	@echo "Django Admin: http://localhost:8000/admin"
 
@@ -93,8 +90,8 @@ health-check:
 	@echo "Checking service health..."
 	@docker-compose ps
 	@echo ""
-	@echo "Checking Celery worker..."
-	@docker-compose exec worker-celery celery -A task_manager inspect active
+	@echo "Checking TaskIQ worker..."
+	@docker-compose exec worker-taskiq taskiq worker task_manager.taskiq:broker --workers 1 --help
 	@echo ""
 	@echo "Checking Redis..."
 	@docker-compose exec redis redis-cli ping

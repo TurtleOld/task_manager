@@ -234,7 +234,7 @@ class UpdateTaskStageView(View):
 
                         task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
                         moved_by = request.user.get_full_name() or request.user.username
-                        send_about_moving_task.delay(
+                        send_about_moving_task.kiq(
                             task.name,
                             moved_by,
                             new_stage.name,
@@ -295,7 +295,7 @@ class UpdateTaskOrderView(View):
                         new_stage = Stage.objects.get(id=stage_id)
                         task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
                         moved_by = request.user.get_full_name() or request.user.username
-                        send_about_moving_task.delay(
+                        send_about_moving_task.kiq(
                             task.name, moved_by, new_stage.name, task_url
                         )
                 else:
@@ -385,7 +385,7 @@ class CreateTask(
             deadline = task.deadline
             reminder_periods = form.cleaned_data['reminder_periods']
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
-            send_message_about_adding_task.delay(task_name, task_url)
+            send_message_about_adding_task.kiq(task_name, task_url)
             task_image_path = task.image.path if task_image else None
             if deadline and reminder_periods and os.environ.get('TOKEN_TELEGRAM_BOT'):
                 notify(
@@ -529,7 +529,7 @@ class DeleteTask(
         task = self.get_object()
 
         task_name = task.name
-        send_about_deleting_task.delay(task_name)
+        send_about_deleting_task.kiq(task_name)
         task.delete()
 
         messages.success(request, self.success_message)
@@ -590,10 +590,10 @@ class CloseTask(View):
                 _('Статус задачи изменен.'),
             )
             if task.state:
-                send_about_closing_task.delay(task.name, task_url)
+                send_about_closing_task.kiq(task.name, task_url)
                 task.save()
             else:
-                send_about_opening_task.delay(task.name, task_url)
+                send_about_opening_task.kiq(task.name, task_url)
                 task.save()
         return redirect('tasks:list')
 
@@ -802,7 +802,7 @@ class CommentCreateView(LoginRequiredMixin, View):
             comment.save()
 
             if task.executor and task.executor != request.user:
-                send_comment_notification.delay(comment.id)
+                send_comment_notification.kiq(comment.id)
 
             response = comments_list_view(request, task_slug)
 

@@ -1,14 +1,14 @@
 """
-Celery tasks for the tasks app.
+TaskIQ tasks for the tasks app.
 
-This module contains all Celery background tasks for the task management system,
+This module contains all TaskIQ background tasks for the task management system,
 including notification sending, task status updates, and comment notifications.
 """
 
 import os
 from pathlib import Path
 
-from celery import shared_task
+from taskiq import task as taskiq_task
 from django.conf import settings
 from django.urls import reverse
 
@@ -16,7 +16,7 @@ from task_manager.tasks.models import Comment
 from task_manager.users.bot import bot_admin
 
 
-@shared_task  # type: ignore
+@taskiq_task  # type: ignore
 def send_message_about_adding_task(task_name, task_url) -> None:
     """
     Send a notification about a new task being created.
@@ -36,7 +36,7 @@ def send_message_about_adding_task(task_name, task_url) -> None:
     )
 
 
-@shared_task  # type: ignore
+@taskiq_task  # type: ignore
 def send_about_updating_task(task_name, task_url) -> None:
     """
     Send a notification about a task being updated.
@@ -56,7 +56,7 @@ def send_about_updating_task(task_name, task_url) -> None:
     )
 
 
-@shared_task  # type: ignore
+@taskiq_task  # type: ignore
 def send_about_deleting_task(task_name) -> None:
     """
     Send a notification about a task being deleted.
@@ -75,7 +75,7 @@ def send_about_deleting_task(task_name) -> None:
     )
 
 
-@shared_task  # type: ignore
+@taskiq_task  # type: ignore
 def send_notification_about_task(
     task_name,
     task_time,
@@ -100,7 +100,7 @@ def send_notification_about_task(
     )
 
 
-@shared_task  # type: ignore
+@taskiq_task  # type: ignore
 def send_notification_with_photo_about_task(
     task_name,
     task_time,
@@ -137,7 +137,7 @@ def send_notification_with_photo_about_task(
         )
 
 
-@shared_task  # type: ignore
+@taskiq_task  # type: ignore
 def send_about_closing_task(task_name, task_url) -> None:
     """
     Send a notification about a task being closed.
@@ -157,7 +157,7 @@ def send_about_closing_task(task_name, task_url) -> None:
     )
 
 
-@shared_task  # type: ignore
+@taskiq_task  # type: ignore
 def send_about_opening_task(task_name, task_url) -> None:
     """
     Send a notification about a task being reopened.
@@ -177,7 +177,7 @@ def send_about_opening_task(task_name, task_url) -> None:
     )
 
 
-@shared_task  # type: ignore
+@taskiq_task  # type: ignore
 def send_about_moving_task(task_name, moved_by, stage_name, task_url) -> None:
     """
     Send a notification about a task being moved to a different stage.
@@ -200,7 +200,7 @@ def send_about_moving_task(task_name, moved_by, stage_name, task_url) -> None:
     )
 
 
-@shared_task  # type: ignore
+@taskiq_task  # type: ignore
 def send_comment_notification(comment_id: int) -> None:
     """
     Send a notification about a new comment on a task.

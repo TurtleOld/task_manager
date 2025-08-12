@@ -56,8 +56,6 @@ INSTALLED_APPS = [
     'task_manager.labels',
     'django_filters',
     'django_htmx',
-    'django_celery_results',
-    'django_celery_beat',
 ]
 
 if DEBUG:
@@ -221,59 +219,28 @@ STATICFILES_DIRS = (os.path.join(BASE_DIR, 'task_manager/static'),)
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# Celery Configuration Options
-CELERY_TIMEZONE = 'Europe/Moscow'
-CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60
-CELERYD_TASK_TIME_LIMIT = 600
-
-# Broker configuration (RabbitMQ)
-CELERY_BROKER_URL = os.environ.get(
+# TaskIQ Configuration Options
+TASKIQ_TIMEZONE = 'Europe/Moscow'
+TASKIQ_BROKER_URL = os.environ.get(
     'BROKER_URL', 'amqp://rabbitmq:rabbitmq@rabbitmq:5672/'
 )
-CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-CELERY_BROKER_CONNECTION_MAX_RETRIES = 10
-
-# Result backend configuration (Redis)
-CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
-CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = {'retry_policy': {'timeout': 5.0}}
-
-# Task serialization
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_ACCEPT_CONTENT = ['json']
+TASKIQ_RESULT_BACKEND_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
 
 # Task routing
-CELERY_TASK_ROUTES = {
+TASKIQ_TASK_ROUTES = {
     'task_manager.tasks.*': {'queue': 'default'},
     'task_manager.users.*': {'queue': 'users'},
 }
 
-# Task queues
-CELERY_TASK_DEFAULT_QUEUE = 'default'
-CELERY_TASK_DEFAULT_EXCHANGE = 'default'
-CELERY_TASK_DEFAULT_ROUTING_KEY = 'default'
-
 # Worker configuration
-CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
-CELERY_WORKER_DISABLE_RATE_LIMITS = False
+TASKIQ_WORKER_CONCURRENCY = 4
+TASKIQ_WORKER_MAX_TASKS_PER_CHILD = 1000
 
-# Beat configuration (for periodic tasks)
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-
-# Monitoring and logging
-CELERY_WORKER_SEND_TASK_EVENTS = True
-CELERY_TASK_SEND_SENT_EVENT = True
-
-# Error handling
-CELERY_TASK_REJECT_ON_WORKER_LOST = True
-CELERY_TASK_ACKS_LATE = True
+# Scheduler configuration
+TASKIQ_SCHEDULER_SOURCES = ["task_manager.tasks"]
 
 if 'test' in sys.argv or 'test_coverage' in sys.argv:
-    CELERY_TASK_ALWAYS_EAGER = True
-    BROKER_BACKEND = 'memory'
-    CELERY_RESULT_BACKEND = 'django-db'
+    TASKIQ_ALWAYS_EAGER = True
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
