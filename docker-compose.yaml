@@ -113,7 +113,7 @@ services:
 
   redis:
     container_name: task_manager_redis
-    image: redis:7-alpine
+    image: redis:8-alpine
     restart: always
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
