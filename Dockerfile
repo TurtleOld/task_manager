@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y \
 ENV PATH="/root/.local/bin:$PATH"
 
 # Copy project files for dependency installation
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock README.md ./
 
 # Install Python dependencies with uv
 RUN uv sync --frozen
