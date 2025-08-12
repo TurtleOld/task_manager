@@ -99,16 +99,9 @@ services:
       - default
 
   flower:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: mher/flower:2.0.1
     container_name: task_manager_flower
-    command: celery -A task_manager flower --port=5555
-    env_file:
-      - .env
-    environment:
-      BROKER_URL: ${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbitmq:5672/}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    command: celery flower --broker=${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbitmq:5672/} --port=5555
     ports:
       - "5555:5555"
     depends_on:

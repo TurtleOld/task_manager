@@ -1,25 +1,34 @@
-FROM python:3.13.6
+FROM python:3.11-slim
 
 ENV PYTHONFAULTHANDLER=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN useradd -m superuser
-USER superuser
-WORKDIR /home/superuser
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY pyproject.toml uv.lock ./
+
+# Install Python dependencies
+RUN pip install --upgrade pip && \
+    pip install -e .
+
+# Copy application code
 COPY . .
-USER root
-RUN chmod -R 755 /home/superuser && \
-    chown -R superuser:superuser /home/superuser
-USER superuser
 
-RUN pip install --upgrade pip || true && \
-    pip install uv
-ENV PATH="/home/superuser/.local/bin:$PATH"
-
-RUN uv venv
-ENV PATH="/home/superuser/.venv/bin:$PATH"
-RUN uv pip install -e .
+# Create non-root user
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+USER appuser
 
 EXPOSE 8000
 
