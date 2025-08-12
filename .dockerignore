@@ -23,6 +23,7 @@ coverage.xml
 .mypy_cache
 .pytest_cache
 .hypothesis
+requirements.txt
 
 # Virtual environments
 .env
