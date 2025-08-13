@@ -6,6 +6,7 @@ slug generation, notification scheduling, and task-related operations.
 """
 
 import json
+import logging
 import os
 from collections.abc import Iterable
 from datetime import datetime, timedelta
@@ -332,8 +333,15 @@ def update_task_stage_and_order(
         return {'success': False, 'error': 'Task not found'}
     except Stage.DoesNotExist:
         return {'success': False, 'error': 'Stage not found'}
+    except (ValueError, TypeError, AttributeError) as exception:
+        return {'success': False, 'error': f'Invalid data: {str(exception)}'}
     except Exception as exception:
-        return {'success': False, 'error': str(exception)}
+        # Log unexpected exceptions for debugging
+        logger = logging.getLogger(__name__)
+        logger.error(
+            f'Unexpected error in update_task_stage_and_order: {exception}'
+        )
+        return {'success': False, 'error': 'An unexpected error occurred'}
 
 
 def can_move_to_done_stage(
@@ -603,7 +611,7 @@ def create_comment(
     """
     task = get_object_or_404(Task, slug=task_slug)
 
-    if request.user not in [task.author, task.executor] and task.executor:
+    if request.user not in (task.author, task.executor) and task.executor:
         return (
             False,
             'У вас нет прав для добавления комментариев к этой задаче.',
@@ -718,7 +726,7 @@ def close_or_reopen_task(
     task = get_object_or_404(Task, slug=task_slug)
     task_url = request.build_absolute_uri(f'/tasks/{task_slug}')
 
-    if task.author != request.user and task.executor != request.user:
+    if request.user not in (task.author, task.executor):
         return False, 'У вас нет прав для изменения состояния этой задачи'
 
     task.state = not task.state

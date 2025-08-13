@@ -57,7 +57,7 @@ class LabelsList(LoginRequiredMixin, ListView[Label]):
 
 
 class CreateLabel(
-    LoginRequiredMixin, SuccessMessageMixin[Any], CreateView[Label, Any]
+    LoginRequiredMixin, SuccessMessageMixin, CreateView[Label, Any]
 ):
     model = Label
     template_name = 'labels/create_label.html'
@@ -72,7 +72,7 @@ class CreateLabel(
 
 class UpdateLabel(
     LoginRequiredMixin,
-    SuccessMessageMixin[Any],
+    SuccessMessageMixin,
     UpdateView[Label, Any],
 ):
     model = Label
@@ -86,7 +86,7 @@ class UpdateLabel(
 
 class DeleteLabel(  # type: ignore
     LoginRequiredMixin,
-    SuccessMessageMixin[Any],
+    SuccessMessageMixin,
     DeleteView[Label, Any],
 ):
     model = Label
