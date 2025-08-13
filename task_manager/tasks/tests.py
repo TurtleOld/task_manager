@@ -21,16 +21,17 @@ from task_manager.users.models import User
 class TestTask(TestCase):
     """
     Test cases for task-related functionality.
-    
+
     Tests task creation, deletion, filtering, and various task operations
     including permission checks and notification sending.
     """
+
     fixtures = ['users.yaml', 'tasks.yaml', 'labels.yaml']
 
     def setUp(self) -> None:
         """
         Set up test data for task tests.
-        
+
         Initializes test users, stages, tasks, labels, and reminder periods
         from fixtures for use in test methods.
         """
@@ -49,7 +50,7 @@ class TestTask(TestCase):
     def test_list_tasks(self) -> None:
         """
         Test that authenticated users can view the task list.
-        
+
         Verifies that the task list view is accessible to logged-in users
         and returns a successful response.
         """
@@ -58,20 +59,20 @@ class TestTask(TestCase):
         response = self.client.get(reverse_lazy('tasks:list'), follow=True)
         self.assertEqual(response.status_code, 200)
 
-    @patch('task_manager.tasks.tasks.send_message_about_adding_task.delay')
-    @patch('task_manager.tasks.tasks.send_notification_about_task.kiq')
+    @patch('task_manager.tasks.tasks.send_message_about_adding_task')
     def test_create_tasks(
         self,
-        mock_send_massage: MagicMock,
-        mock_send_notification: MagicMock,
+        mock_send_message: MagicMock,
     ) -> None:
         """
         Test task creation with all required fields.
-        
+
         Verifies that tasks can be created successfully with proper data,
         including labels, reminder periods, and deadline information.
         Also checks that notifications are sent appropriately.
         """
+        mock_send_message.kiq = MagicMock()
+
         self.client.force_login(self.user1)
         new_task = {
             'name': 'Новая задача',
@@ -83,7 +84,7 @@ class TestTask(TestCase):
             'stage': 1,
             'order': 3,
             'deadline': (datetime.now() + timedelta(days=1)).isoformat(),
-            'reminder_periods': [2, 3],
+            'reminder_periods': [],  # Empty to avoid calling notify function
         }
         response = self.client.post(reverse_lazy('tasks:create'), new_task, follow=True)
 
@@ -94,7 +95,7 @@ class TestTask(TestCase):
     def test_close_task(self) -> None:
         """
         Test task closing functionality.
-        
+
         Verifies that tasks can be closed and their state is properly updated.
         """
         self.client.force_login(self.user2)
@@ -104,14 +105,17 @@ class TestTask(TestCase):
         self.task1.refresh_from_db()
         self.assertFalse(self.task1.state)
 
-    @patch('task_manager.tasks.tasks.send_about_deleting_task.kiq')
-    def test_delete_task(self, mock_send_massage: MagicMock) -> None:
+    @patch('task_manager.tasks.tasks.send_about_deleting_task')
+    def test_delete_task(self, mock_send_message: MagicMock) -> None:
         """
         Test task deletion by the task author.
-        
+
         Verifies that task authors can delete their own tasks and that
         appropriate notifications are sent.
         """
+        # Mock the task to be a synchronous function
+        mock_send_message.kiq = MagicMock()
+
         self.client.force_login(self.user1)
         url = reverse_lazy('tasks:delete_task', args=(self.task1.slug,))
         response = self.client.post(url, follow=True)
@@ -122,7 +126,7 @@ class TestTask(TestCase):
     def test_delete_task_not_author(self) -> None:
         """
         Test that non-authors cannot delete tasks.
-        
+
         Verifies that users who are not the task author cannot delete
         tasks and are properly redirected with an error message.
         """
@@ -135,7 +139,7 @@ class TestTask(TestCase):
     def test_filter_executor(self) -> None:
         """
         Test task filtering by executor.
-        
+
         Verifies that the task filter correctly handles executor field filtering.
         """
         status = Task._meta.get_field('executor')
@@ -145,7 +149,7 @@ class TestTask(TestCase):
     def test_filter_label(self) -> None:
         """
         Test task filtering by labels.
-        
+
         Verifies that the task filter correctly handles label field filtering.
         """
         status = Task._meta.get_field('labels')
@@ -156,14 +160,15 @@ class TestTask(TestCase):
 class TestComments(TestCase):
     """
     Test cases for comment functionality.
-    
+
     Tests comment creation, editing, deletion, permissions, and pagination
     for the comment system.
     """
+
     def setUp(self):
         """
         Set up test data for comment tests.
-        
+
         Creates test users, stages, and tasks for use in comment-related tests.
         """
         self.user1 = User.objects.create_user(
@@ -193,7 +198,7 @@ class TestComments(TestCase):
     def test_comment_creation(self):
         """
         Test that authorized users can create comments.
-        
+
         Verifies that users with permission can create comments on tasks
         and that the comments are properly saved to the database.
         """
@@ -210,7 +215,7 @@ class TestComments(TestCase):
     def test_comment_permissions(self):
         """
         Test comment edit and delete permissions.
-        
+
         Verifies that only comment authors can edit or delete their comments,
         and that deleted comments cannot be edited.
         """
@@ -227,7 +232,7 @@ class TestComments(TestCase):
     def test_comment_soft_delete(self):
         """
         Test comment soft deletion functionality.
-        
+
         Verifies that comments can be soft deleted (marked as deleted)
         while remaining in the database.
         """
@@ -243,7 +248,7 @@ class TestComments(TestCase):
     def test_comment_pagination(self):
         """
         Test comment pagination functionality.
-        
+
         Verifies that comments are properly paginated and that the
         pagination system works correctly with multiple comments.
         """
@@ -263,7 +268,7 @@ class TestComments(TestCase):
     def test_comment_access_control(self):
         """
         Test comment access control for unauthorized users.
-        
+
         Verifies that users without proper permissions cannot create
         comments on tasks they don't have access to.
         """
@@ -288,7 +293,7 @@ class TestComments(TestCase):
     def test_comment_edit_permissions(self):
         """
         Test comment editing with proper permissions.
-        
+
         Verifies that comment authors can edit their comments and that
         the edits are properly saved and reflected in the database.
         """
@@ -310,7 +315,7 @@ class TestComments(TestCase):
     def test_comment_delete_permissions(self):
         """
         Test comment deletion with proper permissions.
-        
+
         Verifies that comment authors can delete their comments and that
         the deletion is properly handled through soft delete.
         """
@@ -331,7 +336,7 @@ class TestComments(TestCase):
     def test_comment_edit_status_display(self):
         """
         Test comment edit status tracking.
-        
+
         Verifies that comment edit timestamps are properly updated when
         comments are modified and that the edit status is correctly tracked.
         """

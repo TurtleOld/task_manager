@@ -8,7 +8,7 @@ including notification sending, task status updates, and comment notifications.
 import os
 from pathlib import Path
 
-from taskiq import task as taskiq_task
+from task_manager.taskiq import broker
 from django.conf import settings
 from django.urls import reverse
 
@@ -16,17 +16,17 @@ from task_manager.tasks.models import Comment
 from task_manager.users.bot import bot_admin
 
 
-@taskiq_task  # type: ignore
+@broker.task  # type: ignore
 def send_message_about_adding_task(task_name, task_url) -> None:
     """
     Send a notification about a new task being created.
-    
+
     Sends a Telegram message to notify users about a newly created task.
-    
+
     Args:
         task_name: The name of the created task
         task_url: The URL to view the task details
-        
+
     Returns:
         None
     """
@@ -36,17 +36,17 @@ def send_message_about_adding_task(task_name, task_url) -> None:
     )
 
 
-@taskiq_task  # type: ignore
+@broker.task  # type: ignore
 def send_about_updating_task(task_name, task_url) -> None:
     """
     Send a notification about a task being updated.
-    
+
     Sends a Telegram message to notify users about a task being modified.
-    
+
     Args:
         task_name: The name of the updated task
         task_url: The URL to view the task details
-        
+
     Returns:
         None
     """
@@ -56,16 +56,16 @@ def send_about_updating_task(task_name, task_url) -> None:
     )
 
 
-@taskiq_task  # type: ignore
+@broker.task  # type: ignore
 def send_about_deleting_task(task_name) -> None:
     """
     Send a notification about a task being deleted.
-    
+
     Sends a Telegram message to notify users about a task being removed.
-    
+
     Args:
         task_name: The name of the deleted task
-        
+
     Returns:
         None
     """
@@ -75,7 +75,7 @@ def send_about_deleting_task(task_name) -> None:
     )
 
 
-@taskiq_task  # type: ignore
+@broker.task  # type: ignore
 def send_notification_about_task(
     task_name,
     task_time,
@@ -83,14 +83,14 @@ def send_notification_about_task(
 ) -> None:
     """
     Send a reminder notification about an upcoming task deadline.
-    
+
     Sends a Telegram message to remind users about a task deadline.
-    
+
     Args:
         task_name: The name of the task
         task_time: The time remaining until the deadline
         task_url: The URL to view the task details
-        
+
     Returns:
         None
     """
@@ -100,7 +100,7 @@ def send_notification_about_task(
     )
 
 
-@taskiq_task  # type: ignore
+@broker.task  # type: ignore
 def send_notification_with_photo_about_task(
     task_name,
     task_time,
@@ -109,16 +109,16 @@ def send_notification_with_photo_about_task(
 ) -> None:
     """
     Send a reminder notification with task image about an upcoming deadline.
-    
+
     Sends a Telegram message with an image attachment to remind users
     about a task deadline. Falls back to text-only if image is not found.
-    
+
     Args:
         task_name: The name of the task
         task_time: The time remaining until the deadline
         task_url: The URL to view the task details
         task_file_path: The path to the task's image file
-        
+
     Returns:
         None
     """
@@ -137,17 +137,17 @@ def send_notification_with_photo_about_task(
         )
 
 
-@taskiq_task  # type: ignore
+@broker.task  # type: ignore
 def send_about_closing_task(task_name, task_url) -> None:
     """
     Send a notification about a task being closed.
-    
+
     Sends a Telegram message to notify users about a task being completed.
-    
+
     Args:
         task_name: The name of the closed task
         task_url: The URL to view the task details
-        
+
     Returns:
         None
     """
@@ -157,17 +157,17 @@ def send_about_closing_task(task_name, task_url) -> None:
     )
 
 
-@taskiq_task  # type: ignore
+@broker.task  # type: ignore
 def send_about_opening_task(task_name, task_url) -> None:
     """
     Send a notification about a task being reopened.
-    
+
     Sends a Telegram message to notify users about a task being reopened.
-    
+
     Args:
         task_name: The name of the reopened task
         task_url: The URL to view the task details
-        
+
     Returns:
         None
     """
@@ -177,20 +177,20 @@ def send_about_opening_task(task_name, task_url) -> None:
     )
 
 
-@taskiq_task  # type: ignore
+@broker.task  # type: ignore
 def send_about_moving_task(task_name, moved_by, stage_name, task_url) -> None:
     """
     Send a notification about a task being moved to a different stage.
-    
+
     Sends a Telegram message to notify users about a task being moved
     between workflow stages.
-    
+
     Args:
         task_name: The name of the moved task
         moved_by: The name of the user who moved the task
         stage_name: The name of the destination stage
         task_url: The URL to view the task details
-        
+
     Returns:
         None
     """
@@ -200,17 +200,17 @@ def send_about_moving_task(task_name, moved_by, stage_name, task_url) -> None:
     )
 
 
-@taskiq_task  # type: ignore
+@broker.task  # type: ignore
 def send_comment_notification(comment_id: int) -> None:
     """
     Send a notification about a new comment on a task.
-    
+
     Sends a Telegram message to notify task executors about new comments.
     Includes comment author, content preview, and task details.
-    
+
     Args:
         comment_id: The ID of the comment that was created
-        
+
     Returns:
         None
     """

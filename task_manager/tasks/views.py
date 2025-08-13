@@ -11,6 +11,7 @@ import os
 from typing import Any
 from urllib.parse import quote
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.messages.views import SuccessMessageMixin
@@ -71,13 +72,12 @@ class TasksList(
     Provides a filterable list view of tasks with authentication requirements
     and success message handling.
     """
+
     model = Task
     template_name = 'tasks/kanban.html'
     context_object_name = 'tasks'
     filterset_class = TasksFilter
-    error_message = _(
-        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
-    )
+    error_message = _('У вас нет прав на просмотр данной страницы! Авторизуйтесь!')
     no_permission_url = reverse_lazy('login')
 
 
@@ -92,6 +92,7 @@ class KanbanBoard(
     Displays tasks organized by stages in a kanban board format,
     with filtering capabilities and JSON data for JavaScript interactions.
     """
+
     template_name = 'tasks/kanban.html'
 
     def get(self, request, *args, **kwargs):
@@ -158,6 +159,7 @@ class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
 
     Provides a form for creating new stages in the task workflow.
     """
+
     model = Stage
     template_name = 'tasks/create_stage.html'
     fields = '__all__'
@@ -206,10 +208,7 @@ class UpdateTaskStageView(View):
                             request,
                             _('Only the task author can move it to Done'),
                         )
-                        if (
-                            request.headers.get('X-Requested-With')
-                            == 'XMLHttpRequest'
-                        ):
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                             messages_html = render_to_string(
                                 'includes/messages.html',
                                 {'messages': messages.get_messages(request)},
@@ -234,12 +233,13 @@ class UpdateTaskStageView(View):
 
                         task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
                         moved_by = request.user.get_full_name() or request.user.username
-                        send_about_moving_task.kiq(
-                            task.name,
-                            moved_by,
-                            new_stage.name,
-                            task_url,
-                        )
+                        if getattr(settings, 'TASKIQ_ENABLED', True):
+                            send_about_moving_task.kiq(
+                                task.name,
+                                moved_by,
+                                new_stage.name,
+                                task_url,
+                            )
 
                         if old_stage:
                             reorder_tasks_in_stage(old_stage.pk)
@@ -295,9 +295,10 @@ class UpdateTaskOrderView(View):
                         new_stage = Stage.objects.get(id=stage_id)
                         task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
                         moved_by = request.user.get_full_name() or request.user.username
-                        send_about_moving_task.kiq(
-                            task.name, moved_by, new_stage.name, task_url
-                        )
+                        if getattr(settings, 'TASKIQ_ENABLED', True):
+                            send_about_moving_task.kiq(
+                                task.name, moved_by, new_stage.name, task_url
+                            )
                 else:
                     raise ValueError(f'Task with ID {task_id} not found')
 
@@ -318,14 +319,13 @@ class CreateTask(
     Provides a form for creating new tasks with checklist support,
     notification scheduling, and proper validation.
     """
+
     model = Task
     template_name = 'tasks/create_task.html'
     form_class = TaskForm
     success_message = _('Задача успешно создана')
     success_url = reverse_lazy('tasks:list')
-    error_message = _(
-        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
-    )
+    error_message = _('У вас нет прав на просмотр данной страницы! Авторизуйтесь!')
     no_permission_url = reverse_lazy('login')
     query_pk_and_slug = True
 
@@ -385,7 +385,8 @@ class CreateTask(
             deadline = task.deadline
             reminder_periods = form.cleaned_data['reminder_periods']
             task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
-            send_message_about_adding_task.kiq(task_name, task_url)
+            if getattr(settings, 'TASKIQ_ENABLED', True):
+                send_message_about_adding_task.kiq(task_name, task_url)
             task_image_path = task.image.path if task_image else None
             if deadline and reminder_periods and os.environ.get('TOKEN_TELEGRAM_BOT'):
                 notify(
@@ -414,6 +415,7 @@ class UpdateTask(
 
     Provides a form for editing tasks with checklist support and proper validation.
     """
+
     template_name = 'tasks/update_task.html'
     query_pk_and_slug = True
     form_class = TaskForm
@@ -490,6 +492,7 @@ class DeleteTask(
     Provides task deletion functionality with permission checks
     and notification sending.
     """
+
     template_name = 'tasks/task_confirm_delete.html'
     model = Task
     success_url = reverse_lazy('tasks:list')
@@ -529,7 +532,8 @@ class DeleteTask(
         task = self.get_object()
 
         task_name = task.name
-        send_about_deleting_task.kiq(task_name)
+        if getattr(settings, 'TASKIQ_ENABLED', True):
+            send_about_deleting_task.kiq(task_name)
         task.delete()
 
         messages.success(request, self.success_message)
@@ -559,6 +563,7 @@ class CloseTask(View):
 
     Handles task state changes with permission checks and notifications.
     """
+
     model = Task
     template_name = 'tasks/kanban.html'
     form_class = TaskForm
@@ -590,10 +595,12 @@ class CloseTask(View):
                 _('Статус задачи изменен.'),
             )
             if task.state:
-                send_about_closing_task.kiq(task.name, task_url)
+                if getattr(settings, 'TASKIQ_ENABLED', True):
+                    send_about_closing_task.kiq(task.name, task_url)
                 task.save()
             else:
-                send_about_opening_task.kiq(task.name, task_url)
+                if getattr(settings, 'TASKIQ_ENABLED', True):
+                    send_about_opening_task.kiq(task.name, task_url)
                 task.save()
         return redirect('tasks:list')
 
@@ -609,12 +616,11 @@ class TaskView(
     Shows comprehensive task information including comments, checklist progress,
     and related data with pagination support.
     """
+
     model = Task
     template_name = 'tasks/view_task.html'
     context_object_name = 'task'
-    error_message = _(
-        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
-    )
+    error_message = _('У вас нет прав на просмотр данной страницы! Авторизуйтесь!')
     no_permission_url = reverse_lazy('login')
     query_pk_and_slug = True
 
@@ -666,6 +672,7 @@ class ChecklistItemToggle(View):
 
     Handles checkbox toggles for checklist items with real-time updates.
     """
+
     template_name = 'tasks/checklist_item.html'
 
     def post(self, request: HttpRequest, pk: int) -> HttpResponse:
@@ -695,6 +702,7 @@ class DownloadFileView(DetailView[Task]):
     Provides secure file download functionality for task images
     with proper MIME type detection and filename handling.
     """
+
     model = Task
 
     def get(self, request: HttpRequest, *args, **kwargs) -> FileResponse:
@@ -802,7 +810,8 @@ class CommentCreateView(LoginRequiredMixin, View):
             comment.save()
 
             if task.executor and task.executor != request.user:
-                send_comment_notification.kiq(comment.id)
+                if getattr(settings, 'TASKIQ_ENABLED', True):
+                    send_comment_notification.kiq(comment.id)
 
             response = comments_list_view(request, task_slug)
 

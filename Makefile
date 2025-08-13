@@ -6,7 +6,9 @@
 help:
 	@echo "Available commands:"
 	@echo "  install        - Install dependencies"
+	@echo "  makemigrations - Create database migrations"
 	@echo "  migrate        - Run database migrations"
+	@echo "  check          - Run Django system check"
 	@echo "  collectstatic  - Collect static files"
 	@echo "  run            - Run Django development server"
 	@echo "  test           - Run tests"
@@ -21,19 +23,25 @@ help:
 
 # Development commands
 install:
-	pip install -e .
+	uv sync
+
+makemigrations:
+	uv run python manage.py makemigrations
 
 migrate:
-	python manage.py migrate
+	uv run python manage.py migrate
+
+check:
+	uv run python manage.py check
 
 collectstatic:
-	python manage.py collectstatic --noinput
+	uv run python manage.py collectstatic --noinput
 
 run:
-	python manage.py runserver
+	uv run python manage.py runserver
 
 test:
-	python manage.py test
+	uv run python manage.py test
 
 clean:
 	find . -type f -name "*.pyc" -delete
@@ -62,22 +70,22 @@ taskiq-dashboard:
 
 # Testing commands
 test-taskiq:
-	python manage.py test_taskiq --task all
+	uv run python manage.py test_taskiq --task all
 
 test-taskiq-basic:
-	python manage.py test_taskiq --task basic
+	uv run python manage.py test_taskiq --task basic
 
 test-taskiq-email:
-	python manage.py test_taskiq --task email --email test@example.com --name "Test User"
+	uv run python manage.py test_taskiq --task email --email test@example.com --name "Test User"
 
 check-taskiq:
-	python scripts/check_taskiq.py
+	uv run python scripts/check_taskiq.py
 
 # Production commands
 prod-setup:
-	python manage.py migrate --noinput
-	python manage.py collectstatic --noinput
-	python manage.py createsuperuser --noinput
+	uv run python manage.py migrate --noinput
+	uv run python manage.py collectstatic --noinput
+	uv run python manage.py createsuperuser --noinput
 
 # Monitoring commands
 monitor:

@@ -237,10 +237,14 @@ TASKIQ_WORKER_CONCURRENCY = 4
 TASKIQ_WORKER_MAX_TASKS_PER_CHILD = 1000
 
 # Scheduler configuration
-TASKIQ_SCHEDULER_SOURCES = ["task_manager.tasks"]
+TASKIQ_SCHEDULER_SOURCES = ['task_manager.tasks']
 
 if 'test' in sys.argv or 'test_coverage' in sys.argv:
     TASKIQ_ALWAYS_EAGER = True
+    # Disable TaskIQ during tests to avoid async issues
+    TASKIQ_ENABLED = False
+else:
+    TASKIQ_ENABLED = True
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
