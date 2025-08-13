@@ -34,7 +34,10 @@ from task_manager.tasks.models import (
     reorder_tasks_in_stage,
 )
 from task_manager.tasks.tasks import (
+    send_about_closing_task,
+    send_about_deleting_task,
     send_about_moving_task,
+    send_about_opening_task,
     send_comment_notification,
     send_message_about_adding_task,
     send_notification_about_task,
