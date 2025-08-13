@@ -8,6 +8,7 @@ including task CRUD operations, comment functionality, filtering, and permission
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -257,7 +258,9 @@ class TestTaskCRUD(BaseTaskTest):
     def test_close_task(self) -> None:
         """Test task closing functionality."""
         self._login_user1()
-        response = self.client.post(self._get_task1_url('close_task'), follow=True)
+        response = self.client.post(
+            self._get_task1_url('close_task'), follow=True
+        )
         self.assertRedirects(response, TASKS_URL)
         self.task1.refresh_from_db()
         self.assertTrue(self.task1.state)
@@ -279,7 +282,9 @@ class TestTaskCRUD(BaseTaskTest):
     def test_delete_task(self) -> None:
         """Test task deletion functionality."""
         self._login_user1()
-        response = self.client.post(self._get_task1_url('delete_task'), follow=True)
+        response = self.client.post(
+            self._get_task1_url('delete_task'), follow=True
+        )
         self.assertRedirects(response, TASKS_URL)
         with self.assertRaises(Task.DoesNotExist):
             Task.objects.get(pk=self.task1.pk)
@@ -467,7 +472,9 @@ class TestTaskFeatures(BaseTaskTest):
             'deadline': past_date.strftime('%Y-%m-%d'),
             'executor': self.user1.pk,
         }
-        response = self.client.post(reverse('tasks:create'), task_data, follow=True)
+        response = self.client.post(
+            reverse('tasks:create'), task_data, follow=True
+        )
         # Accept both 200 (form errors) and 302 (success) as valid responses
         self.assertIn(response.status_code, [HTTP_OK, HTTP_FOUND])
 
@@ -485,7 +492,9 @@ class TestTaskFeatures(BaseTaskTest):
             'description': 'Task to test notifications',
             'executor': self.user2.pk,
         }
-        response = self.client.post(reverse('tasks:create'), task_data, follow=True)
+        response = self.client.post(
+            reverse('tasks:create'), task_data, follow=True
+        )
         # Accept both 200 (form errors) and 302 (success) as valid responses
         self.assertIn(response.status_code, [HTTP_OK, HTTP_FOUND])
 
@@ -527,7 +536,9 @@ class TestTaskFeatures(BaseTaskTest):
             'executor': self.user1.pk,
             **checklist_data,
         }
-        response = self.client.post(reverse('tasks:create'), task_data, follow=True)
+        response = self.client.post(
+            reverse('tasks:create'), task_data, follow=True
+        )
         self.assertRedirects(response, TASKS_URL)
         created_task = Task.objects.get(name='Task with checklist')
         # Checklist may not be created automatically, so we'll skip this check
@@ -543,8 +554,6 @@ class TestTaskFeatures(BaseTaskTest):
         """
         self._login_user1()
         # Create a simple test image
-        from django.core.files.uploadedfile import SimpleUploadedFile
-
         image_content = b'fake-image-content'
         image_file = SimpleUploadedFile(
             'test_image.jpg', image_content, content_type='image/jpeg'
@@ -556,7 +565,9 @@ class TestTaskFeatures(BaseTaskTest):
             'executor': self.user1.pk,
             'image': image_file,
         }
-        response = self.client.post(reverse('tasks:create'), task_data, follow=True)
+        response = self.client.post(
+            reverse('tasks:create'), task_data, follow=True
+        )
         # Image upload may return 200 if form is invalid, which is acceptable for this test
         self.assertIn(response.status_code, [HTTP_OK, HTTP_FOUND])
         # Skip task verification if form was invalid
@@ -581,7 +592,9 @@ class TestTaskFeatures(BaseTaskTest):
             'description': 'Task to test complete workflow',
             'executor': self.user1.pk,
         }
-        response = self.client.post(reverse('tasks:create'), task_data, follow=True)
+        response = self.client.post(
+            reverse('tasks:create'), task_data, follow=True
+        )
         # Accept both 200 (form errors) and 302 (success) as valid responses
         self.assertIn(response.status_code, [HTTP_OK, HTTP_FOUND])
 

@@ -22,6 +22,8 @@ from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
 from transliterate import translit
 
+from task_manager.labels.models import Label
+from task_manager.tasks.forms import CommentForm
 from task_manager.tasks.models import (
     ChecklistItem,
     Comment,
@@ -254,8 +256,6 @@ def get_kanban_data(request: HttpRequest) -> dict[str, Any]:
     Returns:
         Dictionary containing kanban data
     """
-    from task_manager.labels.models import Label
-
     labels = Label.objects.all().order_by('name')
     selected_labels = request.GET.getlist('labels')
     stages = Stage.objects.prefetch_related('tasks').order_by('order')
@@ -601,8 +601,6 @@ def create_comment(
     Returns:
         Tuple of (success, message, comment_or_none)
     """
-    from task_manager.tasks.forms import CommentForm
-
     task = get_object_or_404(Task, slug=task_slug)
 
     if request.user not in [task.author, task.executor] and task.executor:
@@ -640,8 +638,6 @@ def update_comment(
     Returns:
         Tuple of (success, message, comment_or_none)
     """
-    from task_manager.tasks.forms import CommentForm
-
     comment = get_object_or_404(Comment, id=comment_id)
 
     if not comment.can_edit(request.user):
@@ -654,7 +650,7 @@ def update_comment(
     form = CommentForm(request.POST, instance=comment)
     if form.is_valid():
         comment = form.save(commit=False)
-        comment.updated_at = timezone.now()
+        comment.updated_at = now()
         comment.save()
         return True, 'Comment updated successfully', comment
     return False, f'Ошибка: {form.errors}', None

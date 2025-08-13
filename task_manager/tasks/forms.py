@@ -263,7 +263,7 @@ class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
         fields = ['executor', 'labels', 'self_task']
 
 
-class CommentForm(ModelForm[Any]):
+class CommentForm(ModelForm):
     """
     Form for creating and editing comments.
 
