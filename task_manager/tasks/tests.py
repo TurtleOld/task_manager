@@ -73,11 +73,17 @@ class TestData:
         }
 
 
-class TaskSetupMixin:
-    """Mixin providing setup methods for task tests."""
+
+
+
+class TaskTestBase(TestCase):
+    """Base class for task tests with common setup and helper methods."""
+
+    fixtures = ['users.yaml', 'tasks.yaml', 'labels.yaml']
 
     def setUp(self) -> None:
         """Set up test data for task tests."""
+        super().setUp()
         self.test_data = TestData()
         self._setup_attributes()
 
@@ -89,10 +95,7 @@ class TaskSetupMixin:
         self.labels = self.test_data.labels
         self.reminder_periods = self.test_data.reminder_periods
 
-
-class UserDataMixin:
-    """Mixin providing user data properties for task tests."""
-
+    # User data properties
     @property
     def user1(self):
         """Get user1 from test data."""
@@ -103,10 +106,7 @@ class UserDataMixin:
         """Get user2 from test data."""
         return self.users['user2']
 
-
-class TaskDataMixin:
-    """Mixin providing task data properties for task tests."""
-
+    # Task data properties
     @property
     def stage(self):
         """Get stage from test data."""
@@ -122,10 +122,7 @@ class TaskDataMixin:
         """Get task2 from test data."""
         return self.tasks['task2']
 
-
-class LabelDataMixin:
-    """Mixin providing label data properties for task tests."""
-
+    # Label data properties
     @property
     def label1(self):
         """Get label1 from test data."""
@@ -136,10 +133,7 @@ class LabelDataMixin:
         """Get label2 from test data."""
         return self.labels['label2']
 
-
-class ReminderDataMixin:
-    """Mixin providing reminder data properties for task tests."""
-
+    # Reminder data properties
     @property
     def reminderperiod2(self):
         """Get reminderperiod2 from test data."""
@@ -160,10 +154,7 @@ class ReminderDataMixin:
         """Get reminderperiod5 from test data."""
         return self.reminder_periods['reminderperiod5']
 
-
-class TaskHelperMixin:
-    """Mixin providing helper methods for task tests."""
-
+    # Helper methods
     def _login_user1(self) -> None:
         """Helper method to login user1 for testing."""
         self.client.force_login(self.user1)
@@ -201,25 +192,7 @@ class TaskHelperMixin:
         return self.client.post(self._get_create_url(), task_data, follow=True)
 
 
-class TaskTestBase(
-    TaskSetupMixin,
-    UserDataMixin,
-    TaskDataMixin,
-    LabelDataMixin,
-    ReminderDataMixin,
-    TaskHelperMixin,
-    TestCase,
-):
-    """Base class for task tests with common setup and helper methods."""
-
-    fixtures = ['users.yaml', 'tasks.yaml', 'labels.yaml']
-
-
-class BaseTaskTest(TaskTestBase):
-    """Base class for task tests - inherits from TaskTestBase."""
-
-
-class TestTaskCRUD(BaseTaskTest):
+class TestTaskCRUD(TaskTestBase):
     """Test cases for basic CRUD operations."""
 
     def test_list_tasks(self) -> None:
@@ -320,7 +293,7 @@ class TestTaskCRUD(BaseTaskTest):
         self.assertEqual(response.context['task'], self.task1)
 
 
-class TestTaskFiltering(BaseTaskTest):
+class TestTaskFiltering(TaskTestBase):
     """
     Test cases for task filtering, search, and ordering functionality.
     """
@@ -390,7 +363,7 @@ class TestTaskFiltering(BaseTaskTest):
         self.assertEqual(response.status_code, HTTP_OK)
 
 
-class TestTaskPermissions(BaseTaskTest):
+class TestTaskPermissions(TaskTestBase):
     """
     Test cases for task authorization and permissions.
     """
@@ -433,7 +406,7 @@ class TestTaskPermissions(BaseTaskTest):
         self.assertEqual(response.status_code, HTTP_OK)
 
 
-class TestTaskFeatures(BaseTaskTest):
+class TestTaskFeatures(TaskTestBase):
     """
     Test cases for task features like labels, deadlines, notifications, etc.
     """
