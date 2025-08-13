@@ -1,9 +1,12 @@
 from django.test import TestCase
-from django.urls import reverse_lazy, reverse
+from django.urls import reverse, reverse_lazy
 
 from task_manager.labels.models import Label
 from task_manager.tasks.models import Task
 from task_manager.users.models import User
+
+# Constants for HTTP status codes
+HTTP_OK = 200
 
 
 class TestLabel(TestCase):
@@ -20,7 +23,7 @@ class TestLabel(TestCase):
     def test_label_list(self) -> None:
         self.client.force_login(self.user)
         response = self.client.get(reverse_lazy('labels:list'))
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTP_OK)
         labels_list = list(response.context['labels'])
         self.assertCountEqual(labels_list, [self.label1, self.label2])
 

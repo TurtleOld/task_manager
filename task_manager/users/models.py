@@ -1,14 +1,14 @@
 from typing import Any
 
-from django.db.models import CharField
 from django.contrib.auth.models import AbstractUser
+from django.db.models import CharField
 
-THEME_CHOICES = [
+THEME_CHOICES = (
     ('dark', 'dark'),
     ('light', 'light'),
-]
+)
 
-COLOR_CHOICES = [
+COLOR_CHOICES = (
     ('red', 'Красный'),
     ('orange', 'Оранжевый'),
     ('yellow', 'Желтый'),
@@ -16,7 +16,7 @@ COLOR_CHOICES = [
     ('blue', 'Синий'),
     ('indigo', 'Индиго'),
     ('purple', 'Фиолетовый'),
-]
+)
 
 
 class User(AbstractUser):

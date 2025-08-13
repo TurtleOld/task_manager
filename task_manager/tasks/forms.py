@@ -8,28 +8,43 @@ and comments with proper validation and widget configurations.
 
 from typing import Any
 
-from django import forms
 from django.db.models import Value
 from django.db.models.functions import Concat
-from django.forms import DateTimeInput, ModelForm
+from django.forms import (
+    DateTimeInput,
+    Form,
+    ModelForm,
+    CharField,
+    Textarea,
+    CheckboxInput,
+    TextInput,
+)
 from django.utils.translation import gettext_lazy
-from django_filters import FilterSet, ChoiceFilter, BooleanFilter
+from django_filters import BooleanFilter, ChoiceFilter, FilterSet
 
 from task_manager.labels.models import Label
 from task_manager.tasks.models import Checklist, ChecklistItem, Comment, Task
 from task_manager.users.models import User
 
 
-class ChecklistItemForm(forms.Form):
+# Constants
+MAX_DESCRIPTION_LENGTH = 255
+TEXTAREA_ROWS = 4
+TEXTAREA_COLS = 10
+COMMENT_TEXTAREA_ROWS = 3
+
+
+class ChecklistItemForm(Form):
     """
     Form for creating and editing checklist items.
 
     Provides a simple form for adding checklist items to tasks with proper
     styling and accessibility attributes.
     """
-    description = forms.CharField(
-        max_length=255,
-        widget=forms.TextInput(
+
+    description = CharField(
+        max_length=MAX_DESCRIPTION_LENGTH,
+        widget=TextInput(
             attrs={
                 'class': 'input checklist-item-input',
                 'placeholder': 'Введите пункт чеклиста...',
@@ -45,8 +60,10 @@ class TaskForm(ModelForm[Any]):
     Form for creating and editing tasks.
 
     Provides a comprehensive form for task management including all task fields,
-    proper validation, and dynamic field disabling based on task state and user permissions.
+    proper validation, and dynamic field disabling based on task state and user
+    permissions.
     """
+
     class Meta:
         model = Task
         fields = (
@@ -75,7 +92,9 @@ class TaskForm(ModelForm[Any]):
                     'class': 'form-control',
                 },
             ),
-            'description': forms.Textarea(attrs={'rows': 4, 'cols': 10}),
+            'description': Textarea(
+                attrs={'rows': TEXTAREA_ROWS, 'cols': TEXTAREA_COLS}
+            ),
         }
 
     def __init__(self, request, *args, **kwargs):
@@ -89,24 +108,8 @@ class TaskForm(ModelForm[Any]):
         """
         self.request = request
         super().__init__(*args, **kwargs)
-        if self.instance.pk and (
-            self.instance.state or self.instance.author_id != self.request.user.pk
-        ):
-            for field in self.fields:
-                self.fields[field].disabled = True
-
-        # Инициализируем данные чеклиста для JavaScript
-        self.checklist_data = []
-        if hasattr(self.instance, 'checklist'):
-            checklist_items = self.instance.checklist.items.all()
-            self.checklist_data = [
-                {
-                    'id': item.id,
-                    'description': item.description,
-                    'is_completed': item.is_completed,
-                }
-                for item in checklist_items
-            ]
+        self._disable_fields_if_needed()
+        self._initialize_checklist_data()
 
     def save_checklist_items(self, task: Task) -> None:
         """
@@ -118,22 +121,12 @@ class TaskForm(ModelForm[Any]):
         Args:
             task: The task instance to associate checklist items with
         """
-        if hasattr(self, 'cleaned_data') and 'checklist_items' in self.cleaned_data:
-            items_data = self.cleaned_data.get('checklist_items', [])
-            if items_data:
-                checklist, _ = Checklist.objects.get_or_create(task=task)
+        items_data = self._get_checklist_items_data()
+        if not items_data:
+            return
 
-                # Удаляем все существующие пункты
-                checklist.items.all().delete()
-
-                # Создаем новые пункты
-                for item_data in items_data:
-                    if item_data.get('description', '').strip():
-                        ChecklistItem.objects.create(
-                            checklist=checklist,
-                            description=item_data['description'].strip(),
-                            is_completed=item_data.get('is_completed', False),
-                        )
+        checklist, _ = Checklist.objects.get_or_create(task=task)
+        self._replace_checklist_items(checklist, items_data)
 
     def save(self, commit: bool = True) -> 'Task':
         """
@@ -149,16 +142,81 @@ class TaskForm(ModelForm[Any]):
         self.save_checklist_items(task)
         return task
 
+    def _get_checklist_items_data(self) -> list:
+        """Get checklist items data from cleaned form data."""
+        if not hasattr(self, 'cleaned_data'):
+            return []
+
+        return self.cleaned_data.get('checklist_items', [])
+
+    def _replace_checklist_items(
+        self,
+        checklist: Checklist,
+        items_data: list,
+    ) -> None:
+        """Replace existing checklist items with new ones."""
+        checklist.items.all().delete()
+
+        for checklist_item_data in items_data:
+            self._create_checklist_item(checklist, checklist_item_data)
+
+    def _create_checklist_item(
+        self, checklist: Checklist, item_data: dict
+    ) -> None:
+        """Create a single checklist item."""
+        description = item_data.get('description', '').strip()
+        if not description:
+            return
+
+        ChecklistItem.objects.create(
+            checklist=checklist,
+            description=description,
+            is_completed=item_data.get('is_completed', False),
+        )
+
+    def _disable_fields_if_needed(self) -> None:
+        """Disable form fields if task is closed or user is not the author."""
+        if not self.instance.pk:
+            return
+
+        should_disable = (
+            self.instance.state
+            or self.instance.author_id != self.request.user.pk
+        )
+
+        if should_disable:
+            for field in self.fields:
+                self.fields[field].disabled = True
+
+    def _initialize_checklist_data(self) -> None:
+        """Initialize checklist data for JavaScript."""
+        self.checklist_data = []
+
+        if not hasattr(self.instance, 'checklist'):
+            return
+
+        checklist_items = self.instance.checklist.items.all()
+        self.checklist_data = [
+            {
+                'id': checklist_item.id,
+                'description': checklist_item.description,
+                'is_completed': checklist_item.is_completed,
+            }
+            for checklist_item in checklist_items
+        ]
+
 
 class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
     """
-    Filter form for tasks with filtering options for executor, labels, and user-specific tasks.
+    Filter form for tasks with filtering options for executor, labels, and
+    user-specific tasks.
 
     Provides filtering capabilities for tasks based on:
     - Executor (user assigned to the task)
     - Labels (tags associated with tasks)
     - Self tasks (tasks created by the current user)
     """
+
     executors = User.objects.values_list(
         'id', Concat('first_name', Value(' '), 'last_name'), named=True
     ).all()
@@ -167,13 +225,11 @@ class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
     )
 
     all_labels = Label.objects.values_list('id', 'name', named=True)
-    labels = ChoiceFilter(
-        label=gettext_lazy('Метка'), choices=all_labels
-    )
+    labels = ChoiceFilter(label=gettext_lazy('Метка'), choices=all_labels)
 
     self_task = BooleanFilter(
         label=gettext_lazy('Только свои задачи'),
-        widget=forms.CheckboxInput(),
+        widget=CheckboxInput(),
         method='filter_current_user',
         field_name='self_task',
     )
@@ -189,20 +245,20 @@ class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
         self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
 
-    def filter_current_user(self, queryset, name, value):
+    def filter_current_user(self, queryset, _name, filter_value):
         """
         Filter tasks to show only those created by the current user.
 
         Args:
             queryset: The queryset to filter
-            name: The field name (unused but required by django-filter)
-            value: Boolean value indicating whether to filter by current user
+            _name: The field name (unused but required by django-filter)
+            filter_value: Boolean value indicating whether to filter by current user
 
         Returns:
-            Filtered queryset containing only tasks by the current user if value is True,
-            otherwise returns the original queryset unchanged
+            Filtered queryset containing only tasks by the current user if value is
+            True, otherwise returns the original queryset unchanged
         """
-        if value:
+        if filter_value:
             author = getattr(self.request, 'user', None)
             queryset = queryset.filter(author=author)
         return queryset
@@ -212,36 +268,27 @@ class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
         fields = ['executor', 'labels', 'self_task']
 
 
-class CommentForm(forms.ModelForm):
+class CommentForm(ModelForm):
     """
     Form for creating and editing comments.
 
     Provides a simple form for adding comments to tasks with proper styling
     and accessibility attributes.
     """
+
     class Meta:
         model = Comment
-        fields = ['content']
+        fields = ['comment_content']
         widgets = {
-            'content': forms.Textarea(
+            'comment_content': Textarea(
                 attrs={
                     'class': 'textarea comment-textarea',
                     'placeholder': 'Введите ваш комментарий...',
-                    'rows': 3,
+                    'rows': COMMENT_TEXTAREA_ROWS,
                     'aria-label': 'Текст комментария',
                 }
             ),
         }
         labels = {
-            'content': gettext_lazy('Комментарий'),
+            'comment_content': gettext_lazy('Комментарий'),
         }
-
-    def __init__(self, *args, **kwargs):
-        """
-        Initialize the comment form.
-
-        Args:
-            *args: Additional positional arguments
-            **kwargs: Additional keyword arguments
-        """
-        super().__init__(*args, **kwargs)

@@ -49,12 +49,12 @@ services:
     networks:
       - default
 
-  worker-celery:
+  worker-taskiq:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: task_manager_celery
-    command: celery -A task_manager worker -l INFO --concurrency=4
+    container_name: task_manager_taskiq
+    command: taskiq worker task_manager.taskiq:broker --workers 4 --no-parse
     env_file:
       - .env
     volumes:
@@ -73,12 +73,12 @@ services:
     networks:
       - default
 
-  celery-beat:
+  taskiq-scheduler:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: task_manager_celery_beat
-    command: celery -A task_manager beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    container_name: task_manager_taskiq_scheduler
+    command: taskiq scheduler task_manager.taskiq:broker
     env_file:
       - .env
     volumes:
@@ -98,10 +98,12 @@ services:
     networks:
       - default
 
-  flower:
-    image: mher/flower:2.0.1
-    container_name: task_manager_flower
-    command: celery flower --broker=${BROKER_URL:-amqp://rabbitmq:rabbitmq@rabbitmq:5672/} --port=5555
+  taskiq-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: task_manager_taskiq_dashboard
+    command: taskiq dashboard task_manager.taskiq:broker --port 5555 --no-parse
     ports:
       - "5555:5555"
     depends_on:

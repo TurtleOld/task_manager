@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('users', '0002_user_theme_mode'),
     ]
@@ -13,6 +12,20 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='user',
             name='theme_color',
-            field=models.CharField(choices=[('red', 'Красный'), ('orange', 'Оранжевый'), ('yellow', 'Желтый'), ('green', 'Зеленый'), ('blue', 'Синий'), ('indigo', 'Индиго'), ('purple', 'Фиолетовый')], default='blue', help_text='Выберите основной цвет для интерфейса', max_length=10, verbose_name='Цвет темы'),
+            field=models.CharField(
+                choices=[
+                    ('red', 'Красный'),
+                    ('orange', 'Оранжевый'),
+                    ('yellow', 'Желтый'),
+                    ('green', 'Зеленый'),
+                    ('blue', 'Синий'),
+                    ('indigo', 'Индиго'),
+                    ('purple', 'Фиолетовый'),
+                ],
+                default='blue',
+                help_text='Выберите основной цвет для интерфейса',
+                max_length=10,
+                verbose_name='Цвет темы',
+            ),
         ),
     ]

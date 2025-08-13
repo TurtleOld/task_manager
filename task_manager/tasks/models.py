@@ -7,6 +7,7 @@ It also includes utility functions for task ordering and management.
 """
 
 import os
+import pathlib
 
 from django.conf import settings
 from django.db import models
@@ -17,37 +18,44 @@ from django.utils.translation import gettext_lazy as _
 from task_manager.labels.models import Label
 from task_manager.users.models import User
 
-PERIOD = {
-    10: '10 минут',
-    20: '20 минут',
-    30: '30 минут',
-    40: '40 минут',
-    50: '50 минут',
-    60: '1 час',
-    120: '2 часа',
-    180: '3 часа',
-    240: '4 часа',
-    300: '5 часов',
-    360: '6 часов',
-    420: '7 часов',
-    480: '8 часов',
-    540: '9 часов',
-    600: '10 часов',
-    660: '11 часов',
-    720: '12 часов',
-    780: '13 часов',
-    840: '14 часов',
-    900: '15 часов',
-    960: '16 часов',
-    1020: '17 часов',
-    1080: '18 часов',
-    1140: '19 часов',
-    1200: '20 часов',
-    1260: '21 час',
-    1320: '22 часа',
-    1380: '23 часа',
-    1440: '24 часа',
-}
+# Constants
+PERIOD = (
+    (10, '10 минут'),
+    (20, '20 минут'),
+    (30, '30 минут'),
+    (40, '40 минут'),
+    (50, '50 минут'),
+    (60, '1 час'),
+    (120, '2 часа'),
+    (180, '3 часа'),
+    (240, '4 часа'),
+    (300, '5 часов'),
+    (360, '6 часов'),
+    (420, '7 часов'),
+    (480, '8 часов'),
+    (540, '9 часов'),
+    (600, '10 часов'),
+    (660, '11 часов'),
+    (720, '12 часов'),
+    (780, '13 часов'),
+    (840, '14 часов'),
+    (900, '15 часов'),
+    (960, '16 часов'),
+    (1020, '17 часов'),
+    (1080, '18 часов'),
+    (1140, '19 часов'),
+    (1200, '20 часов'),
+    (1260, '21 час'),
+    (1320, '22 часа'),
+    (1380, '23 часа'),
+    (1440, '24 часа'),
+)
+
+PERIOD_DICT = dict(PERIOD)
+MAX_NAME_LENGTH = 50
+MAX_DESCRIPTION_LENGTH = 255
+MAX_STAGE_NAME_LENGTH = 100
+DEFAULT_REMINDER_PERIOD = 60
 
 
 class Checklist(models.Model):
@@ -58,6 +66,7 @@ class Checklist(models.Model):
     The checklist is automatically created when needed and provides
     a way to organize subtasks or requirements for a main task.
     """
+
     task = models.OneToOneField(
         'Task',
         on_delete=models.CASCADE,
@@ -67,7 +76,8 @@ class Checklist(models.Model):
 
     def __str__(self) -> str:
         """Return a string representation of the checklist."""
-        return f'Чеклист для задачи: {self.task.name}'
+        task_name = self.task.name
+        return f'Чеклист для задачи: {task_name}'
 
 
 class ChecklistItem(models.Model):
@@ -77,12 +87,13 @@ class ChecklistItem(models.Model):
     Each checklist item has a description and completion status,
     allowing users to track progress on subtasks or requirements.
     """
+
     checklist = models.ForeignKey(
         Checklist,
         on_delete=models.CASCADE,
         related_name='items',
     )
-    description = models.CharField(max_length=255)
+    description = models.CharField(max_length=MAX_DESCRIPTION_LENGTH)
     is_completed = models.BooleanField(default=False)
 
     def __str__(self) -> str:
@@ -97,17 +108,18 @@ class ReminderPeriod(models.Model):
     Defines different time periods (in minutes) before a deadline
     when notifications should be sent to remind users about upcoming tasks.
     """
+
     period = models.IntegerField(
-        default=60,
+        default=DEFAULT_REMINDER_PERIOD,
         blank=True,
         null=True,
-        choices=[(key, value) for key, value in PERIOD.items()],
+        choices=PERIOD,
     )
 
     def __str__(self) -> str:
         """Return a human-readable representation of the reminder period."""
         if isinstance(self.period, int):
-            return str(PERIOD.get(self.period, 60))
+            return str(PERIOD_DICT.get(self.period, DEFAULT_REMINDER_PERIOD))
         return 'Не задано'
 
 
@@ -118,8 +130,9 @@ class Stage(models.Model):
     Stages represent different phases in the task workflow (e.g., To Do, In Progress, Done).
     Tasks can be moved between stages, and each stage has an order for display purposes.
     """
+
     name = models.CharField(
-        max_length=100,
+        max_length=MAX_STAGE_NAME_LENGTH,
         null=True,
         blank=True,
         unique=True,
@@ -143,7 +156,8 @@ class Task(models.Model):
     what needs to be done, who is responsible, deadlines, and current status.
     Tasks can have associated checklists, labels, and comments.
     """
-    name = models.CharField(max_length=50)
+
+    name = models.CharField(max_length=MAX_NAME_LENGTH)
     description = models.TextField(blank=True)
 
     author = models.ForeignKey(
@@ -254,7 +268,7 @@ class Task(models.Model):
         the task instance.
         """
         image_dir = os.path.join(settings.MEDIA_ROOT, 'images')
-        if not os.path.exists(image_dir):
+        if not pathlib.Path(image_dir).exists():
             os.makedirs(image_dir)
         super().save(*args, **kwargs)
 
@@ -266,6 +280,7 @@ class Comment(models.Model):
     Comments allow users to discuss tasks, provide updates, or ask questions.
     Comments support soft deletion and track creation/update timestamps.
     """
+
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
@@ -273,9 +288,12 @@ class Comment(models.Model):
         verbose_name=_('Задача'),
     )
     author = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='comments', verbose_name=_('Автор')
+        User,
+        on_delete=models.CASCADE,
+        related_name='comments',
+        verbose_name=_('Автор'),
     )
-    content = models.TextField(verbose_name=_('Содержание комментария'))
+    comment_content = models.TextField(verbose_name=_('Содержание комментария'))
     created_at = models.DateTimeField(
         auto_now_add=True, verbose_name=_('Дата создания')
     )
@@ -291,7 +309,9 @@ class Comment(models.Model):
 
     def __str__(self) -> str:
         """Return a string representation of the comment."""
-        return f'Комментарий от {self.author} к задаче {self.task.name}'
+        author_name = str(self.author)
+        task_name = self.task.name
+        return f'Комментарий от {author_name} к задаче {task_name}'
 
     def can_edit(self, user: User) -> bool:
         """
@@ -324,8 +344,8 @@ class Comment(models.Model):
         The comment remains in the database but is marked as deleted
         and will not be displayed in normal views.
         """
-        self.is_deleted = True
-        self.save(update_fields=['is_deleted'])
+        self.__class__.objects.filter(id=self.pk).update(is_deleted=True)
+        self.refresh_from_db()
 
 
 def reorder_tasks_in_stage(stage_id: int) -> None:
@@ -341,7 +361,9 @@ def reorder_tasks_in_stage(stage_id: int) -> None:
     Returns:
         None
     """
-    tasks = Task.objects.filter(stage_id=stage_id).order_by('order', 'created_at')
+    tasks = Task.objects.filter(stage_id=stage_id).order_by(
+        'order', 'created_at'
+    )
     for index, task in enumerate(tasks):
         task.order = index
         task.save(update_fields=['order'])
@@ -373,6 +395,6 @@ def reorder_task_within_stage(task: Task, new_order: int) -> None:
     reordered_tasks = list(tasks)
     reordered_tasks.insert(new_order, task)
 
-    for index, t in enumerate(reordered_tasks):
-        t.order = index
-        t.save(update_fields=['order'])
+    for index, task_item in enumerate(reordered_tasks):
+        task_item.order = index
+        task_item.save(update_fields=['order'])
