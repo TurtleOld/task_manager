@@ -7,16 +7,14 @@ including task CRUD operations, kanban board views, comment management, and file
 
 import json
 import mimetypes
-import os
+import pathlib
 from typing import Any
 from urllib.parse import quote
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from django.core.paginator import Paginator
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.forms import BaseForm, ModelForm
 from django.http import (
     FileResponse,
@@ -28,7 +26,6 @@ from django.http import (
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic import (
@@ -39,32 +36,36 @@ from django.views.generic import (
 )
 from django_filters.views import FilterView
 
-from task_manager.labels.models import Label
+from task_manager.constants import HTTP_BAD_REQUEST, HTTP_FORBIDDEN, HTTP_OK
 from task_manager.tasks.forms import CommentForm, TaskForm, TasksFilter
 from task_manager.tasks.models import (
-    ChecklistItem,
     Comment,
     Stage,
     Task,
-    reorder_task_within_stage,
-    reorder_tasks_in_stage,
 )
-from task_manager.tasks.services import notify, slugify_translit
-from task_manager.tasks.tasks import (
-    send_about_closing_task,
-    send_about_deleting_task,
-    send_about_moving_task,
-    send_about_opening_task,
-    send_comment_notification,
-    send_message_about_adding_task,
+from task_manager.tasks.services import (
+    close_or_reopen_task,
+    create_comment,
+    create_task_with_checklist,
+    delete_comment,
+    delete_task_with_notification,
+    get_checklist_progress,
+    get_comments_for_task,
+    get_kanban_data,
+    get_task_context_data,
+    process_bulk_task_updates,
+    process_checklist_items,
+    send_task_creation_notifications,
+    toggle_checklist_item,
+    update_comment,
+    update_task_stage_and_order,
 )
-from task_manager.users.models import User
 
 
 class TasksList(
     LoginRequiredMixin,
     SuccessMessageMixin[Any],
-    FilterView[Task],
+    FilterView,
 ):
     """
     View for displaying a filtered list of tasks.
@@ -77,14 +78,16 @@ class TasksList(
     template_name = 'tasks/kanban.html'
     context_object_name = 'tasks'
     filterset_class = TasksFilter
-    error_message = _('У вас нет прав на просмотр данной страницы! Авторизуйтесь!')
+    error_message = _(
+        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
+    )
     no_permission_url = reverse_lazy('login')
 
 
 class KanbanBoard(
     LoginRequiredMixin,
     SuccessMessageMixin[Any],
-    FilterView[Task],
+    FilterView,
 ):
     """
     Kanban board view for task management.
@@ -102,55 +105,8 @@ class KanbanBoard(
         Returns:
             Rendered kanban board with task data and stage information
         """
-        labels = Label.objects.all().order_by('name')
-        selected_labels = request.GET.getlist('labels')
-        stages = Stage.objects.prefetch_related('tasks').order_by('order')
-
-        tasks_data = []
-        for stage in stages:
-            stage_tasks = stage.tasks.all()
-            if selected_labels:
-                stage_tasks = stage_tasks.filter(
-                    labels__id__in=selected_labels
-                ).distinct()
-
-            for task in stage_tasks:
-                task_labels = list(task.labels.values('id', 'name'))
-
-                tasks_data.append(
-                    {
-                        'id': task.id,
-                        'name': task.name,
-                        'slug': task.slug,
-                        'author': {
-                            'username': (task.author.username if task.author else ''),
-                            'full_name': (
-                                task.author.get_full_name() if task.author else ''
-                            ),
-                        },
-                        'executor': {
-                            'username': (
-                                task.executor.username if task.executor else ''
-                            ),
-                            'full_name': (
-                                task.executor.get_full_name() if task.executor else ''
-                            ),
-                        },
-                        'created_at': task.created_at.strftime('%d.%m.%Y %H:%M'),
-                        'stage': task.stage_id,
-                        'labels': task_labels,
-                    }
-                )
-        return render(
-            request,
-            template_name=self.template_name,
-            context={
-                'stages': stages,
-                'tasks': json.dumps(tasks_data, default=str, ensure_ascii=False),
-                'labels': labels,
-                'selected_labels': selected_labels,
-            },
-        )
+        context = get_kanban_data(request)
+        return render(request, 'tasks/kanban.html', context)
 
 
 class CreateStageView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
@@ -174,7 +130,7 @@ class UpdateTaskStageView(View):
     and reordering tasks within stages.
     """
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs) -> JsonResponse:
         """
         Handle POST requests for updating task stages and positions.
 
@@ -182,80 +138,32 @@ class UpdateTaskStageView(View):
             JSON response indicating success or failure
         """
         try:
-            data = json.loads(request.body)
-            task_id = data.get('task_id')
-            new_stage_id = data.get('new_stage_id')
-            new_order = data.get('new_order')
+            return self._process_task_update_request(request)
+        except Exception as error:
+            return JsonResponse({'success': False, 'error': str(error)})
 
-            if not task_id or (new_stage_id is None and new_order is None):
-                return JsonResponse({'success': False, 'error': 'Invalid data'})
+    def _process_task_update_request(self, request) -> JsonResponse:
+        """Process task update request."""
+        request_data = json.loads(request.body)
+        task_id = request_data.get('task_id')
+        new_stage_id = request_data.get('new_stage_id')
+        new_order = request_data.get('new_order')
 
-            with transaction.atomic():
-                task = Task.objects.select_for_update().get(id=task_id)
+        if not self._is_valid_update_request(task_id, new_stage_id, new_order):
+            return JsonResponse({'success': False, 'error': 'Invalid data'})
 
-                if new_stage_id is not None:
-                    old_stage = task.stage
-                    new_stage = (
-                        Stage.objects.get(id=new_stage_id) if new_stage_id else None
-                    )
+        update_result = update_task_stage_and_order(
+            task_id, new_stage_id, new_order, request
+        )
+        return JsonResponse(update_result)
 
-                    if (
-                        new_stage
-                        and new_stage.name == 'Done'
-                        and task.author != request.user
-                    ):
-                        messages.error(
-                            request,
-                            _('Only the task author can move it to Done'),
-                        )
-                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                            messages_html = render_to_string(
-                                'includes/messages.html',
-                                {'messages': messages.get_messages(request)},
-                            )
-                            return JsonResponse(
-                                {
-                                    'success': False,
-                                    'error': 'Only the task author can move it to Done',
-                                    'messages_html': messages_html,
-                                }
-                            )
-                        return JsonResponse(
-                            {
-                                'success': False,
-                                'error': 'Only the task author can move it to Done',
-                            }
-                        )
-
-                    if old_stage != new_stage and new_stage:
-                        task.stage = new_stage
-                        task.save()
-
-                        task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
-                        moved_by = request.user.get_full_name() or request.user.username
-                        if getattr(settings, 'TASKIQ_ENABLED', True):
-                            send_about_moving_task.kiq(
-                                task.name,
-                                moved_by,
-                                new_stage.name,
-                                task_url,
-                            )
-
-                        if old_stage:
-                            reorder_tasks_in_stage(old_stage.pk)
-                        if new_stage:
-                            reorder_tasks_in_stage(new_stage.pk)
-
-                if new_order is not None:
-                    reorder_task_within_stage(task, new_order)
-
-            return JsonResponse({'success': True})
-        except Task.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Task not found'})
-        except Stage.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Stage not found'})
-        except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
+    def _is_valid_update_request(
+        self, task_id, new_stage_id, new_order
+    ) -> bool:
+        """Check if update request is valid."""
+        if not task_id:
+            return False
+        return new_stage_id is not None or new_order is not None
 
 
 class UpdateTaskOrderView(View):
@@ -265,7 +173,7 @@ class UpdateTaskOrderView(View):
     Handles bulk updates of task positions and stages from the kanban board.
     """
 
-    def post(self, request):
+    def post(self, request) -> JsonResponse:
         """
         Handle POST requests for bulk task order updates.
 
@@ -273,39 +181,20 @@ class UpdateTaskOrderView(View):
             JSON response indicating success or failure
         """
         try:
-            data = json.loads(request.body)
-            tasks_data = data.get('tasks', [])
+            request_data = json.loads(request.body)
+            tasks_data = request_data.get('tasks', [])
 
-            for task_data in tasks_data:
-                task_id = task_data.get('task_id')
-                stage_id = task_data.get('stage_id')
-                order = task_data.get('order')
+            if not tasks_data:
+                return JsonResponse(
+                    {'error': 'No tasks data provided'}, status=HTTP_BAD_REQUEST
+                )
 
-                if task_id is None or stage_id is None or order is None:
-                    raise ValueError('Invalid task data')
-
-                task = Task.objects.filter(pk=task_id).first()
-                if task:
-                    old_stage_id = task.stage_id
-                    task.stage_id = stage_id
-                    task.order = order
-                    task.save()
-
-                    if old_stage_id != stage_id:
-                        new_stage = Stage.objects.get(id=stage_id)
-                        task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
-                        moved_by = request.user.get_full_name() or request.user.username
-                        if getattr(settings, 'TASKIQ_ENABLED', True):
-                            send_about_moving_task.kiq(
-                                task.name, moved_by, new_stage.name, task_url
-                            )
-                else:
-                    raise ValueError(f'Task with ID {task_id} not found')
-
-            return JsonResponse({'message': 'Tasks successfully updated'}, status=200)
-
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            process_bulk_task_updates(tasks_data, request)
+            return JsonResponse(
+                {'message': 'Tasks successfully updated'}, status=HTTP_OK
+            )
+        except Exception as error:
+            return JsonResponse({'error': str(error)}, status=HTTP_BAD_REQUEST)
 
 
 class CreateTask(
@@ -325,7 +214,9 @@ class CreateTask(
     form_class = TaskForm
     success_message = _('Задача успешно создана')
     success_url = reverse_lazy('tasks:list')
-    error_message = _('У вас нет прав на просмотр данной страницы! Авторизуйтесь!')
+    error_message = _(
+        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
+    )
     no_permission_url = reverse_lazy('login')
     query_pk_and_slug = True
 
@@ -351,51 +242,10 @@ class CreateTask(
             HTTP response after successful task creation
         """
         try:
-            form.instance.author = User.objects.get(pk=self.request.user.pk)
-            task = form.save(commit=False)
-            task_name = task.name
-            task.slug = slugify_translit(task_name)
-            task.stage_id = 1
-            task = form.save()
-            task_slug = task.slug
-
-            checklist_items = []
-            i = 0
-            while f'checklist_items[{i}][description]' in self.request.POST:
-                description = self.request.POST.get(
-                    f'checklist_items[{i}][description]', ''
-                ).strip()
-                is_completed = (
-                    self.request.POST.get(
-                        f'checklist_items[{i}][is_completed]', 'false'
-                    )
-                    == 'true'
-                )
-                if description:
-                    checklist_items.append(
-                        {'description': description, 'is_completed': is_completed}
-                    )
-                i += 1
-
-            form.cleaned_data = form.cleaned_data or {}
-            form.cleaned_data['checklist_items'] = checklist_items
-
-            form.save_checklist_items(task)
-            task_image = task.image
-            deadline = task.deadline
-            reminder_periods = form.cleaned_data['reminder_periods']
-            task_url = self.request.build_absolute_uri(f'/tasks/{task_slug}')
-            if getattr(settings, 'TASKIQ_ENABLED', True):
-                send_message_about_adding_task.kiq(task_name, task_url)
-            task_image_path = task.image.path if task_image else None
-            if deadline and reminder_periods and os.environ.get('TOKEN_TELEGRAM_BOT'):
-                notify(
-                    task_name,
-                    reminder_periods,
-                    deadline,
-                    task_image_path,
-                    task_url,
-                )
+            task, task_slug = create_task_with_checklist(form, self.request)
+            send_task_creation_notifications(
+                task.name, task_slug, form, self.request
+            )
             return super().form_valid(form)
         except IntegrityError:
             messages.error(
@@ -458,22 +308,7 @@ class UpdateTask(
         Returns:
             HTTP response after successful task update
         """
-        checklist_items = []
-        i = 0
-        while f'checklist_items[{i}][description]' in self.request.POST:
-            description = self.request.POST.get(
-                f'checklist_items[{i}][description]', ''
-            ).strip()
-            is_completed = (
-                self.request.POST.get(f'checklist_items[{i}][is_completed]', 'false')
-                == 'true'
-            )
-            if description:
-                checklist_items.append(
-                    {'description': description, 'is_completed': is_completed}
-                )
-            i += 1
-
+        checklist_items = process_checklist_items(self.request)
         form.cleaned_data = form.cleaned_data or {}
         form.cleaned_data['checklist_items'] = checklist_items
 
@@ -520,9 +355,9 @@ class DeleteTask(
             self.request,
             'Вы не можете удалить чужую задачу!',
         )
-        return redirect(self.success_url)
+        return redirect('tasks:list')
 
-    def delete(self, request, *args, **kwargs):
+    def delete(self, request, *args, **kwargs) -> HttpResponse:
         """
         Handle task deletion with notification.
 
@@ -530,15 +365,10 @@ class DeleteTask(
             Redirect response after successful deletion
         """
         task = self.get_object()
-
-        task_name = task.name
-        if getattr(settings, 'TASKIQ_ENABLED', True):
-            send_about_deleting_task.kiq(task_name)
-        task.delete()
+        delete_task_with_notification(task)
 
         messages.success(request, self.success_message)
-
-        return redirect(self.success_url)
+        return redirect('tasks:list')
 
     def form_invalid(self, form: ModelForm[Task]) -> HttpResponse:
         """
@@ -554,7 +384,7 @@ class DeleteTask(
             self.request,
             _('Вы не можете удалить чужую задачу!'),
         )
-        return redirect(self.success_url)
+        return redirect('tasks:list')
 
 
 class CloseTask(View):
@@ -581,27 +411,13 @@ class CloseTask(View):
         Returns:
             Redirect response after state change
         """
-        task = get_object_or_404(Task, slug=slug)
-        task_url = self.request.build_absolute_uri(f'/tasks/{slug}')
-        if task.author != request.user or task.executor != request.user:
-            messages.error(
-                request,
-                _('У вас нет прав для изменения состояния этой задачи'),
-            )
+        success, message = close_or_reopen_task(slug, request)
+
+        if success:
+            messages.success(request, message)
         else:
-            task.state = not task.state
-            messages.success(
-                request,
-                _('Статус задачи изменен.'),
-            )
-            if task.state:
-                if getattr(settings, 'TASKIQ_ENABLED', True):
-                    send_about_closing_task.kiq(task.name, task_url)
-                task.save()
-            else:
-                if getattr(settings, 'TASKIQ_ENABLED', True):
-                    send_about_opening_task.kiq(task.name, task_url)
-                task.save()
+            messages.error(request, message)
+
         return redirect('tasks:list')
 
 
@@ -620,7 +436,9 @@ class TaskView(
     model = Task
     template_name = 'tasks/view_task.html'
     context_object_name = 'task'
-    error_message = _('У вас нет прав на просмотр данной страницы! Авторизуйтесь!')
+    error_message = _(
+        'У вас нет прав на просмотр данной страницы! Авторизуйтесь!'
+    )
     no_permission_url = reverse_lazy('login')
     query_pk_and_slug = True
 
@@ -636,33 +454,8 @@ class TaskView(
         """
         context = super().get_context_data(**kwargs)
         task = self.get_object()
-        context['labels'] = self.get_object().labels.all()
-
-        if hasattr(task, 'checklist'):
-            checklist_items = task.checklist.items.all()
-            context['checklist_items'] = checklist_items
-            total_checklist = checklist_items.count()
-            done_checklist = checklist_items.filter(is_completed=True).count()
-            progress_checklist = (
-                int(done_checklist / total_checklist * 100) if total_checklist else 0
-            )
-            context['total_checklist'] = total_checklist
-            context['done_checklist'] = done_checklist
-            context['progress_checklist'] = progress_checklist
-        else:
-            context['checklist_items'] = []
-            context['total_checklist'] = 0
-            context['done_checklist'] = 0
-            context['progress_checklist'] = 0
-
-        comments = task.comments.filter(is_deleted=False).order_by('-created_at')
-        paginator = Paginator(comments, 10)
-        page_number = self.request.GET.get('page')
-        page_obj = paginator.get_page(page_number)
-        context['comments'] = page_obj
-
+        context.update(get_task_context_data(task, self.request))
         context['comment_form'] = CommentForm()
-
         return context
 
 
@@ -686,12 +479,8 @@ class ChecklistItemToggle(View):
         Returns:
             Rendered checklist item template
         """
-        checklist_item = get_object_or_404(ChecklistItem, pk=pk)
-        checklist_item.is_completed = not checklist_item.is_completed
-        checklist_item.save()
-        context = {
-            'item': checklist_item,
-        }
+        checklist_item = toggle_checklist_item(pk)
+        context = {'item': checklist_item}
         return render(request, self.template_name, context)
 
 
@@ -727,15 +516,16 @@ class DownloadFileView(DetailView[Task]):
         if not mime_type:
             mime_type = 'application/octet-stream'
         try:
-            response = FileResponse(
-                open(image_path, 'rb'),
-                content_type=mime_type,
-            )
-            quote_filename = quote(os.path.basename(image_name))
-            response['Content-Disposition'] = (
-                f"attachment; filename*=UTF-8''{quote_filename}"
-            )
-            return response
+            with open(image_path, 'rb') as file_handle:
+                response = FileResponse(
+                    file_handle,
+                    content_type=mime_type,
+                )
+                quote_filename = quote(pathlib.Path(image_name).name)
+                response['Content-Disposition'] = (
+                    f"attachment; filename*=UTF-8''{quote_filename}"
+                )
+                return response
         except FileNotFoundError:
             raise Http404('Файл не найден')
 
@@ -754,24 +544,11 @@ def checklist_progress_view(request, task_id):
         HTTP response with rendered progress HTML
     """
     task = get_object_or_404(Task, pk=task_id)
-    if hasattr(task, 'checklist'):
-        checklist_items = task.checklist.items.all()
-        total_checklist = checklist_items.count()
-        done_checklist = checklist_items.filter(is_completed=True).count()
-        progress_checklist = (
-            int(done_checklist / total_checklist * 100) if total_checklist else 0
-        )
-    else:
-        total_checklist = 0
-        done_checklist = 0
-        progress_checklist = 0
+    progress_data = get_checklist_progress(task)
+
     html = render_to_string(
         'tasks/_checklist_progress.html',
-        {
-            'progress_checklist': progress_checklist,
-            'done_checklist': done_checklist,
-            'total_checklist': total_checklist,
-        },
+        progress_data,
     )
     return HttpResponse(html)
 
@@ -794,38 +571,43 @@ class CommentCreateView(LoginRequiredMixin, View):
         Returns:
             HTTP response with comment list or error
         """
-        task = get_object_or_404(Task, slug=task_slug)
+        success, message, comment = create_comment(task_slug, request)
+        return self._handle_comment_response(
+            success, message, comment, task_slug, request
+        )
 
-        if request.user not in [task.author, task.executor] and task.executor:
-            messages.error(
-                request, 'У вас нет прав для добавления комментариев к этой задаче.'
-            )
-            return HttpResponse(status=403)
-
-        form = CommentForm(request.POST)
-        if form.is_valid():
-            comment = form.save(commit=False)
-            comment.task = task
-            comment.author = request.user
-            comment.save()
-
-            if task.executor and task.executor != request.user:
-                if getattr(settings, 'TASKIQ_ENABLED', True):
-                    send_comment_notification.kiq(comment.id)
-
+    def _handle_comment_response(
+        self,
+        success: bool,
+        message: str,
+        comment,
+        task_slug: str,
+        request: HttpRequest,
+    ) -> HttpResponse:
+        """Handle comment operation response."""
+        if success:
             response = comments_list_view(request, task_slug)
-
-            comments_count = task.comments.filter(is_deleted=False).count()
-            response['HX-Trigger'] = json.dumps(
-                {'updateCommentsCount': {'count': comments_count}}
-            )
-
+            if comment:
+                self._add_comments_count_trigger(response, comment)
             return response
-        else:
-            return HttpResponse(
-                f'<div class="notification is-danger">Ошибка: {form.errors}</div>',
-                status=400,
-            )
+        return self._create_error_response(message)
+
+    def _add_comments_count_trigger(
+        self, response: HttpResponse, comment
+    ) -> None:
+        """Add comments count trigger to response."""
+        comments_count = comment.task.comments.filter(is_deleted=False).count()
+        response['HX-Trigger'] = json.dumps({
+            'updateCommentsCount': {'count': comments_count}
+        })
+
+    def _create_error_response(self, message: str) -> HttpResponse:
+        """Create error response with appropriate status."""
+        status = HTTP_FORBIDDEN if 'прав' in message else HTTP_BAD_REQUEST
+        return HttpResponse(
+            f'<div class="notification is-danger">{message}</div>',
+            status=status,
+        )
 
 
 class CommentUpdateView(LoginRequiredMixin, View):
@@ -846,34 +628,37 @@ class CommentUpdateView(LoginRequiredMixin, View):
         Returns:
             HTTP response with updated comment list or error
         """
-        comment = get_object_or_404(Comment, id=comment_id)
+        success, message, comment = update_comment(comment_id, request)
+        return self._handle_comment_update_response(
+            success, message, comment, request
+        )
 
-        if not comment.can_edit(request.user):
-            messages.error(
-                request, 'У вас нет прав для редактирования этого комментария.'
-            )
-            return HttpResponse(status=403)
-
-        form = CommentForm(request.POST, instance=comment)
-        if form.is_valid():
-            comment = form.save(commit=False)
-            comment.updated_at = timezone.now()
-            comment.save()
-
-            task = comment.task
-            response = comments_list_view(request, task.slug)
-
-            comments_count = task.comments.filter(is_deleted=False).count()
-            response['HX-Trigger'] = json.dumps(
-                {'updateCommentsCount': {'count': comments_count}}
-            )
-
+    def _handle_comment_update_response(
+        self, success: bool, message: str, comment, request: HttpRequest
+    ) -> HttpResponse:
+        """Handle comment update response."""
+        if success:
+            response = comments_list_view(request, comment.task.slug)
+            self._add_comments_count_trigger(response, comment)
             return response
-        else:
-            return HttpResponse(
-                f'<div class="notification is-danger">Ошибка: {form.errors}</div>',
-                status=400,
-            )
+        return self._create_error_response(message)
+
+    def _add_comments_count_trigger(
+        self, response: HttpResponse, comment
+    ) -> None:
+        """Add comments count trigger to response."""
+        comments_count = comment.task.comments.filter(is_deleted=False).count()
+        response['HX-Trigger'] = json.dumps({
+            'updateCommentsCount': {'count': comments_count}
+        })
+
+    def _create_error_response(self, message: str) -> HttpResponse:
+        """Create error response with appropriate status."""
+        status = HTTP_FORBIDDEN if 'прав' in message else HTTP_BAD_REQUEST
+        return HttpResponse(
+            f'<div class="notification is-danger">{message}</div>',
+            status=status,
+        )
 
 
 class CommentDeleteView(LoginRequiredMixin, View):
@@ -894,23 +679,46 @@ class CommentDeleteView(LoginRequiredMixin, View):
         Returns:
             HTTP response with updated comment list or error
         """
-        comment = get_object_or_404(Comment, id=comment_id)
-
-        if not comment.can_delete(request.user):
-            messages.error(request, 'У вас нет прав для удаления этого комментария.')
-            return HttpResponse(status=403)
-
-        comment.soft_delete()
-
-        task = comment.task
-        response = comments_list_view(request, task.slug)
-
-        comments_count = task.comments.filter(is_deleted=False).count()
-        response['HX-Trigger'] = json.dumps(
-            {'updateCommentsCount': {'count': comments_count}}
+        success, message = delete_comment(comment_id, request)
+        return self._handle_comment_delete_response(
+            success, message, comment_id, request
         )
 
+    def _handle_comment_delete_response(
+        self, success: bool, message: str, comment_id: int, request: HttpRequest
+    ) -> HttpResponse:
+        """Handle comment deletion response."""
+        if success:
+            return self._process_successful_deletion(comment_id, request)
+        return self._create_error_response(message)
+
+    def _process_successful_deletion(
+        self, comment_id: int, request: HttpRequest
+    ) -> HttpResponse:
+        """Process successful comment deletion."""
+        comment = get_object_or_404(Comment, id=comment_id)
+        task_slug = comment.task.slug
+        comment.soft_delete()
+
+        response = comments_list_view(request, task_slug)
+        self._add_comments_count_trigger(response, comment)
         return response
+
+    def _add_comments_count_trigger(
+        self, response: HttpResponse, comment
+    ) -> None:
+        """Add comments count trigger to response."""
+        comments_count = comment.task.comments.filter(is_deleted=False).count()
+        response['HX-Trigger'] = json.dumps({
+            'updateCommentsCount': {'count': comments_count}
+        })
+
+    def _create_error_response(self, message: str) -> HttpResponse:
+        """Create error response with appropriate status."""
+        return HttpResponse(
+            f'<div class="notification is-danger">{message}</div>',
+            status=HTTP_FORBIDDEN,
+        )
 
 
 class CommentEditFormView(LoginRequiredMixin, View):
@@ -937,9 +745,11 @@ class CommentEditFormView(LoginRequiredMixin, View):
             messages.error(
                 request, 'У вас нет прав для редактирования этого комментария.'
             )
-            return HttpResponse(status=403)
+            return HttpResponse(status=HTTP_FORBIDDEN)
 
-        return render(request, 'tasks/_comment_edit_form.html', {'comment': comment})
+        return render(
+            request, 'tasks/_comment_edit_form.html', {'comment': comment}
+        )
 
 
 class CommentViewView(LoginRequiredMixin, View):
@@ -977,18 +787,5 @@ def comments_list_view(request: HttpRequest, task_slug: str) -> HttpResponse:
     Returns:
         HTTP response with rendered comments list
     """
-    task = get_object_or_404(Task, slug=task_slug)
-    comments = task.comments.filter(is_deleted=False).order_by('-created_at')
-
-    paginator = Paginator(comments, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    return render(
-        request,
-        'tasks/_comments_container.html',
-        {
-            'comments': page_obj,
-            'task': task,
-        },
-    )
+    context = get_comments_for_task(task_slug, request)
+    return render(request, 'tasks/_comments_container.html', context)

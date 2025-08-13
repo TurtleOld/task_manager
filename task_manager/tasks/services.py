@@ -5,32 +5,52 @@ This module contains utility functions for task management, including
 slug generation, notification scheduling, and task-related operations.
 """
 
+import json
+import os
+from collections.abc import Iterable
 from datetime import datetime, timedelta
-from typing import Iterable
+from typing import Any
 
-from transliterate import translit
-
+from django.conf import settings
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.db import transaction
+from django.http import HttpRequest
+from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
 from django.utils.timezone import now
+from django.utils.translation import gettext_lazy as _
+from transliterate import translit
 
-from task_manager.tasks.models import ReminderPeriod
+from task_manager.tasks.models import (
+    ChecklistItem,
+    Comment,
+    Stage,
+    Task,
+    reorder_task_within_stage,
+    reorder_tasks_in_stage,
+)
 from task_manager.tasks.tasks import (
+    send_about_moving_task,
+    send_comment_notification,
+    send_message_about_adding_task,
     send_notification_about_task,
     send_notification_with_photo_about_task,
 )
+from task_manager.users.models import User
 
 
 def slugify_translit(task_name: str) -> str:
     """
     Generate a URL-friendly slug from a Russian task name.
-    
+
     Transliterates Russian text to Latin characters and then creates
     a URL-friendly slug by converting to lowercase and replacing
     spaces with hyphens.
-    
+
     Args:
         task_name: The task name in Russian to convert to a slug
-        
+
     Returns:
         A URL-friendly slug string
     """
@@ -40,7 +60,7 @@ def slugify_translit(task_name: str) -> str:
 
 def notify(
     task_name: str,
-    reminder_periods: Iterable[ReminderPeriod],
+    reminder_periods: Iterable,
     deadline: datetime,
     task_file_path: str | None,
     task_url: str,
@@ -78,3 +98,653 @@ def notify(
                     f'{period}',
                     task_url,
                 ).with_eta(notify_time)
+
+
+def get_user_display_name(user) -> str:
+    """
+    Get the display name for a user.
+
+    Args:
+        user: The user object
+
+    Returns:
+        Full name if available, otherwise username
+    """
+    if hasattr(user, 'get_full_name'):
+        full_name = user.get_full_name()
+        if full_name:
+            return full_name
+    return user.username
+
+
+def process_checklist_items(request: HttpRequest) -> list[dict[str, Any]]:
+    """
+    Process checklist items from form data.
+
+    Args:
+        request: The HTTP request object
+
+    Returns:
+        List of checklist item dictionaries
+    """
+    checklist_items = []
+    index = 0
+    while f'checklist_items[{index}][description]' in request.POST:
+        description = request.POST.get(
+            f'checklist_items[{index}][description]', ''
+        ).strip()
+        is_completed = (
+            request.POST.get(f'checklist_items[{index}][is_completed]', 'false')
+            == 'true'
+        )
+        if description:
+            checklist_items.append({
+                'description': description,
+                'is_completed': is_completed,
+            })
+        index += 1
+    return checklist_items
+
+
+def create_task_with_checklist(form, request: HttpRequest) -> tuple[Task, str]:
+    """
+    Create task and process checklist items.
+
+    Args:
+        form: The task form
+        request: The HTTP request object
+
+    Returns:
+        Tuple of (task, task_slug)
+    """
+    form.instance.author = User.objects.get(pk=request.user.pk)
+    task = form.save(commit=False)
+    task_name = task.name
+    task.slug = slugify_translit(task_name)
+    task.stage_id = 1
+    task = form.save()
+    task_slug = task.slug
+
+    checklist_items = process_checklist_items(request)
+    form.cleaned_data = form.cleaned_data or {}
+    form.cleaned_data['checklist_items'] = checklist_items
+    form.save_checklist_items(task)
+
+    return task, task_slug
+
+
+def send_task_creation_notifications(
+    task_name: str, task_slug: str, form, request: HttpRequest
+) -> None:
+    """
+    Send notifications for task creation.
+
+    Args:
+        task_name: The task name
+        task_slug: The task slug
+        form: The task form
+        request: The HTTP request object
+    """
+    task_url = request.build_absolute_uri(f'/tasks/{task_slug}')
+    if getattr(settings, 'TASKIQ_ENABLED', True):
+        send_message_about_adding_task.kiq(task_name, task_url)
+
+    task_image = form.instance.image
+    deadline = form.instance.deadline
+    reminder_periods = form.cleaned_data.get('reminder_periods', [])
+    task_image_path = task_image.path if task_image else None
+
+    if deadline and reminder_periods and os.environ.get('TOKEN_TELEGRAM_BOT'):
+        notify(
+            task_name,
+            reminder_periods,
+            deadline,
+            task_image_path,
+            task_url,
+        )
+
+
+def _get_task_author_data(task: Task) -> dict[str, str]:
+    """Get author data for a task."""
+    return {
+        'username': (task.author.username if task.author else ''),
+        'full_name': (task.author.get_full_name() if task.author else ''),
+    }
+
+
+def _get_task_executor_data(task: Task) -> dict[str, str]:
+    """Get executor data for a task."""
+    return {
+        'username': (task.executor.username if task.executor else ''),
+        'full_name': (task.executor.get_full_name() if task.executor else ''),
+    }
+
+
+def _build_task_data(task: Task) -> dict[str, Any]:
+    """Build task data dictionary."""
+    return {
+        'id': task.id,
+        'name': task.name,
+        'slug': task.slug,
+        'author': _get_task_author_data(task),
+        'executor': _get_task_executor_data(task),
+        'created_at': task.created_at.strftime('%d.%m.%Y %H:%M'),
+        'stage': task.stage_id,
+        'labels': list(task.labels.values('id', 'name')),
+    }
+
+
+def _get_filtered_stage_tasks(stage: Stage, selected_labels: list[str]) -> Any:
+    """Get filtered tasks for a stage."""
+    stage_tasks = stage.tasks.all()
+    if selected_labels:
+        stage_tasks = stage_tasks.filter(
+            labels__id__in=selected_labels
+        ).distinct()
+    return stage_tasks
+
+
+def get_kanban_data(request: HttpRequest) -> dict[str, Any]:
+    """
+    Get kanban board data with tasks organized by stages.
+
+    Args:
+        request: The HTTP request object
+
+    Returns:
+        Dictionary containing kanban data
+    """
+    from task_manager.labels.models import Label
+
+    labels = Label.objects.all().order_by('name')
+    selected_labels = request.GET.getlist('labels')
+    stages = Stage.objects.prefetch_related('tasks').order_by('order')
+
+    tasks_data = []
+    for stage in stages:
+        stage_tasks = _get_filtered_stage_tasks(stage, selected_labels)
+        for task in stage_tasks:
+            tasks_data.append(_build_task_data(task))
+
+    return {
+        'stages': stages,
+        'tasks': json.dumps(tasks_data, default=str, ensure_ascii=False),
+        'labels': labels,
+        'selected_labels': selected_labels,
+    }
+
+
+def _process_stage_change(
+    task: Task, new_stage_id: int | None, request: HttpRequest
+) -> dict[str, Any] | None:
+    """Process stage change for a task."""
+    if new_stage_id is None:
+        return None
+
+    old_stage = task.stage
+    new_stage = Stage.objects.get(id=new_stage_id) if new_stage_id else None
+
+    if new_stage and not can_move_to_done_stage(task, new_stage, request):
+        return {
+            'success': False,
+            'error': 'Unauthorized move to Done stage',
+        }
+
+    if old_stage != new_stage and new_stage:
+        move_task_to_new_stage(task, old_stage, new_stage, request)
+
+    return None
+
+
+def update_task_stage_and_order(
+    task_id: int,
+    new_stage_id: int | None,
+    new_order: int | None,
+    request: HttpRequest,
+) -> dict[str, Any]:
+    """
+    Update task stage and order with validation and notifications.
+
+    Args:
+        task_id: The task ID
+        new_stage_id: The new stage ID
+        new_order: The new order
+        request: The HTTP request object
+
+    Returns:
+        Dictionary with success status and optional error message
+    """
+    try:
+        with transaction.atomic():
+            task = Task.objects.select_for_update().get(id=task_id)
+
+            # Process stage change
+            stage_result = _process_stage_change(task, new_stage_id, request)
+            if stage_result:
+                return stage_result
+
+            # Process order change
+            if new_order is not None:
+                reorder_task_within_stage(task, new_order)
+
+        return {'success': True}
+    except Task.DoesNotExist:
+        return {'success': False, 'error': 'Task not found'}
+    except Stage.DoesNotExist:
+        return {'success': False, 'error': 'Stage not found'}
+    except Exception as exception:
+        return {'success': False, 'error': str(exception)}
+
+
+def can_move_to_done_stage(
+    task: Task, new_stage: Stage, request: HttpRequest
+) -> bool:
+    """
+    Check if user can move task to Done stage.
+
+    Args:
+        task: The task object
+        new_stage: The new stage object
+        request: The HTTP request object
+
+    Returns:
+        True if move is allowed, False otherwise
+    """
+    if new_stage and new_stage.name == 'Done' and task.author != request.user:
+        messages.error(
+            request,
+            _('Only the task author can move it to Done'),
+        )
+        return False
+    return True
+
+
+def move_task_to_new_stage(
+    task: Task, old_stage: Stage, new_stage: Stage, request: HttpRequest
+) -> None:
+    """
+    Move task to new stage and handle notifications.
+
+    Args:
+        task: The task object
+        old_stage: The old stage object
+        new_stage: The new stage object
+        request: The HTTP request object
+    """
+    task.stage = new_stage
+    task.save()
+
+    send_move_notification(task, new_stage, request)
+    reorder_stages(old_stage, new_stage)
+
+
+def send_move_notification(
+    task: Task, new_stage: Stage, request: HttpRequest
+) -> None:
+    """
+    Send notification about task move.
+
+    Args:
+        task: The task object
+        new_stage: The new stage object
+        request: The HTTP request object
+    """
+    task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
+    moved_by = get_user_display_name(request.user)
+
+    if getattr(settings, 'TASKIQ_ENABLED', True):
+        send_about_moving_task.kiq(
+            task.name,
+            moved_by,
+            new_stage.name,
+            task_url,
+        )
+
+
+def reorder_stages(old_stage: Stage, new_stage: Stage) -> None:
+    """
+    Reorder tasks in affected stages.
+
+    Args:
+        old_stage: The old stage object
+        new_stage: The new stage object
+    """
+    if old_stage:
+        reorder_tasks_in_stage(old_stage.pk)
+    if new_stage:
+        reorder_tasks_in_stage(new_stage.pk)
+
+
+def process_bulk_task_updates(
+    tasks_data: list[dict[str, Any]], request: HttpRequest
+) -> None:
+    """
+    Process bulk update of tasks.
+
+    Args:
+        tasks_data: List of task data dictionaries
+        request: The HTTP request object
+
+    Raises:
+        ValueError: If task data is invalid or task not found
+    """
+    for task_data in tasks_data:
+        validate_task_data(task_data)
+        update_single_task(task_data, request)
+
+
+def validate_task_data(task_data: dict[str, Any]) -> None:
+    """
+    Validate individual task data.
+
+    Args:
+        task_data: Dictionary containing task data
+
+    Raises:
+        ValueError: If task data is invalid
+    """
+    task_id = task_data.get('task_id')
+    stage_id = task_data.get('stage_id')
+    order = task_data.get('order')
+
+    if task_id is None or stage_id is None or order is None:
+        raise ValueError('Invalid task data')
+
+
+def update_single_task(task_data: dict[str, Any], request: HttpRequest) -> None:
+    """
+    Update a single task with new stage and order.
+
+    Args:
+        task_data: Dictionary containing task data
+        request: The HTTP request object
+
+    Raises:
+        ValueError: If task not found
+    """
+    task_id = task_data.get('task_id')
+    stage_id = task_data.get('stage_id')
+    order = task_data.get('order')
+
+    task = Task.objects.filter(pk=task_id).first()
+    if not task:
+        raise ValueError(f'Task with ID {task_id} not found')
+
+    old_stage_id = task.stage.id if task.stage else None
+    task.stage_id = stage_id
+    task.order = order
+    task.save()
+
+    if old_stage_id != stage_id and stage_id is not None:
+        handle_task_stage_change(task, int(stage_id), request)
+
+
+def handle_task_stage_change(
+    task: Task, new_stage_id: int, request: HttpRequest
+) -> None:
+    """
+    Handle notification when task is moved to a different stage.
+
+    Args:
+        task: The task object
+        new_stage_id: ID of the new stage
+        request: The HTTP request object
+    """
+    new_stage = Stage.objects.get(id=new_stage_id)
+    task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
+    moved_by = get_user_display_name(request.user)
+
+    if getattr(settings, 'TASKIQ_ENABLED', True):
+        send_about_moving_task.kiq(
+            task.name, moved_by, new_stage.name, task_url
+        )
+
+
+def get_task_context_data(task: Task, request: HttpRequest) -> dict[str, Any]:
+    """
+    Get context data for task detail view.
+
+    Args:
+        task: The task object
+        request: The HTTP request object
+
+    Returns:
+        Dictionary of context data
+    """
+    context = {'labels': task.labels.all()}
+
+    if hasattr(task, 'checklist'):
+        checklist_items = task.checklist.items.all()
+        context['checklist_items'] = checklist_items
+        total_checklist = checklist_items.count()
+        done_checklist = checklist_items.filter(is_completed=True).count()
+        progress_checklist = (
+            int(done_checklist / total_checklist * 100)
+            if total_checklist
+            else 0
+        )
+        context['total_checklist'] = total_checklist
+        context['done_checklist'] = done_checklist
+        context['progress_checklist'] = progress_checklist
+    else:
+        context['checklist_items'] = []
+        context['total_checklist'] = 0
+        context['done_checklist'] = 0
+        context['progress_checklist'] = 0
+
+    comments = task.comments.filter(is_deleted=False).order_by('-created_at')
+    paginator = Paginator(comments, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    context['comments'] = page_obj
+
+    return context
+
+
+def get_checklist_progress(task: Task) -> dict[str, int]:
+    """
+    Get checklist progress for a task.
+
+    Args:
+        task: The task object
+
+    Returns:
+        Dictionary with progress data
+    """
+    if hasattr(task, 'checklist'):
+        checklist_items = task.checklist.items.all()
+        total_checklist = checklist_items.count()
+        done_checklist = checklist_items.filter(is_completed=True).count()
+        progress_checklist = (
+            int(done_checklist / total_checklist * 100)
+            if total_checklist
+            else 0
+        )
+    else:
+        total_checklist = 0
+        done_checklist = 0
+        progress_checklist = 0
+
+    return {
+        'progress_checklist': progress_checklist,
+        'done_checklist': done_checklist,
+        'total_checklist': total_checklist,
+    }
+
+
+def toggle_checklist_item(checklist_item_id: int) -> ChecklistItem:
+    """
+    Toggle checklist item completion status.
+
+    Args:
+        checklist_item_id: The checklist item ID
+
+    Returns:
+        The updated checklist item
+    """
+    checklist_item = get_object_or_404(ChecklistItem, pk=checklist_item_id)
+    checklist_item.is_completed = not checklist_item.is_completed
+    checklist_item.save()
+    return checklist_item
+
+
+def create_comment(
+    task_slug: str, request: HttpRequest
+) -> tuple[bool, str, Comment | None]:
+    """
+    Create a new comment on a task.
+
+    Args:
+        task_slug: The task slug
+        request: The HTTP request object
+
+    Returns:
+        Tuple of (success, message, comment_or_none)
+    """
+    from task_manager.tasks.forms import CommentForm
+
+    task = get_object_or_404(Task, slug=task_slug)
+
+    if request.user not in [task.author, task.executor] and task.executor:
+        return (
+            False,
+            'У вас нет прав для добавления комментариев к этой задаче.',
+            None,
+        )
+
+    form = CommentForm(request.POST)
+    if form.is_valid():
+        comment = form.save(commit=False)
+        comment.task = task
+        comment.author = request.user
+        comment.save()
+
+        if task.executor and task.executor != request.user:
+            if getattr(settings, 'TASKIQ_ENABLED', True):
+                send_comment_notification.kiq(comment.id)
+
+        return True, 'Comment created successfully', comment
+    return False, f'Ошибка: {form.errors}', None
+
+
+def update_comment(
+    comment_id: int, request: HttpRequest
+) -> tuple[bool, str, Comment | None]:
+    """
+    Update an existing comment.
+
+    Args:
+        comment_id: The comment ID
+        request: The HTTP request object
+
+    Returns:
+        Tuple of (success, message, comment_or_none)
+    """
+    from task_manager.tasks.forms import CommentForm
+
+    comment = get_object_or_404(Comment, id=comment_id)
+
+    if not comment.can_edit(request.user):
+        return (
+            False,
+            'У вас нет прав для редактирования этого комментария.',
+            None,
+        )
+
+    form = CommentForm(request.POST, instance=comment)
+    if form.is_valid():
+        comment = form.save(commit=False)
+        comment.updated_at = timezone.now()
+        comment.save()
+        return True, 'Comment updated successfully', comment
+    return False, f'Ошибка: {form.errors}', None
+
+
+def delete_comment(comment_id: int, request: HttpRequest) -> tuple[bool, str]:
+    """
+    Delete a comment (soft delete).
+
+    Args:
+        comment_id: The comment ID
+        request: The HTTP request object
+
+    Returns:
+        Tuple of (success, message)
+    """
+    comment = get_object_or_404(Comment, id=comment_id)
+
+    if not comment.can_delete(request.user):
+        return False, 'У вас нет прав для удаления этого комментария.'
+
+    comment.soft_delete()
+    return True, 'Comment deleted successfully'
+
+
+def get_comments_for_task(
+    task_slug: str, request: HttpRequest
+) -> dict[str, Any]:
+    """
+    Get paginated comments for a task.
+
+    Args:
+        task_slug: The task slug
+        request: The HTTP request object
+
+    Returns:
+        Dictionary with comments and task data
+    """
+    task = get_object_or_404(Task, slug=task_slug)
+    comments = task.comments.filter(is_deleted=False).order_by('-created_at')
+
+    paginator = Paginator(comments, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return {
+        'comments': page_obj,
+        'task': task,
+    }
+
+
+def close_or_reopen_task(
+    task_slug: str, request: HttpRequest
+) -> tuple[bool, str]:
+    """
+    Close or reopen a task.
+
+    Args:
+        task_slug: The task slug
+        request: The HTTP request object
+
+    Returns:
+        Tuple of (success, message)
+    """
+    task = get_object_or_404(Task, slug=task_slug)
+    task_url = request.build_absolute_uri(f'/tasks/{task_slug}')
+
+    if task.author != request.user and task.executor != request.user:
+        return False, 'У вас нет прав для изменения состояния этой задачи'
+
+    task.state = not task.state
+    task.save()
+
+    if task.state:
+        if getattr(settings, 'TASKIQ_ENABLED', True):
+            send_about_closing_task.kiq(task.name, task_url)
+        return True, 'Статус задачи изменен.'
+    if getattr(settings, 'TASKIQ_ENABLED', True):
+        send_about_opening_task.kiq(task.name, task_url)
+    return True, 'Статус задачи изменен.'
+
+
+def delete_task_with_notification(task: Task) -> None:
+    """
+    Delete a task and send notification.
+
+    Args:
+        task: The task object
+    """
+    task_name = task.name
+    if getattr(settings, 'TASKIQ_ENABLED', True):
+        send_about_deleting_task.kiq(task_name)
+    task.delete()

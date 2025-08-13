@@ -5,8 +5,9 @@ This module configures TaskIQ for background task processing using RabbitMQ as b
 """
 
 import os
-from taskiq_aio_pika import AioPikaBroker
+
 from taskiq import InMemoryBroker
+from taskiq_aio_pika import AioPikaBroker
 
 # Configure the broker based on environment
 if os.getenv('TASKIQ_SYNC_MODE', 'false').lower() in ('true', '1', 'yes'):
@@ -15,7 +16,7 @@ if os.getenv('TASKIQ_SYNC_MODE', 'false').lower() in ('true', '1', 'yes'):
 else:
     # Use RabbitMQ broker for production
     broker = AioPikaBroker(
-        url=os.environ.get('BROKER_URL', 'amqp://rabbitmq:rabbitmq@rabbitmq:5672/'),
+        url=os.environ.get('BROKER_URL', 'amqp://guest:guest@localhost:5672/'),
     )
 
 # Tasks will be imported when Django is ready

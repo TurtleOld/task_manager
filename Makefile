@@ -1,6 +1,6 @@
 # Makefile for Task Manager project
 
-.PHONY: help install migrate collectstatic run test clean docker-up docker-down docker-logs taskiq-worker taskiq-scheduler taskiq-dashboard test-taskiq
+.PHONY: help install migrate collectstatic run test clean docker-up docker-down docker-logs taskiq-worker taskiq-scheduler taskiq-dashboard format lint
 
 # Default target
 help:
@@ -12,6 +12,8 @@ help:
 	@echo "  collectstatic  - Collect static files"
 	@echo "  run            - Run Django development server"
 	@echo "  test           - Run tests"
+	@echo "  format         - Run ruff check and format"
+	@echo "  lint           - Run flake8 with WPS rules"
 	@echo "  clean          - Clean Python cache files"
 	@echo "  docker-up      - Start all Docker services"
 	@echo "  docker-down    - Stop all Docker services"
@@ -19,7 +21,6 @@ help:
 	@echo "  taskiq-worker  - Start TaskIQ worker"
 	@echo "  taskiq-scheduler - Start TaskIQ scheduler"
 	@echo "  taskiq-dashboard - Start TaskIQ dashboard"
-	@echo "  test-taskiq    - Test TaskIQ functionality"
 
 # Development commands
 install:
@@ -48,6 +49,13 @@ clean:
 	find . -type d -name "__pycache__" -delete
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
 
+format:
+	uv run ruff check . --fix || true
+	uv run ruff format .
+
+lint:
+	uv run flake8 . --select=WPS
+
 # Docker commands
 docker-up:
 	docker-compose up -d
@@ -60,26 +68,15 @@ docker-logs:
 
 # TaskIQ commands
 taskiq-worker:
-	taskiq worker task_manager.taskiq:broker --workers 4 --no-parse
+	uv run taskiq worker task_manager.taskiq:broker --workers 4 --no-parse
 
 taskiq-scheduler:
-	taskiq scheduler task_manager.taskiq:broker
+	uv run taskiq scheduler task_manager.taskiq:broker
 
 taskiq-dashboard:
-	taskiq dashboard task_manager.taskiq:broker --port 5555 --no-parse
+	uv run taskiq dashboard task_manager.taskiq:broker --port 5555 --no-parse
 
-# Testing commands
-test-taskiq:
-	uv run python manage.py test_taskiq --task all
 
-test-taskiq-basic:
-	uv run python manage.py test_taskiq --task basic
-
-test-taskiq-email:
-	uv run python manage.py test_taskiq --task email --email test@example.com --name "Test User"
-
-check-taskiq:
-	uv run python scripts/check_taskiq.py
 
 # Production commands
 prod-setup:

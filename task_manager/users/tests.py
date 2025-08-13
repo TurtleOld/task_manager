@@ -1,7 +1,12 @@
-from django.test import TestCase, Client
+from django.test import Client, TestCase
 from django.urls import reverse
 from faker import Faker
 
+from task_manager.constants import (
+    DEFAULT_PASSWORD_LENGTH,
+    HTTP_FORBIDDEN,
+    HTTP_OK,
+)
 from task_manager.users.models import User
 
 
@@ -19,7 +24,7 @@ class TestUser(TestCase):
         """Тест: создание пользователя недоступно, когда в системе уже есть пользователи"""
         url = reverse('users:create')
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, HTTP_FORBIDDEN)
 
     def test_delete_user(self) -> None:
         user = self.user2
@@ -38,7 +43,7 @@ class TestUser(TestCase):
         # У нас уже есть пользователи из фикстур
         url = reverse('users:create')
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, HTTP_FORBIDDEN)
 
     def test_first_user_becomes_superuser(self) -> None:
         """Тест: первый пользователь становится суперадмином"""
@@ -47,14 +52,14 @@ class TestUser(TestCase):
 
         url = reverse('users:create')
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTP_OK)
 
         # Создаем первого пользователя
         Faker.seed(0)
         username = self.faker.user_name()
         first_name = self.faker.first_name()
         last_name = self.faker.last_name()
-        set_password = self.faker.password(length=12)
+        set_password = self.faker.password(length=DEFAULT_PASSWORD_LENGTH)
         new_user = {
             'first_name': first_name,
             'last_name': last_name,
@@ -78,12 +83,13 @@ class TestUser(TestCase):
 
         url = reverse('users:create')
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, HTTP_OK)
 
     def test_registration_available_context_processor(self) -> None:
         """Тест: контекстный процессор registration_available работает правильно"""
-        from task_manager.context_processors import registration_available
         from django.test import RequestFactory
+
+        from task_manager.context_processors import registration_available
 
         # Создаем фейковый запрос
         factory = RequestFactory()

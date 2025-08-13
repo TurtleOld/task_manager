@@ -1,26 +1,29 @@
+from datetime import timedelta
 from typing import Any
-from django.core.exceptions import PermissionDenied
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
+from django.core.exceptions import PermissionDenied
 from django.db.models.base import Model as Model
-from django.utils import timezone
-from datetime import timedelta
-
 from django.http import HttpRequest
 from django.http.response import HttpResponseBase
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.utils.translation import gettext, gettext_lazy
 from django.views.generic import (
-    ListView,
     CreateView,
-    UpdateView,
     DeleteView,
+    ListView,
+    UpdateView,
 )
 
 from task_manager.labels.forms import LabelForm
 from task_manager.labels.models import Label
+
+# Constants
+DAYS_IN_MONTH = 30
 
 
 class LabelsList(LoginRequiredMixin, ListView[Label]):
@@ -42,20 +45,20 @@ class LabelsList(LoginRequiredMixin, ListView[Label]):
         active_labels = labels.filter(tasks__isnull=False).distinct().count()
 
         # Labels created this month
-        month_ago = timezone.now() - timedelta(days=30)
+        month_ago = timezone.now() - timedelta(days=DAYS_IN_MONTH)
         recent_labels = labels.filter(created_at__gte=month_ago).count()
 
-        context.update(
-            {
-                'active_labels_count': active_labels,
-                'recent_labels_count': recent_labels,
-            }
-        )
+        context.update({
+            'active_labels_count': active_labels,
+            'recent_labels_count': recent_labels,
+        })
 
         return context
 
 
-class CreateLabel(LoginRequiredMixin, SuccessMessageMixin[Any], CreateView[Label, Any]):
+class CreateLabel(
+    LoginRequiredMixin, SuccessMessageMixin[Any], CreateView[Label, Any]
+):
     model = Label
     template_name = 'labels/create_label.html'
     form_class = LabelForm
@@ -101,10 +104,10 @@ class DeleteLabel(  # type: ignore
         **kwargs: reverse_lazy,
     ) -> HttpResponseBase:
         try:
-            obj = self.get_object()
-            if obj.tasks.exists():
+            label_object = self.get_object()
+            if label_object.tasks.exists():
                 raise PermissionDenied(self.error_message)
-        except PermissionDenied as e:
-            messages.error(request, e.args[0])
+        except PermissionDenied as error:
+            messages.error(request, error.args[0])
             return redirect(self.success_url)
         return super().dispatch(request, *args, **kwargs)

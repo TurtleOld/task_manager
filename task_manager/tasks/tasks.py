@@ -8,12 +8,18 @@ including notification sending, task status updates, and comment notifications.
 import os
 from pathlib import Path
 
-from task_manager.taskiq import broker
 from django.conf import settings
 from django.urls import reverse
 
-from task_manager.tasks.models import Comment
+from task_manager.taskiq import broker
+from task_manager.tasks.models import Comment, Task
 from task_manager.users.bot import bot_admin
+from task_manager.users.models import User
+
+# Constants
+CHAT_ID_ENV_VAR = 'CHAT_ID'
+CHAT_ID: str = os.environ.get(CHAT_ID_ENV_VAR) or ''
+MAX_COMMENT_PREVIEW_LENGTH = 100
 
 
 @broker.task  # type: ignore
@@ -31,8 +37,10 @@ def send_message_about_adding_task(task_name, task_url) -> None:
         None
     """
     bot_admin.send_message(
-        chat_id=os.environ.get('CHAT_ID'),
-        text=(f'Создана новая задача: {task_name}\nПосмотреть подробнее: {task_url}'),
+        chat_id=CHAT_ID,
+        text=(
+            f'Создана новая задача: {task_name}\nПосмотреть подробнее: {task_url}'
+        ),
     )
 
 
@@ -51,8 +59,10 @@ def send_about_updating_task(task_name, task_url) -> None:
         None
     """
     bot_admin.send_message(
-        chat_id=os.environ.get('CHAT_ID'),
-        text=(f'Задача "{task_name}" была изменена!\nПосмотреть подробнее: {task_url}'),
+        chat_id=CHAT_ID,
+        text=(
+            f'Задача "{task_name}" была изменена!\nПосмотреть подробнее: {task_url}'
+        ),
     )
 
 
@@ -70,7 +80,7 @@ def send_about_deleting_task(task_name) -> None:
         None
     """
     bot_admin.send_message(
-        chat_id=os.environ.get('CHAT_ID'),
+        chat_id=CHAT_ID,
         text=f'Задача "{task_name}" была удалена!',
     )
 
@@ -95,7 +105,7 @@ def send_notification_about_task(
         None
     """
     bot_admin.send_message(
-        chat_id=os.environ.get('CHAT_ID'),
+        chat_id=CHAT_ID,
         text=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}\n{task_url}',
     )
 
@@ -124,15 +134,15 @@ def send_notification_with_photo_about_task(
     """
     file_path = Path(settings.BASE_DIR).joinpath(task_file_path)
     try:
-        with open(file_path, 'rb') as file:
+        with open(file_path, 'rb') as task_file:
             bot_admin.send_photo(
-                chat_id=os.environ.get('CHAT_ID'),
-                photo=file,
+                chat_id=CHAT_ID,
+                photo=task_file,
                 caption=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}\n{task_url}',
             )
     except FileNotFoundError:
         bot_admin.send_message(
-            chat_id=os.environ.get('CHAT_ID'),
+            chat_id=CHAT_ID,
             text=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}\n{task_url}',
         )
 
@@ -152,7 +162,7 @@ def send_about_closing_task(task_name, task_url) -> None:
         None
     """
     bot_admin.send_message(
-        chat_id=os.environ.get('CHAT_ID'),
+        chat_id=CHAT_ID,
         text=f'Задача "{task_name}" была закрыта!\n{task_url}',
     )
 
@@ -172,7 +182,7 @@ def send_about_opening_task(task_name, task_url) -> None:
         None
     """
     bot_admin.send_message(
-        chat_id=os.environ.get('CHAT_ID'),
+        chat_id=CHAT_ID,
         text=f'Задача "{task_name}" была переоткрыта!\n{task_url}',
     )
 
@@ -195,8 +205,39 @@ def send_about_moving_task(task_name, moved_by, stage_name, task_url) -> None:
         None
     """
     bot_admin.send_message(
-        chat_id=os.environ.get('CHAT_ID'),
+        chat_id=CHAT_ID,
         text=f'{moved_by} переместил задачу "{task_name}" в {stage_name}.\n{task_url}',
+    )
+
+
+def _get_task_url(task: 'Task') -> str:
+    """Get full task URL."""
+    task_url = reverse('tasks:view_task', args=[task.slug])
+    return (
+        f'{settings.SITE_URL}{task_url}'
+        if hasattr(settings, 'SITE_URL')
+        else task_url
+    )
+
+
+def _get_comment_preview(comment_content: str) -> str:
+    """Get comment preview with ellipsis if needed."""
+    preview = comment_content[:MAX_COMMENT_PREVIEW_LENGTH]
+    ellipsis = (
+        '...' if len(comment_content) > MAX_COMMENT_PREVIEW_LENGTH else ''
+    )
+    return f'{preview}{ellipsis}'
+
+
+def _build_comment_message(
+    task: 'Task', author: 'User', comment_preview: str, full_url: str
+) -> str:
+    """Build notification message for comment."""
+    return (
+        f'Новый комментарий к задаче "{task.name}"\n'
+        f'Автор: {author}\n'
+        f'Комментарий: {comment_preview}\n'
+        f'Посмотреть задачу: {full_url}'
     )
 
 
@@ -219,22 +260,16 @@ def send_comment_notification(comment_id: int) -> None:
         task = comment.task
         author = comment.author
 
-        task_url = reverse('tasks:view_task', args=[task.slug])
-        full_url = (
-            f'{settings.SITE_URL}{task_url}'
-            if hasattr(settings, 'SITE_URL')
-            else task_url
-        )
-        message = (
-            f'Новый комментарий к задаче "{task.name}"\n'
-            f'Автор: {author}\n'
-            f'Комментарий: {comment.content[:100]}{"..." if len(comment.content) > 100 else ""}\n'
-            f'Посмотреть задачу: {full_url}'
+        full_url = _get_task_url(task)
+        comment_preview = _get_comment_preview(comment.comment_content)
+        message = _build_comment_message(
+            task, author, comment_preview, full_url
         )
 
         bot_admin.send_message(
-            chat_id=str(os.environ.get('CHAT_ID')),
+            chat_id=CHAT_ID,
             text=message,
         )
     except Comment.DoesNotExist:
-        pass
+        # Comment was deleted, no need to send notification
+        return

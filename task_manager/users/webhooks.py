@@ -1,9 +1,9 @@
 import json
-from telebot import types
 from typing import Final
 
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from telebot import types
 
 from task_manager.users.bot import bot_admin
 
