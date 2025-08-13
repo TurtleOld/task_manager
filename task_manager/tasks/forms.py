@@ -160,7 +160,9 @@ class TaskForm(ModelForm[Any]):
         for checklist_item_data in items_data:
             self._create_checklist_item(checklist, checklist_item_data)
 
-    def _create_checklist_item(self, checklist: Checklist, item_data: dict) -> None:
+    def _create_checklist_item(
+        self, checklist: Checklist, item_data: dict
+    ) -> None:
         """Create a single checklist item."""
         description = item_data.get('description', '').strip()
         if not description:
@@ -178,7 +180,8 @@ class TaskForm(ModelForm[Any]):
             return
 
         should_disable = (
-            self.instance.state or self.instance.author_id != self.request.user.pk
+            self.instance.state
+            or self.instance.author_id != self.request.user.pk
         )
 
         if should_disable:
@@ -217,7 +220,9 @@ class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
     executors = User.objects.values_list(
         'id', Concat('first_name', Value(' '), 'last_name'), named=True
     ).all()
-    executor = ChoiceFilter(label=gettext_lazy('Исполнитель'), choices=executors)
+    executor = ChoiceFilter(
+        label=gettext_lazy('Исполнитель'), choices=executors
+    )
 
     all_labels = Label.objects.values_list('id', 'name', named=True)
     labels = ChoiceFilter(label=gettext_lazy('Метка'), choices=all_labels)
@@ -240,13 +245,13 @@ class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
         self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
 
-    def filter_current_user(self, queryset, name, filter_value):
+    def filter_current_user(self, queryset, _name, filter_value):
         """
         Filter tasks to show only those created by the current user.
 
         Args:
             queryset: The queryset to filter
-            name: The field name (unused but required by django-filter)
+            _name: The field name (unused but required by django-filter)
             filter_value: Boolean value indicating whether to filter by current user
 
         Returns:
