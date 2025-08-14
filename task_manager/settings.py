@@ -241,10 +241,25 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # TaskIQ Configuration Options
 TASKIQ_TIMEZONE = 'Europe/Moscow'
-TASKIQ_BROKER_URL = os.environ.get(
-    'BROKER_URL', 'amqp://rabbitmq:rabbitmq@rabbitmq:5672/'
+
+
+# Determine appropriate broker URL for environment
+def get_taskiq_broker_url():
+    """Get appropriate TaskIQ broker URL based on environment."""
+    if os.path.exists('/.dockerenv') or os.environ.get('DOCKER_ENV'):
+        return os.environ.get(
+            'BROKER_URL', 'amqp://rabbitmq:rabbitmq@rabbitmq:5672/'
+        )
+    else:
+        return os.environ.get(
+            'BROKER_URL', 'amqp://guest:guest@localhost:5672/'
+        )
+
+
+TASKIQ_BROKER_URL = get_taskiq_broker_url()
+TASKIQ_RESULT_BACKEND_URL = os.environ.get(
+    'REDIS_URL', 'redis://localhost:6379/0'
 )
-TASKIQ_RESULT_BACKEND_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
 
 
 def get_taskiq_routes():

@@ -6,8 +6,16 @@ as the message broker and defines a scheduler instance for periodic tasks.
 """
 
 import os
+import django
+from taskiq.schedule_sources import LabelScheduleSource
 from taskiq import TaskiqScheduler
 from taskiq_aio_pika import AioPikaBroker
+from dotenv import load_dotenv
+
+load_dotenv()
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'task_manager.settings')
+django.setup()
 
 broker = AioPikaBroker(
     url=os.environ.get('BROKER_URL', 'amqp://rabbitmq:rabbitmq@rabbitmq:5672/'),
@@ -15,5 +23,12 @@ broker = AioPikaBroker(
 
 scheduler = TaskiqScheduler(
     broker=broker,
-    sources=["task_manager.tasks"],
+    sources=[LabelScheduleSource(broker)],
 )
+
+try:
+    from task_manager.tasks.tasks import *
+
+    __all__ = ('broker',)
+except ImportError:
+    pass
