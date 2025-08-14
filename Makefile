@@ -71,7 +71,7 @@ taskiq-worker:
 	uv run taskiq worker task_manager.taskiq:broker --workers 4 --no-parse
 
 taskiq-scheduler:
-	uv run taskiq scheduler task_manager.taskiq:broker
+	uv run taskiq scheduler task_manager.taskiq:scheduler
 
 taskiq-dashboard:
 	uv run taskiq dashboard task_manager.taskiq:broker --port 5555 --no-parse
