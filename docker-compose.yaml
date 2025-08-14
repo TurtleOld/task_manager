@@ -54,7 +54,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: task_manager_taskiq
-    command: taskiq worker task_manager.taskiq:broker --workers 4 --no-parse
+    command: uv run taskiq worker task_manager.taskiq:broker --workers 4 --no-parse
     env_file:
       - .env
     volumes:
@@ -78,7 +78,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: task_manager_taskiq_scheduler
-    command: taskiq scheduler task_manager.taskiq:broker
+    command: uv run taskiq scheduler task_manager.taskiq:broker
     env_file:
       - .env
     volumes:
@@ -103,7 +103,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: task_manager_taskiq_dashboard
-    command: taskiq dashboard task_manager.taskiq:broker --port 5555 --no-parse
+    command: uv run taskiq dashboard task_manager.taskiq:broker --port 5555 --no-parse
     ports:
       - "5555:5555"
     depends_on:
