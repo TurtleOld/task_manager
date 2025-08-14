@@ -2,6 +2,7 @@ from typing import Any
 
 from django.contrib.auth.models import AnonymousUser
 from django.http import HttpRequest
+
 from task_manager.users.models import User
 
 

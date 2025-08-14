@@ -6,31 +6,28 @@ ENV PYTHONFAULTHANDLER=1 \
 
 WORKDIR /app
 
-# Install system dependencies and uv
+RUN useradd -m -u 1000 appuser \
+    && mkdir -p /app_data \
+    && chown -R appuser:appuser /app /app_data
+
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     libpq-dev \
     curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh
+    && rm -rf /var/lib/apt/lists/*
 
-# Add uv to PATH
-ENV PATH="/root/.local/bin:$PATH"
+USER appuser
+ENV PATH="/home/appuser/.local/bin:$PATH"
 
-# Copy project files for dependency installation
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
 COPY pyproject.toml README.md ./
-
-# Install Python dependencies with uv
 RUN uv sync
 
-# Copy application code
 COPY . .
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && \
-    chown -R appuser:appuser /app
-USER appuser
+RUN chmod -R 755 /app_data
 
 EXPOSE 8000
 

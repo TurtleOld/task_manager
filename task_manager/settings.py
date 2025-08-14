@@ -14,11 +14,9 @@ import os
 import sys
 from pathlib import Path
 
-
 import dj_database_url
-from dotenv import load_dotenv
-
 import django_stubs_ext
+from dotenv import load_dotenv
 
 django_stubs_ext.monkeypatch()
 
@@ -36,11 +34,13 @@ DEBUG = os.getenv('DEBUG', 'false').lower() in ('yes', '1', 'true')
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split() or []
+ALLOWED_HOSTS = tuple(os.getenv('ALLOWED_HOSTS', '').split()) or ()
 
-CSRF_TRUSTED_ORIGINS = os.getenv('CSRF_TRUSTED_ORIGINS', '').split() or []
+CSRF_TRUSTED_ORIGINS = (
+    tuple(os.getenv('CSRF_TRUSTED_ORIGINS', '').split()) or ()
+)
 
-INSTALLED_APPS = [
+INSTALLED_APPS = (
     'locale',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -56,12 +56,12 @@ INSTALLED_APPS = [
     'task_manager.labels',
     'django_filters',
     'django_htmx',
-]
+)
 
 if DEBUG:
-    INSTALLED_APPS.append('django_extensions')
+    INSTALLED_APPS = INSTALLED_APPS + ('django_extensions',)
 
-MIDDLEWARE = [
+MIDDLEWARE = (
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
@@ -70,7 +70,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-]
+)
 
 AUTH_USER_MODEL = 'users.User'
 
@@ -83,34 +83,42 @@ LOGOUT_REDIRECT_URL = '/login'
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'postgres'),
-        'USER': os.getenv('POSTGRES_USER', 'postgres'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
-        'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
-        'PORT': os.getenv('POSTGRES_PORT', '5432'),
-    },
-}
 
-if os.environ.get('GITHUB_WORKFLOW'):
-    DATABASES = {
+def get_database_config():
+    """Get database configuration based on environment."""
+    if os.environ.get('GITHUB_WORKFLOW'):
+        return {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': 'github_actions',
+                'USER': 'postgres',
+                'PASSWORD': 'postgres',
+                'HOST': '127.0.0.1',
+                'PORT': '5432',
+            },
+        }
+
+    if os.getenv('DATABASE_URL'):
+        conn_max_age = 500
+        return {
+            'default': dj_database_url.config(conn_max_age=conn_max_age)  # type: ignore
+        }
+
+    return {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'github_actions',
-            'USER': 'postgres',
-            'PASSWORD': 'postgres',
-            'HOST': '127.0.0.1',
-            'PORT': '5432',
+            'NAME': os.getenv('POSTGRES_DB', 'postgres'),
+            'USER': os.getenv('POSTGRES_USER', 'postgres'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
+            'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
+            'PORT': os.getenv('POSTGRES_PORT', '5432'),
         },
     }
 
-CONN_MAX_AGE = 500
-if os.getenv('DATABASE_URL'):
-    DATABASES['default'] = dj_database_url.config(conn_max_age=CONN_MAX_AGE)  # type: ignore
 
-MIDDLEWARE = [
+DATABASES = get_database_config()
+
+MIDDLEWARE = (
     'django.middleware.security.SecurityMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -121,18 +129,18 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
-]
+)
 
 ROOT_URLCONF = 'task_manager.urls'
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 
-TEMPLATES = [
+TEMPLATES = (
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [TEMPLATE_DIR],
+        'DIRS': (TEMPLATE_DIR,),
         'APP_DIRS': True,
         'OPTIONS': {
-            'context_processors': [
+            'context_processors': (
                 'django.template.context_processors.media',
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
@@ -140,19 +148,25 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'task_manager.context_processors.theme_mode',
                 'task_manager.context_processors.registration_available',
-            ],
+            ),
         },
     },
-]
+)
 
 WSGI_APPLICATION = 'task_manager.wsgi.application'
 
-REST_FRAMEWORK = {
-    'DEFAULT_FILTER_BACKENDS': (
-        'django_filters.rest_framework.DjangoFilterBackend',
-        ...,
-    ),
-}
+
+def get_rest_framework_config():
+    """Get REST framework configuration."""
+    return {
+        'DEFAULT_FILTER_BACKENDS': (
+            'django_filters.rest_framework.DjangoFilterBackend',
+            ...,
+        ),
+    }
+
+
+REST_FRAMEWORK = get_rest_framework_config()
 
 # Simplified static file serving.
 # https://warehouse.python.org/project/whitenoise/
@@ -162,21 +176,27 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # Password validation
 # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
 
-AUTH_PASSWORD_VALIDATORS = [
+AUTH_PASSWORD_VALIDATORS = (
     {
         'NAME': 'django.contrib.auth.password_validation'
         '.UserAttributeSimilarityValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'NAME': (
+            'django.contrib.auth.password_validation.MinimumLengthValidator'
+        ),
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        'NAME': (
+            'django.contrib.auth.password_validation.CommonPasswordValidator'
+        ),
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        'NAME': (
+            'django.contrib.auth.password_validation.NumericPasswordValidator'
+        ),
     },
-]
+)
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.0/topics/i18n/
@@ -201,12 +221,12 @@ LOCALE_PATHS = (os.path.join(BASE_DIR, 'task_manager/locale'),)
 
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'static')
-if not os.path.exists(STATIC_ROOT):
+if not Path(STATIC_ROOT).exists():
     os.makedirs(STATIC_ROOT)
 STATIC_URL = '/static/'
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'media')
-if not os.path.exists(MEDIA_ROOT):
+if not Path(MEDIA_ROOT).exists():
     os.makedirs(MEDIA_ROOT)
 MEDIA_URL = '/media/'
 
@@ -226,37 +246,59 @@ TASKIQ_BROKER_URL = os.environ.get(
 )
 TASKIQ_RESULT_BACKEND_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
 
+
+def get_taskiq_routes():
+    """Get TaskIQ task routing configuration."""
+    return {
+        'task_manager.tasks.*': {'queue': 'default'},
+        'task_manager.users.*': {'queue': 'users'},
+    }
+
+
 # Task routing
-TASKIQ_TASK_ROUTES = {
-    'task_manager.tasks.*': {'queue': 'default'},
-    'task_manager.users.*': {'queue': 'users'},
-}
+TASKIQ_TASK_ROUTES = get_taskiq_routes()
 
 # Worker configuration
 TASKIQ_WORKER_CONCURRENCY = 4
 TASKIQ_WORKER_MAX_TASKS_PER_CHILD = 1000
 
 # Scheduler configuration
-TASKIQ_SCHEDULER_SOURCES = ["task_manager.tasks"]
+TASKIQ_SCHEDULER_SOURCES = ('task_manager.tasks',)
 
 if 'test' in sys.argv or 'test_coverage' in sys.argv:
     TASKIQ_ALWAYS_EAGER = True
+    # Disable TaskIQ during tests to avoid async issues
+    TASKIQ_ENABLED = False
+else:
+    TASKIQ_ENABLED = True
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-BOOTSTRAP4 = {
-    'css_url': {
-        'href': 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css'
-    },
-    'javascript_url': {
-        'url': 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'
-    },
-    'jquery_url': {'url': 'https://code.jquery.com/jquery-3.7.1.min.js'},
-    'include_jquery': 'full',
-    'horizontal_field_class': 'col-md-10 mb-1',
-    'horizontal_label_class': 'col-md-2',
-}
+
+def get_bootstrap4_config():
+    """Get Bootstrap4 configuration."""
+    return {
+        'css_url': {
+            'href': (
+                'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/'
+                'bootstrap.min.css'
+            )
+        },
+        'javascript_url': {
+            'url': (
+                'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/'
+                'bootstrap.bundle.min.js'
+            )
+        },
+        'jquery_url': {'url': 'https://code.jquery.com/jquery-3.7.1.min.js'},
+        'include_jquery': 'full',
+        'horizontal_field_class': 'col-md-10 mb-1',
+        'horizontal_label_class': 'col-md-2',
+    }
+
+
+BOOTSTRAP4 = get_bootstrap4_config()
 
 # Crispy Forms
 CRISPY_ALLOWED_TEMPLATE_PACKS = ('bulma',)

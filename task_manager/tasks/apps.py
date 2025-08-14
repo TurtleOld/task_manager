@@ -11,9 +11,10 @@ from django.apps import AppConfig
 class TasksConfig(AppConfig):
     """
     Configuration class for the tasks Django app.
-    
+
     Defines the app's name, default auto field, and any app-specific
     configuration settings.
     """
+
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'task_manager.tasks'

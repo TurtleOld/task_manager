@@ -18,7 +18,15 @@ class TaskAdmin(admin.ModelAdmin):
     Provides a comprehensive admin interface for managing tasks with list display,
     filtering, search capabilities, and horizontal filter widgets for many-to-many fields.
     """
-    list_display = ('name', 'author', 'executor', 'stage', 'state', 'created_at')
+
+    list_display = (
+        'name',
+        'author',
+        'executor',
+        'stage',
+        'state',
+        'created_at',
+    )
     list_filter = ('state', 'stage', 'created_at')
     search_fields = ('name', 'description')
     readonly_fields = ('created_at',)
@@ -33,6 +41,7 @@ class StageAdmin(admin.ModelAdmin):
     Provides admin interface for managing task stages with list display and
     inline editing capabilities for the order field.
     """
+
     list_display = ('name', 'order')
     list_editable = ('order',)
     ordering = ('order',)
@@ -46,6 +55,7 @@ class CommentAdmin(admin.ModelAdmin):
     Provides admin interface for managing task comments with comprehensive
     list display, filtering, search capabilities, and date hierarchy navigation.
     """
+
     list_display = ('author', 'task', 'created_at', 'is_deleted')
     list_filter = ('is_deleted', 'created_at')
     search_fields = ('content', 'author__username', 'task__name')

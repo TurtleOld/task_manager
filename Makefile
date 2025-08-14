@@ -1,15 +1,19 @@
 # Makefile for Task Manager project
 
-.PHONY: help install migrate collectstatic run test clean docker-up docker-down docker-logs taskiq-worker taskiq-scheduler taskiq-dashboard test-taskiq
+.PHONY: help install migrate collectstatic run test clean docker-up docker-down docker-logs taskiq-worker taskiq-scheduler taskiq-dashboard format lint
 
 # Default target
 help:
 	@echo "Available commands:"
 	@echo "  install        - Install dependencies"
+	@echo "  makemigrations - Create database migrations"
 	@echo "  migrate        - Run database migrations"
+	@echo "  check          - Run Django system check"
 	@echo "  collectstatic  - Collect static files"
 	@echo "  run            - Run Django development server"
 	@echo "  test           - Run tests"
+	@echo "  format         - Run ruff check and format"
+	@echo "  lint           - Run flake8 with WPS rules"
 	@echo "  clean          - Clean Python cache files"
 	@echo "  docker-up      - Start all Docker services"
 	@echo "  docker-down    - Stop all Docker services"
@@ -17,28 +21,40 @@ help:
 	@echo "  taskiq-worker  - Start TaskIQ worker"
 	@echo "  taskiq-scheduler - Start TaskIQ scheduler"
 	@echo "  taskiq-dashboard - Start TaskIQ dashboard"
-	@echo "  test-taskiq    - Test TaskIQ functionality"
 
 # Development commands
 install:
-	pip install -e .
+	uv sync
+
+makemigrations:
+	uv run python manage.py makemigrations
 
 migrate:
-	python manage.py migrate
+	uv run python manage.py migrate
+
+check:
+	uv run python manage.py check
 
 collectstatic:
-	python manage.py collectstatic --noinput
+	uv run python manage.py collectstatic --noinput
 
 run:
-	python manage.py runserver
+	uv run python manage.py runserver
 
 test:
-	python manage.py test
+	uv run python manage.py test
 
 clean:
 	find . -type f -name "*.pyc" -delete
 	find . -type d -name "__pycache__" -delete
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
+
+format:
+	uv run ruff check . --fix || true
+	uv run ruff format .
+
+lint:
+	uv run flake8 . --select=WPS
 
 # Docker commands
 docker-up:
@@ -52,32 +68,21 @@ docker-logs:
 
 # TaskIQ commands
 taskiq-worker:
-	taskiq worker task_manager.taskiq:broker --workers 4 --no-parse
+	uv run taskiq worker task_manager.taskiq:broker --workers 4 --no-parse
 
 taskiq-scheduler:
-	taskiq scheduler task_manager.taskiq:scheduler
+	uv run taskiq scheduler task_manager.taskiq:broker
 
 taskiq-dashboard:
-	taskiq dashboard task_manager.taskiq:broker --port 5555 --no-parse
+	uv run taskiq dashboard task_manager.taskiq:broker --port 5555 --no-parse
 
-# Testing commands
-test-taskiq:
-	python manage.py test_taskiq --task all
 
-test-taskiq-basic:
-	python manage.py test_taskiq --task basic
-
-test-taskiq-email:
-	python manage.py test_taskiq --task email --email test@example.com --name "Test User"
-
-check-taskiq:
-	python scripts/check_taskiq.py
 
 # Production commands
 prod-setup:
-	python manage.py migrate --noinput
-	python manage.py collectstatic --noinput
-	python manage.py createsuperuser --noinput
+	uv run python manage.py migrate --noinput
+	uv run python manage.py collectstatic --noinput
+	uv run python manage.py createsuperuser --noinput
 
 # Monitoring commands
 monitor:
