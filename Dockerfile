@@ -6,28 +6,25 @@ ENV PYTHONFAULTHANDLER=1 \
 
 WORKDIR /app
 
-# Install system dependencies and uv
+# Устанавливаем системные зависимости и uv глобально в /usr/local/bin
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     libpq-dev \
     curl \
     && rm -rf /var/lib/apt/lists/* \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh
+    && curl -LsSf https://astral.sh/uv/install.sh | sh -s -- --bin-dir /usr/local/bin
 
-# Add uv to PATH
-ENV PATH="/root/.local/bin:$PATH"
-
-# Copy project files for dependency installation
+# Копируем pyproject и README для установки зависимостей
 COPY pyproject.toml README.md ./
 
-# Install Python dependencies with uv
+# Ставим зависимости через uv
 RUN uv sync
 
-# Copy application code
+# Копируем остальной код
 COPY . .
 
-# Create non-root user
+# Создаём обычного пользователя и передаём ему права на /app
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 USER appuser
