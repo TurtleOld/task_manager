@@ -6,7 +6,9 @@ ENV PYTHONFAULTHANDLER=1 \
 
 WORKDIR /app
 
-RUN useradd -m -u 1000 appuser
+RUN useradd -m -u 1000 appuser \
+    && mkdir -p /app_data \
+    && chown -R appuser:appuser /app /app_data
 
 RUN apt-get update && apt-get install -y \
     gcc \
@@ -21,12 +23,11 @@ ENV PATH="/home/appuser/.local/bin:$PATH"
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 COPY pyproject.toml README.md ./
-
 RUN uv sync
 
 COPY . .
 
-RUN mkdir -p /app_data && chmod -R 755 /app_data
+RUN chmod -R 755 /app_data
 
 EXPOSE 8000
 
