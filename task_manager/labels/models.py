@@ -1,8 +1,11 @@
 from django.db import models
 
+# Constants
+MAX_LABEL_NAME_LENGTH = 50
+
 
 class Label(models.Model):
-    name = models.CharField(max_length=50, null=False)
+    name = models.CharField(max_length=MAX_LABEL_NAME_LENGTH, null=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
