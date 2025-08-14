@@ -1,15 +1,19 @@
 """
 TaskIQ configuration for the task_manager project.
 
-This module configures TaskIQ for background task processing using RabbitMQ as broker.
+This module configures TaskIQ for background task processing using RabbitMQ
+as the message broker and defines a scheduler instance for periodic tasks.
 """
 
 import os
+from taskiq import TaskiqScheduler
 from taskiq_aio_pika import AioPikaBroker
 
-# Configure the broker
 broker = AioPikaBroker(
     url=os.environ.get('BROKER_URL', 'amqp://rabbitmq:rabbitmq@rabbitmq:5672/'),
 )
 
-# Tasks will be imported when Django is ready
+scheduler = TaskiqScheduler(
+    broker=broker,
+    sources=["task_manager.tasks"],
+)

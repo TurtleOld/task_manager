@@ -55,7 +55,7 @@ taskiq-worker:
 	taskiq worker task_manager.taskiq:broker --workers 4 --no-parse
 
 taskiq-scheduler:
-	taskiq scheduler task_manager.taskiq:broker
+	taskiq scheduler task_manager.taskiq:scheduler
 
 taskiq-dashboard:
 	taskiq dashboard task_manager.taskiq:broker --port 5555 --no-parse

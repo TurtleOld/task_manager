@@ -78,7 +78,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: task_manager_taskiq_scheduler
-    command: taskiq scheduler task_manager.taskiq:broker
+    command: taskiq scheduler task_manager.taskiq:scheduler
     env_file:
       - .env
     volumes:
