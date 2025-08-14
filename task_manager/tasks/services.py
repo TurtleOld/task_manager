@@ -5,6 +5,7 @@ This module contains utility functions for task management, including
 slug generation, notification scheduling, and task-related operations.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -44,6 +45,68 @@ from task_manager.tasks.tasks import (
     send_notification_with_photo_about_task,
 )
 from task_manager.users.models import User
+
+
+def send_taskiq_task(task_func, *args, eta=None, **kwargs):
+    """
+    Safely send a TaskIQ task with proper error handling.
+
+    Args:
+        task_func: The TaskIQ task function to call
+        *args: Arguments to pass to the task
+        eta: Optional execution time for delayed tasks
+        **kwargs: Keyword arguments to pass to the task
+
+    Returns:
+        True if task was sent successfully, False otherwise
+    """
+    if not getattr(settings, 'TASKIQ_ENABLED', True):
+        return False
+
+    async def _send_task():
+        """Async function to send the task."""
+        try:
+            # Import broker here to avoid circular imports
+            from task_manager.taskiq import broker
+
+            # Start the broker
+            await broker.startup()
+
+            # Send the task
+            task_call = task_func.kiq(*args, **kwargs)
+            if eta:
+                task_call = task_call.with_eta(eta)
+            result = await task_call
+
+            # Shutdown the broker
+            await broker.shutdown()
+
+            return True
+        except Exception as e:
+            logger = logging.getLogger(__name__)
+            logger.error(
+                f"Failed to send TaskIQ task {task_func.__name__}: {e}"
+            )
+            return False
+
+    try:
+        # Check if there's already an event loop running
+        try:
+            loop = asyncio.get_running_loop()
+            # If we're in an async context, we can't use asyncio.run()
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Cannot send TaskIQ task {task_func.__name__} from async context"
+            )
+            return False
+        except RuntimeError:
+            # No event loop running, we can use asyncio.run()
+            return asyncio.run(_send_task())
+
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to send TaskIQ task {task_func.__name__}: {e}")
+        return False
 
 
 def slugify_translit(task_name: str) -> str:
@@ -92,18 +155,22 @@ def notify(
         notify_time = deadline - timedelta(minutes=period.period)
         if notify_time > now():
             if task_file_path:
-                send_notification_with_photo_about_task.kiq(
+                send_taskiq_task(
+                    send_notification_with_photo_about_task,
                     task_name,
                     f'{period}',
                     task_url,
                     task_file_path,
-                ).with_eta(notify_time)
+                    eta=notify_time,
+                )
             else:
-                send_notification_about_task.kiq(
+                send_taskiq_task(
+                    send_notification_about_task,
                     task_name,
                     f'{period}',
                     task_url,
-                ).with_eta(notify_time)
+                    eta=notify_time,
+                )
 
 
 def get_user_display_name(user) -> str:
@@ -193,7 +260,7 @@ def send_task_creation_notifications(
     """
     task_url = request.build_absolute_uri(f'/tasks/{task_slug}')
     if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_message_about_adding_task.kiq(task_name, task_url)
+        send_taskiq_task(send_message_about_adding_task, task_name, task_url)
 
     task_image = form.instance.image
     deadline = form.instance.deadline
@@ -404,7 +471,8 @@ def send_move_notification(
     moved_by = get_user_display_name(request.user)
 
     if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_about_moving_task.kiq(
+        send_taskiq_task(
+            send_about_moving_task,
             task.name,
             moved_by,
             new_stage.name,
@@ -506,8 +574,12 @@ def handle_task_stage_change(
     moved_by = get_user_display_name(request.user)
 
     if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_about_moving_task.kiq(
-            task.name, moved_by, new_stage.name, task_url
+        send_taskiq_task(
+            send_about_moving_task,
+            task.name,
+            moved_by,
+            new_stage.name,
+            task_url,
         )
 
 
@@ -630,7 +702,7 @@ def create_comment(
 
         if task.executor and task.executor != request.user:
             if getattr(settings, 'TASKIQ_ENABLED', True):
-                send_comment_notification.kiq(comment.id)
+                send_taskiq_task(send_comment_notification, comment.id)
 
         return True, 'Comment created successfully', comment
     return False, f'Ошибка: {form.errors}', None
@@ -737,10 +809,10 @@ def close_or_reopen_task(
 
     if task.state:
         if getattr(settings, 'TASKIQ_ENABLED', True):
-            send_about_closing_task.kiq(task.name, task_url)
+            send_taskiq_task(send_about_closing_task, task.name, task_url)
         return True, 'Статус задачи изменен.'
     if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_about_opening_task.kiq(task.name, task_url)
+        send_taskiq_task(send_about_opening_task, task.name, task_url)
     return True, 'Статус задачи изменен.'
 
 
@@ -753,5 +825,5 @@ def delete_task_with_notification(task: Task) -> None:
     """
     task_name = task.name
     if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_about_deleting_task.kiq(task_name)
+        send_taskiq_task(send_about_deleting_task, task_name)
     task.delete()
