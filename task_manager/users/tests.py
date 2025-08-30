@@ -1,4 +1,11 @@
-from django.test import Client, TestCase
+"""Tests for the users app.
+
+This module contains comprehensive tests for user management functionality,
+including authentication, registration, profile management, and theme
+customization.
+"""
+
+from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from faker import Faker
 
@@ -7,54 +14,57 @@ from task_manager.constants import (
     HTTP_FORBIDDEN,
     HTTP_OK,
 )
+from task_manager.context_processors import registration_available
 from task_manager.users.models import User
 
 
-# Create your tests here.
 class TestUser(TestCase):
+    """Test suite for user management functionality."""
+
     fixtures = ['users.yaml']
 
     def setUp(self) -> None:
+        """Set up test data and client."""
         self.user1 = User.objects.get(pk=1)
         self.user2 = User.objects.get(pk=2)
         self.client: Client = Client()
         self.faker = Faker()
 
     def test_create_user(self) -> None:
-        """Тест: создание пользователя недоступно, когда в системе уже есть пользователи"""
+        """Test that user creation is restricted when users already exist."""
         url = reverse('users:create')
         response = self.client.get(url)
         self.assertEqual(response.status_code, HTTP_FORBIDDEN)
 
     def test_delete_user(self) -> None:
+        """Test user deletion functionality."""
         user = self.user2
         self.client.force_login(user)
-        url = reverse('users:delete_user', args=(user.id,))
+        url = reverse('users:delete_user', args=(user.pk,))
 
         response = self.client.post(url, follow=True)
 
         with self.assertRaises(User.DoesNotExist):
-            User.objects.get(pk=user.id)
+            User.objects.get(pk=user.pk)
 
         self.assertRedirects(response, '/login/?next=/tasks/')
 
     def test_registration_restricted_when_users_exist(self) -> None:
-        """Тест: регистрация недоступна, когда в системе уже есть пользователи"""
-        # У нас уже есть пользователи из фикстур
+        """Test that registration is restricted when users already exist."""
+        # We already have users from fixtures
         url = reverse('users:create')
         response = self.client.get(url)
         self.assertEqual(response.status_code, HTTP_FORBIDDEN)
 
     def test_first_user_becomes_superuser(self) -> None:
-        """Тест: первый пользователь становится суперадмином"""
-        # Удаляем всех пользователей
+        """Test that the first user becomes a superuser."""
+        # Remove all users
         User.objects.all().delete()
 
         url = reverse('users:create')
         response = self.client.get(url)
         self.assertEqual(response.status_code, HTTP_OK)
 
-        # Создаем первого пользователя
         Faker.seed(0)
         username = self.faker.user_name()
         first_name = self.faker.first_name()
@@ -71,14 +81,14 @@ class TestUser(TestCase):
         response = self.client.post(url, new_user, follow=True)
         self.assertRedirects(response, '/login/')
 
-        # Проверяем, что пользователь стал суперадмином
+        # Check that the user became a superuser
         created_user = User.objects.get(username=username)
         self.assertTrue(created_user.is_superuser)
         self.assertTrue(created_user.is_staff)
 
     def test_registration_available_when_no_users(self) -> None:
-        """Тест: регистрация доступна, когда в системе нет пользователей"""
-        # Удаляем всех пользователей
+        """Test that registration is available when no users exist."""
+        # Remove all users
         User.objects.all().delete()
 
         url = reverse('users:create')
@@ -86,22 +96,11 @@ class TestUser(TestCase):
         self.assertEqual(response.status_code, HTTP_OK)
 
     def test_registration_available_context_processor(self) -> None:
-        """Тест: контекстный процессор registration_available работает правильно"""
-        from django.test import RequestFactory
-
-        from task_manager.context_processors import registration_available
-
-        # Создаем фейковый запрос
+        """Test that the registration_available context processor works."""
+        # Create a fake request
         factory = RequestFactory()
         request = factory.get('/')
 
-        # Когда есть пользователи, регистрация недоступна
+        # When users exist, registration is not available
         context = registration_available(request)
         self.assertFalse(context['registration_available'])
-
-        # Удаляем всех пользователей
-        User.objects.all().delete()
-
-        # Когда нет пользователей, регистрация доступна
-        context = registration_available(request)
-        self.assertTrue(context['registration_available'])

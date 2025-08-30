@@ -13,7 +13,7 @@ All views follow Django best practices and include proper authentication,
 authorization, and error handling.
 """
 
-from datetime import timedelta
+import datetime as dt
 from typing import Any
 
 from django.contrib import messages
@@ -88,7 +88,7 @@ class LabelsList(LoginRequiredMixin, ListView[Label]):
         active_labels = labels.filter(tasks__isnull=False).distinct().count()
 
         # Labels created this month
-        month_ago = timezone.now() - timedelta(days=DAYS_IN_MONTH)
+        month_ago = timezone.now() - dt.timedelta(days=DAYS_IN_MONTH)
         recent_labels = labels.filter(created_at__gte=month_ago).count()
 
         context.update({
@@ -189,6 +189,11 @@ class DeleteLabel(  # type: ignore
     )
     success_message = gettext_lazy('Метка успешно удалена')
 
+    def _check_label_deletion_safety(self, label_object) -> None:
+        """Check if label can be safely deleted."""
+        if label_object.tasks.exists():
+            raise PermissionDenied(self.error_message)
+
     def dispatch(
         self,
         request: HttpRequest,
@@ -215,8 +220,7 @@ class DeleteLabel(  # type: ignore
         """
         try:
             label_object = self.get_object()
-            if label_object.tasks.exists():
-                raise PermissionDenied(self.error_message)
+            self._check_label_deletion_safety(label_object)
         except PermissionDenied as error:
             messages.error(request, error.args[0])
             return redirect(self.success_url)

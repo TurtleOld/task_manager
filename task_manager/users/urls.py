@@ -1,3 +1,9 @@
+"""URL configuration for the users app.
+
+This module defines the URL patterns for user management functionality,
+including authentication, profile management, and theme customization.
+"""
+
 from django.urls import path
 
 from task_manager.users.views import (

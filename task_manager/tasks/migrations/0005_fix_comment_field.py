@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ('tasks', '0004_alter_comment_updated_at'),
     ]

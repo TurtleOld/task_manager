@@ -1,3 +1,9 @@
+"""URL configuration for the labels app.
+
+This module defines the URL patterns for label management functionality,
+including CRUD operations for labels.
+"""
+
 from django.urls import path
 
 from task_manager.labels.views import (

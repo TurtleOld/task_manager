@@ -1,9 +1,4 @@
-"""
-URL configuration for the tasks app.
-
-This module defines all URL patterns for the tasks application, including
-views for task management, comments, checklists, and file downloads.
-"""
+"""URL configuration for the tasks app."""
 
 from django.conf import settings
 from django.conf.urls.static import static
@@ -31,63 +26,98 @@ from task_manager.tasks.views import (
 )
 
 app_name = 'tasks'
-urlpatterns = [
+
+base_urlpatterns = [
     path('', KanbanBoard.as_view(), name='list'),
     path(
-        'kanban/update_order/',
-        UpdateTaskOrderView.as_view(),
-        name='update_task_order',
+        'create/',
+        CreateTask.as_view(),
+        name='create',
     ),
     path(
-        'update-task-stage/',
-        UpdateTaskStageView.as_view(),
-        name='update_task_stage',
+        'create-stage/',
+        CreateStageView.as_view(),
+        name='create_stage',
     ),
-    path('create/', CreateTask.as_view(), name='create'),
-    path('update/<slug:slug>', UpdateTask.as_view(), name='update'),
-    path('create-stage/', CreateStageView.as_view(), name='create_stage'),
     path(
-        'delete/<slug:slug>/',
+        '<slug:slug>/',
+        TaskView.as_view(),
+        name='view_task',
+    ),
+    path(
+        '<slug:slug>/update/',
+        UpdateTask.as_view(),
+        name='update_task',
+    ),
+    path(
+        '<slug:slug>/delete/',
         DeleteTask.as_view(),
         name='delete_task',
     ),
-    path('<slug:slug>/close/', CloseTask.as_view(), name='close_task'),
-    path('<slug:slug>', TaskView.as_view(), name='view_task'),
-    path('toggle/<int:pk>/', ChecklistItemToggle.as_view(), name='toggle'),
-    path('download/<slug:slug>/', DownloadFileView.as_view(), name='download'),
     path(
-        'checklist_progress/<int:task_id>/',
-        checklist_progress_view,
-        name='checklist_progress',
+        '<slug:slug>/close/',
+        CloseTask.as_view(),
+        name='close_task',
     ),
     path(
-        '<slug:task_slug>/comments/',
+        '<slug:slug>/download/',
+        DownloadFileView.as_view(),
+        name='download_file',
+    ),
+    path(
+        '<slug:slug>/comments/',
         comments_list_view,
         name='comments_list',
     ),
     path(
-        '<slug:task_slug>/comment/create/',
+        '<slug:slug>/comments/create/',
         CommentCreateView.as_view(),
         name='comment_create',
     ),
     path(
-        'comment/<int:comment_id>/update/',
+        'comments/<int:comment_id>/update/',
         CommentUpdateView.as_view(),
         name='comment_update',
     ),
     path(
-        'comment/<int:comment_id>/delete/',
+        'comments/<int:comment_id>/delete/',
         CommentDeleteView.as_view(),
         name='comment_delete',
     ),
     path(
-        'comment/<int:comment_id>/edit-form/',
+        'comments/<int:comment_id>/edit-form/',
         CommentEditFormView.as_view(),
         name='comment_edit_form',
     ),
     path(
-        'comment/<int:comment_id>/view/',
+        'comments/<int:comment_id>/view/',
         CommentViewView.as_view(),
         name='comment_view',
     ),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    path(
+        'checklist/<int:pk>/toggle/',
+        ChecklistItemToggle.as_view(),
+        name='toggle_checklist_item',
+    ),
+    path(
+        'checklist-progress/<int:task_id>/',
+        checklist_progress_view,
+        name='checklist_progress',
+    ),
+    path(
+        'update-stage/',
+        UpdateTaskStageView.as_view(),
+        name='update_task_stage',
+    ),
+    path(
+        'update-order/',
+        UpdateTaskOrderView.as_view(),
+        name='update_task_order',
+    ),
+]
+
+static_urlpatterns = static(
+    settings.MEDIA_URL, document_root=settings.MEDIA_ROOT
+)
+
+urlpatterns = [*base_urlpatterns, *static_urlpatterns]

@@ -2,7 +2,8 @@
 Django views for the users app.
 
 This module contains all view classes and functions for user management,
-including authentication, registration, profile management, and theme customization.
+including authentication, registration, profile management, and theme
+customization.
 
 The views are organized into several categories:
 - Authentication views (login, logout, registration)

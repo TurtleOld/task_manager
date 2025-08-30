@@ -53,10 +53,6 @@ dev = [
 packages = ["task_manager"]
 
 
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "task_manager.settings"
-python_files = ["test_*.py", "*_test.py", "tests.py"]
-
 [tool.ruff]
 # Ruff config: https://docs.astral.sh/ruff/settings
 preview = true
@@ -100,7 +96,6 @@ select = [
   "PERF", # perflint
   "PIE",  # flake8-pie
   "PL",   # pylint
-  "PT",   # flake8-pytest-style
   "PTH",  # flake8-use-pathlib
   "Q",    # flake8-quotes
   "RET",  # flake8-return
@@ -117,23 +112,31 @@ select = [
   "YTT",  # flake8-2020
 ]
 ignore = [
-  "A005",   # allow to shadow stdlib and builtin module names
-  "COM812", # trailing comma, conflicts with `ruff format`
-  # Different doc rules that we don't really care about:
+  "A005",
+  "COM812", 
   "D100",
+  "D101",
+  "D102",
+  "D103",
   "D104",
+  "D105",
   "D106",
+  "D107",
   "D203",
   "D212",
   "D401",
   "D404",
   "D405",
-  "ISC001",  # implicit string concat conflicts with `ruff format`
-  "ISC003",  # prefer explicit string concat over implicit concat
-  "PLR09",   # we have our own complexity rules
-  "PLR2004", # do not report magic numbers
-  "PLR6301", # do not require classmethod / staticmethod when self not used
-  "TRY003",  # long exception messages from `tryceratops`
+  "ISC001",
+  "ISC003",
+  "PLR09",
+  "PLR2004",
+  "PLR6301",
+  "RUF001",
+  "TRY003",
+  "RUF012",
+  "FBT001",
+  "FBT002",
 ]
 external = [ "WPS" ]
 
@@ -147,10 +150,16 @@ pydocstyle.convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/*.py" = [
   "S101", # asserts
+  "D103",
   "S105", # hardcoded passwords
   "S404", # subprocess calls are for tests
   "S603", # do not require `shell=True`
   "S607", # partial executable paths
+]
+"**/migrations/*.py" = [
+  "E501",
+  "D101",
+  "RUF012",
 ]
 "wemake_python_styleguide/compat/nodes.py" = [ "ICN003", "PLC0414" ]
 "wemake_python_styleguide/types.py" = [ "D102" ]

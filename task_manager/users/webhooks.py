@@ -1,3 +1,9 @@
+"""Webhook handlers for Telegram bot integration.
+
+This module provides webhook endpoints for receiving and processing
+Telegram bot updates and messages.
+"""
+
 import json
 from typing import Final
 
@@ -12,11 +18,16 @@ SUCCESS_CODE: Final[int] = 200
 
 @csrf_exempt
 def webhooks(request) -> HttpResponse:
-    """
-    Функция принятия сообщений от телеграм сервера (бота).
+    """Handle incoming webhook messages from Telegram server.
 
-    :param request:
-    :return: HttpResponse
+    Processes POST requests containing Telegram bot updates and
+    forwards them to the bot admin for processing.
+
+    Args:
+        request: The HTTP request object containing the webhook data.
+
+    Returns:
+        HttpResponse: Success response indicating the webhook was processed.
     """
     if request.method == 'POST':
         json_data = json.loads(request.body)

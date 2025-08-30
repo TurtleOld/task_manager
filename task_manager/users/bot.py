@@ -1,3 +1,9 @@
+"""Telegram bot configuration and setup.
+
+This module configures and initializes the Telegram bot for user
+interactions and notifications.
+"""
+
 import logging
 import os
 

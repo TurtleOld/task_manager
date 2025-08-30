@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
 import os
-import sys
 from pathlib import Path
 
 import dj_database_url
@@ -28,7 +27,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DEBUG = os.getenv('DEBUG', 'false').lower() in ('yes', '1', 'true')
+DEBUG = os.getenv('DEBUG', 'false').lower() in {'yes', '1', 'true'}
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
@@ -59,7 +58,7 @@ INSTALLED_APPS = (
 )
 
 if DEBUG:
-    INSTALLED_APPS = INSTALLED_APPS + ('django_extensions',)
+    INSTALLED_APPS = (*INSTALLED_APPS, 'django_extensions')
 
 MIDDLEWARE = (
     'django.middleware.security.SecurityMiddleware',
@@ -132,7 +131,7 @@ MIDDLEWARE = (
 )
 
 ROOT_URLCONF = 'task_manager.urls'
-TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
+TEMPLATE_DIR = BASE_DIR / 'templates'
 
 TEMPLATES = (
     {
@@ -214,24 +213,24 @@ LANGUAGES = (
     ('ru', 'Russian'),
 )
 
-LOCALE_PATHS = (os.path.join(BASE_DIR, 'task_manager/locale'),)
+LOCALE_PATHS = (BASE_DIR / 'task_manager' / 'locale',)
 
 # Static image (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'static')
+STATIC_ROOT = BASE_DIR / 'app_data' / 'files' / 'static'
 if not Path(STATIC_ROOT).exists():
-    os.makedirs(STATIC_ROOT)
+    Path(STATIC_ROOT).mkdir(parents=True)
 STATIC_URL = '/static/'
 
-MEDIA_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'media')
+MEDIA_ROOT = BASE_DIR / 'app_data' / 'files' / 'media'
 if not Path(MEDIA_ROOT).exists():
-    os.makedirs(MEDIA_ROOT)
+    Path(MEDIA_ROOT).mkdir(parents=True)
 MEDIA_URL = '/media/'
 
 # Extra places for collectstatic to find static image.
-STATICFILES_DIRS = (os.path.join(BASE_DIR, 'task_manager/static'),)
+STATICFILES_DIRS = (BASE_DIR / 'task_manager' / 'static',)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field

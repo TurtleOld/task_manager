@@ -1,3 +1,9 @@
+"""Tests for the labels app.
+
+This module contains comprehensive tests for label management functionality,
+including CRUD operations, authorization, and relationship handling.
+"""
+
 from django.test import TestCase
 from django.urls import reverse, reverse_lazy
 
@@ -10,9 +16,12 @@ HTTP_OK = 200
 
 
 class TestLabel(TestCase):
+    """Test suite for label management functionality."""
+
     fixtures = ['users.yaml', 'tasks.yaml', 'labels.yaml']
 
     def setUp(self) -> None:
+        """Set up test data."""
         self.user = User.objects.get(pk=1)
         self.task1 = Task.objects.get(pk=1)
         self.task2 = Task.objects.get(pk=2)
@@ -21,6 +30,7 @@ class TestLabel(TestCase):
         self.label2 = Label.objects.get(pk=2)
 
     def test_label_list(self) -> None:
+        """Test that authenticated users can view the label list."""
         self.client.force_login(self.user)
         response = self.client.get(reverse_lazy('labels:list'))
         self.assertEqual(response.status_code, HTTP_OK)
@@ -28,6 +38,7 @@ class TestLabel(TestCase):
         self.assertCountEqual(labels_list, [self.label1, self.label2])
 
     def test_create_label(self) -> None:
+        """Test label creation functionality."""
         self.client.force_login(self.user)
         name_new_label = {'name': 'Новая метка'}
 
@@ -42,6 +53,7 @@ class TestLabel(TestCase):
         self.assertEqual(created_label.name, 'Новая метка')
 
     def test_change_label(self) -> None:
+        """Test label update functionality."""
         self.client.force_login(self.user)
         url = reverse('labels:update_label', args=(self.label2.pk,))
         name_new_label = {'name': 'Blue'}
@@ -50,6 +62,7 @@ class TestLabel(TestCase):
         self.assertRedirects(response, '/labels/')
 
     def test_delete_label(self) -> None:
+        """Test label deletion when no tasks are associated."""
         self.client.force_login(self.user)
         Task.objects.all().delete()
         url = reverse_lazy('labels:delete_label', args=(self.label2.pk,))
@@ -59,13 +72,15 @@ class TestLabel(TestCase):
             Label.objects.get(pk=self.label2.pk)
 
     def test_delete_label_with_tasks(self) -> None:
+        """Test that labels with associated tasks cannot be deleted."""
         self.client.force_login(self.user)
         url = reverse_lazy('labels:delete_label', args=(self.label2.pk,))
         response = self.client.post(url, follow=True)
-        self.assertTrue(Label.objects.filter(pk=self.label2.id).exists())
+        self.assertTrue(Label.objects.filter(pk=self.label2.pk).exists())
 
         self.assertRedirects(response, '/labels/')
 
     def test_label_list_without_authorization(self) -> None:
+        """Test that unauthenticated users are redirected to login."""
         response = self.client.get(reverse_lazy('labels:list'))
         self.assertRedirects(response, '/login/?next=/labels/')

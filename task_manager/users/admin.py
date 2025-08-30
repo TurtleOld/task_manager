@@ -1,3 +1,9 @@
+"""Admin configuration for the users app.
+
+This module contains Django admin configuration for the User model,
+including custom admin interface setup and field organization.
+"""
+
 from django.contrib import admin
 
 from task_manager.users.models import User
@@ -5,6 +11,12 @@ from task_manager.users.models import User
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
+    """Admin interface configuration for the User model.
+
+    Provides a comprehensive admin interface for user management
+    with organized fieldsets and useful list displays.
+    """
+
     list_display = (
         'username',
         'email',
