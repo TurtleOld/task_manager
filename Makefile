@@ -18,9 +18,7 @@ help:
 	@echo "  docker-up      - Start all Docker services"
 	@echo "  docker-down    - Stop all Docker services"
 	@echo "  docker-logs    - Show Docker logs"
-	@echo "  taskiq-worker  - Start TaskIQ worker"
-	@echo "  taskiq-scheduler - Start TaskIQ scheduler"
-	@echo "  taskiq-dashboard - Start TaskIQ dashboard"
+
 
 # Development commands
 install:
@@ -66,15 +64,7 @@ docker-down:
 docker-logs:
 	docker-compose logs -f
 
-# TaskIQ commands
-taskiq-worker:
-	uv run taskiq worker task_manager.taskiq:broker --workers 4 --no-parse
 
-taskiq-scheduler:
-	uv run taskiq scheduler task_manager.taskiq:scheduler
-
-taskiq-dashboard:
-	uv run taskiq dashboard task_manager.taskiq:broker --port 5555 --no-parse
 
 
 
@@ -86,8 +76,6 @@ prod-setup:
 
 # Monitoring commands
 monitor:
-	@echo "TaskIQ Dashboard: http://localhost:5555"
-	@echo "RabbitMQ Management: http://localhost:15672"
 	@echo "Django Admin: http://localhost:8000/admin"
 
 # Health check commands
@@ -95,14 +83,8 @@ health-check:
 	@echo "Checking service health..."
 	@docker-compose ps
 	@echo ""
-	@echo "Checking TaskIQ worker..."
-	@docker-compose exec worker-taskiq taskiq worker task_manager.taskiq:broker --workers 1 --help
-	@echo ""
 	@echo "Checking Redis..."
 	@docker-compose exec redis redis-cli ping
-	@echo ""
-	@echo "Checking RabbitMQ..."
-	@docker-compose exec rabbitmq rabbitmq-diagnostics check_port_connectivity
 
 # Backup and restore commands
 backup:

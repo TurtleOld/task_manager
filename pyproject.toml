@@ -34,10 +34,6 @@ dependencies = [
     "pytest-django>=4.11.1",
     "django-stubs[compatible-mypy]>=5.1.1",
     "django-extensions>=4.1",
-    "taskiq>=0.9.0",
-    "taskiq-aio-pika>=0.1.0",
-    "aio-pika>=8.0.0",
-    "redis>=5.0.0",
 ]
 
 [project.optional-dependencies]
@@ -205,8 +201,7 @@ module = [
     "django.*",
     "django_crispy_forms.*",
     "crispy_bulma.*",
-    "taskiq.*",
-    "aio_pika.*",
+
     "rollbar.*",
     "telebot.*",
     "transliterate.*",
