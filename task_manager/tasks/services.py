@@ -24,7 +24,26 @@ logger = logging.getLogger(__name__)
 
 
 def slugify_translit(text: str) -> str:
-    return slugify(text) or ''
+    if not text:
+        return 'task'
+
+    # Try transliterate slugify first
+    slug = slugify(text)
+    if slug:
+        return slug
+
+    # Fallback: create a basic slug from the text
+    import re
+
+    slug = re.sub(r'[^\w\s-]', '', text.lower())
+    slug = re.sub(r'[-\s]+', '-', slug)
+    slug = slug.strip('-')
+
+    # Ensure we have a valid slug
+    if not slug:
+        slug = 'task'
+
+    return slug
 
 
 def notify(

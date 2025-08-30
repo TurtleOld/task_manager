@@ -7,13 +7,13 @@
     pk: 4
     fields:
         checklist: 2
-        description: Пункт1
+        text: Пункт1
         is_completed: true
 -   model: tasks.checklistitem
     pk: 5
     fields:
         checklist: 2
-        description: Пункт2
+        text: Пункт2
         is_completed: true
 -   model: tasks.reminderperiod
     pk: 2
@@ -35,6 +35,10 @@
     pk: 1
     fields:
         name: To Do
+-   model: tasks.stage
+    pk: 2
+    fields:
+        name: In Progress
 -   model: tasks.task
     pk: 1
     fields:
@@ -45,6 +49,7 @@
         state: false
         image: ''
         created_at: 2022-05-10 18:48:15.864338+00:00
+        updated_at: 2022-05-10 18:48:15.864338+00:00
         slug: odna-novaja-zadacha
         stage: 1
         order: 3
@@ -71,4 +76,5 @@
             - 1
             - 2
         created_at: 2022-05-15 18:05:32.003218+00:00
+        updated_at: 2022-05-15 18:05:32.003218+00:00
 

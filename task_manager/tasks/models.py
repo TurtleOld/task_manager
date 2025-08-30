@@ -153,6 +153,9 @@ class Checklist(models.Model):
         related_name='checklist',
         verbose_name=_('Задача'),
     )
+    created_at = models.DateTimeField(
+        auto_now_add=True, verbose_name=_('Дата создания')
+    )
 
     def __str__(self) -> str:
         return f'Чек-лист для задачи: {self.task.name}'

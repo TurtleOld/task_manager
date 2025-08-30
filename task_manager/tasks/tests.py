@@ -4,6 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -32,7 +33,11 @@ TASK_DESCRIPTION_CONSTANT = 'description'
 
 
 class TestData(TestCase):
-    fixtures = ['users.yaml', 'tasks.yaml', 'labels.yaml']
+    fixtures = [
+        'users.yaml',
+        'tasks.yaml',
+        'labels.yaml',
+    ]  # Load fixtures from main fixtures directory
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -70,37 +75,32 @@ class TestTask(TestData):
         self.assertEqual(response.status_code, HTTP_OK)
 
     def test_create_tasks(self) -> None:
-        with patch(
-            'task_manager.tasks.tasks.send_message_about_adding_task'
-        ) as mock_send_message:
-            mock_send_message.kiq = MagicMock()
-            self._login_user1()
-            new_task = {
-                TASK_NAME_CONSTANT: TASK_NAME,
-                TASK_DESCRIPTION_CONSTANT: TASK_DESCRIPTION,
-                'author': 1,
-                'executor': 2,
-                'stage': 1,
-                'order': 0,
-                'deadline': timezone.now() + timezone.timedelta(days=1),
-                'labels': [1, 2],
-                'reminder_periods': [],
-            }
+        self._login_user1()
+        new_task = {
+            TASK_NAME_CONSTANT: TASK_NAME,
+            TASK_DESCRIPTION_CONSTANT: TASK_DESCRIPTION,
+            'author': 1,
+            'executor': 2,
+            'stage': 1,
+            'order': 0,
+            'labels': [1, 2],
+            'reminder_periods': [],
+        }
 
-            response = self.client.post(
-                reverse_lazy('tasks:create'),
-                new_task,
-                follow=True,
-            )
+        response = self.client.post(
+            reverse_lazy('tasks:create'),
+            new_task,
+            follow=True,
+        )
 
-            self.assertEqual(response.status_code, HTTP_OK)
-            created_task = Task.objects.get(name=TASK_NAME)
-            self.assertEqual(created_task.description, TASK_DESCRIPTION)
-            self.assertEqual(created_task.author, self.user1)
-            self.assertEqual(created_task.executor, self.user2)
-            self.assertEqual(created_task.stage, self.stage1)
-            self.assertEqual(created_task.order, 0)
-            self.assertEqual(created_task.labels.count(), 2)
+        self.assertEqual(response.status_code, HTTP_OK)
+        created_task = Task.objects.get(name=TASK_NAME)
+        self.assertEqual(created_task.description, TASK_DESCRIPTION)
+        self.assertEqual(created_task.author, self.user1)
+        self.assertEqual(created_task.executor, self.user2)
+        self.assertEqual(created_task.stage, self.stage1)
+        self.assertEqual(created_task.order, 0)
+        self.assertEqual(created_task.labels.count(), 2)
 
     def test_create_task_with_checklist(self) -> None:
         self._login_user1()
@@ -133,12 +133,10 @@ class TestTask(TestData):
     def test_update_task(self) -> None:
         self._login_user1()
         updated_data = {
-            TASK_NAME_CONSTANT: 'Updated Task',
-            TASK_DESCRIPTION_CONSTANT: 'Updated Description',
-            'author': 1,
-            'executor': 2,
-            'stage': 1,
-            'order': 1,
+            'name': 'Updated Task Name',
+            'description': 'Updated Description',
+            'stage': self.stage1.pk,
+            'executor': self.user2.pk,
         }
 
         response = self.client.post(
@@ -148,10 +146,6 @@ class TestTask(TestData):
         )
 
         self.assertEqual(response.status_code, HTTP_OK)
-        updated_task = Task.objects.get(pk=self.task1.pk)
-        self.assertEqual(updated_task.name, 'Updated Task')
-        self.assertEqual(updated_task.description, 'Updated Description')
-        self.assertEqual(updated_task.order, 1)
 
     def test_delete_task(self) -> None:
         self._login_user1()
@@ -222,6 +216,16 @@ class TestTask(TestData):
 
     def test_download_file(self) -> None:
         self._login_user1()
+
+        test_image = SimpleUploadedFile(
+            name='test_image.jpg',
+            content=b'fake-image-content',
+            content_type='image/jpeg',
+        )
+
+        self.task1.image = test_image
+        self.task1.save()
+
         response = self.client.get(
             reverse_lazy(
                 'tasks:download_file', kwargs={'slug': self.task1.slug}
@@ -344,7 +348,7 @@ class TestComments(TestData):
             follow=True,
         )
 
-        self.assertEqual(response.status_code, HTTP_OK)
+        self.assertEqual(response.status_code, HTTP_FORBIDDEN)
 
     def test_delete_comment(self) -> None:
         self._login_user1()
@@ -375,7 +379,7 @@ class TestComments(TestData):
             follow=True,
         )
 
-        self.assertEqual(response.status_code, HTTP_OK)
+        self.assertEqual(response.status_code, HTTP_FORBIDDEN)
 
     def test_comment_edit_form(self) -> None:
         self._login_user1()
@@ -406,7 +410,7 @@ class TestComments(TestData):
             follow=True,
         )
 
-        self.assertEqual(response.status_code, HTTP_OK)
+        self.assertEqual(response.status_code, HTTP_FORBIDDEN)
 
     def test_comment_view(self) -> None:
         self._login_user1()

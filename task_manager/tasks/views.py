@@ -114,7 +114,7 @@ class UpdateTaskStageView(View):
             return JsonResponse({'success': False, 'error': 'Invalid data'})
 
         update_result = update_task_stage_and_order(
-            task_id, new_stage_id, new_order, request
+            task_id, new_stage_id, new_order
         )
         return JsonResponse(update_result)
 
@@ -137,7 +137,7 @@ class UpdateTaskOrderView(View):
                     {'error': 'No tasks data provided'}, status=HTTP_BAD_REQUEST
                 )
 
-            process_bulk_task_updates(tasks_data, request)
+            process_bulk_task_updates(tasks_data)
             return JsonResponse(
                 {'message': 'Tasks successfully updated'}, status=HTTP_OK
             )
@@ -169,9 +169,7 @@ class CreateTask(
     def form_valid(self, form: TaskForm) -> HttpResponse:
         try:
             task, task_slug = create_task_with_checklist(form, self.request)
-            send_task_creation_notifications(
-                task.name, task_slug, form, self.request
-            )
+            send_task_creation_notifications(task.name)
             return super().form_valid(form)
         except IntegrityError:
             messages.error(
@@ -183,8 +181,8 @@ class CreateTask(
 
 class UpdateTask(
     LoginRequiredMixin,
-    SuccessMessageMixin[Any],
-    UpdateView[Task, Any],
+    SuccessMessageMixin,
+    UpdateView,
 ):
     template_name = 'tasks/update_task.html'
     query_pk_and_slug = True
@@ -298,11 +296,14 @@ class ChecklistItemToggle(View):
         return render(request, self.template_name, context)
 
 
-class DownloadFileView(DetailView[Task]):
-    model = Task
+class DownloadFileView(View):
+    def get(self, request: HttpRequest, slug: str) -> FileResponse:
+        task = get_object_or_404(Task, slug=slug)
 
-    def get(self, request: HttpRequest, *args, **kwargs) -> FileResponse:
-        task = self.get_object()
+        # Check if task has an image
+        if not task.image:
+            raise Http404('У задачи нет изображения')
+
         image_path = task.image.path
         image_name = task.image.name
         mime_type, _ = mimetypes.guess_type(image_name)
@@ -335,13 +336,13 @@ def checklist_progress_view(request, task_id):
 
 
 class CommentCreateView(LoginRequiredMixin, View):
-    def post(self, request: HttpRequest, task_slug: str) -> HttpResponse:
-        success, message, comment = create_comment(task_slug, request)
+    def post(self, request: HttpRequest, slug: str) -> HttpResponse:
+        success, message, comment = create_comment(slug, request)
         return self._handle_comment_response(
             success=success,
             message=message,
             comment=comment,
-            task_slug=task_slug,
+            task_slug=slug,
             request=request,
         )
 
@@ -478,6 +479,6 @@ class CommentViewView(LoginRequiredMixin, View):
         return render(request, 'tasks/_comment.html', {'comment': comment})
 
 
-def comments_list_view(request: HttpRequest, task_slug: str) -> HttpResponse:
-    context = get_comments_for_task(task_slug, request)
+def comments_list_view(request: HttpRequest, slug: str) -> HttpResponse:
+    context = get_comments_for_task(slug, request)
     return render(request, 'tasks/_comments_container.html', context)

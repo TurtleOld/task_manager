@@ -37,8 +37,7 @@ class StageAdmin(admin.ModelAdmin):
 
 @admin.register(Checklist)
 class ChecklistAdmin(admin.ModelAdmin):
-    list_display = ['task', 'created_at']
-    readonly_fields = ['created_at']
+    list_display = ['task']
 
 
 @admin.register(ChecklistItem)

@@ -1,6 +1,6 @@
 <li id="checklist-item-{{ item.id }}" class="list-group-item">
     <input type="checkbox"
-           hx-post="{% url 'tasks:toggle' item.id %}"
+           hx-post="{% url 'tasks:toggle_checklist_item' item.id %}"
            hx-target="#checklist-item-{{ item.id }}"
            hx-swap="outerHTML"
            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'

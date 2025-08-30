@@ -40,6 +40,46 @@ base_urlpatterns = [
         name='create_stage',
     ),
     path(
+        'update-stage/',
+        UpdateTaskStageView.as_view(),
+        name='update_task_stage',
+    ),
+    path(
+        'update-order/',
+        UpdateTaskOrderView.as_view(),
+        name='update_task_order',
+    ),
+    path(
+        'checklist/<int:pk>/toggle/',
+        ChecklistItemToggle.as_view(),
+        name='toggle_checklist_item',
+    ),
+    path(
+        'checklist-progress/<int:task_id>/',
+        checklist_progress_view,
+        name='checklist_progress',
+    ),
+    path(
+        'comments/<int:comment_id>/update/',
+        CommentUpdateView.as_view(),
+        name='comment_update',
+    ),
+    path(
+        'comments/<int:comment_id>/delete/',
+        CommentDeleteView.as_view(),
+        name='comment_delete',
+    ),
+    path(
+        'comments/<int:comment_id>/edit-form/',
+        CommentEditFormView.as_view(),
+        name='comment_edit_form',
+    ),
+    path(
+        'comments/<int:comment_id>/view/',
+        CommentViewView.as_view(),
+        name='comment_view',
+    ),
+    path(
         '<slug:slug>/',
         TaskView.as_view(),
         name='view_task',
@@ -73,46 +113,6 @@ base_urlpatterns = [
         '<slug:slug>/comments/create/',
         CommentCreateView.as_view(),
         name='comment_create',
-    ),
-    path(
-        'comments/<int:comment_id>/update/',
-        CommentUpdateView.as_view(),
-        name='comment_update',
-    ),
-    path(
-        'comments/<int:comment_id>/delete/',
-        CommentDeleteView.as_view(),
-        name='comment_delete',
-    ),
-    path(
-        'comments/<int:comment_id>/edit-form/',
-        CommentEditFormView.as_view(),
-        name='comment_edit_form',
-    ),
-    path(
-        'comments/<int:comment_id>/view/',
-        CommentViewView.as_view(),
-        name='comment_view',
-    ),
-    path(
-        'checklist/<int:pk>/toggle/',
-        ChecklistItemToggle.as_view(),
-        name='toggle_checklist_item',
-    ),
-    path(
-        'checklist-progress/<int:task_id>/',
-        checklist_progress_view,
-        name='checklist_progress',
-    ),
-    path(
-        'update-stage/',
-        UpdateTaskStageView.as_view(),
-        name='update_task_stage',
-    ),
-    path(
-        'update-order/',
-        UpdateTaskOrderView.as_view(),
-        name='update_task_order',
     ),
 ]
 

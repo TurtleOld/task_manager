@@ -45,6 +45,9 @@ DEFAULT_REMINDER_PERIODS: Final[tuple[int, ...]] = (
     1440,
 )
 
+# Default reminder period name
+DEFAULT_REMINDER_PERIOD: Final[str] = 'Не задано'
+
 RANGE: Final[int] = 25
 
 # Task Management

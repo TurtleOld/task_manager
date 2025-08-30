@@ -8,7 +8,8 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from task_manager.tasks.models import Checklist, ChecklistItem, Task
+from task_manager.tasks.models import Checklist, ChecklistItem, Comment, Task
+from task_manager.labels.models import Label
 
 User = get_user_model()
 
@@ -126,7 +127,7 @@ class ChecklistItemForm(forms.ModelForm):
 
 class CommentForm(forms.ModelForm):
     class Meta:
-        model = 'tasks.Comment'
+        model = Comment
         fields = ['content']
         widgets = {
             'content': forms.Textarea(attrs={'class': 'textarea', 'rows': 3}),
@@ -147,7 +148,7 @@ class TasksFilter(forms.Form):
         widget=forms.Select(attrs={'class': 'select'}),
     )
     labels = forms.ModelMultipleChoiceField(
-        queryset='labels.Label'.objects.all(),
+        queryset=Label.objects.all(),
         required=False,
         widget=forms.SelectMultiple(attrs={'class': 'select'}),
     )

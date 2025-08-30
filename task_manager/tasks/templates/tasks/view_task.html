@@ -179,7 +179,7 @@
                     <i class="fa fa-list"></i>
                     Список задач
                 </a>
-                <a class="task-action-button warning {% if task.state == 'done' %}disabled{% endif %}" href="{% url 'tasks:update' task.slug %}">
+                <a class="task-action-button warning {% if task.state == 'done' %}disabled{% endif %}" href="{% url 'tasks:update_task' task.slug %}">
                     <i class="fa fa-edit"></i>
                     Изменить
                 </a>
@@ -224,35 +224,35 @@
         <div class="comments-section">
             <h3 class="comments-title">
                 <i class="fa fa-comments"></i>
-                Комментарии ({{ comments.paginator.count }})
+                Комментарии ({{ comments.comments.count }})
             </h3>
             
             <div id="comments-container">
-                {% if comments %}
-                    {% for comment in comments %}
+                {% if comments.comments %}
+                    {% for comment in comments.comments %}
                         {% include 'tasks/_comment.html' with comment=comment %}
                     {% endfor %}
                 {% else %}
                     <div class="no-comments">
-                        <p class="has-text-grey">Пока нет комментариев. Будьте первым!</p>
+                        <p>Пока нет комментариев. Будьте первым!</p>
                     </div>
                 {% endif %}
             </div>
             
-            {% if comments.has_other_pages %}
+            {% if comments.comments.has_other_pages %}
                 <nav class="pagination is-centered" role="navigation" aria-label="pagination">
-                    {% if comments.has_previous %}
-                        <a class="pagination-previous" 
-                           hx-get="{% url 'tasks:comments_list' task.slug %}?page={{ comments.previous_page_number }}"
+                    {% if comments.comments.has_previous %}
+                        <a class="pagination-previous"
+                           hx-get="{% url 'tasks:comments_list' task.slug %}?page={{ comments.comments.previous_page_number }}"
                            hx-target="#comments-container"
                            hx-swap="innerHTML">
                             Предыдущая
                         </a>
                     {% endif %}
                     
-                    {% if comments.has_next %}
+                    {% if comments.comments.has_next %}
                         <a class="pagination-next"
-                           hx-get="{% url 'tasks:comments_list' task.slug %}?page={{ comments.next_page_number }}"
+                           hx-get="{% url 'tasks:comments_list' task.slug %}?page={{ comments.comments.next_page_number }}"
                            hx-target="#comments-container"
                            hx-swap="innerHTML">
                             Следующая
@@ -260,10 +260,10 @@
                     {% endif %}
                     
                     <ul class="pagination-list">
-                        {% for num in comments.paginator.page_range %}
-                            {% if comments.number == num %}
+                        {% for num in comments.comments.paginator.page_range %}
+                            {% if comments.comments.number == num %}
                                 <li><span class="pagination-link is-current">{{ num }}</span></li>
-                            {% elif num > comments.number|add:'-3' and num < comments.number|add:'3' %}
+                            {% elif num > comments.comments.number|add:'-3' and num < comments.comments.number|add:'3' %}
                                 <li>
                                     <a class="pagination-link"
                                        hx-get="{% url 'tasks:comments_list' task.slug %}?page={{ num }}"

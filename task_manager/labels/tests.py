@@ -18,7 +18,11 @@ HTTP_OK = 200
 class TestLabel(TestCase):
     """Test suite for label management functionality."""
 
-    fixtures = ['users.yaml', 'tasks.yaml', 'labels.yaml']
+    fixtures = [
+        'users.yaml',
+        'tasks.yaml',
+        'labels.yaml',
+    ]  # Load fixtures from main fixtures directory
 
     def setUp(self) -> None:
         """Set up test data."""
