@@ -18,12 +18,20 @@ from django.forms import (
     Textarea,
     CheckboxInput,
     TextInput,
+    MultipleChoiceField,
+    SelectMultiple,
 )
 from django.utils.translation import gettext_lazy
 from django_filters import BooleanFilter, ChoiceFilter, FilterSet
 
 from task_manager.labels.models import Label
-from task_manager.tasks.models import Checklist, ChecklistItem, Comment, Task
+from task_manager.tasks.models import (
+    Checklist,
+    ChecklistItem,
+    Comment,
+    Task,
+    PERIOD,
+)
 from task_manager.users.models import User
 
 
@@ -64,14 +72,21 @@ class TaskForm(ModelForm[Any]):
     permissions.
     """
 
+    reminder_periods = MultipleChoiceField(
+        choices=PERIOD,
+        widget=SelectMultiple(attrs={'class': 'form-control', 'size': '8'}),
+        required=False,
+        label=gettext_lazy('Напоминание до'),
+    )
+
     class Meta:
         model = Task
         fields = (
             'name',
             'executor',
             'description',
-            'reminder_periods',
             'deadline',
+            'reminder_periods',
             'labels',
             'state',
             'image',
@@ -80,9 +95,9 @@ class TaskForm(ModelForm[Any]):
             'name': gettext_lazy('Имя'),
             'executor': gettext_lazy('Исполнитель'),
             'description': gettext_lazy('Описание'),
-            'reminder_periods': gettext_lazy('Напоминание до'),
             'labels': gettext_lazy('Метки'),
             'deadline': gettext_lazy('Дата'),
+            'reminder_periods': gettext_lazy('Напоминание до'),
             'state': gettext_lazy('Закрыта?'),
         }
         widgets = {
@@ -110,6 +125,7 @@ class TaskForm(ModelForm[Any]):
         super().__init__(*args, **kwargs)
         self._disable_fields_if_needed()
         self._initialize_checklist_data()
+        self._initialize_reminder_periods()
 
     def save_checklist_items(self, task: Task) -> None:
         """
@@ -138,7 +154,15 @@ class TaskForm(ModelForm[Any]):
         Returns:
             The saved task instance
         """
-        task = super().save(commit=True)
+        task = super().save(commit=False)
+
+        # Save reminder periods
+        reminder_periods = self.cleaned_data.get('reminder_periods', [])
+        task.set_reminder_periods_list([int(p) for p in reminder_periods])
+
+        if commit:
+            task.save()
+
         self.save_checklist_items(task)
         return task
 
@@ -204,6 +228,12 @@ class TaskForm(ModelForm[Any]):
             }
             for checklist_item in checklist_items
         ]
+
+    def _initialize_reminder_periods(self) -> None:
+        """Initialize reminder periods field with current values."""
+        if self.instance and self.instance.pk:
+            current_periods = self.instance.get_reminder_periods_list()
+            self.fields['reminder_periods'].initial = current_periods
 
 
 class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods

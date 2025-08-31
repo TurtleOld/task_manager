@@ -5,7 +5,6 @@ This module contains utility functions for task management, including
 slug generation, notification scheduling, and task-related operations.
 """
 
-import asyncio
 import json
 import logging
 import os
@@ -41,18 +40,16 @@ from task_manager.tasks.tasks import (
     send_about_opening_task,
     send_comment_notification,
     send_message_about_adding_task,
-    send_notification_about_task,
-    send_notification_with_photo_about_task,
 )
 from task_manager.users.models import User
 
 
-def send_taskiq_task(task_func, *args, eta=None, **kwargs):
+def send_celery_task(task_func, *args, eta=None, **kwargs):
     """
-    Safely send a TaskIQ task with proper error handling.
+    Safely send a Celery task with proper error handling.
 
     Args:
-        task_func: The TaskIQ task function to call
+        task_func: The Celery task function to call
         *args: Arguments to pass to the task
         eta: Optional execution time for delayed tasks
         **kwargs: Keyword arguments to pass to the task
@@ -60,52 +57,18 @@ def send_taskiq_task(task_func, *args, eta=None, **kwargs):
     Returns:
         True if task was sent successfully, False otherwise
     """
-    if not getattr(settings, 'TASKIQ_ENABLED', True):
+    if not getattr(settings, 'CELERY_ENABLED', True):
         return False
 
-    async def _send_task():
-        """Async function to send the task."""
-        try:
-            # Import broker here to avoid circular imports
-            from task_manager.taskiq import broker
-
-            # Start the broker
-            await broker.startup()
-
-            # Send the task
-            task_call = task_func.kiq(*args, **kwargs)
-            if eta:
-                task_call = task_call.with_eta(eta)
-            result = await task_call
-
-            # Shutdown the broker
-            await broker.shutdown()
-
-            return True
-        except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.error(
-                f"Failed to send TaskIQ task {task_func.__name__}: {e}"
-            )
-            return False
-
     try:
-        # Check if there's already an event loop running
-        try:
-            loop = asyncio.get_running_loop()
-            # If we're in an async context, we can't use asyncio.run()
-            logger = logging.getLogger(__name__)
-            logger.warning(
-                f"Cannot send TaskIQ task {task_func.__name__} from async context"
-            )
-            return False
-        except RuntimeError:
-            # No event loop running, we can use asyncio.run()
-            return asyncio.run(_send_task())
-
+        if eta:
+            task_func.apply_async(args=args, kwargs=kwargs, eta=eta)
+        else:
+            task_func.delay(*args, **kwargs)
+        return True
     except Exception as e:
         logger = logging.getLogger(__name__)
-        logger.error(f"Failed to send TaskIQ task {task_func.__name__}: {e}")
+        logger.error(f'Failed to send Celery task {task_func.__name__}: {e}')
         return False
 
 
@@ -135,11 +98,11 @@ def notify(
     task_url: str,
 ) -> None:
     """
-    Schedule notifications for task reminders.
+    Register task for deadline notifications.
 
-    Creates scheduled notifications for each reminder period before the task deadline.
-    Notifications can include task images if available, and are scheduled using
-    TaskIQ's kiq with specific execution times.
+    This function is now a placeholder since notifications are handled by
+    the periodic task check_task_deadlines. The reminder periods are stored
+    in the task model and the periodic task will check them automatically.
 
     Args:
         task_name: The name of the task to send notifications about
@@ -151,26 +114,9 @@ def notify(
     Returns:
         None
     """
-    for period in reminder_periods:
-        notify_time = deadline - timedelta(minutes=period.period)
-        if notify_time > now():
-            if task_file_path:
-                send_taskiq_task(
-                    send_notification_with_photo_about_task,
-                    task_name,
-                    f'{period}',
-                    task_url,
-                    task_file_path,
-                    eta=notify_time,
-                )
-            else:
-                send_taskiq_task(
-                    send_notification_about_task,
-                    task_name,
-                    f'{period}',
-                    task_url,
-                    eta=notify_time,
-                )
+    # Notifications are now handled by the periodic task check_task_deadlines
+    # The reminder_periods are stored in the Task model and checked periodically
+    pass
 
 
 def get_user_display_name(user) -> str:
@@ -259,8 +205,8 @@ def send_task_creation_notifications(
         request: The HTTP request object
     """
     task_url = request.build_absolute_uri(f'/tasks/{task_slug}')
-    if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_taskiq_task(send_message_about_adding_task, task_name, task_url)
+    if getattr(settings, 'CELERY_ENABLED', True):
+        send_celery_task(send_message_about_adding_task, task_name, task_url)
 
     task_image = form.instance.image
     deadline = form.instance.deadline
@@ -470,8 +416,8 @@ def send_move_notification(
     task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
     moved_by = get_user_display_name(request.user)
 
-    if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_taskiq_task(
+    if getattr(settings, 'CELERY_ENABLED', True):
+        send_celery_task(
             send_about_moving_task,
             task.name,
             moved_by,
@@ -573,8 +519,8 @@ def handle_task_stage_change(
     task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
     moved_by = get_user_display_name(request.user)
 
-    if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_taskiq_task(
+    if getattr(settings, 'CELERY_ENABLED', True):
+        send_celery_task(
             send_about_moving_task,
             task.name,
             moved_by,
@@ -701,8 +647,8 @@ def create_comment(
         comment.save()
 
         if task.executor and task.executor != request.user:
-            if getattr(settings, 'TASKIQ_ENABLED', True):
-                send_taskiq_task(send_comment_notification, comment.id)
+            if getattr(settings, 'CELERY_ENABLED', True):
+                send_celery_task(send_comment_notification, comment.id)
 
         return True, 'Comment created successfully', comment
     return False, f'Ошибка: {form.errors}', None
@@ -808,11 +754,11 @@ def close_or_reopen_task(
     task.save()
 
     if task.state:
-        if getattr(settings, 'TASKIQ_ENABLED', True):
-            send_taskiq_task(send_about_closing_task, task.name, task_url)
+        if getattr(settings, 'CELERY_ENABLED', True):
+            send_celery_task(send_about_closing_task, task.name, task_url)
         return True, 'Статус задачи изменен.'
-    if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_taskiq_task(send_about_opening_task, task.name, task_url)
+    if getattr(settings, 'CELERY_ENABLED', True):
+        send_celery_task(send_about_opening_task, task.name, task_url)
     return True, 'Статус задачи изменен.'
 
 
@@ -824,6 +770,6 @@ def delete_task_with_notification(task: Task) -> None:
         task: The task object
     """
     task_name = task.name
-    if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_taskiq_task(send_about_deleting_task, task_name)
+    if getattr(settings, 'CELERY_ENABLED', True):
+        send_celery_task(send_about_deleting_task, task_name)
     task.delete()

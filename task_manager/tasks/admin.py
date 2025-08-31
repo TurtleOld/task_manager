@@ -30,7 +30,7 @@ class TaskAdmin(admin.ModelAdmin):
     list_filter = ('state', 'stage', 'created_at')
     search_fields = ('name', 'description')
     readonly_fields = ('created_at',)
-    filter_horizontal = ('labels', 'reminder_periods')
+    filter_horizontal = ('labels',)
 
 
 @admin.register(Stage)

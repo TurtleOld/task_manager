@@ -50,6 +50,7 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'crispy_forms',
     'crispy_bulma',
+    'django_celery_beat',
     'task_manager',
     'task_manager.users',
     'task_manager.tasks',
@@ -239,53 +240,37 @@ STATICFILES_DIRS = (os.path.join(BASE_DIR, 'task_manager/static'),)
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# TaskIQ Configuration Options
-TASKIQ_TIMEZONE = 'Europe/Moscow'
+# Site URL for notifications
+SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000')
 
+# Celery configuration
+CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_TASK_SOFT_TIME_LIMIT = 60
+CELERY_WORKER_CONCURRENCY = 4
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
 
-# Determine appropriate broker URL for environment
-def get_taskiq_broker_url():
-    """Get appropriate TaskIQ broker URL based on environment."""
-    if os.path.exists('/.dockerenv') or os.environ.get('DOCKER_ENV'):
-        return os.environ.get(
-            'BROKER_URL', 'amqp://rabbitmq:rabbitmq@rabbitmq:5672/'
-        )
-    else:
-        return os.environ.get(
-            'BROKER_URL', 'amqp://guest:guest@localhost:5672/'
-        )
-
-
-TASKIQ_BROKER_URL = get_taskiq_broker_url()
-TASKIQ_RESULT_BACKEND_URL = os.environ.get(
-    'REDIS_URL', 'redis://localhost:6379/0'
-)
-
-
-def get_taskiq_routes():
-    """Get TaskIQ task routing configuration."""
-    return {
-        'task_manager.tasks.*': {'queue': 'default'},
-        'task_manager.users.*': {'queue': 'users'},
-    }
-
+# Celery Beat configuration
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 # Task routing
-TASKIQ_TASK_ROUTES = get_taskiq_routes()
-
-# Worker configuration
-TASKIQ_WORKER_CONCURRENCY = 4
-TASKIQ_WORKER_MAX_TASKS_PER_CHILD = 1000
-
-# Scheduler configuration
-TASKIQ_SCHEDULER_SOURCES = ('task_manager.tasks',)
+CELERY_TASK_ROUTES = {
+    'task_manager.tasks.*': {'queue': 'default'},
+    'task_manager.users.*': {'queue': 'users'},
+}
 
 if 'test' in sys.argv or 'test_coverage' in sys.argv:
-    TASKIQ_ALWAYS_EAGER = True
-    # Disable TaskIQ during tests to avoid async issues
-    TASKIQ_ENABLED = False
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    CELERY_ENABLED = False
 else:
-    TASKIQ_ENABLED = True
+    CELERY_ENABLED = True
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

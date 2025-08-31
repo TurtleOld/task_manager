@@ -101,28 +101,6 @@ class ChecklistItem(models.Model):
         return self.description
 
 
-class ReminderPeriod(models.Model):
-    """
-    Model representing reminder periods for task deadlines.
-
-    Defines different time periods (in minutes) before a deadline
-    when notifications should be sent to remind users about upcoming tasks.
-    """
-
-    period = models.IntegerField(
-        default=DEFAULT_REMINDER_PERIOD,
-        blank=True,
-        null=True,
-        choices=PERIOD,
-    )
-
-    def __str__(self) -> str:
-        """Return a human-readable representation of the reminder period."""
-        if isinstance(self.period, int):
-            return str(PERIOD_DICT.get(self.period, DEFAULT_REMINDER_PERIOD))
-        return 'Не задано'
-
-
 class Stage(models.Model):
     """
     Model representing workflow stages for tasks.
@@ -182,10 +160,16 @@ class Task(models.Model):
         null=True,
     )
     slug = models.SlugField(null=True, unique=True)
-    reminder_periods = models.ManyToManyField(
-        ReminderPeriod,
-        related_name='tasks',
+    reminder_periods = models.CharField(
+        max_length=255,
         blank=True,
+        null=True,
+        help_text='Comma-separated list of reminder period values',
+    )
+    sent_notifications = models.TextField(
+        blank=True,
+        null=True,
+        help_text='JSON field to track sent notification periods',
     )
     labels = models.ManyToManyField(Label, related_name='tasks', blank=True)
     stage = models.ForeignKey(
@@ -224,7 +208,87 @@ class Task(models.Model):
         Returns:
             Comma-separated string of reminder period descriptions
         """
-        return ', '.join(str(period) for period in self.reminder_periods.all())
+        if not self.reminder_periods:
+            return ''
+
+        period_values = self.get_reminder_periods_list()
+        period_dict = dict(PERIOD)
+
+        return ', '.join(
+            period_dict.get(int(period), f'{period} минут')
+            for period in period_values
+        )
+
+    def get_reminder_periods_list(self) -> list[str]:
+        """
+        Get reminder periods as a list of strings.
+
+        Returns:
+            List of reminder period values as strings
+        """
+        if not self.reminder_periods:
+            return []
+        return [
+            p.strip() for p in self.reminder_periods.split(',') if p.strip()
+        ]
+
+    def set_reminder_periods_list(self, periods: list[int]) -> None:
+        """
+        Set reminder periods from a list of integers.
+
+        Args:
+            periods: List of reminder period values in minutes
+        """
+        if periods:
+            self.reminder_periods = ','.join(str(p) for p in periods)
+        else:
+            self.reminder_periods = ''
+
+    def is_notification_sent(self, period_minutes: int) -> bool:
+        """
+        Check if notification for specific period has been sent.
+
+        Args:
+            period_minutes: The reminder period in minutes
+
+        Returns:
+            True if notification has been sent, False otherwise
+        """
+        if not self.sent_notifications:
+            return False
+
+        try:
+            import json
+
+            sent_periods = json.loads(self.sent_notifications)
+            return str(period_minutes) in sent_periods
+        except (json.JSONDecodeError, TypeError):
+            return False
+
+    def mark_notification_sent(self, period_minutes: int) -> None:
+        """
+        Mark notification as sent for specific period.
+
+        Args:
+            period_minutes: The reminder period in minutes
+        """
+        try:
+            import json
+
+            if self.sent_notifications:
+                sent_periods = json.loads(self.sent_notifications)
+            else:
+                sent_periods = []
+
+            if str(period_minutes) not in sent_periods:
+                sent_periods.append(str(period_minutes))
+                self.sent_notifications = json.dumps(sent_periods)
+                self.save(update_fields=['sent_notifications'])
+        except (json.JSONDecodeError, TypeError):
+            import json
+
+            self.sent_notifications = json.dumps([str(period_minutes)])
+            self.save(update_fields=['sent_notifications'])
 
     def get_absolute_url(self) -> str:
         """

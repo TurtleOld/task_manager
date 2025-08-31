@@ -79,10 +79,8 @@
                     {% translate 'Напоминание до' %}
                 </div>
                 <div class="task-info-value">
-                    {% if task.reminder_periods.all %}
-                        {% for period in task.reminder_periods.all %}
-                            <span class="tag is-info is-light">{{ period }}</span>
-                        {% endfor %}
+                    {% if task.get_reminder_period_display %}
+                        <span class="tag is-info is-light">{{ task.get_reminder_period_display }}</span>
                     {% else %}
                         <span class="has-text-grey">Напоминания не установлены</span>
                     {% endif %}
