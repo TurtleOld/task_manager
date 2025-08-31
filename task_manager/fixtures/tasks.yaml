@@ -15,22 +15,6 @@
         checklist: 2
         description: Пункт2
         is_completed: true
--   model: tasks.reminderperiod
-    pk: 2
-    fields:
-        period: 10
--   model: tasks.reminderperiod
-    pk: 3
-    fields:
-        period: 20
--   model: tasks.reminderperiod
-    pk: 4
-    fields:
-        period: 30
--   model: tasks.reminderperiod
-    pk: 5
-    fields:
-        period: 40
 -   model: tasks.stage
     pk: 1
     fields:
@@ -48,8 +32,7 @@
         slug: odna-novaja-zadacha
         stage: 1
         order: 3
-        reminder_periods:
-            - 2
+        reminder_periods: "10,20"
         labels:
             - 1
             - 2
@@ -65,8 +48,7 @@
         state: false
         stage: 1
         order: 3
-        reminder_periods:
-            - 2
+        reminder_periods: "10,20"
         labels:
             - 1
             - 2

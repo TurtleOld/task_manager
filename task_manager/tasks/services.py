@@ -5,11 +5,11 @@ This module contains utility functions for task management, including
 slug generation, notification scheduling, and task-related operations.
 """
 
+import datetime as dt
 import json
 import logging
 import os
 from collections.abc import Iterable
-from datetime import datetime
 from typing import Any
 
 from django.conf import settings
@@ -65,10 +65,10 @@ def send_celery_task(task_func, *args, eta=None, **kwargs):
             task_func.apply_async(args=args, kwargs=kwargs, eta=eta)
         else:
             task_func.delay(*args, **kwargs)
-        return True
-    except Exception as e:
+            return True
+    except Exception:
         logger = logging.getLogger(__name__)
-        logger.error(f'Failed to send Celery task {task_func.__name__}: {e}')
+        logger.exception('Failed to send Celery task %s', task_func.__name__)
         return False
 
 
@@ -93,7 +93,7 @@ def slugify_translit(task_name: str) -> str:
 def notify(
     task_name: str,
     reminder_periods: Iterable,
-    deadline: datetime,
+    deadline: dt.datetime,
     task_file_path: str | None,
     task_url: str,
 ) -> None:
@@ -106,7 +106,8 @@ def notify(
 
     Args:
         task_name: The name of the task to send notifications about
-        reminder_periods: Collection of reminder periods to schedule notifications for
+        reminder_periods: Collection of reminder periods to schedule
+                         notifications for
         deadline: The task deadline datetime
         task_file_path: Optional path to the task's image file
         task_url: The URL to view the task details
@@ -241,20 +242,20 @@ def _get_task_executor_data(task: Task) -> dict[str, str]:
 def _build_task_data(task: Task) -> dict[str, Any]:
     """Build task data dictionary."""
     return {
-        'id': task.id,
+        'id': task.pk,
         'name': task.name,
         'slug': task.slug,
         'author': _get_task_author_data(task),
         'executor': _get_task_executor_data(task),
         'created_at': task.created_at.strftime('%d.%m.%Y %H:%M'),
-        'stage': task.stage_id,
+        'stage': task.stage.pk,
         'labels': list(task.labels.values('id', 'name')),
     }
 
 
 def _get_filtered_stage_tasks(stage: Stage, selected_labels: list[str]) -> Any:
     """Get filtered tasks for a stage."""
-    stage_tasks = stage.tasks.all()
+    stage_tasks = stage.tasks.prefetch_related('labels')
     if selected_labels:
         stage_tasks = stage_tasks.filter(
             labels__id__in=selected_labels
@@ -279,8 +280,7 @@ def get_kanban_data(request: HttpRequest) -> dict[str, Any]:
     tasks_data = []
     for stage in stages:
         stage_tasks = _get_filtered_stage_tasks(stage, selected_labels)
-        for task in stage_tasks:
-            tasks_data.append(_build_task_data(task))
+        tasks_data.extend(_build_task_data(task) for task in stage_tasks)
 
     return {
         'stages': stages,
@@ -312,6 +312,34 @@ def _process_stage_change(
     return None
 
 
+def _process_order_change(
+    task: Task, new_stage_id: int | None, new_order: int | None
+) -> None:
+    """Process order change for a task."""
+    if new_stage_id is not None:
+        task.stage.id = new_stage_id
+        task.save(update_fields=['stage_id'])
+
+    if new_order is not None:
+        task.order = new_order
+        task.save(update_fields=['order'])
+        reorder_task_within_stage(task, new_order)
+
+
+def _handle_update_exceptions(
+    exception: Exception, logger: logging.Logger
+) -> dict[str, Any]:
+    """Handle exceptions during task update."""
+    if isinstance(exception, Task.DoesNotExist):
+        return {'success': False, 'error': 'Task not found'}
+    if isinstance(exception, Stage.DoesNotExist):
+        return {'success': False, 'error': 'Stage not found'}
+    if isinstance(exception, ValueError | TypeError | AttributeError):
+        return {'success': False, 'error': f'Invalid data: {exception!s}'}
+    logger.exception('Unexpected error in update_task_stage_and_order')
+    return {'success': False, 'error': 'An unexpected error occurred'}
+
+
 def update_task_stage_and_order(
     task_id: int,
     new_stage_id: int | None,
@@ -340,23 +368,11 @@ def update_task_stage_and_order(
                 return stage_result
 
             # Process order change
-            if new_order is not None:
-                reorder_task_within_stage(task, new_order)
-
-        return {'success': True}
-    except Task.DoesNotExist:
-        return {'success': False, 'error': 'Task not found'}
-    except Stage.DoesNotExist:
-        return {'success': False, 'error': 'Stage not found'}
-    except (ValueError, TypeError, AttributeError) as exception:
-        return {'success': False, 'error': f'Invalid data: {exception!s}'}
+            _process_order_change(task, new_stage_id, new_order)
+            return {'success': True}
     except Exception as exception:
-        # Log unexpected exceptions for debugging
         logger = logging.getLogger(__name__)
-        logger.error(
-            f'Unexpected error in update_task_stage_and_order: {exception}'
-        )
-        return {'success': False, 'error': 'An unexpected error occurred'}
+        return _handle_update_exceptions(exception, logger)
 
 
 def can_move_to_done_stage(
@@ -631,7 +647,7 @@ def create_comment(
     """
     task = get_object_or_404(Task, slug=task_slug)
 
-    if request.user not in (task.author, task.executor) and task.executor:
+    if request.user not in {task.author, task.executor}:
         return (
             False,
             'У вас нет прав для добавления комментариев к этой задаче.',
@@ -645,9 +661,12 @@ def create_comment(
         comment.author = request.user
         comment.save()
 
-        if task.executor and task.executor != request.user:
-            if getattr(settings, 'CELERY_ENABLED', True):
-                send_celery_task(send_comment_notification, comment.id)
+        if (
+            task.executor
+            and task.executor != request.user
+            and getattr(settings, 'CELERY_ENABLED', True)
+        ):
+            send_celery_task(send_comment_notification, comment.id)
 
         return True, 'Comment created successfully', comment
     return False, f'Ошибка: {form.errors}', None
@@ -746,7 +765,7 @@ def close_or_reopen_task(
     task = get_object_or_404(Task, slug=task_slug)
     task_url = request.build_absolute_uri(f'/tasks/{task_slug}')
 
-    if request.user not in (task.author, task.executor):
+    if request.user not in {task.author, task.executor}:
         return False, 'У вас нет прав для изменения состояния этой задачи'
 
     task.state = not task.state

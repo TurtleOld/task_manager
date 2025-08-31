@@ -75,7 +75,6 @@ extend-exclude = [
 
 [tool.ruff.format]
 quote-style = "single"
-# This is only required because we have invalid on-purpose code in docstrings:
 docstring-code-format = false
 
 [tool.ruff.lint]
@@ -121,23 +120,31 @@ select = [
   "YTT",  # flake8-2020
 ]
 ignore = [
-  "A005",   # allow to shadow stdlib and builtin module names
-  "COM812", # trailing comma, conflicts with `ruff format`
-  # Different doc rules that we don't really care about:
+  "A005",
+  "COM812",
   "D100",
+  "D101",
+  "D102",
+  "D103",
   "D104",
+  "D105",
   "D106",
+  "D107",
   "D203",
   "D212",
   "D401",
   "D404",
   "D405",
-  "ISC001",  # implicit string concat conflicts with `ruff format`
-  "ISC003",  # prefer explicit string concat over implicit concat
-  "PLR09",   # we have our own complexity rules
-  "PLR2004", # do not report magic numbers
-  "PLR6301", # do not require classmethod / staticmethod when self not used
-  "TRY003",  # long exception messages from `tryceratops`
+  "ISC001",
+  "ISC003",
+  "PLR09",
+  "PLR2004",
+  "PLR6301",
+  "PT009",
+  "PT027",
+  "RUF001",
+  "RUF012",
+  "TRY003",
 ]
 external = [ "WPS" ]
 
@@ -160,30 +167,6 @@ pydocstyle.convention = "google"
 "wemake_python_styleguide/types.py" = [ "D102" ]
 "wemake_python_styleguide/visitors/ast/*.py" = [ "N802" ]
 
-
-
-[tool.black]
-line-length = 80
-skip-string-normalization = true
-exclude = '''
-(
-  /(
-    | \.git
-    | \.mypy_cache
-    | \.venv
-    | _build
-    | build
-    | dist
-    | migrations/.*
-    /(
-      | migrations
-    )/
-    /(
-        | bootstrap
-    )
-  )/
-)
-'''
 
 [tool.mypy]
 python_version = "3.11"

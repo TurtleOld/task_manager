@@ -1,9 +1,10 @@
 """
 Django forms for the tasks app.
 
-This module contains form classes for handling task creation, editing, filtering,
-and comment management. It includes forms for tasks, checklist items, task filtering,
-and comments with proper validation and widget configurations.
+This module contains form classes for handling task creation, editing,
+filtering, and comment management. It includes forms for tasks, checklist
+items, task filtering, and comments with proper validation and widget
+configurations.
 """
 
 from typing import Any
@@ -143,7 +144,7 @@ class TaskForm(ModelForm[Any]):
         checklist, _ = Checklist.objects.get_or_create(task=task)
         self._replace_checklist_items(checklist, items_data)
 
-    def save(self, commit: bool = True) -> 'Task':
+    def save(self, *, commit: bool | None = True) -> 'Task':
         """
         Save the task and its associated checklist items.
 
@@ -241,10 +242,7 @@ class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
     user-specific tasks.
 
     Provides filtering capabilities for tasks based on:
-    - Executor (user assigned to the task)
-    - Labels (tags associated with tasks)
-    - Self tasks (tasks created by the current user)
-    """
+    """  # noqa: D205
 
     executors = User.objects.values_list(
         'id', Concat('first_name', Value(' '), 'last_name'), named=True
@@ -281,11 +279,12 @@ class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
         Args:
             queryset: The queryset to filter
             _name: The field name (unused but required by django-filter)
-            filter_value: Boolean value indicating whether to filter by current user
+            filter_value: Boolean value indicating whether to filter by
+                         current user
 
         Returns:
-            Filtered queryset containing only tasks by the current user if value is
-            True, otherwise returns the original queryset unchanged
+            Filtered queryset containing only tasks by the current user if
+            value is True, otherwise returns the original queryset unchanged
         """
         if filter_value:
             author = getattr(self.request, 'user', None)

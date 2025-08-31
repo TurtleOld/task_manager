@@ -16,5 +16,10 @@ def theme_mode(request: HttpRequest) -> dict[str, Any]:
 
 
 def registration_available(request: HttpRequest) -> dict[str, Any]:
-    """Проверяет, доступна ли регистрация (только если нет пользователей в БД)"""
+    """Проверяет, доступна ли регистрация (только если нет пользователей
+    в БД).
+
+    Returns:
+        Dictionary with registration availability status.
+    """
     return {'registration_available': not User.objects.exists()}

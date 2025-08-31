@@ -6,7 +6,7 @@ including Task, Stage, Comment, Checklist, and ChecklistItem models.
 It also includes utility functions for task ordering and management.
 """
 
-import os
+import json
 import pathlib
 
 from django.conf import settings
@@ -105,8 +105,9 @@ class Stage(models.Model):
     """
     Model representing workflow stages for tasks.
 
-    Stages represent different phases in the task workflow (e.g., To Do, In Progress, Done).
-    Tasks can be moved between stages, and each stage has an order for display purposes.
+    Stages represent different phases in the task workflow (e.g., To Do,
+    In Progress, Done). Tasks can be moved between stages, and each stage
+    has an order for display purposes.
     """
 
     name = models.CharField(
@@ -258,8 +259,6 @@ class Task(models.Model):
             return False
 
         try:
-            import json
-
             sent_periods = json.loads(self.sent_notifications)
             return str(period_minutes) in sent_periods
         except (json.JSONDecodeError, TypeError):
@@ -273,8 +272,6 @@ class Task(models.Model):
             period_minutes: The reminder period in minutes
         """
         try:
-            import json
-
             if self.sent_notifications:
                 sent_periods = json.loads(self.sent_notifications)
             else:
@@ -285,8 +282,6 @@ class Task(models.Model):
                 self.sent_notifications = json.dumps(sent_periods)
                 self.save(update_fields=['sent_notifications'])
         except (json.JSONDecodeError, TypeError):
-            import json
-
             self.sent_notifications = json.dumps([str(period_minutes)])
             self.save(update_fields=['sent_notifications'])
 
@@ -331,9 +326,9 @@ class Task(models.Model):
         Creates the images directory if it doesn't exist before saving
         the task instance.
         """
-        image_dir = os.path.join(settings.MEDIA_ROOT, 'images')
+        image_dir = settings.MEDIA_ROOT / 'images'
         if not pathlib.Path(image_dir).exists():
-            os.makedirs(image_dir)
+            pathlib.Path(image_dir).mkdir(parents=True, exist_ok=True)
         super().save(*args, **kwargs)
 
 
@@ -412,20 +407,21 @@ class Comment(models.Model):
         self.refresh_from_db()
 
 
-def reorder_tasks_in_stage(stage_id: int) -> None:
+def reorder_tasks_in_stage(stage: 'Stage') -> None:
     """
     Reorder all tasks within a specific stage to ensure consistent ordering.
 
-    This function fetches all tasks in the given stage, orders them by their current
-    order and creation date, then reassigns sequential order values starting from 0.
-
     Args:
-        stage_id: The ID of the stage whose tasks should be reordered
+        stage: The stage object containing tasks to reorder
+
+    This function fetches all tasks in the given stage, orders them by their
+    current order and creation date, then reassigns sequential order values
+    starting from 0.
 
     Returns:
         None
     """
-    tasks = Task.objects.filter(stage_id=stage_id).order_by(
+    tasks = Task.objects.filter(stage_id=stage.id).order_by(
         'order', 'created_at'
     )
     for index, task in enumerate(tasks):

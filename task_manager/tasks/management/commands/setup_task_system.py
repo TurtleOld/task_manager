@@ -14,7 +14,7 @@ from django.core.management.base import BaseCommand
 class Command(BaseCommand):
     """Setup complete task system with all required objects."""
 
-    help = 'Setup complete task system with reminder periods, stages, and periodic tasks'
+    help = 'Setup complete task system with reminder periods, stages, and periodic tasks'  # noqa: E501
 
     def handle(self, *args, **options):
         """Handle the command execution."""
@@ -34,7 +34,7 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 '\n✅ Task system setup completed successfully!'
                 '\nYou can now:'
-                '\n  - Create tasks with reminder periods (from PERIOD constant)'
+                '\n  - Create tasks with reminder periods (from PERIOD constant)'  # noqa: E501
                 '\n  - Move tasks between workflow stages'
                 '\n  - Receive deadline notifications via Telegram'
             )

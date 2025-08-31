@@ -5,8 +5,9 @@ This module contains all Celery background tasks for the task management system,
 including notification sending, task status updates, and comment notifications.
 """
 
+import datetime as dt
+import logging
 import os
-from datetime import timedelta
 from pathlib import Path
 
 from celery import shared_task
@@ -14,7 +15,7 @@ from django.conf import settings
 from django.urls import reverse
 from django.utils.timezone import now
 
-from task_manager.tasks.models import Comment, Task
+from task_manager.tasks.models import PERIOD_DICT, Comment, Task
 from task_manager.users.bot import bot_admin
 from task_manager.users.models import User
 
@@ -41,7 +42,8 @@ def send_message_about_adding_task(task_name, task_url) -> None:
     bot_admin.send_message(
         chat_id=CHAT_ID,
         text=(
-            f'Создана новая задача: {task_name}\nПосмотреть подробнее: {task_url}'
+            f'Создана новая задача: {task_name}\n'
+            f'Посмотреть подробнее: {task_url}'
         ),
     )
 
@@ -63,7 +65,8 @@ def send_about_updating_task(task_name, task_url) -> None:
     bot_admin.send_message(
         chat_id=CHAT_ID,
         text=(
-            f'Задача "{task_name}" была изменена!\nПосмотреть подробнее: {task_url}'
+            f'Задача "{task_name}" была изменена!\n'
+            f'Посмотреть подробнее: {task_url}'
         ),
     )
 
@@ -108,7 +111,9 @@ def send_notification_about_task(
     """
     bot_admin.send_message(
         chat_id=CHAT_ID,
-        text=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}\n{task_url}',
+        text=f'Напоминание об открытой задаче "{task_name}"!\n'
+        f'Осталось {task_time}\n'
+        f'{task_url}',
     )
 
 
@@ -140,12 +145,16 @@ def send_notification_with_photo_about_task(
             bot_admin.send_photo(
                 chat_id=CHAT_ID,
                 photo=task_file,
-                caption=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}\n{task_url}',
+                caption=f'Напоминание об открытой задаче "{task_name}"!\n'
+                f'Осталось {task_time}\n'
+                f'{task_url}',
             )
     except FileNotFoundError:
         bot_admin.send_message(
             chat_id=CHAT_ID,
-            text=f'Напоминание об открытой задаче "{task_name}"!\nОсталось {task_time}\n{task_url}',
+            text=f'Напоминание об открытой задаче "{task_name}"!\n'
+            f'Осталось {task_time}\n'
+            f'{task_url}',
         )
 
 
@@ -208,7 +217,8 @@ def send_about_moving_task(task_name, moved_by, stage_name, task_url) -> None:
     """
     bot_admin.send_message(
         chat_id=CHAT_ID,
-        text=f'{moved_by} переместил задачу "{task_name}" в {stage_name}.\n{task_url}',
+        text=f'{moved_by} переместил задачу "{task_name}" в {stage_name}.\n'
+        f'{task_url}',
     )
 
 
@@ -274,6 +284,91 @@ def send_comment_notification(comment_id: int) -> None:
         return
 
 
+def _send_task_notification(
+    task: 'Task', period_minutes: int, period_display: str
+) -> None:
+    """Send notification for a task deadline."""
+    task_url = _get_task_url(task)
+
+    if task.image:
+        send_notification_with_photo_about_task.delay(
+            task.name,
+            period_display,
+            task_url,
+            task.image.path,
+        )
+    else:
+        send_notification_about_task.delay(
+            task.name,
+            period_display,
+            task_url,
+        )
+
+
+def _process_task_deadline(task: 'Task', current_time) -> None:
+    """Process deadline notifications for a single task."""
+    logger = logging.getLogger(__name__)
+
+    if not task.deadline or not task.reminder_periods:
+        return
+
+    logger.info('Processing task: %s (deadline: %s)', task.name, task.deadline)
+
+    # Get reminder periods from the task
+    period_values = task.get_reminder_periods_list()
+    logger.info('  Reminder periods: %s', period_values)
+
+    # Check each reminder period for this task
+    for period_str in period_values:
+        try:
+            period_minutes = int(period_str)
+            notification_time = task.deadline - dt.timedelta(
+                minutes=period_minutes
+            )
+
+            # Check if we should send notification now (within 5 minute window)
+            time_diff = abs((current_time - notification_time).total_seconds())
+
+            logger.info(
+                '    Period %smin: notification_time=%s, time_diff=%.1fs',
+                period_minutes,
+                notification_time,
+                time_diff,
+            )
+
+            if time_diff <= 300:  # Within 5 minutes
+                # Check if notification already sent for this period
+                if task.is_notification_sent(period_minutes):
+                    logger.info(
+                        'Notification already sent for task %s, period %smin',
+                        task.name,
+                        period_minutes,
+                    )
+                    continue
+
+                logger.info(
+                    '    SENDING notification for task %s, period %smin',
+                    task.name,
+                    period_minutes,
+                )
+
+                # Mark notification as sent before sending
+                task.mark_notification_sent(period_minutes)
+
+                period_display = PERIOD_DICT.get(
+                    period_minutes, f'{period_minutes} минут'
+                )
+                _send_task_notification(task, period_minutes, period_display)
+            else:
+                logger.info(
+                    '    Skipping notification (time_diff=%.1fs > 300s)',
+                    time_diff,
+                )
+        except ValueError:
+            logger.warning('    Invalid period value: %s', period_str)
+            continue
+
+
 @shared_task
 def check_task_deadlines():
     """
@@ -282,12 +377,10 @@ def check_task_deadlines():
     This task runs every 5 minutes and checks all active tasks with deadlines
     to see if any notifications need to be sent based on reminder periods.
     """
-    import logging
-
     logger = logging.getLogger(__name__)
 
     current_time = now()
-    logger.info(f'Checking task deadlines at {current_time}')
+    logger.info('Checking task deadlines at %s', current_time)
 
     # Get all tasks with deadlines that are not completed
     tasks_with_deadlines = Task.objects.filter(
@@ -297,75 +390,9 @@ def check_task_deadlines():
     ).exclude(reminder_periods='')
 
     logger.info(
-        f'Found {tasks_with_deadlines.count()} tasks with deadlines and reminders'
+        'Found %d tasks with deadlines and reminders',
+        tasks_with_deadlines.count(),
     )
 
-    from task_manager.tasks.models import PERIOD_DICT
-
     for task in tasks_with_deadlines:
-        if not task.deadline or not task.reminder_periods:
-            continue
-
-        logger.info(f'Processing task: {task.name} (deadline: {task.deadline})')
-
-        # Get reminder periods from the task
-        period_values = task.get_reminder_periods_list()
-        logger.info(f'  Reminder periods: {period_values}')
-
-        # Check each reminder period for this task
-        for period_str in period_values:
-            try:
-                period_minutes = int(period_str)
-                notification_time = task.deadline - timedelta(
-                    minutes=period_minutes
-                )
-
-                # Check if we should send notification now (within 5 minute window)
-                time_diff = abs(
-                    (current_time - notification_time).total_seconds()
-                )
-
-                logger.info(
-                    f'    Period {period_minutes}min: notification_time={notification_time}, time_diff={time_diff:.1f}s'
-                )
-
-                if time_diff <= 300:  # Within 5 minutes
-                    # Check if notification already sent for this period
-                    if task.is_notification_sent(period_minutes):
-                        logger.info(
-                            f'    Notification already sent for task {task.name}, period {period_minutes}min'
-                        )
-                        continue
-
-                    logger.info(
-                        f'    SENDING notification for task {task.name}, period {period_minutes}min'
-                    )
-
-                    # Mark notification as sent before sending
-                    task.mark_notification_sent(period_minutes)
-
-                    task_url = _get_task_url(task)
-                    period_display = PERIOD_DICT.get(
-                        period_minutes, f'{period_minutes} минут'
-                    )
-
-                    if task.image:
-                        send_notification_with_photo_about_task.delay(
-                            task.name,
-                            period_display,
-                            task_url,
-                            task.image.path,
-                        )
-                    else:
-                        send_notification_about_task.delay(
-                            task.name,
-                            period_display,
-                            task_url,
-                        )
-                else:
-                    logger.info(
-                        f'    Skipping notification (time_diff={time_diff:.1f}s > 300s)'
-                    )
-            except ValueError:
-                logger.warning(f'    Invalid period value: {period_str}')
-                continue
+        _process_task_deadline(task, current_time)

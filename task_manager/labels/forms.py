@@ -3,7 +3,6 @@ from django.utils.translation import gettext_lazy
 
 from task_manager.labels.models import Label
 
-# Constants
 MIN_LABEL_LENGTH = 2
 MAX_LABEL_LENGTH = 50
 
@@ -28,10 +27,9 @@ class LabelForm(forms.ModelForm):
         fields = ('name',)
 
     def __init__(self, *args, **kwargs):
+        """Initialize the form with custom styling."""
         super().__init__(*args, **kwargs)
-
-        # Добавляем CSS классы для стилизации
-        for field_name, field in self.fields.items():
+        for field in self.fields.values():
             if hasattr(field.widget, 'attrs'):
                 field.widget.attrs.update({
                     'class': 'label-form-input',
@@ -42,26 +40,24 @@ class LabelForm(forms.ModelForm):
         if not name:
             return name
 
-        # Удаляем лишние пробелы
         name = name.strip()
 
-        # Проверяем на минимальную длину
         if len(name) < MIN_LABEL_LENGTH:
             raise forms.ValidationError(
                 gettext_lazy(
-                    f'Название тега должно содержать минимум {MIN_LABEL_LENGTH} символа'
+                    f'Название тега должно содержать минимум '
+                    f'{MIN_LABEL_LENGTH} символа'
                 )
             )
 
-        # Проверяем на максимальную длину
         if len(name) > MAX_LABEL_LENGTH:
             raise forms.ValidationError(
                 gettext_lazy(
-                    f'Название тега не может превышать {MAX_LABEL_LENGTH} символов'
+                    f'Название тега не может превышать '
+                    f'{MAX_LABEL_LENGTH} символов'
                 )
             )
 
-        # Проверяем на уникальность
         self._check_name_uniqueness(name)
 
         return name
