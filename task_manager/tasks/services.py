@@ -9,7 +9,7 @@ import json
 import logging
 import os
 from collections.abc import Iterable
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from django.conf import settings
@@ -116,7 +116,6 @@ def notify(
     """
     # Notifications are now handled by the periodic task check_task_deadlines
     # The reminder_periods are stored in the Task model and checked periodically
-    pass
 
 
 def get_user_display_name(user) -> str:
@@ -350,7 +349,7 @@ def update_task_stage_and_order(
     except Stage.DoesNotExist:
         return {'success': False, 'error': 'Stage not found'}
     except (ValueError, TypeError, AttributeError) as exception:
-        return {'success': False, 'error': f'Invalid data: {str(exception)}'}
+        return {'success': False, 'error': f'Invalid data: {exception!s}'}
     except Exception as exception:
         # Log unexpected exceptions for debugging
         logger = logging.getLogger(__name__)

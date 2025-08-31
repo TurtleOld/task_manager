@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from task_manager.constants import HTTP_FOUND, HTTP_OK, RANGE
 from task_manager.labels.models import Label
-from task_manager.tasks.models import ReminderPeriod, Stage, Task
+from task_manager.tasks.models import Stage, Task
 from task_manager.users.models import User
 
 # Test constants
@@ -34,7 +34,6 @@ class TestData:
         self.stages = self._setup_stages()
         self.tasks = self._setup_tasks()
         self.labels = self._setup_labels()
-        self.reminder_periods = self._setup_reminder_periods()
 
     def _setup_users(self):
         """Set up test users."""
@@ -63,15 +62,6 @@ class TestData:
             'label2': Label.objects.get(pk=2),
         }
 
-    def _setup_reminder_periods(self):
-        """Set up test reminder periods."""
-        return {
-            'reminderperiod2': ReminderPeriod.objects.get(pk=2),
-            'reminderperiod3': ReminderPeriod.objects.get(pk=3),
-            'reminderperiod4': ReminderPeriod.objects.get(pk=4),
-            'reminderperiod5': ReminderPeriod.objects.get(pk=5),
-        }
-
 
 class TaskTestBase(TestCase):
     """Base class for task tests with common setup and helper methods."""
@@ -90,7 +80,6 @@ class TaskTestBase(TestCase):
         self.stages = self.test_data.stages
         self.tasks = self.test_data.tasks
         self.labels = self.test_data.labels
-        self.reminder_periods = self.test_data.reminder_periods
 
     # User data properties
     @property
@@ -129,27 +118,6 @@ class TaskTestBase(TestCase):
     def label2(self):
         """Get label2 from test data."""
         return self.labels['label2']
-
-    # Reminder data properties
-    @property
-    def reminderperiod2(self):
-        """Get reminderperiod2 from test data."""
-        return self.reminder_periods['reminderperiod2']
-
-    @property
-    def reminderperiod3(self):
-        """Get reminderperiod3 from test data."""
-        return self.reminder_periods['reminderperiod3']
-
-    @property
-    def reminderperiod4(self):
-        """Get reminderperiod4 from test data."""
-        return self.reminder_periods['reminderperiod4']
-
-    @property
-    def reminderperiod5(self):
-        """Get reminderperiod5 from test data."""
-        return self.reminder_periods['reminderperiod5']
 
     # Helper methods
     def _login_user1(self) -> None:

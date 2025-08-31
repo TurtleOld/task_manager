@@ -11,29 +11,28 @@ from typing import Any
 from django.db.models import Value
 from django.db.models.functions import Concat
 from django.forms import (
+    CharField,
+    CheckboxInput,
     DateTimeInput,
     Form,
     ModelForm,
-    CharField,
-    Textarea,
-    CheckboxInput,
-    TextInput,
     MultipleChoiceField,
     SelectMultiple,
+    Textarea,
+    TextInput,
 )
 from django.utils.translation import gettext_lazy
 from django_filters import BooleanFilter, ChoiceFilter, FilterSet
 
 from task_manager.labels.models import Label
 from task_manager.tasks.models import (
+    PERIOD,
     Checklist,
     ChecklistItem,
     Comment,
     Task,
-    PERIOD,
 )
 from task_manager.users.models import User
-
 
 # Constants
 MAX_DESCRIPTION_LENGTH = 255

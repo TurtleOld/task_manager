@@ -38,21 +38,12 @@ from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 from django.views import View
-from django.views.generic import (
-    CreateView,
-    DeleteView,
-    DetailView,
-    UpdateView,
-)
+from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 from django_filters.views import FilterView
 
 from task_manager.constants import HTTP_BAD_REQUEST, HTTP_FORBIDDEN, HTTP_OK
 from task_manager.tasks.forms import CommentForm, TaskForm, TasksFilter
-from task_manager.tasks.models import (
-    Comment,
-    Stage,
-    Task,
-)
+from task_manager.tasks.models import Comment, Stage, Task
 from task_manager.tasks.services import (
     close_or_reopen_task,
     create_comment,

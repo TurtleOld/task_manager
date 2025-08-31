@@ -2,7 +2,7 @@
 Django models for the tasks app.
 
 This module contains all the database models for the task management system,
-including Task, Stage, Comment, Checklist, ChecklistItem, and ReminderPeriod models.
+including Task, Stage, Comment, Checklist, and ChecklistItem models.
 It also includes utility functions for task ordering and management.
 """
 
