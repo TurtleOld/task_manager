@@ -1,8 +1,10 @@
 """
 Django views for the tasks app.
 
-This module contains all view classes and functions for the task management system,
-including task CRUD operations, kanban board views, comment management, and file handling.
+This module contains all view classes and
+functions for the task management system,
+including task CRUD operations,
+kanban board views, comment management, and file handling.
 
 The views are organized into several categories:
 - Task management views (CRUD operations)
@@ -17,7 +19,7 @@ authorization, and error handling.
 
 import json
 import mimetypes
-import pathlib
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -38,21 +40,12 @@ from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 from django.views import View
-from django.views.generic import (
-    CreateView,
-    DeleteView,
-    DetailView,
-    UpdateView,
-)
+from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 from django_filters.views import FilterView
 
 from task_manager.constants import HTTP_BAD_REQUEST, HTTP_FORBIDDEN, HTTP_OK
 from task_manager.tasks.forms import CommentForm, TaskForm, TasksFilter
-from task_manager.tasks.models import (
-    Comment,
-    Stage,
-    Task,
-)
+from task_manager.tasks.models import Comment, Stage, Task
 from task_manager.tasks.services import (
     close_or_reopen_task,
     create_comment,
@@ -705,18 +698,18 @@ class DownloadFileView(DetailView[Task]):
         if not mime_type:
             mime_type = 'application/octet-stream'
         try:
-            with open(image_path, 'rb') as file_handle:
+            with Path.open(image_path, 'rb', encoding='utf-8') as file_handle:
                 response = FileResponse(
                     file_handle,
                     content_type=mime_type,
                 )
-                quote_filename = quote(pathlib.Path(image_name).name)
+                quote_filename = quote(Path(image_name).name)
                 response['Content-Disposition'] = (
                     f"attachment; filename*=UTF-8''{quote_filename}"
                 )
                 return response
         except FileNotFoundError:
-            raise Http404('Файл не найден')
+            raise Http404('Файл не найден') from None
 
 
 def checklist_progress_view(request, task_id):
@@ -772,11 +765,16 @@ class CommentCreateView(LoginRequiredMixin, View):
         """
         success, message, comment = create_comment(task_slug, request)
         return self._handle_comment_response(
-            success, message, comment, task_slug, request
+            success=success,
+            message=message,
+            comment=comment,
+            task_slug=task_slug,
+            request=request,
         )
 
     def _handle_comment_response(
         self,
+        *,
         success: bool,
         message: str,
         comment,
@@ -802,12 +800,18 @@ class CommentCreateView(LoginRequiredMixin, View):
         if success:
             response = comments_list_view(request, task_slug)
             if comment:
-                self._add_comments_count_trigger(response, comment)
+                self._add_comments_count_trigger(
+                    response=response,
+                    comment=comment,
+                )
             return response
         return self._create_error_response(message)
 
     def _add_comments_count_trigger(
-        self, response: HttpResponse, comment
+        self,
+        *,
+        response: HttpResponse,
+        comment,
     ) -> None:
         """
         Add comments count trigger to response.
@@ -824,7 +828,7 @@ class CommentCreateView(LoginRequiredMixin, View):
             'updateCommentsCount': {'count': comments_count}
         })
 
-    def _create_error_response(self, message: str) -> HttpResponse:
+    def _create_error_response(self, *, message: str) -> HttpResponse:
         """
         Create error response with appropriate status.
 
@@ -872,11 +876,19 @@ class CommentUpdateView(LoginRequiredMixin, View):
         """
         success, message, comment = update_comment(comment_id, request)
         return self._handle_comment_update_response(
-            success, message, comment, request
+            success,
+            message,
+            comment,
+            request,
         )
 
     def _handle_comment_update_response(
-        self, success: bool, message: str, comment, request: HttpRequest
+        self,
+        *,
+        success: bool,
+        message: str,
+        comment,
+        request: HttpRequest,
     ) -> HttpResponse:
         """
         Handle comment update response.
@@ -900,7 +912,10 @@ class CommentUpdateView(LoginRequiredMixin, View):
         return self._create_error_response(message)
 
     def _add_comments_count_trigger(
-        self, response: HttpResponse, comment
+        self,
+        *,
+        response: HttpResponse,
+        comment,
     ) -> None:
         """
         Add comments count trigger to response.
@@ -917,7 +932,7 @@ class CommentUpdateView(LoginRequiredMixin, View):
             'updateCommentsCount': {'count': comments_count}
         })
 
-    def _create_error_response(self, message: str) -> HttpResponse:
+    def _create_error_response(self, *, message: str) -> HttpResponse:
         """
         Create error response with appropriate status.
 
@@ -965,11 +980,19 @@ class CommentDeleteView(LoginRequiredMixin, View):
         """
         success, message = delete_comment(comment_id, request)
         return self._handle_comment_delete_response(
-            success, message, comment_id, request
+            success,
+            message,
+            comment_id,
+            request,
         )
 
     def _handle_comment_delete_response(
-        self, success: bool, message: str, comment_id: int, request: HttpRequest
+        self,
+        *,
+        success: bool,
+        message: str,
+        comment_id: int,
+        request: HttpRequest,
     ) -> HttpResponse:
         """
         Handle comment deletion response.
@@ -991,7 +1014,7 @@ class CommentDeleteView(LoginRequiredMixin, View):
         return self._create_error_response(message)
 
     def _process_successful_deletion(
-        self, comment_id: int, request: HttpRequest
+        self, *, comment_id: int, request: HttpRequest
     ) -> HttpResponse:
         """
         Process successful comment deletion.
@@ -1015,7 +1038,7 @@ class CommentDeleteView(LoginRequiredMixin, View):
         return response
 
     def _add_comments_count_trigger(
-        self, response: HttpResponse, comment
+        self, *, response: HttpResponse, comment
     ) -> None:
         """
         Add comments count trigger to response.
@@ -1032,7 +1055,7 @@ class CommentDeleteView(LoginRequiredMixin, View):
             'updateCommentsCount': {'count': comments_count}
         })
 
-    def _create_error_response(self, message: str) -> HttpResponse:
+    def _create_error_response(self, *, message: str) -> HttpResponse:
         """
         Create error response with appropriate status.
 
@@ -1079,7 +1102,7 @@ class CommentEditFormView(LoginRequiredMixin, View):
         """
         comment = get_object_or_404(Comment, id=comment_id)
 
-        if not comment.can_edit(request.user):
+        if not comment.can_edit(request.user):  # type: ignore
             messages.error(
                 request, 'У вас нет прав для редактирования этого комментария.'
             )

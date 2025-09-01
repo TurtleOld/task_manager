@@ -28,7 +28,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DEBUG = os.getenv('DEBUG', 'false').lower() in ('yes', '1', 'true')
+DEBUG = os.getenv('DEBUG', 'false').lower() in {'yes', '1', 'true'}
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
@@ -50,6 +50,7 @@ INSTALLED_APPS = (
     'django.contrib.staticfiles',
     'crispy_forms',
     'crispy_bulma',
+    'django_celery_beat',
     'task_manager',
     'task_manager.users',
     'task_manager.tasks',
@@ -59,7 +60,7 @@ INSTALLED_APPS = (
 )
 
 if DEBUG:
-    INSTALLED_APPS = INSTALLED_APPS + ('django_extensions',)
+    INSTALLED_APPS = (*INSTALLED_APPS, 'django_extensions')
 
 MIDDLEWARE = (
     'django.middleware.security.SecurityMiddleware',
@@ -132,7 +133,7 @@ MIDDLEWARE = (
 )
 
 ROOT_URLCONF = 'task_manager.urls'
-TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
+TEMPLATE_DIR = BASE_DIR / 'templates'
 
 TEMPLATES = (
     {
@@ -214,24 +215,24 @@ LANGUAGES = (
     ('ru', 'Russian'),
 )
 
-LOCALE_PATHS = (os.path.join(BASE_DIR, 'task_manager/locale'),)
+LOCALE_PATHS = (BASE_DIR / 'task_manager' / 'locale',)
 
 # Static image (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'static')
+STATIC_ROOT = BASE_DIR / 'app_data' / 'files' / 'static'
 if not Path(STATIC_ROOT).exists():
-    os.makedirs(STATIC_ROOT)
+    Path(STATIC_ROOT).mkdir(parents=True, exist_ok=True)
 STATIC_URL = '/static/'
 
-MEDIA_ROOT = os.path.join(BASE_DIR, 'app_data', 'files', 'media')
+MEDIA_ROOT = BASE_DIR / 'app_data' / 'files' / 'media'
 if not Path(MEDIA_ROOT).exists():
-    os.makedirs(MEDIA_ROOT)
+    Path(MEDIA_ROOT).mkdir(parents=True, exist_ok=True)
 MEDIA_URL = '/media/'
 
 # Extra places for collectstatic to find static image.
-STATICFILES_DIRS = (os.path.join(BASE_DIR, 'task_manager/static'),)
+STATICFILES_DIRS = (BASE_DIR / 'task_manager' / 'static',)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
@@ -239,53 +240,37 @@ STATICFILES_DIRS = (os.path.join(BASE_DIR, 'task_manager/static'),)
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# TaskIQ Configuration Options
-TASKIQ_TIMEZONE = 'Europe/Moscow'
+# Site URL for notifications
+SITE_URL = os.environ.get('SITE_URL', 'http://127.0.0.1:8000')
 
+# Celery configuration
+CELERY_BROKER_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_TASK_SOFT_TIME_LIMIT = 60
+CELERY_WORKER_CONCURRENCY = 4
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
 
-# Determine appropriate broker URL for environment
-def get_taskiq_broker_url():
-    """Get appropriate TaskIQ broker URL based on environment."""
-    if os.path.exists('/.dockerenv') or os.environ.get('DOCKER_ENV'):
-        return os.environ.get(
-            'BROKER_URL', 'amqp://rabbitmq:rabbitmq@rabbitmq:5672/'
-        )
-    else:
-        return os.environ.get(
-            'BROKER_URL', 'amqp://guest:guest@localhost:5672/'
-        )
-
-
-TASKIQ_BROKER_URL = get_taskiq_broker_url()
-TASKIQ_RESULT_BACKEND_URL = os.environ.get(
-    'REDIS_URL', 'redis://localhost:6379/0'
-)
-
-
-def get_taskiq_routes():
-    """Get TaskIQ task routing configuration."""
-    return {
-        'task_manager.tasks.*': {'queue': 'default'},
-        'task_manager.users.*': {'queue': 'users'},
-    }
-
+# Celery Beat configuration
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 # Task routing
-TASKIQ_TASK_ROUTES = get_taskiq_routes()
-
-# Worker configuration
-TASKIQ_WORKER_CONCURRENCY = 4
-TASKIQ_WORKER_MAX_TASKS_PER_CHILD = 1000
-
-# Scheduler configuration
-TASKIQ_SCHEDULER_SOURCES = ('task_manager.tasks',)
+CELERY_TASK_ROUTES = {
+    'task_manager.tasks.*': {'queue': 'default'},
+    'task_manager.users.*': {'queue': 'users'},
+}
 
 if 'test' in sys.argv or 'test_coverage' in sys.argv:
-    TASKIQ_ALWAYS_EAGER = True
-    # Disable TaskIQ during tests to avoid async issues
-    TASKIQ_ENABLED = False
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+    CELERY_ENABLED = False
 else:
-    TASKIQ_ENABLED = True
+    CELERY_ENABLED = True
 
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

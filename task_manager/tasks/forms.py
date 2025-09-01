@@ -1,9 +1,10 @@
 """
 Django forms for the tasks app.
 
-This module contains form classes for handling task creation, editing, filtering,
-and comment management. It includes forms for tasks, checklist items, task filtering,
-and comments with proper validation and widget configurations.
+This module contains form classes for handling task creation, editing,
+filtering, and comment management. It includes forms for tasks, checklist
+items, task filtering, and comments with proper validation and widget
+configurations.
 """
 
 from typing import Any
@@ -11,21 +12,28 @@ from typing import Any
 from django.db.models import Value
 from django.db.models.functions import Concat
 from django.forms import (
+    CharField,
+    CheckboxInput,
     DateTimeInput,
     Form,
     ModelForm,
-    CharField,
+    MultipleChoiceField,
+    SelectMultiple,
     Textarea,
-    CheckboxInput,
     TextInput,
 )
 from django.utils.translation import gettext_lazy
 from django_filters import BooleanFilter, ChoiceFilter, FilterSet
 
 from task_manager.labels.models import Label
-from task_manager.tasks.models import Checklist, ChecklistItem, Comment, Task
+from task_manager.tasks.models import (
+    PERIOD,
+    Checklist,
+    ChecklistItem,
+    Comment,
+    Task,
+)
 from task_manager.users.models import User
-
 
 # Constants
 MAX_DESCRIPTION_LENGTH = 255
@@ -64,14 +72,21 @@ class TaskForm(ModelForm[Any]):
     permissions.
     """
 
+    reminder_periods = MultipleChoiceField(
+        choices=PERIOD,
+        widget=SelectMultiple(attrs={'class': 'form-control', 'size': '8'}),
+        required=False,
+        label=gettext_lazy('Напоминание до'),
+    )
+
     class Meta:
         model = Task
         fields = (
             'name',
             'executor',
             'description',
-            'reminder_periods',
             'deadline',
+            'reminder_periods',
             'labels',
             'state',
             'image',
@@ -80,9 +95,9 @@ class TaskForm(ModelForm[Any]):
             'name': gettext_lazy('Имя'),
             'executor': gettext_lazy('Исполнитель'),
             'description': gettext_lazy('Описание'),
-            'reminder_periods': gettext_lazy('Напоминание до'),
             'labels': gettext_lazy('Метки'),
             'deadline': gettext_lazy('Дата'),
+            'reminder_periods': gettext_lazy('Напоминание до'),
             'state': gettext_lazy('Закрыта?'),
         }
         widgets = {
@@ -110,6 +125,7 @@ class TaskForm(ModelForm[Any]):
         super().__init__(*args, **kwargs)
         self._disable_fields_if_needed()
         self._initialize_checklist_data()
+        self._initialize_reminder_periods()
 
     def save_checklist_items(self, task: Task) -> None:
         """
@@ -128,7 +144,7 @@ class TaskForm(ModelForm[Any]):
         checklist, _ = Checklist.objects.get_or_create(task=task)
         self._replace_checklist_items(checklist, items_data)
 
-    def save(self, commit: bool = True) -> 'Task':
+    def save(self, *, commit: bool | None = True) -> 'Task':
         """
         Save the task and its associated checklist items.
 
@@ -138,7 +154,15 @@ class TaskForm(ModelForm[Any]):
         Returns:
             The saved task instance
         """
-        task = super().save(commit=True)
+        task = super().save(commit=False)
+
+        # Save reminder periods
+        reminder_periods = self.cleaned_data.get('reminder_periods', [])
+        task.set_reminder_periods_list([int(p) for p in reminder_periods])
+
+        if commit:
+            task.save()
+
         self.save_checklist_items(task)
         return task
 
@@ -205,6 +229,12 @@ class TaskForm(ModelForm[Any]):
             for checklist_item in checklist_items
         ]
 
+    def _initialize_reminder_periods(self) -> None:
+        """Initialize reminder periods field with current values."""
+        if self.instance and self.instance.pk:
+            current_periods = self.instance.get_reminder_periods_list()
+            self.fields['reminder_periods'].initial = current_periods
+
 
 class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
     """
@@ -212,10 +242,7 @@ class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
     user-specific tasks.
 
     Provides filtering capabilities for tasks based on:
-    - Executor (user assigned to the task)
-    - Labels (tags associated with tasks)
-    - Self tasks (tasks created by the current user)
-    """
+    """  # noqa: D205
 
     executors = User.objects.values_list(
         'id', Concat('first_name', Value(' '), 'last_name'), named=True
@@ -252,11 +279,12 @@ class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
         Args:
             queryset: The queryset to filter
             _name: The field name (unused but required by django-filter)
-            filter_value: Boolean value indicating whether to filter by current user
+            filter_value: Boolean value indicating whether to filter by
+                         current user
 
         Returns:
-            Filtered queryset containing only tasks by the current user if value is
-            True, otherwise returns the original queryset unchanged
+            Filtered queryset containing only tasks by the current user if
+            value is True, otherwise returns the original queryset unchanged
         """
         if filter_value:
             author = getattr(self.request, 'user', None)

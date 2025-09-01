@@ -5,18 +5,17 @@ This module contains utility functions for task management, including
 slug generation, notification scheduling, and task-related operations.
 """
 
-import asyncio
 import json
 import logging
 import os
-from collections.abc import Iterable
-from datetime import datetime, timedelta
+
 from typing import Any
 
+from celery.exceptions import CeleryError
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import OperationalError, transaction
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
@@ -41,18 +40,16 @@ from task_manager.tasks.tasks import (
     send_about_opening_task,
     send_comment_notification,
     send_message_about_adding_task,
-    send_notification_about_task,
-    send_notification_with_photo_about_task,
 )
 from task_manager.users.models import User
 
 
-def send_taskiq_task(task_func, *args, eta=None, **kwargs):
+def send_celery_task(task_func, *args, eta=None, **kwargs):
     """
-    Safely send a TaskIQ task with proper error handling.
+    Safely send a Celery task with proper error handling.
 
     Args:
-        task_func: The TaskIQ task function to call
+        task_func: The Celery task function to call
         *args: Arguments to pass to the task
         eta: Optional execution time for delayed tasks
         **kwargs: Keyword arguments to pass to the task
@@ -60,52 +57,16 @@ def send_taskiq_task(task_func, *args, eta=None, **kwargs):
     Returns:
         True if task was sent successfully, False otherwise
     """
-    if not getattr(settings, 'TASKIQ_ENABLED', True):
+    if not getattr(settings, 'CELERY_ENABLED', True):
         return False
 
-    async def _send_task():
-        """Async function to send the task."""
-        try:
-            # Import broker here to avoid circular imports
-            from task_manager.taskiq import broker
-
-            # Start the broker
-            await broker.startup()
-
-            # Send the task
-            task_call = task_func.kiq(*args, **kwargs)
-            if eta:
-                task_call = task_call.with_eta(eta)
-            result = await task_call
-
-            # Shutdown the broker
-            await broker.shutdown()
-
-            return True
-        except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.error(
-                f"Failed to send TaskIQ task {task_func.__name__}: {e}"
-            )
-            return False
-
     try:
-        # Check if there's already an event loop running
-        try:
-            loop = asyncio.get_running_loop()
-            # If we're in an async context, we can't use asyncio.run()
-            logger = logging.getLogger(__name__)
-            logger.warning(
-                f"Cannot send TaskIQ task {task_func.__name__} from async context"
-            )
-            return False
-        except RuntimeError:
-            # No event loop running, we can use asyncio.run()
-            return asyncio.run(_send_task())
-
-    except Exception as e:
+        if eta:
+            return task_func.apply_async(args=args, kwargs=kwargs, eta=eta)
+        return task_func.delay(*args, **kwargs)
+    except (CeleryError, OperationalError):
         logger = logging.getLogger(__name__)
-        logger.error(f"Failed to send TaskIQ task {task_func.__name__}: {e}")
+        logger.exception('Failed to send Celery task %s', task_func.__name__)
         return False
 
 
@@ -125,52 +86,6 @@ def slugify_translit(task_name: str) -> str:
     """
     translite_name = translit(task_name, language_code='ru', reversed=True)
     return slugify(translite_name)
-
-
-def notify(
-    task_name: str,
-    reminder_periods: Iterable,
-    deadline: datetime,
-    task_file_path: str | None,
-    task_url: str,
-) -> None:
-    """
-    Schedule notifications for task reminders.
-
-    Creates scheduled notifications for each reminder period before the task deadline.
-    Notifications can include task images if available, and are scheduled using
-    TaskIQ's kiq with specific execution times.
-
-    Args:
-        task_name: The name of the task to send notifications about
-        reminder_periods: Collection of reminder periods to schedule notifications for
-        deadline: The task deadline datetime
-        task_file_path: Optional path to the task's image file
-        task_url: The URL to view the task details
-
-    Returns:
-        None
-    """
-    for period in reminder_periods:
-        notify_time = deadline - timedelta(minutes=period.period)
-        if notify_time > now():
-            if task_file_path:
-                send_taskiq_task(
-                    send_notification_with_photo_about_task,
-                    task_name,
-                    f'{period}',
-                    task_url,
-                    task_file_path,
-                    eta=notify_time,
-                )
-            else:
-                send_taskiq_task(
-                    send_notification_about_task,
-                    task_name,
-                    f'{period}',
-                    task_url,
-                    eta=notify_time,
-                )
 
 
 def get_user_display_name(user) -> str:
@@ -259,8 +174,8 @@ def send_task_creation_notifications(
         request: The HTTP request object
     """
     task_url = request.build_absolute_uri(f'/tasks/{task_slug}')
-    if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_taskiq_task(send_message_about_adding_task, task_name, task_url)
+    if getattr(settings, 'CELERY_ENABLED', True):
+        send_celery_task(send_message_about_adding_task, task_name, task_url)
 
     task_image = form.instance.image
     deadline = form.instance.deadline
@@ -296,20 +211,20 @@ def _get_task_executor_data(task: Task) -> dict[str, str]:
 def _build_task_data(task: Task) -> dict[str, Any]:
     """Build task data dictionary."""
     return {
-        'id': task.id,
+        'id': task.pk,
         'name': task.name,
         'slug': task.slug,
         'author': _get_task_author_data(task),
         'executor': _get_task_executor_data(task),
         'created_at': task.created_at.strftime('%d.%m.%Y %H:%M'),
-        'stage': task.stage_id,
+        'stage': task.stage.pk,
         'labels': list(task.labels.values('id', 'name')),
     }
 
 
 def _get_filtered_stage_tasks(stage: Stage, selected_labels: list[str]) -> Any:
     """Get filtered tasks for a stage."""
-    stage_tasks = stage.tasks.all()
+    stage_tasks = stage.tasks.prefetch_related('labels')
     if selected_labels:
         stage_tasks = stage_tasks.filter(
             labels__id__in=selected_labels
@@ -334,8 +249,7 @@ def get_kanban_data(request: HttpRequest) -> dict[str, Any]:
     tasks_data = []
     for stage in stages:
         stage_tasks = _get_filtered_stage_tasks(stage, selected_labels)
-        for task in stage_tasks:
-            tasks_data.append(_build_task_data(task))
+        tasks_data.extend(_build_task_data(task) for task in stage_tasks)
 
     return {
         'stages': stages,
@@ -367,6 +281,34 @@ def _process_stage_change(
     return None
 
 
+def _process_order_change(
+    task: Task, new_stage_id: int | None, new_order: int | None
+) -> None:
+    """Process order change for a task."""
+    if new_stage_id is not None:
+        task.stage.id = new_stage_id
+        task.save(update_fields=['stage_id'])
+
+    if new_order is not None:
+        task.order = new_order
+        task.save(update_fields=['order'])
+        reorder_task_within_stage(task, new_order)
+
+
+def _handle_update_exceptions(
+    exception: Exception, logger: logging.Logger
+) -> dict[str, Any]:
+    """Handle exceptions during task update."""
+    if isinstance(exception, Task.DoesNotExist):
+        return {'success': False, 'error': 'Task not found'}
+    if isinstance(exception, Stage.DoesNotExist):
+        return {'success': False, 'error': 'Stage not found'}
+    if isinstance(exception, ValueError | TypeError | AttributeError):
+        return {'success': False, 'error': f'Invalid data: {exception!s}'}
+    logger.exception('Unexpected error in update_task_stage_and_order')
+    return {'success': False, 'error': 'An unexpected error occurred'}
+
+
 def update_task_stage_and_order(
     task_id: int,
     new_stage_id: int | None,
@@ -395,23 +337,11 @@ def update_task_stage_and_order(
                 return stage_result
 
             # Process order change
-            if new_order is not None:
-                reorder_task_within_stage(task, new_order)
-
-        return {'success': True}
-    except Task.DoesNotExist:
-        return {'success': False, 'error': 'Task not found'}
-    except Stage.DoesNotExist:
-        return {'success': False, 'error': 'Stage not found'}
-    except (ValueError, TypeError, AttributeError) as exception:
-        return {'success': False, 'error': f'Invalid data: {str(exception)}'}
+            _process_order_change(task, new_stage_id, new_order)
+            return {'success': True}
     except Exception as exception:
-        # Log unexpected exceptions for debugging
         logger = logging.getLogger(__name__)
-        logger.error(
-            f'Unexpected error in update_task_stage_and_order: {exception}'
-        )
-        return {'success': False, 'error': 'An unexpected error occurred'}
+        return _handle_update_exceptions(exception, logger)
 
 
 def can_move_to_done_stage(
@@ -470,8 +400,8 @@ def send_move_notification(
     task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
     moved_by = get_user_display_name(request.user)
 
-    if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_taskiq_task(
+    if getattr(settings, 'CELERY_ENABLED', True):
+        send_celery_task(
             send_about_moving_task,
             task.name,
             moved_by,
@@ -573,8 +503,8 @@ def handle_task_stage_change(
     task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
     moved_by = get_user_display_name(request.user)
 
-    if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_taskiq_task(
+    if getattr(settings, 'CELERY_ENABLED', True):
+        send_celery_task(
             send_about_moving_task,
             task.name,
             moved_by,
@@ -686,7 +616,7 @@ def create_comment(
     """
     task = get_object_or_404(Task, slug=task_slug)
 
-    if request.user not in (task.author, task.executor) and task.executor:
+    if request.user not in {task.author, task.executor}:
         return (
             False,
             'У вас нет прав для добавления комментариев к этой задаче.',
@@ -700,9 +630,12 @@ def create_comment(
         comment.author = request.user
         comment.save()
 
-        if task.executor and task.executor != request.user:
-            if getattr(settings, 'TASKIQ_ENABLED', True):
-                send_taskiq_task(send_comment_notification, comment.id)
+        if (
+            task.executor
+            and task.executor != request.user
+            and getattr(settings, 'CELERY_ENABLED', True)
+        ):
+            send_celery_task(send_comment_notification, comment.id)
 
         return True, 'Comment created successfully', comment
     return False, f'Ошибка: {form.errors}', None
@@ -801,18 +734,18 @@ def close_or_reopen_task(
     task = get_object_or_404(Task, slug=task_slug)
     task_url = request.build_absolute_uri(f'/tasks/{task_slug}')
 
-    if request.user not in (task.author, task.executor):
+    if request.user not in {task.author, task.executor}:
         return False, 'У вас нет прав для изменения состояния этой задачи'
 
     task.state = not task.state
     task.save()
 
     if task.state:
-        if getattr(settings, 'TASKIQ_ENABLED', True):
-            send_taskiq_task(send_about_closing_task, task.name, task_url)
+        if getattr(settings, 'CELERY_ENABLED', True):
+            send_celery_task(send_about_closing_task, task.name, task_url)
         return True, 'Статус задачи изменен.'
-    if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_taskiq_task(send_about_opening_task, task.name, task_url)
+    if getattr(settings, 'CELERY_ENABLED', True):
+        send_celery_task(send_about_opening_task, task.name, task_url)
     return True, 'Статус задачи изменен.'
 
 
@@ -824,6 +757,6 @@ def delete_task_with_notification(task: Task) -> None:
         task: The task object
     """
     task_name = task.name
-    if getattr(settings, 'TASKIQ_ENABLED', True):
-        send_taskiq_task(send_about_deleting_task, task_name)
+    if getattr(settings, 'CELERY_ENABLED', True):
+        send_celery_task(send_about_deleting_task, task_name)
     task.delete()

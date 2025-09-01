@@ -1,6 +1,6 @@
 # Makefile for Task Manager project
 
-.PHONY: help install migrate collectstatic run test clean docker-up docker-down docker-logs taskiq-worker taskiq-scheduler taskiq-dashboard format lint
+.PHONY: help install migrate collectstatic run test clean docker-up docker-down docker-logs celery-worker celery-beat celery-flower format lint
 
 # Default target
 help:
@@ -18,9 +18,10 @@ help:
 	@echo "  docker-up      - Start all Docker services"
 	@echo "  docker-down    - Stop all Docker services"
 	@echo "  docker-logs    - Show Docker logs"
-	@echo "  taskiq-worker  - Start TaskIQ worker"
-	@echo "  taskiq-scheduler - Start TaskIQ scheduler"
-	@echo "  taskiq-dashboard - Start TaskIQ dashboard"
+	@echo "  celery-worker  - Start Celery worker"
+	@echo "  celery-beat    - Start Celery beat scheduler"
+	@echo "  celery-flower  - Start Celery Flower dashboard"
+	@echo "  setup-task-system - Setup complete task system (periods, stages, tasks)"
 
 # Development commands
 install:
@@ -66,15 +67,25 @@ docker-down:
 docker-logs:
 	docker-compose logs -f
 
-# TaskIQ commands
-taskiq-worker:
-	uv run taskiq worker task_manager.taskiq:broker --workers 4 --no-parse
+# Celery commands
+celery-worker:
+	uv run celery -A task_manager worker --loglevel=info --concurrency=4 -Q default,celery
 
-taskiq-scheduler:
-	uv run taskiq scheduler task_manager.taskiq:scheduler
+celery-beat:
+	uv run celery -A task_manager beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
 
-taskiq-dashboard:
-	uv run taskiq dashboard task_manager.taskiq:broker --port 5555 --no-parse
+celery-flower:
+	uv run celery -A task_manager flower --port=5555
+
+# Setup commands
+setup-task-system:
+	uv run python manage.py setup_task_system
+
+create-default-stages:
+	uv run python manage.py create_default_stages
+
+setup-periodic-tasks:
+	uv run python manage.py setup_periodic_tasks
 
 
 

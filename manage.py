@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python  # noqa: EXE001
 """Django's command-line utility for administrative tasks."""
 
 import os
@@ -9,7 +9,9 @@ def main() -> None:
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'task_manager.settings')
     try:
-        from django.core.management import execute_from_command_line
+        from django.core.management import (  # noqa: PLC0415
+            execute_from_command_line,
+        )
     except ImportError as exc:
         raise ImportError(
             "Couldn't import Django. Are you sure it's installed and "

@@ -1,8 +1,9 @@
 """
 Django admin configuration for the tasks app.
 
-This module provides admin interface configurations for Task, Stage, and Comment models,
-allowing administrators to manage tasks, stages, and comments through the Django admin panel.
+This module provides admin interface configurations for Task, Stage, and
+Comment models, allowing administrators to manage tasks, stages, and
+comments through the Django admin panel.
 """
 
 from django.contrib import admin
@@ -15,8 +16,9 @@ class TaskAdmin(admin.ModelAdmin):
     """
     Admin configuration for the Task model.
 
-    Provides a comprehensive admin interface for managing tasks with list display,
-    filtering, search capabilities, and horizontal filter widgets for many-to-many fields.
+    Provides a comprehensive admin interface for managing tasks with list
+    display, filtering, search capabilities, and horizontal filter widgets
+    for many-to-many fields.
     """
 
     list_display = (
@@ -30,7 +32,7 @@ class TaskAdmin(admin.ModelAdmin):
     list_filter = ('state', 'stage', 'created_at')
     search_fields = ('name', 'description')
     readonly_fields = ('created_at',)
-    filter_horizontal = ('labels', 'reminder_periods')
+    filter_horizontal = ('labels',)
 
 
 @admin.register(Stage)
