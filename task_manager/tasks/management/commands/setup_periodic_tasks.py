@@ -22,7 +22,6 @@ class Command(BaseCommand):
             'Setting up periodic tasks for deadline notifications...'
         )
 
-        # Create interval schedule for checking deadlines every 5 minutes
         schedule, created = IntervalSchedule.objects.get_or_create(
             every=8,
             period=IntervalSchedule.MINUTES,
@@ -31,7 +30,6 @@ class Command(BaseCommand):
         if created:
             self.stdout.write(f'Created interval schedule: {schedule}')
 
-        # Create periodic task for checking deadlines
         task, created = PeriodicTask.objects.get_or_create(
             name='Check task deadlines',
             defaults={
@@ -46,7 +44,6 @@ class Command(BaseCommand):
         else:
             self.stdout.write(f'Periodic task already exists: {task.name}')
 
-        # Show available reminder periods
         self.stdout.write('\nAvailable reminder periods:')
         for period_value, period_display in PERIOD:
             self.stdout.write(f'  {period_value} minutes - {period_display}')

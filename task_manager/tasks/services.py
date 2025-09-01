@@ -9,13 +9,15 @@ import datetime as dt
 import json
 import logging
 import os
+
 from collections.abc import Iterable
 from typing import Any
 
+from celery.exceptions import CeleryError
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import OperationalError, transaction
 from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
@@ -62,11 +64,9 @@ def send_celery_task(task_func, *args, eta=None, **kwargs):
 
     try:
         if eta:
-            task_func.apply_async(args=args, kwargs=kwargs, eta=eta)
-        else:
-            task_func.delay(*args, **kwargs)
-            return True
-    except Exception:
+            return task_func.apply_async(args=args, kwargs=kwargs, eta=eta)
+        return task_func.delay(*args, **kwargs)
+    except (CeleryError, OperationalError):
         logger = logging.getLogger(__name__)
         logger.exception('Failed to send Celery task %s', task_func.__name__)
         return False
@@ -88,35 +88,6 @@ def slugify_translit(task_name: str) -> str:
     """
     translite_name = translit(task_name, language_code='ru', reversed=True)
     return slugify(translite_name)
-
-
-def notify(
-    task_name: str,
-    reminder_periods: Iterable,
-    deadline: dt.datetime,
-    task_file_path: str | None,
-    task_url: str,
-) -> None:
-    """
-    Register task for deadline notifications.
-
-    This function is now a placeholder since notifications are handled by
-    the periodic task check_task_deadlines. The reminder periods are stored
-    in the task model and the periodic task will check them automatically.
-
-    Args:
-        task_name: The name of the task to send notifications about
-        reminder_periods: Collection of reminder periods to schedule
-                         notifications for
-        deadline: The task deadline datetime
-        task_file_path: Optional path to the task's image file
-        task_url: The URL to view the task details
-
-    Returns:
-        None
-    """
-    # Notifications are now handled by the periodic task check_task_deadlines
-    # The reminder_periods are stored in the Task model and checked periodically
 
 
 def get_user_display_name(user) -> str:

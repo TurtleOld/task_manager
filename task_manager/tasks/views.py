@@ -698,7 +698,7 @@ class DownloadFileView(DetailView[Task]):
         if not mime_type:
             mime_type = 'application/octet-stream'
         try:
-            with Path.open(image_path, 'rb') as file_handle:
+            with Path.open(image_path, 'rb', encoding='utf-8') as file_handle:
                 response = FileResponse(
                     file_handle,
                     content_type=mime_type,
