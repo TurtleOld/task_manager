@@ -5,12 +5,10 @@ This module contains utility functions for task management, including
 slug generation, notification scheduling, and task-related operations.
 """
 
-import datetime as dt
 import json
 import logging
 import os
 
-from collections.abc import Iterable
 from typing import Any
 
 from celery.exceptions import CeleryError

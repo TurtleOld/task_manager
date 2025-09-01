@@ -285,7 +285,7 @@ def send_comment_notification(comment_id: int) -> None:
 
 
 def _send_task_notification(
-    task: 'Task', period_minutes: int, period_display: str
+    task: 'Task', period_display: str
 ) -> None:
     """Send notification for a task deadline."""
     task_url = _get_task_url(task)
@@ -358,7 +358,7 @@ def _process_task_deadline(task: 'Task', current_time) -> None:
                 period_display = PERIOD_DICT.get(
                     period_minutes, f'{period_minutes} минут'
                 )
-                _send_task_notification(task, period_minutes, period_display)
+                _send_task_notification(task, period_display)
             else:
                 logger.info(
                     '    Skipping notification (time_diff=%.1fs > 300s)',
