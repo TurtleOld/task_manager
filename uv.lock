@@ -1467,7 +1467,7 @@ requires-dist = [
     { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
     { name = "redis", specifier = ">=5.0.0" },
     { name = "rollbar", specifier = ">=0.16.2" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.7.1" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.12.11" },
     { name = "transliterate", specifier = ">=1.10.2" },
     { name = "twisted", extras = ["http2", "tls"], specifier = ">=22.2.0" },
     { name = "wemake-python-styleguide", marker = "extra == 'dev'", specifier = ">=0.18.0" },
