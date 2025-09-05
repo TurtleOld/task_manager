@@ -286,7 +286,7 @@ def _process_order_change(
 ) -> None:
     """Process order change for a task."""
     if new_stage_id is not None:
-        task.stage.id = new_stage_id
+        task.stage_id = new_stage_id
         task.save(update_fields=['stage_id'])
 
     if new_order is not None:
@@ -419,9 +419,9 @@ def reorder_stages(old_stage: Stage, new_stage: Stage) -> None:
         new_stage: The new stage object
     """
     if old_stage:
-        reorder_tasks_in_stage(old_stage.pk)
+        reorder_tasks_in_stage(old_stage)
     if new_stage:
-        reorder_tasks_in_stage(new_stage.pk)
+        reorder_tasks_in_stage(new_stage)
 
 
 def process_bulk_task_updates(

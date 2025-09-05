@@ -301,14 +301,15 @@ class Task(models.Model):
         Args:
             new_stage_id: The ID of the stage to move the task to
         """
-        old_stage_id = self.stage.id
-        self.stage.id = new_stage_id
+        old_stage = self.stage
+        new_stage = Stage.objects.get(id=new_stage_id)
+        self.stage = new_stage
 
         self.save()
 
-        if old_stage_id:
-            reorder_tasks_in_stage(old_stage_id)
-        reorder_tasks_in_stage(new_stage_id)
+        if old_stage:
+            reorder_tasks_in_stage(old_stage)
+        reorder_tasks_in_stage(new_stage)
 
     def reorder_within_stage(self, new_order: int) -> None:
         """
