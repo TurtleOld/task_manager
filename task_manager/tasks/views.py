@@ -1,22 +1,3 @@
-"""
-Django views for the tasks app.
-
-This module contains all view classes and
-functions for the task management system,
-including task CRUD operations,
-kanban board views, comment management, and file handling.
-
-The views are organized into several categories:
-- Task management views (CRUD operations)
-- Kanban board views for task organization
-- Comment management views
-- File handling views
-- AJAX views for dynamic interactions
-
-All views follow Django best practices and include proper authentication,
-authorization, and error handling.
-"""
-
 import json
 import mimetypes
 from pathlib import Path
@@ -70,22 +51,6 @@ class TasksList(
     SuccessMessageMixin[Any],
     FilterView,
 ):
-    """
-    View for displaying a filtered list of tasks.
-
-    This view provides a filterable list view of tasks with authentication
-    requirements and success message handling. It extends Django's FilterView
-    to provide advanced filtering capabilities for task management.
-
-    Attributes:
-        model: The Task model to display
-        template_name: Template for rendering the task list
-        context_object_name: Name for the tasks in template context
-        filterset_class: Class for handling task filtering
-        error_message: Message shown when user lacks permissions
-        no_permission_url: URL to redirect unauthorized users
-    """
-
     model = Task
     template_name = 'tasks/kanban.html'
     context_object_name = 'tasks'

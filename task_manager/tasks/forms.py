@@ -1,12 +1,3 @@
-"""
-Django forms for the tasks app.
-
-This module contains form classes for handling task creation, editing,
-filtering, and comment management. It includes forms for tasks, checklist
-items, task filtering, and comments with proper validation and widget
-configurations.
-"""
-
 from typing import Any
 
 from django.db.models import Value
@@ -35,7 +26,6 @@ from task_manager.tasks.models import (
 )
 from task_manager.users.models import User
 
-# Constants
 MAX_DESCRIPTION_LENGTH = 255
 TEXTAREA_ROWS = 4
 TEXTAREA_COLS = 10
@@ -43,13 +33,6 @@ COMMENT_TEXTAREA_ROWS = 3
 
 
 class ChecklistItemForm(Form):
-    """
-    Form for creating and editing checklist items.
-
-    Provides a simple form for adding checklist items to tasks with proper
-    styling and accessibility attributes.
-    """
-
     description = CharField(
         max_length=MAX_DESCRIPTION_LENGTH,
         widget=TextInput(
@@ -64,14 +47,6 @@ class ChecklistItemForm(Form):
 
 
 class TaskForm(ModelForm[Any]):
-    """
-    Form for creating and editing tasks.
-
-    Provides a comprehensive form for task management including all task fields,
-    proper validation, and dynamic field disabling based on task state and user
-    permissions.
-    """
-
     reminder_periods = MultipleChoiceField(
         choices=PERIOD,
         widget=SelectMultiple(attrs={'class': 'form-control', 'size': '8'}),
@@ -113,14 +88,6 @@ class TaskForm(ModelForm[Any]):
         }
 
     def __init__(self, request, *args, **kwargs):
-        """
-        Initialize the form with request context and field validation.
-
-        Args:
-            request: The HTTP request object for user context
-            *args: Additional positional arguments
-            **kwargs: Additional keyword arguments
-        """
         self.request = request
         super().__init__(*args, **kwargs)
         self._disable_fields_if_needed()
@@ -128,15 +95,6 @@ class TaskForm(ModelForm[Any]):
         self._initialize_reminder_periods()
 
     def save_checklist_items(self, task: Task) -> None:
-        """
-        Save checklist items associated with the task.
-
-        Creates or updates checklist items based on form data, replacing
-        existing items with new ones from the form.
-
-        Args:
-            task: The task instance to associate checklist items with
-        """
         items_data = self._get_checklist_items_data()
         if not items_data:
             return
@@ -145,15 +103,6 @@ class TaskForm(ModelForm[Any]):
         self._replace_checklist_items(checklist, items_data)
 
     def save(self, *, commit: bool | None = True) -> 'Task':
-        """
-        Save the task and its associated checklist items.
-
-        Args:
-            commit: Whether to save the task to the database
-
-        Returns:
-            The saved task instance
-        """
         task = super().save(commit=False)
 
         # Save reminder periods
@@ -167,7 +116,6 @@ class TaskForm(ModelForm[Any]):
         return task
 
     def _get_checklist_items_data(self) -> list:
-        """Get checklist items data from cleaned form data."""
         if not hasattr(self, 'cleaned_data'):
             return []
 
@@ -178,7 +126,6 @@ class TaskForm(ModelForm[Any]):
         checklist: Checklist,
         items_data: list,
     ) -> None:
-        """Replace existing checklist items with new ones."""
         checklist.items.all().delete()
 
         for checklist_item_data in items_data:
@@ -187,7 +134,6 @@ class TaskForm(ModelForm[Any]):
     def _create_checklist_item(
         self, checklist: Checklist, item_data: dict
     ) -> None:
-        """Create a single checklist item."""
         description = item_data.get('description', '').strip()
         if not description:
             return
@@ -199,7 +145,6 @@ class TaskForm(ModelForm[Any]):
         )
 
     def _disable_fields_if_needed(self) -> None:
-        """Disable form fields if task is closed or user is not the author."""
         if not self.instance.pk:
             return
 
@@ -213,7 +158,6 @@ class TaskForm(ModelForm[Any]):
                 self.fields[field].disabled = True
 
     def _initialize_checklist_data(self) -> None:
-        """Initialize checklist data for JavaScript."""
         self.checklist_data = []
 
         if not hasattr(self.instance, 'checklist'):
@@ -230,20 +174,12 @@ class TaskForm(ModelForm[Any]):
         ]
 
     def _initialize_reminder_periods(self) -> None:
-        """Initialize reminder periods field with current values."""
         if self.instance and self.instance.pk:
             current_periods = self.instance.get_reminder_periods_list()
             self.fields['reminder_periods'].initial = current_periods
 
 
-class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
-    """
-    Filter form for tasks with filtering options for executor, labels, and
-    user-specific tasks.
-
-    Provides filtering capabilities for tasks based on:
-    """  # noqa: D205
-
+class TasksFilter(FilterSet):
     executors = User.objects.values_list(
         'id', Concat('first_name', Value(' '), 'last_name'), named=True
     ).all()
@@ -262,30 +198,10 @@ class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
     )
 
     def __init__(self, *args, **kwargs):
-        """
-        Initialize the TasksFilter with request context.
-
-        Args:
-            *args: Additional positional arguments
-            **kwargs: Additional keyword arguments including 'request'
-        """
         self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
 
     def filter_current_user(self, queryset, _name, filter_value):
-        """
-        Filter tasks to show only those created by the current user.
-
-        Args:
-            queryset: The queryset to filter
-            _name: The field name (unused but required by django-filter)
-            filter_value: Boolean value indicating whether to filter by
-                         current user
-
-        Returns:
-            Filtered queryset containing only tasks by the current user if
-            value is True, otherwise returns the original queryset unchanged
-        """
         if filter_value:
             author = getattr(self.request, 'user', None)
             queryset = queryset.filter(author=author)
@@ -297,13 +213,6 @@ class TasksFilter(FilterSet):  # pylint: disable=too-few-public-methods
 
 
 class CommentForm(ModelForm):
-    """
-    Form for creating and editing comments.
-
-    Provides a simple form for adding comments to tasks with proper styling
-    and accessibility attributes.
-    """
-
     class Meta:
         model = Comment
         fields = ['comment_content']

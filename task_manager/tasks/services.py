@@ -1,10 +1,3 @@
-"""
-Service functions for the tasks app.
-
-This module contains utility functions for task management, including
-slug generation, notification scheduling, and task-related operations.
-"""
-
 import json
 import logging
 import os
@@ -45,18 +38,6 @@ from task_manager.users.models import User
 
 
 def send_celery_task(task_func, *args, eta=None, **kwargs):
-    """
-    Safely send a Celery task with proper error handling.
-
-    Args:
-        task_func: The Celery task function to call
-        *args: Arguments to pass to the task
-        eta: Optional execution time for delayed tasks
-        **kwargs: Keyword arguments to pass to the task
-
-    Returns:
-        True if task was sent successfully, False otherwise
-    """
     if not getattr(settings, 'CELERY_ENABLED', True):
         return False
 
@@ -71,33 +52,11 @@ def send_celery_task(task_func, *args, eta=None, **kwargs):
 
 
 def slugify_translit(task_name: str) -> str:
-    """
-    Generate a URL-friendly slug from a Russian task name.
-
-    Transliterates Russian text to Latin characters and then creates
-    a URL-friendly slug by converting to lowercase and replacing
-    spaces with hyphens.
-
-    Args:
-        task_name: The task name in Russian to convert to a slug
-
-    Returns:
-        A URL-friendly slug string
-    """
     translite_name = translit(task_name, language_code='ru', reversed=True)
     return slugify(translite_name)
 
 
 def get_user_display_name(user) -> str:
-    """
-    Get the display name for a user.
-
-    Args:
-        user: The user object
-
-    Returns:
-        Full name if available, otherwise username
-    """
     if hasattr(user, 'get_full_name'):
         full_name = user.get_full_name()
         if full_name:
@@ -106,15 +65,6 @@ def get_user_display_name(user) -> str:
 
 
 def process_checklist_items(request: HttpRequest) -> list[dict[str, Any]]:
-    """
-    Process checklist items from form data.
-
-    Args:
-        request: The HTTP request object
-
-    Returns:
-        List of checklist item dictionaries
-    """
     checklist_items = []
     index = 0
     while f'checklist_items[{index}][description]' in request.POST:
@@ -135,16 +85,6 @@ def process_checklist_items(request: HttpRequest) -> list[dict[str, Any]]:
 
 
 def create_task_with_checklist(form, request: HttpRequest) -> tuple[Task, str]:
-    """
-    Create task and process checklist items.
-
-    Args:
-        form: The task form
-        request: The HTTP request object
-
-    Returns:
-        Tuple of (task, task_slug)
-    """
     form.instance.author = User.objects.get(pk=request.user.pk)
     task = form.save(commit=False)
     task_name = task.name
@@ -164,15 +104,6 @@ def create_task_with_checklist(form, request: HttpRequest) -> tuple[Task, str]:
 def send_task_creation_notifications(
     task_name: str, task_slug: str, form, request: HttpRequest
 ) -> None:
-    """
-    Send notifications for task creation.
-
-    Args:
-        task_name: The task name
-        task_slug: The task slug
-        form: The task form
-        request: The HTTP request object
-    """
     task_url = request.build_absolute_uri(f'/tasks/{task_slug}')
     if getattr(settings, 'CELERY_ENABLED', True):
         send_celery_task(send_message_about_adding_task, task_name, task_url)
@@ -193,7 +124,6 @@ def send_task_creation_notifications(
 
 
 def _get_task_author_data(task: Task) -> dict[str, str]:
-    """Get author data for a task."""
     return {
         'username': (task.author.username if task.author else ''),
         'full_name': (task.author.get_full_name() if task.author else ''),
@@ -201,7 +131,6 @@ def _get_task_author_data(task: Task) -> dict[str, str]:
 
 
 def _get_task_executor_data(task: Task) -> dict[str, str]:
-    """Get executor data for a task."""
     return {
         'username': (task.executor.username if task.executor else ''),
         'full_name': (task.executor.get_full_name() if task.executor else ''),
@@ -209,7 +138,6 @@ def _get_task_executor_data(task: Task) -> dict[str, str]:
 
 
 def _build_task_data(task: Task) -> dict[str, Any]:
-    """Build task data dictionary."""
     return {
         'id': task.pk,
         'name': task.name,
@@ -223,7 +151,6 @@ def _build_task_data(task: Task) -> dict[str, Any]:
 
 
 def _get_filtered_stage_tasks(stage: Stage, selected_labels: list[str]) -> Any:
-    """Get filtered tasks for a stage."""
     stage_tasks = stage.tasks.prefetch_related('labels')
     if selected_labels:
         stage_tasks = stage_tasks.filter(
@@ -233,15 +160,6 @@ def _get_filtered_stage_tasks(stage: Stage, selected_labels: list[str]) -> Any:
 
 
 def get_kanban_data(request: HttpRequest) -> dict[str, Any]:
-    """
-    Get kanban board data with tasks organized by stages.
-
-    Args:
-        request: The HTTP request object
-
-    Returns:
-        Dictionary containing kanban data
-    """
     labels = Label.objects.all().order_by('name')
     selected_labels = request.GET.getlist('labels')
     stages = Stage.objects.prefetch_related('tasks').order_by('order')
@@ -262,7 +180,6 @@ def get_kanban_data(request: HttpRequest) -> dict[str, Any]:
 def _process_stage_change(
     task: Task, new_stage_id: int | None, request: HttpRequest
 ) -> dict[str, Any] | None:
-    """Process stage change for a task."""
     if new_stage_id is None:
         return None
 
@@ -284,7 +201,6 @@ def _process_stage_change(
 def _process_order_change(
     task: Task, new_stage_id: int | None, new_order: int | None
 ) -> None:
-    """Process order change for a task."""
     if new_stage_id is not None:
         task.stage_id = new_stage_id
         task.save(update_fields=['stage_id'])
@@ -298,7 +214,6 @@ def _process_order_change(
 def _handle_update_exceptions(
     exception: Exception, logger: logging.Logger
 ) -> dict[str, Any]:
-    """Handle exceptions during task update."""
     if isinstance(exception, Task.DoesNotExist):
         return {'success': False, 'error': 'Task not found'}
     if isinstance(exception, Stage.DoesNotExist):
@@ -315,18 +230,6 @@ def update_task_stage_and_order(
     new_order: int | None,
     request: HttpRequest,
 ) -> dict[str, Any]:
-    """
-    Update task stage and order with validation and notifications.
-
-    Args:
-        task_id: The task ID
-        new_stage_id: The new stage ID
-        new_order: The new order
-        request: The HTTP request object
-
-    Returns:
-        Dictionary with success status and optional error message
-    """
     try:
         with transaction.atomic():
             task = Task.objects.select_for_update().get(id=task_id)
@@ -347,17 +250,6 @@ def update_task_stage_and_order(
 def can_move_to_done_stage(
     task: Task, new_stage: Stage, request: HttpRequest
 ) -> bool:
-    """
-    Check if user can move task to Done stage.
-
-    Args:
-        task: The task object
-        new_stage: The new stage object
-        request: The HTTP request object
-
-    Returns:
-        True if move is allowed, False otherwise
-    """
     if new_stage and new_stage.name == 'Done' and task.author != request.user:
         messages.error(
             request,
@@ -370,15 +262,6 @@ def can_move_to_done_stage(
 def move_task_to_new_stage(
     task: Task, old_stage: Stage, new_stage: Stage, request: HttpRequest
 ) -> None:
-    """
-    Move task to new stage and handle notifications.
-
-    Args:
-        task: The task object
-        old_stage: The old stage object
-        new_stage: The new stage object
-        request: The HTTP request object
-    """
     task.stage = new_stage
     task.save()
 
@@ -389,14 +272,6 @@ def move_task_to_new_stage(
 def send_move_notification(
     task: Task, new_stage: Stage, request: HttpRequest
 ) -> None:
-    """
-    Send notification about task move.
-
-    Args:
-        task: The task object
-        new_stage: The new stage object
-        request: The HTTP request object
-    """
     task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
     moved_by = get_user_display_name(request.user)
 
@@ -411,13 +286,6 @@ def send_move_notification(
 
 
 def reorder_stages(old_stage: Stage, new_stage: Stage) -> None:
-    """
-    Reorder tasks in affected stages.
-
-    Args:
-        old_stage: The old stage object
-        new_stage: The new stage object
-    """
     if old_stage:
         reorder_tasks_in_stage(old_stage)
     if new_stage:
@@ -427,31 +295,12 @@ def reorder_stages(old_stage: Stage, new_stage: Stage) -> None:
 def process_bulk_task_updates(
     tasks_data: list[dict[str, Any]], request: HttpRequest
 ) -> None:
-    """
-    Process bulk update of tasks.
-
-    Args:
-        tasks_data: List of task data dictionaries
-        request: The HTTP request object
-
-    Raises:
-        ValueError: If task data is invalid or task not found
-    """
     for task_data in tasks_data:
         validate_task_data(task_data)
         update_single_task(task_data, request)
 
 
 def validate_task_data(task_data: dict[str, Any]) -> None:
-    """
-    Validate individual task data.
-
-    Args:
-        task_data: Dictionary containing task data
-
-    Raises:
-        ValueError: If task data is invalid
-    """
     task_id = task_data.get('task_id')
     stage_id = task_data.get('stage_id')
     order = task_data.get('order')
@@ -461,16 +310,6 @@ def validate_task_data(task_data: dict[str, Any]) -> None:
 
 
 def update_single_task(task_data: dict[str, Any], request: HttpRequest) -> None:
-    """
-    Update a single task with new stage and order.
-
-    Args:
-        task_data: Dictionary containing task data
-        request: The HTTP request object
-
-    Raises:
-        ValueError: If task not found
-    """
     task_id = task_data.get('task_id')
     stage_id = task_data.get('stage_id')
     order = task_data.get('order')
@@ -491,14 +330,6 @@ def update_single_task(task_data: dict[str, Any], request: HttpRequest) -> None:
 def handle_task_stage_change(
     task: Task, new_stage_id: int, request: HttpRequest
 ) -> None:
-    """
-    Handle notification when task is moved to a different stage.
-
-    Args:
-        task: The task object
-        new_stage_id: ID of the new stage
-        request: The HTTP request object
-    """
     new_stage = Stage.objects.get(id=new_stage_id)
     task_url = request.build_absolute_uri(f'/tasks/{task.slug}')
     moved_by = get_user_display_name(request.user)
@@ -514,16 +345,6 @@ def handle_task_stage_change(
 
 
 def get_task_context_data(task: Task, request: HttpRequest) -> dict[str, Any]:
-    """
-    Get context data for task detail view.
-
-    Args:
-        task: The task object
-        request: The HTTP request object
-
-    Returns:
-        Dictionary of context data
-    """
     context = {'labels': task.labels.all()}
 
     if hasattr(task, 'checklist'):
@@ -555,15 +376,6 @@ def get_task_context_data(task: Task, request: HttpRequest) -> dict[str, Any]:
 
 
 def get_checklist_progress(task: Task) -> dict[str, int]:
-    """
-    Get checklist progress for a task.
-
-    Args:
-        task: The task object
-
-    Returns:
-        Dictionary with progress data
-    """
     if hasattr(task, 'checklist'):
         checklist_items = task.checklist.items.all()
         total_checklist = checklist_items.count()
@@ -586,15 +398,6 @@ def get_checklist_progress(task: Task) -> dict[str, int]:
 
 
 def toggle_checklist_item(checklist_item_id: int) -> ChecklistItem:
-    """
-    Toggle checklist item completion status.
-
-    Args:
-        checklist_item_id: The checklist item ID
-
-    Returns:
-        The updated checklist item
-    """
     checklist_item = get_object_or_404(ChecklistItem, pk=checklist_item_id)
     checklist_item.is_completed = not checklist_item.is_completed
     checklist_item.save()
@@ -604,16 +407,6 @@ def toggle_checklist_item(checklist_item_id: int) -> ChecklistItem:
 def create_comment(
     task_slug: str, request: HttpRequest
 ) -> tuple[bool, str, Comment | None]:
-    """
-    Create a new comment on a task.
-
-    Args:
-        task_slug: The task slug
-        request: The HTTP request object
-
-    Returns:
-        Tuple of (success, message, comment_or_none)
-    """
     task = get_object_or_404(Task, slug=task_slug)
 
     if request.user not in {task.author, task.executor}:
@@ -644,16 +437,6 @@ def create_comment(
 def update_comment(
     comment_id: int, request: HttpRequest
 ) -> tuple[bool, str, Comment | None]:
-    """
-    Update an existing comment.
-
-    Args:
-        comment_id: The comment ID
-        request: The HTTP request object
-
-    Returns:
-        Tuple of (success, message, comment_or_none)
-    """
     comment = get_object_or_404(Comment, id=comment_id)
 
     if not comment.can_edit(request.user):
@@ -673,16 +456,6 @@ def update_comment(
 
 
 def delete_comment(comment_id: int, request: HttpRequest) -> tuple[bool, str]:
-    """
-    Delete a comment (soft delete).
-
-    Args:
-        comment_id: The comment ID
-        request: The HTTP request object
-
-    Returns:
-        Tuple of (success, message)
-    """
     comment = get_object_or_404(Comment, id=comment_id)
 
     if not comment.can_delete(request.user):
@@ -695,16 +468,6 @@ def delete_comment(comment_id: int, request: HttpRequest) -> tuple[bool, str]:
 def get_comments_for_task(
     task_slug: str, request: HttpRequest
 ) -> dict[str, Any]:
-    """
-    Get paginated comments for a task.
-
-    Args:
-        task_slug: The task slug
-        request: The HTTP request object
-
-    Returns:
-        Dictionary with comments and task data
-    """
     task = get_object_or_404(Task, slug=task_slug)
     comments = task.comments.filter(is_deleted=False).order_by('-created_at')
 
@@ -721,16 +484,6 @@ def get_comments_for_task(
 def close_or_reopen_task(
     task_slug: str, request: HttpRequest
 ) -> tuple[bool, str]:
-    """
-    Close or reopen a task.
-
-    Args:
-        task_slug: The task slug
-        request: The HTTP request object
-
-    Returns:
-        Tuple of (success, message)
-    """
     task = get_object_or_404(Task, slug=task_slug)
     task_url = request.build_absolute_uri(f'/tasks/{task_slug}')
 
@@ -750,12 +503,6 @@ def close_or_reopen_task(
 
 
 def delete_task_with_notification(task: Task) -> None:
-    """
-    Delete a task and send notification.
-
-    Args:
-        task: The task object
-    """
     task_name = task.name
     if getattr(settings, 'CELERY_ENABLED', True):
         send_celery_task(send_about_deleting_task, task_name)
