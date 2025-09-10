@@ -5,7 +5,6 @@ from task_manager.labels.models import Label
 from task_manager.tasks.models import Task
 from task_manager.users.models import User
 
-# Constants for HTTP status codes
 HTTP_OK = 200
 
 

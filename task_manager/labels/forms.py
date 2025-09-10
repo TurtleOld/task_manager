@@ -27,7 +27,6 @@ class LabelForm(forms.ModelForm):
         fields = ('name',)
 
     def __init__(self, *args, **kwargs):
-        """Initialize the form with custom styling."""
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             if hasattr(field.widget, 'attrs'):
@@ -63,7 +62,6 @@ class LabelForm(forms.ModelForm):
         return name
 
     def _check_name_uniqueness(self, name):
-        """Check if label name is unique."""
         instance = getattr(self, 'instance', None)
         queryset = Label.objects.filter(name=name)
 

@@ -1,6 +1,5 @@
 from django.db import models
 
-# Constants
 MAX_LABEL_NAME_LENGTH = 50
 
 
@@ -13,12 +12,10 @@ class Label(models.Model):
 
     @property
     def tasks_count(self):
-        """Возвращает количество задач, использующих этот тег."""
         return self.tasks.count()
 
     @property
     def is_active(self):
-        """Возвращает True, если тег используется в задачах."""
         return self.tasks.exists()
 
     class Meta:
