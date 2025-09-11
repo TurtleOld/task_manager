@@ -1,0 +1,229 @@
+name: PWA Build and Release
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'pwa/**'
+      - '.github/workflows/pwa-build.yml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'pwa/**'
+      - '.github/workflows/pwa-build.yml'
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.24.5'
+  PWA_DIR: './pwa'
+
+jobs:
+  build:
+    name: Build PWA
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2.21.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Get Flutter dependencies
+        working-directory: ${{ env.PWA_DIR }}
+        run: flutter pub get
+
+      - name: Verify Flutter installation
+        working-directory: ${{ env.PWA_DIR }}
+        run: flutter doctor
+
+      - name: Run Flutter tests
+        working-directory: ${{ env.PWA_DIR }}
+        run: flutter test
+
+      - name: Build PWA for web
+        working-directory: ${{ env.PWA_DIR }}
+        run: |
+          flutter build web \
+            --release \
+            --web-renderer html \
+            --dart-define=FLUTTER_WEB_USE_SKIA=false \
+            --base-href="/pwa/"
+
+      - name: Upload PWA build artifacts
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: pwa-web-build
+          path: ${{ env.PWA_DIR }}/build/web/
+          retention-days: 30
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'release' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Download PWA build artifacts
+        uses: actions/download-artifact@v5.0.0
+        with:
+          name: pwa-web-build
+          path: ./pwa-release
+
+      - name: Create release archive
+        run: |
+          cd pwa-release
+          tar -czf ../pwa-web-release.tar.gz .
+          zip -r ../pwa-web-release.zip .
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: pwa-release-assets
+          path: |
+            pwa-web-release.tar.gz
+            pwa-web-release.zip
+          retention-days: 90
+
+      - name: Create GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2.3.3
+        with:
+          files: |
+            pwa-web-release.tar.gz
+            pwa-web-release.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-preview:
+    name: Deploy Preview
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Download PWA build artifacts
+        uses: actions/download-artifact@v5.0.0
+        with:
+          name: pwa-web-build
+          path: ./pwa-preview
+
+      - name: Deploy to GitHub Pages (Preview)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./pwa-preview
+          destination_dir: pwa-preview/pr-${{ github.event.number }}
+          keep_files: false
+
+      - name: Comment PR with preview URL
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🚀 PWA Preview deployed: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pwa-preview/pr-${{ github.event.number }}/'
+            })
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2.21.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Run Flutter security analysis
+        working-directory: ${{ env.PWA_DIR }}
+        run: |
+          flutter pub deps
+          flutter analyze --fatal-infos
+
+      - name: Check for known vulnerabilities
+        working-directory: ${{ env.PWA_DIR }}
+        run: |
+          flutter pub audit
+
+  performance-test:
+    name: Performance Test
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Download PWA build artifacts
+        uses: actions/download-artifact@v5.0.0
+        with:
+          name: pwa-web-build
+          path: ./pwa-test
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@0.12.x
+
+      - name: Run Lighthouse CI
+        run: |
+          if [ -n "$LHCI_GITHUB_APP_TOKEN" ]; then
+            lhci autorun --upload.target=temporary-public-storage
+          else
+            echo "LHCI_GITHUB_APP_TOKEN not set, skipping upload"
+            lhci autorun --upload.target=filesystem
+          fi
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [build, release, deploy-preview, security-scan, performance-test]
+    if: always()
+    
+    steps:
+      - name: Notify on success
+        if: ${{ needs.build.result == 'success' && needs.security-scan.result == 'success' && needs.performance-test.result == 'success' }}
+        run: |
+          echo "✅ PWA build completed successfully!"
+          echo "Build artifacts are available for download."
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "🚀 Release assets have been created and uploaded."
+          fi
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "🔍 Preview deployment is available for review."
+          fi
+
+      - name: Notify on failure
+        if: ${{ needs.build.result == 'failure' || needs.security-scan.result == 'failure' || needs.performance-test.result == 'failure' }}
+        run: |
+          echo "❌ PWA build failed!"
+          echo "Please check the logs for details."
+          exit 1
