@@ -35,9 +35,52 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Verify PWA directory structure
+        run: |
+          echo "Checking PWA directory structure..."
+          ls -la ${{ env.PWA_DIR }}
+          echo "Checking for pubspec.yaml..."
+          if [ -f "${{ env.PWA_DIR }}/pubspec.yaml" ]; then
+            echo "✅ pubspec.yaml found"
+            cat ${{ env.PWA_DIR }}/pubspec.yaml | head -10
+          else
+            echo "❌ pubspec.yaml not found!"
+            exit 1
+          fi
+          echo "Checking Flutter installation..."
+          flutter --version
+          echo "Flutter doctor check:"
+          flutter doctor --verbose
+
+      - name: Clean Flutter cache (if needed)
+        working-directory: ${{ env.PWA_DIR }}
+        run: |
+          echo "Cleaning Flutter cache..."
+          flutter clean || true
+          flutter pub cache clean || true
+
       - name: Get Flutter dependencies
         working-directory: ${{ env.PWA_DIR }}
-        run: flutter pub get
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Flutter root: $FLUTTER_ROOT"
+          echo "Flutter path: $(which flutter)"
+          echo "Contents of current directory:"
+          ls -la
+          echo "Running flutter pub get..."
+          
+          # Try different approaches to get dependencies
+          if ! flutter pub get --verbose; then
+            echo "First attempt failed, trying alternative approach..."
+            # Check if we're in the right directory
+            if [ ! -f "pubspec.yaml" ]; then
+              echo "pubspec.yaml not found in current directory, listing contents:"
+              ls -la
+              exit 1
+            fi
+            # Try with explicit path
+            flutter pub get --verbose --directory .
+          fi
 
       - name: Verify Flutter installation
         working-directory: ${{ env.PWA_DIR }}
