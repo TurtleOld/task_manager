@@ -165,7 +165,6 @@ jobs:
         run: |
           flutter build web \
             --release \
-            --web-renderer html \
             --dart-define=FLUTTER_WEB_USE_SKIA=false \
             --base-href="/pwa/"
 
