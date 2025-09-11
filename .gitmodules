@@ -1,4 +1,4 @@
 [submodule "pwa"]
 	path = pwa
-	url = git@github.com:TurtleOld/pwa.git
+	url = https://github.com/Turtleold/pwa.git
 	branch = main
