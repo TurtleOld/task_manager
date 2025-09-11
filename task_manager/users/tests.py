@@ -1,7 +1,6 @@
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from faker import Faker
-
 from task_manager.constants import (
     DEFAULT_PASSWORD_LENGTH,
     HTTP_FORBIDDEN,
