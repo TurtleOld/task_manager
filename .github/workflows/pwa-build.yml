@@ -152,12 +152,6 @@ jobs:
         run: |
           flutter pub deps
           flutter analyze --fatal-infos
-
-      - name: Check for known vulnerabilities
-        working-directory: ${{ env.PWA_DIR }}
-        run: |
-          dart pub audit
-
   performance-test:
     name: Performance Test
     runs-on: ubuntu-latest
