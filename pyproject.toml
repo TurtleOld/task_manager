@@ -23,7 +23,6 @@ dependencies = [
     "daphne>=4.1.2",
     "twisted[http2,tls]>=22.2.0",
     "pytelegrambotapi>=4.23.0",
-
     "eventlet>=0.37.0",
     "django-htmx>=1.21.0",
     "transliterate>=1.10.2",
@@ -38,6 +37,8 @@ dependencies = [
     "django-celery-beat>=2.5.0",
     "flower>=2.0.0",
     "redis>=5.0.0",
+    "djangorestframework>=3.16.1",
+    "markdown>=3.9",
 ]
 
 [project.optional-dependencies]
