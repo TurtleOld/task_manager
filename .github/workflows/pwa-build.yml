@@ -3,14 +3,16 @@ name: PWA Build and Release
 on:
   push:
     branches: [ "main" ]
-    paths:
-      - 'pwa/**'
-      - '.github/workflows/pwa-build.yml'
+    # Temporarily removed paths filter for debugging
+    # paths:
+    #   - 'pwa/**'
+    #   - '.github/workflows/pwa-build.yml'
   pull_request:
     branches: [ "main" ]
-    paths:
-      - 'pwa/**'
-      - '.github/workflows/pwa-build.yml'
+    # Temporarily removed paths filter for debugging
+    # paths:
+    #   - 'pwa/**'
+    #   - '.github/workflows/pwa-build.yml'
   release:
     types: [ published ]
   workflow_dispatch:
@@ -27,6 +29,33 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
+      - name: Verify repository checkout
+        run: |
+          echo "Repository root contents:"
+          ls -la
+          echo "Checking for PWA directory:"
+          if [ -d "./pwa" ]; then
+            echo "✅ PWA directory found"
+            ls -la ./pwa
+            echo "Checking for pubspec.yaml in PWA directory:"
+            if [ -f "./pwa/pubspec.yaml" ]; then
+              echo "✅ pubspec.yaml found in PWA directory"
+              echo "First 10 lines of pubspec.yaml:"
+              head -10 ./pwa/pubspec.yaml
+            else
+              echo "❌ pubspec.yaml not found in PWA directory!"
+              echo "Contents of PWA directory:"
+              find ./pwa -type f | head -20
+            fi
+          else
+            echo "❌ PWA directory not found!"
+            echo "Available directories:"
+            find . -maxdepth 2 -type d
+            echo "Checking if PWA files exist elsewhere:"
+            find . -name "pubspec.yaml" -type f
+            exit 1
+          fi
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2.21.0
