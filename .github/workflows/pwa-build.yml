@@ -18,7 +18,7 @@ on:
 env:
   FLUTTER_VERSION: '3.35.3'
   PWA_DIR: './pwa'
-  DOCKER_IMAGE: ghcr.io/TurtleOld/pwa
+  DOCKER_IMAGE: ghcr.io/turtleold/pwa
   DOCKER_TAG: latest
 
 jobs:
