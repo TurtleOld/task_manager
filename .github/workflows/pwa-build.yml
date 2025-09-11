@@ -1,29 +1,29 @@
-name: PWA Build and Release
+name: PWA Build and Docker Deploy
 
 on:
   push:
     branches: [ "main" ]
-    # Temporarily removed paths filter for debugging
-    # paths:
-    #   - 'pwa/**'
-    #   - '.github/workflows/pwa-build.yml'
+    paths:
+      - 'pwa/**'
+      - '.github/workflows/pwa-build.yml'
+      - 'Dockerfile.pwa'
   pull_request:
     branches: [ "main" ]
-    # Temporarily removed paths filter for debugging
-    # paths:
-    #   - 'pwa/**'
-    #   - '.github/workflows/pwa-build.yml'
-  release:
-    types: [ published ]
+    paths:
+      - 'pwa/**'
+      - '.github/workflows/pwa-build.yml'
+      - 'Dockerfile.pwa'
   workflow_dispatch:
 
 env:
   FLUTTER_VERSION: '3.35.3'
   PWA_DIR: './pwa'
+  DOCKER_IMAGE: ghcr.io/TurtleOld/pwa
+  DOCKER_TAG: latest
 
 jobs:
-  build:
-    name: Build PWA
+  build-and-deploy:
+    name: Build PWA and Deploy to Docker
     runs-on: ubuntu-latest
     
     steps:
@@ -37,39 +37,20 @@ jobs:
         run: |
           echo "Repository root contents:"
           ls -la
-          echo "Checking for .gitmodules:"
-          if [ -f ".gitmodules" ]; then
-            echo "✅ .gitmodules found"
-            cat .gitmodules
-          fi
           echo "Checking for PWA directory:"
           if [ -d "./pwa" ]; then
             echo "✅ PWA directory found"
             ls -la ./pwa
-            echo "Checking for pubspec.yaml in PWA directory:"
-            if [ -f "./pwa/pubspec.yaml" ]; then
-              echo "✅ pubspec.yaml found in PWA directory"
-              echo "First 10 lines of pubspec.yaml:"
-              head -10 ./pwa/pubspec.yaml
-            else
-              echo "❌ pubspec.yaml not found in PWA directory!"
-              echo "Contents of PWA directory:"
-              find ./pwa -type f | head -20
-            fi
           else
             echo "❌ PWA directory not found!"
-            echo "Available directories:"
-            find . -maxdepth 2 -type d
-            echo "Checking if PWA files exist elsewhere:"
-            find . -name "pubspec.yaml" -type f
-            echo "Trying to initialize submodules manually..."
-            git submodule update --init --recursive
-            if [ -d "./pwa" ] && [ -f "./pwa/pubspec.yaml" ]; then
-              echo "✅ PWA submodule loaded successfully after manual init"
-            else
-              echo "❌ Failed to load PWA submodule"
-              exit 1
-            fi
+            exit 1
+          fi
+          echo "Checking for Dockerfile.pwa:"
+          if [ -f "./Dockerfile.pwa" ]; then
+            echo "✅ Dockerfile.pwa found"
+          else
+            echo "❌ Dockerfile.pwa not found!"
+            exit 1
           fi
 
       - name: Set up Flutter
@@ -79,45 +60,16 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Verify PWA directory structure
-        run: |
-          echo "Checking PWA directory structure..."
-          ls -la ${{ env.PWA_DIR }}
-          echo "Checking for pubspec.yaml..."
-          if [ -f "${{ env.PWA_DIR }}/pubspec.yaml" ]; then
-            echo "✅ pubspec.yaml found"
-            cat ${{ env.PWA_DIR }}/pubspec.yaml | head -10
-          else
-            echo "❌ pubspec.yaml not found!"
-            exit 1
-          fi
-          echo "Checking Flutter installation..."
-          flutter --version
-          echo "Checking Dart SDK version:"
-          dart --version
-          echo "Flutter doctor check:"
-          flutter doctor --verbose
-
-      - name: Clean Flutter cache (if needed)
-        working-directory: ${{ env.PWA_DIR }}
-        run: |
-          echo "Cleaning Flutter cache..."
-          flutter clean || true
-          flutter pub cache clean || true
-
       - name: Check Dart SDK compatibility
         working-directory: ${{ env.PWA_DIR }}
         run: |
           echo "Checking Dart SDK compatibility..."
           DART_VERSION=$(dart --version | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1)
           echo "Current Dart SDK version: $DART_VERSION"
-          
-          # Check if Dart version meets the requirement (^3.9.2)
           if [ "$(echo "$DART_VERSION" | cut -d. -f1)" -lt 3 ] || 
              ([ "$(echo "$DART_VERSION" | cut -d. -f1)" -eq 3 ] && [ "$(echo "$DART_VERSION" | cut -d. -f2)" -lt 9 ]) ||
              ([ "$(echo "$DART_VERSION" | cut -d. -f1)" -eq 3 ] && [ "$(echo "$DART_VERSION" | cut -d. -f2)" -eq 9 ] && [ "$(echo "$DART_VERSION" | cut -d. -f3)" -lt 2 ]); then
             echo "❌ Dart SDK version $DART_VERSION does not meet requirement ^3.9.2"
-            echo "Please update Flutter version in workflow to get a newer Dart SDK"
             exit 1
           else
             echo "✅ Dart SDK version $DART_VERSION meets requirement ^3.9.2"
@@ -125,30 +77,7 @@ jobs:
 
       - name: Get Flutter dependencies
         working-directory: ${{ env.PWA_DIR }}
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "Flutter root: $FLUTTER_ROOT"
-          echo "Flutter path: $(which flutter)"
-          echo "Contents of current directory:"
-          ls -la
-          echo "Running flutter pub get..."
-          
-          # Try different approaches to get dependencies
-          if ! flutter pub get --verbose; then
-            echo "First attempt failed, trying alternative approach..."
-            # Check if we're in the right directory
-            if [ ! -f "pubspec.yaml" ]; then
-              echo "pubspec.yaml not found in current directory, listing contents:"
-              ls -la
-              exit 1
-            fi
-            # Try with explicit path
-            flutter pub get --verbose --directory .
-          fi
-
-      - name: Verify Flutter installation
-        working-directory: ${{ env.PWA_DIR }}
-        run: flutter doctor
+        run: flutter pub get
 
       - name: Run Flutter tests
         working-directory: ${{ env.PWA_DIR }}
@@ -156,8 +85,7 @@ jobs:
           echo "Running Flutter tests..."
           flutter test --reporter=expanded --timeout=30s || {
             echo "⚠️ Some tests failed, but continuing with build..."
-            echo "This is expected for PWA tests that may have timing issues with FlutterSecureStorage"
-            echo "The main goal is to build the PWA, not perfect test coverage"
+            echo "This is expected for PWA tests that may have timing issues"
           }
 
       - name: Build PWA for web
@@ -165,103 +93,45 @@ jobs:
         run: |
           flutter build web \
             --release \
-            --dart-define=FLUTTER_WEB_USE_SKIA=false \
-            --base-href="/pwa/"
+            --dart-define=FLUTTER_WEB_USE_SKIA=false
 
-      - name: Upload PWA build artifacts
-        uses: actions/upload-artifact@v4.6.2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          name: pwa-web-build
-          path: ${{ env.PWA_DIR }}/build/web/
-          retention-days: 30
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'release' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
         with:
-          submodules: recursive
-          token: ${{ secrets.GITHUB_TOKEN }}
+          context: .
+          file: ./Dockerfile.pwa
+          push: true
+          tags: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Download PWA build artifacts
-        uses: actions/download-artifact@v5.0.0
-        with:
-          name: pwa-web-build
-          path: ./pwa-release
-
-      - name: Create release archive
+      - name: Deploy notification
         run: |
-          cd pwa-release
-          tar -czf ../pwa-web-release.tar.gz .
-          zip -r ../pwa-web-release.zip .
-
-      - name: Upload release assets
-        uses: actions/upload-artifact@v4.6.2
-        with:
-          name: pwa-release-assets
-          path: |
-            pwa-web-release.tar.gz
-            pwa-web-release.zip
-          retention-days: 90
-
-      - name: Create GitHub Release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2.3.3
-        with:
-          files: |
-            pwa-web-release.tar.gz
-            pwa-web-release.zip
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  deploy-preview:
-    name: Deploy Preview
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'pull_request'
-    
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          submodules: recursive
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download PWA build artifacts
-        uses: actions/download-artifact@v5.0.0
-        with:
-          name: pwa-web-build
-          path: ./pwa-preview
-
-      - name: Deploy to GitHub Pages (Preview)
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./pwa-preview
-          destination_dir: pwa-preview/pr-${{ github.event.number }}
-          keep_files: false
-
-      - name: Comment PR with preview URL
-        uses: actions/github-script@v8
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '🚀 PWA Preview deployed: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pwa-preview/pr-${{ github.event.number }}/'
-            })
+          echo " PWA Docker image deployed successfully!"
+          echo "Image: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}"
+          echo "Registry: ghcr.io"
+          echo ""
+          echo "To deploy locally:"
+          echo "docker run -p 80:80 ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}"
+          echo ""
+          echo "To deploy on server:"
+          echo "docker pull ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}"
+          echo "docker run -d -p 80:80 --name pwa ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}"
 
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-and-deploy
     
     steps:
       - name: Checkout repository
@@ -291,7 +161,7 @@ jobs:
   performance-test:
     name: Performance Test
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-and-deploy
     
     steps:
       - name: Checkout repository
@@ -300,11 +170,19 @@ jobs:
           submodules: recursive
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download PWA build artifacts
-        uses: actions/download-artifact@v5.0.0
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2.21.0
         with:
-          name: pwa-web-build
-          path: ./pwa-test
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+
+      - name: Build PWA for testing
+        working-directory: ${{ env.PWA_DIR }}
+        run: |
+          flutter build web \
+            --release \
+            --dart-define=FLUTTER_WEB_USE_SKIA=false
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
@@ -329,25 +207,20 @@ jobs:
   notify:
     name: Notify
     runs-on: ubuntu-latest
-    needs: [build, release, deploy-preview, security-scan, performance-test]
+    needs: [build-and-deploy, security-scan, performance-test]
     if: always()
     
     steps:
       - name: Notify on success
-        if: ${{ needs.build.result == 'success' && needs.security-scan.result == 'success' && needs.performance-test.result == 'success' }}
+        if: ${{ needs.build-and-deploy.result == 'success' && needs.security-scan.result == 'success' && needs.performance-test.result == 'success' }}
         run: |
-          echo "✅ PWA build completed successfully!"
-          echo "Build artifacts are available for download."
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "🚀 Release assets have been created and uploaded."
-          fi
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "🔍 Preview deployment is available for review."
-          fi
+          echo "✅ PWA build and Docker deployment completed successfully!"
+          echo "Docker image: ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}"
+          echo "Registry: ghcr.io"
 
       - name: Notify on failure
-        if: ${{ needs.build.result == 'failure' || needs.security-scan.result == 'failure' || needs.performance-test.result == 'failure' }}
+        if: ${{ needs.build-and-deploy.result == 'failure' || needs.security-scan.result == 'failure' || needs.performance-test.result == 'failure' }}
         run: |
-          echo "❌ PWA build failed!"
+          echo "❌ PWA build or deployment failed!"
           echo "Please check the logs for details."
           exit 1
