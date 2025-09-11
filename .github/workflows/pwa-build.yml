@@ -29,11 +29,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify repository checkout
         run: |
           echo "Repository root contents:"
           ls -la
+          echo "Checking for .gitmodules:"
+          if [ -f ".gitmodules" ]; then
+            echo "✅ .gitmodules found"
+            cat .gitmodules
+          fi
           echo "Checking for PWA directory:"
           if [ -d "./pwa" ]; then
             echo "✅ PWA directory found"
@@ -54,7 +62,14 @@ jobs:
             find . -maxdepth 2 -type d
             echo "Checking if PWA files exist elsewhere:"
             find . -name "pubspec.yaml" -type f
-            exit 1
+            echo "Trying to initialize submodules manually..."
+            git submodule update --init --recursive
+            if [ -d "./pwa" ] && [ -f "./pwa/pubspec.yaml" ]; then
+              echo "✅ PWA submodule loaded successfully after manual init"
+            else
+              echo "❌ Failed to load PWA submodule"
+              exit 1
+            fi
           fi
 
       - name: Set up Flutter
@@ -144,6 +159,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download PWA build artifacts
         uses: actions/download-artifact@v5.0.0
@@ -186,6 +204,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download PWA build artifacts
         uses: actions/download-artifact@v5.0.0
@@ -220,6 +241,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2.21.0
@@ -247,6 +271,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download PWA build artifacts
         uses: actions/download-artifact@v5.0.0
