@@ -156,7 +156,7 @@ jobs:
       - name: Check for known vulnerabilities
         working-directory: ${{ env.PWA_DIR }}
         run: |
-          flutter pub audit
+          dart pub audit
 
   performance-test:
     name: Performance Test
