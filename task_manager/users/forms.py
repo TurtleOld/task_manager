@@ -1,6 +1,5 @@
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.forms import CharField, PasswordInput
-
 from task_manager.users.models import User
 
 
