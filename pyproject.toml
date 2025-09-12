@@ -39,6 +39,7 @@ dependencies = [
     "redis>=5.0.0",
     "djangorestframework>=3.16.1",
     "markdown>=3.9",
+    "django-rest-knox>=5.0.2",
 ]
 
 [project.optional-dependencies]
