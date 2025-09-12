@@ -12,11 +12,13 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 
 import os
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
 import django_stubs_ext
 from dotenv import load_dotenv
+from rest_framework.settings import api_settings
 
 django_stubs_ext.monkeypatch()
 
@@ -55,8 +57,11 @@ INSTALLED_APPS = (
     'task_manager.users',
     'task_manager.tasks',
     'task_manager.labels',
+    'task_manager.api',
+    'rest_framework',
     'django_filters',
     'django_htmx',
+    'knox',
 )
 
 if DEBUG:
@@ -86,7 +91,6 @@ LOGOUT_REDIRECT_URL = '/login'
 
 
 def get_database_config():
-    """Get database configuration based on environment."""
     if os.environ.get('GITHUB_WORKFLOW'):
         return {
             'default': {
@@ -156,14 +160,15 @@ TEMPLATES = (
 
 WSGI_APPLICATION = 'task_manager.wsgi.application'
 
+APPEND_SLASH = False
+
 
 def get_rest_framework_config():
-    """Get REST framework configuration."""
     return {
         'DEFAULT_FILTER_BACKENDS': (
             'django_filters.rest_framework.DjangoFilterBackend',
-            ...,
         ),
+        'DEFAULT_AUTHENTICATION_CLASSES': ('knox.auth.TokenAuthentication',),
     }
 
 
@@ -312,3 +317,13 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+
+
+REST_KNOX = {
+    'SECURE_HASH_ALGORITHM': 'hashlib.sha3_512',
+    'TOKEN_LIMIT_PER_USER': None,
+    'TOKEN_TTL': timedelta(days=30),
+    'USER_SERIALIZER': 'knox.serializers.UserSerializer',
+    'EXPIRY_DATETIME_FORMAT': api_settings.DATETIME_FORMAT,
+    'AUTO_REFRESH': True,
+}

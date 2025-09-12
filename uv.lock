@@ -565,6 +565,19 @@ wheels = [
 ]
 
 [[package]]
+name = "django-rest-knox"
+version = "5.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "djangorestframework" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ba/7e/6ef520fbfa0cb902fe32c6f921426b1dcfa50cb2471a0ddca31ba770fa72/django_rest_knox-5.0.2.tar.gz", hash = "sha256:f283622bcf5d28a6a0203845c065d06c7432efa54399ae32070c61ac03af2d6f", size = 16292, upload-time = "2024-09-30T21:21:07.606Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/29/09468c086fd19f34b00a9698ee9cc1864dfae8c171be140657b965577472/django_rest_knox-5.0.2-py3-none-any.whl", hash = "sha256:694da5d0ad6eb3edbfd7cdc8d69c089fc074e6b0e548e00ff2750bf2fdfadb6f", size = 14960, upload-time = "2024-09-30T21:21:04.896Z" },
+]
+
+[[package]]
 name = "django-stubs"
 version = "5.2.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1427,6 +1440,7 @@ dependencies = [
     { name = "django-extensions" },
     { name = "django-filter" },
     { name = "django-htmx" },
+    { name = "django-rest-knox" },
     { name = "django-stubs", extra = ["compatible-mypy"] },
     { name = "djangorestframework" },
     { name = "eventlet" },
@@ -1473,6 +1487,7 @@ requires-dist = [
     { name = "django-extensions", specifier = ">=4.1" },
     { name = "django-filter", specifier = ">=24.3" },
     { name = "django-htmx", specifier = ">=1.21.0" },
+    { name = "django-rest-knox", specifier = ">=5.0.2" },
     { name = "django-stubs", extras = ["compatible-mypy"], specifier = ">=5.1.1" },
     { name = "djangorestframework", specifier = ">=3.16.1" },
     { name = "eventlet", specifier = ">=0.37.0" },
