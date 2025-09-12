@@ -34,10 +34,10 @@ DEBUG = os.getenv('DEBUG', 'false').lower() in {'yes', '1', 'true'}
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 
-ALLOWED_HOSTS = tuple(os.getenv('ALLOWED_HOSTS', '').split()) or ()
+ALLOWED_HOSTS = list(os.getenv('ALLOWED_HOSTS', '').split(',')) or []
 
-CSRF_TRUSTED_ORIGINS = (
-    tuple(os.getenv('CSRF_TRUSTED_ORIGINS', '').split()) or ()
+CSRF_TRUSTED_ORIGINS = list(
+    os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') or []
 )
 
 INSTALLED_APPS = (
