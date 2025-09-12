@@ -50,10 +50,6 @@ class LoginView(APIView):
 
             return Response(
                 {
-                    'message': (
-                        f'Добро пожаловать, '
-                        f'{user.get_full_name() or user.username}!'
-                    ),
                     'user': user_serializer.data,
                     'session_id': request.session.session_key
                 },
