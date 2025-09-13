@@ -97,7 +97,7 @@ prod-setup:
 
 # Monitoring commands
 monitor:
-	@echo "TaskIQ Dashboard: http://localhost:5555"
+	@echo "Celery Flower: http://localhost:5555"
 	@echo "RabbitMQ Management: http://localhost:15672"
 	@echo "Django Admin: http://localhost:8000/admin"
 
@@ -106,8 +106,8 @@ health-check:
 	@echo "Checking service health..."
 	@docker-compose ps
 	@echo ""
-	@echo "Checking TaskIQ worker..."
-	@docker-compose exec worker-taskiq taskiq worker task_manager.taskiq:broker --workers 1 --help
+	@echo "Checking Celery worker..."
+	@docker-compose exec worker-celery celery -A task_manager inspect ping
 	@echo ""
 	@echo "Checking Redis..."
 	@docker-compose exec redis redis-cli ping
