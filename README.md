@@ -60,5 +60,3 @@ make docker-down     # остановка контейнеров
 - `make format` — автоформатирование кода
 - `make lint` — проверка стиля
 - `make collectstatic` — сбор статических файлов
-
-Подробности установки и дополнительные инструкции смотрите в [INSTALLATION.md](INSTALLATION.md).
