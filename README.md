@@ -1,93 +1,62 @@
-[![Maintainability](https://api.codeclimate.com/v1/badges/0e29a897d14dcdedfd13/maintainability)](https://codeclimate.com/github/TurtleOld/python-project-lvl4/maintainability)
-[![Test Coverage](https://api.codeclimate.com/v1/badges/0e29a897d14dcdedfd13/test_coverage)](https://codeclimate.com/github/TurtleOld/python-project-lvl4/test_coverage)
+# Task Manager
 
-# Task manager
+Task Manager — веб‑приложение на Django с канбан‑доской для управления задачами. Задачи визуально распределены по колонкам стадий и перетаскиваются между ними. Сервис позволяет назначать исполнителей, добавлять метки и следить за сроками. Фоновые операции (уведомления, напоминания) выполняются через Celery и Redis.
 
-## О программе
-Task manager - простой сервис по управлению задачами. Он позволяет ставить задачи, назначать исполнителей и менять статусы.
+## Возможности
+- визуальная канбан‑доска с drag‑and‑drop задач между стадиями
+- управление пользователями и метками
+- REST API для интеграций
+- асинхронные уведомления и периодические задачи на Celery
 
-### 🚀 Новые возможности с Celery
-- **Асинхронная обработка задач** - отправка уведомлений в Telegram
-- **Периодические задачи** - автоматические напоминания и отчеты
-- **Мониторинг в реальном времени** - отслеживание статуса задач через Celery Flower
-- **Масштабируемость** - возможность горизонтального масштабирования воркеров
-- **Современный подход** - использование современных async/await паттернов
+## Запуск для разработки
 
-## Установка
-
-### Клонирование проекта
+### 1. Клонирование и настройка окружения
 ```bash
 git clone https://github.com/TurtleOld/task_manager.git
 cd task_manager
-make .env
+cp .env.example .env  # заполните переменные окружения
 ```
-### Заполнение .env файла.
+В `.env` как минимум нужны значения:
+```
+SECRET_KEY=<случайная_строка>
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/task-manager
+ALLOWED_HOSTS=127.0.0.1,localhost
+CSRF_TRUSTED_ORIGINS=http://127.0.0.1,http://localhost
+```
+
+### 2. Установка зависимостей и миграций
 ```bash
-# It must contain a URL string with the information needed to connect to the database. 
-# This URL contains information such as the database type 
-# (for example, PostgreSQL, MySQL), host, port, database name, and authentication credentials.
-# Example: postgres://postgres:postgres@localhost:5432/task-manager
-DATABASE_URL=
-# Who will be allowed to access your site. 
-# It simply means on which address your site will be accessible. 
-# For example www.google.com is the address of google site. 
-# That does not mean who will be allowed to access the site (Is already public).
-ALLOWED_HOSTS=127.0.0.1
-# To generate a strong secret key, you can use the built-in Django utility: 
-# run the python -c "import secrets; print(secrets.token_urlsafe(50))"
-SECRET_KEY=
-# Optional: The port under which the web application will be launched
-# Default: 8000
-PORT=
-# Is a security setting that helps protect your web application from a specific type of attack called Cross-Site Request Forgery (CSRF). A CSRF attack attempts to trick a user's browser into performing unintended actions on a website where they're already authenticated (logged in).
-# Example https://example.com
-CSRF_TRUSTED_ORIGINS=
-# Optional: You must never enable debug in production. true 1 yes. Default: false
-DEBUG=
-# Optional: specify where to send alerts if you are connecting a bot
-CHAT_ID=
-# Optional: specify the telegram token of the bot if you are connecting the bot
-TOKEN_TELEGRAM_BOT=
+make install      # установка зависимостей через uv
+make migrate      # применение миграций БД
 ```
 
-### Запуск проекта
-
-#### Быстрый запуск с Celery
+### 3. Запуск сервера
 ```bash
-# Запуск всех сервисов (включая Celery, RabbitMQ, Redis)
-make docker-up
-
-# Проверка статуса
-make health-check
-
-# Мониторинг
-make monitor
+make run          # http://127.0.0.1:8000
 ```
-
-#### Классический запуск
+Для фоновых задач при разработке можно запустить Celery:
 ```bash
-make start
+make celery-worker
+make celery-beat
 ```
 
-### 📊 Мониторинг Celery
-- **Celery Flower:** http://localhost:5555
-- **RabbitMQ Management:** http://localhost:15672 (логин: rabbitmq, пароль: rabbitmq)
-
-### 🧪 Тестирование
+### 4. Тестирование
 ```bash
 make test
 ```
 
-## Помощь проекту
+## Запуск в production
 
-_[Инструкция по установке и запуску приложения](INSTALLATION.md)_
+Для продакшн‑развертывания используется Docker Compose.
 
----
+```bash
+make docker-up       # запуск Postgres, Redis, RabbitMQ, веб‑сервера и воркеров
+make health-check    # проверка состояния сервисов
+make docker-down     # остановка контейнеров
+```
+Веб‑приложение доступно на `http://localhost:8000`. Мониторинг Celery — `http://localhost:5555`, управление RabbitMQ — `http://localhost:15672`.
 
-## Локализация текста
-
-Установить **gettext**.
-
-1. Выполнить `make transprepare` &mdash; подготовка файлов ***.po** в директории **locale/en/LC_MESSAGES**.
-2. Внести изменения в эти файлы.
-3. Выполнить `make transcompile`.
+## Полезные команды
+- `make format` — автоформатирование кода
+- `make lint` — проверка стиля
+- `make collectstatic` — сбор статических файлов
