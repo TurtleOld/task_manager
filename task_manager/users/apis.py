@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib.auth import login, logout
+from django.http import JsonResponse
 from knox.views import LoginView as KnoxLoginView
 from knox.views import LogoutView as KnoxLogoutView
 from rest_framework import permissions, status
@@ -21,7 +22,21 @@ class LoginView(KnoxLoginView):
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
         login(request, user)
-        return super().post(request, format=None)
+        response = super().post(request, format=None)
+
+        # Добавляем CORS заголовки
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+
+        return response
+
+    def options(self, request, *args, **kwargs):
+        response = JsonResponse({})
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response
 
 
 class LogoutView(KnoxLogoutView):
@@ -32,7 +47,7 @@ class LogoutView(KnoxLogoutView):
 
         response = Response(
             {'message': 'Вы успешно вышли из системы'},
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
         response['Content-Type'] = 'application/json; charset=utf-8'
         return response
@@ -50,8 +65,7 @@ class UserProfileView(APIView):
 
         serializer = UserSerializer(request.user)
         response = Response(
-            {'user': serializer.data},
-            status=status.HTTP_200_OK
+            {'user': serializer.data}, status=status.HTTP_200_OK
         )
         response['Content-Type'] = 'application/json; charset=utf-8'
         return response
