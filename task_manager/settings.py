@@ -331,7 +331,8 @@ REST_KNOX = {
 }
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = True
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # Разрешенные заголовки
