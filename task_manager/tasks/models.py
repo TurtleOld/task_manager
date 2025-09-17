@@ -316,4 +316,3 @@ def reorder_task_within_stage(task: Task, new_order: int) -> None:
     for index, task_item in enumerate(reordered_tasks):
         task_item.order = index
         task_item.save(update_fields=['order'])
-

@@ -250,10 +250,16 @@ def update_task_stage_and_order(
 def can_move_to_done_stage(
     task: Task, new_stage: Stage, request: HttpRequest
 ) -> bool:
-    if new_stage and new_stage.name == 'Done' and task.author != request.user:
+    if (
+        new_stage
+        and new_stage.name == Stage.STAGES[3][0]
+        and task.author != request.user
+    ):
         messages.error(
             request,
-            _('Only the task author can move it to Done'),
+            _('Only the task author can move it to {}').format(
+                Stage.STAGES[3][1]
+            ),
         )
         return False
     return True
