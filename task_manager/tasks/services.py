@@ -35,6 +35,7 @@ from task_manager.tasks.tasks import (
     send_message_about_adding_task,
 )
 from task_manager.users.models import User
+from task_manager.tasks.models import STAGES
 
 
 def send_celery_task(task_func, *args, eta=None, **kwargs):
@@ -252,14 +253,12 @@ def can_move_to_done_stage(
 ) -> bool:
     if (
         new_stage
-        and new_stage.name == Stage.STAGES[3][0]
+        and new_stage.name == STAGES[3][0]
         and task.author != request.user
     ):
         messages.error(
             request,
-            _('Only the task author can move it to {}').format(
-                Stage.STAGES[3][1]
-            ),
+            _('Only the task author can move it to {}').format(STAGES[3][1]),
         )
         return False
     return True
