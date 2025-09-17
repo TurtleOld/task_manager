@@ -8,7 +8,10 @@ keeping the implementation extremely small.
 """
 from __future__ import annotations
 
+from datetime import timedelta
 from functools import update_wrapper
+import sys
+import types
 from typing import Any, Callable, Optional, Sequence, TypeVar
 
 F = TypeVar('F', bound=Callable[..., Any])
@@ -86,4 +89,72 @@ def shared_task(*args: Any, **kwargs: Any) -> Callable[[F], F]:  # pragma: no co
     return decorator
 
 
-__all__ = ['Celery', 'shared_task', 'current_app']
+class _BaseSchedule:
+    """Simplified schedule base class used by the test stub."""
+
+    def __init__(self, run_every: Optional[timedelta] = None, nowfun: Any = None, app: Any = None) -> None:
+        self.run_every = run_every
+        self.nowfun = nowfun
+        self.app = app
+
+    def remaining_estimate(self, last_run_at: Any) -> timedelta:
+        return self.run_every or timedelta(0)
+
+    def is_due(self, last_run_at: Any) -> tuple[bool, float]:
+        return True, 0.0
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging helper
+        return f'<{self.__class__.__name__} run_every={self.run_every!r}>'
+
+
+class schedule(_BaseSchedule):
+    """Mimic :class:`celery.schedules.schedule` with eager semantics."""
+
+
+class crontab(_BaseSchedule):
+    """Very small representation of Celery's crontab schedule."""
+
+    def __init__(
+        self,
+        minute: str | int = '*',
+        hour: str | int = '*',
+        day_of_week: str | int = '*',
+        day_of_month: str | int = '*',
+        month_of_year: str | int = '*',
+        nowfun: Any = None,
+        app: Any = None,
+    ) -> None:
+        super().__init__(None, nowfun=nowfun, app=app)
+        self.minute = minute
+        self.hour = hour
+        self.day_of_week = day_of_week
+        self.day_of_month = day_of_month
+        self.month_of_year = month_of_year
+
+
+def maybe_make_aware(dt: Any) -> Any:
+    """Return ``dt`` unchanged; awareness is irrelevant in the stub."""
+
+    return dt
+
+
+def maybe_schedule(value: Any) -> _BaseSchedule:
+    """Convert plain values into ``schedule`` instances for parity."""
+
+    if isinstance(value, _BaseSchedule):
+        return value
+    if isinstance(value, (int, float)):
+        return schedule(timedelta(seconds=float(value)))
+    return schedule(run_every=value if isinstance(value, timedelta) else None)
+
+
+_schedules = types.ModuleType('celery.schedules')
+_schedules.schedule = schedule
+_schedules.crontab = crontab
+_schedules.maybe_make_aware = maybe_make_aware
+_schedules.maybe_schedule = maybe_schedule
+sys.modules[__name__ + '.schedules'] = _schedules
+schedules = _schedules
+
+
+__all__ = ['Celery', 'shared_task', 'current_app', 'schedules']
