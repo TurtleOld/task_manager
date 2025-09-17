@@ -3,6 +3,8 @@ import pathlib
 
 from django.conf import settings
 from django.db import models
+from django.db.models.signals import post_migrate
+from django.dispatch import receiver
 from django.urls import reverse
 from django.utils.timezone import now
 from django.utils.translation import gettext_lazy as _
@@ -42,6 +44,13 @@ PERIOD = (
     (1440, '24 часа'),
 )
 
+STAGES = (
+    ('to_do', _('Запланировано')),
+    ('in_progress', _('В процессе')),
+    ('review', _('На проверке')),
+    ('done', _('Выполнено')),
+)
+
 PERIOD_DICT = dict(PERIOD)
 MAX_NAME_LENGTH = 50
 MAX_DESCRIPTION_LENGTH = 255
@@ -78,18 +87,31 @@ class ChecklistItem(models.Model):
 class Stage(models.Model):
     name = models.CharField(
         max_length=MAX_STAGE_NAME_LENGTH,
+        choices=STAGES,
         null=True,
         blank=True,
         unique=True,
-        default='Process',
+        default='to_do',
     )
     order = models.PositiveIntegerField(default=0)
 
     class Meta:
         ordering = ['order']
 
+    @classmethod
+    def create_stages(cls) -> None:
+        if Stage.objects.count() == 0:
+            for index, stage in enumerate(STAGES):
+                Stage.objects.create(name=stage[0], order=index + 1)
+
     def __str__(self) -> str:
         return self.name
+
+
+@receiver(post_migrate)
+def create_default_stages(sender, **kwargs):
+    if sender.name == 'tasks':
+        Stage.create_stages()
 
 
 class Task(models.Model):
