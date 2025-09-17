@@ -13,6 +13,13 @@ class TaskViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = Task.objects.select_related('stage', 'author', 'executor').prefetch_related('labels')
 
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .filter(author=self.request.user)
+        )
+
     def _get_default_stage(self) -> Stage | None:
         return Stage.objects.order_by('order').first()
 
