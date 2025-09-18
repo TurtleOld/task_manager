@@ -74,7 +74,9 @@ class TaskAPITestCase(TestCase):
         self.authenticate()
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), Task.objects.count())
+        # ViewSet фильтрует задачи по автору, поэтому видим только задачи текущего пользователя
+        user_tasks_count = Task.objects.filter(author=self.user).count()
+        self.assertEqual(len(response.data), user_tasks_count)
 
     def test_create_task_with_default_stage_and_slug(self) -> None:
         self.authenticate()
@@ -90,17 +92,28 @@ class TaskAPITestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         created_task = Task.objects.get(pk=response.data['id'])
-        expected_slug = slugify(translit(payload['name'], language_code='ru', reversed=True))
+        expected_slug = slugify(
+            translit(payload['name'], language_code='ru', reversed=True)
+        )
         self.assertEqual(created_task.slug, expected_slug)
         default_stage = Stage.objects.order_by('order').first()
         self.assertEqual(created_task.stage, default_stage)
         self.assertEqual(created_task.author, self.user)
         self.assertListEqual(response.data['reminder_periods'], [10, 20])
-        self.assertListEqual(created_task.get_reminder_periods_list(), ['10', '20'])
+        self.assertListEqual(
+            created_task.get_reminder_periods_list(), ['10', '20']
+        )
 
     def test_update_task_updates_slug_and_reminders(self) -> None:
         self.authenticate()
-        task = self.task
+        # Создаем задачу, где текущий пользователь является автором
+        task = Task.objects.create(
+            name='Задача для обновления',
+            description='Описание задачи',
+            author=self.user,  # Важно: текущий пользователь - автор
+            executor=self.other_user,
+            stage=self.default_stage,
+        )
         detail_url = reverse('api:task-detail', args=[task.pk])
         payload = {
             'name': 'Обновленная задача',
@@ -111,7 +124,9 @@ class TaskAPITestCase(TestCase):
         task.refresh_from_db()
         self.assertEqual(
             task.slug,
-            slugify(translit(payload['name'], language_code='ru', reversed=True)),
+            slugify(
+                translit(payload['name'], language_code='ru', reversed=True)
+            ),
         )
         self.assertListEqual(task.get_reminder_periods_list(), ['30'])
         self.assertEqual(task.author, self.user)
@@ -122,8 +137,8 @@ class TaskAPITestCase(TestCase):
         task = Task.objects.create(
             name='Задача на удаление',
             description='Удалить меня',
-            author=self.other_user,
-            executor=self.user,
+            author=self.user,  # Важно: текущий пользователь - автор
+            executor=self.other_user,
             stage=self.default_stage,
         )
         detail_url = reverse('api:task-detail', args=[task.pk])
@@ -133,15 +148,32 @@ class TaskAPITestCase(TestCase):
 
     def test_reminder_periods_serialization_round_trip(self) -> None:
         self.authenticate()
-        task = self.task
+        # Создаем задачу, где текущий пользователь является автором
+        task = Task.objects.create(
+            name='Задача для тестирования напоминаний',
+            description='Описание задачи',
+            author=self.user,  # Важно: текущий пользователь - автор
+            executor=self.other_user,
+            stage=self.default_stage,
+        )
+        task.set_reminder_periods_list([10, 20])
+        task.save(update_fields=['reminder_periods'])
+
         detail_url = reverse('api:task-detail', args=[task.pk])
         response = self.client.get(detail_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(all(isinstance(value, int) for value in response.data['reminder_periods']))
+        self.assertTrue(
+            all(
+                isinstance(value, int)
+                for value in response.data['reminder_periods']
+            )
+        )
 
         payload = {'reminder_periods': [60, 120, '180']}
         response = self.client.patch(detail_url, payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         task.refresh_from_db()
-        self.assertListEqual(task.get_reminder_periods_list(), ['60', '120', '180'])
+        self.assertListEqual(
+            task.get_reminder_periods_list(), ['60', '120', '180']
+        )
         self.assertListEqual(response.data['reminder_periods'], [60, 120, 180])
