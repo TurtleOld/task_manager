@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 from rest_framework import serializers
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.http import JsonResponse
 
 from task_manager.tasks.models import Stage, Task
+from task_manager.tasks.permissions import (
+    IsAuthenticatedOrOptions,
+    IsStaffOrReadOnly,
+)
 from task_manager.tasks.serializers import TaskSerializer
 from task_manager.tasks.services import slugify_translit
-from task_manager.tasks.permissions import IsAuthenticatedOrOptions
+
+# Constants for CORS headers
+ALLOWED_METHODS = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
+ALLOWED_HEADERS = 'Content-Type, Authorization, Accept'
 
 
 class StageSerializer(serializers.ModelSerializer):
@@ -21,7 +24,7 @@ class StageSerializer(serializers.ModelSerializer):
 
 class StageViewSet(ModelViewSet):
     serializer_class = StageSerializer
-    permission_classes = [IsAuthenticatedOrOptions]
+    permission_classes = [IsStaffOrReadOnly]
     queryset = Stage.objects.all()
 
     def get_queryset(self):
@@ -30,23 +33,15 @@ class StageViewSet(ModelViewSet):
     def options(self, request, *args, **kwargs):
         response = super().options(request, *args, **kwargs)
         response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Methods'] = (
-            'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-        )
-        response['Access-Control-Allow-Headers'] = (
-            'Content-Type, Authorization, Accept'
-        )
+        response['Access-Control-Allow-Methods'] = ALLOWED_METHODS
+        response['Access-Control-Allow-Headers'] = ALLOWED_HEADERS
         return response
 
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
         response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Methods'] = (
-            'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-        )
-        response['Access-Control-Allow-Headers'] = (
-            'Content-Type, Authorization, Accept'
-        )
+        response['Access-Control-Allow-Methods'] = ALLOWED_METHODS
+        response['Access-Control-Allow-Headers'] = ALLOWED_HEADERS
         return response
 
 
@@ -63,23 +58,15 @@ class TaskViewSet(ModelViewSet):
     def options(self, request, *args, **kwargs):
         response = super().options(request, *args, **kwargs)
         response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Methods'] = (
-            'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-        )
-        response['Access-Control-Allow-Headers'] = (
-            'Content-Type, Authorization, Accept'
-        )
+        response['Access-Control-Allow-Methods'] = ALLOWED_METHODS
+        response['Access-Control-Allow-Headers'] = ALLOWED_HEADERS
         return response
 
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
         response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Methods'] = (
-            'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-        )
-        response['Access-Control-Allow-Headers'] = (
-            'Content-Type, Authorization, Accept'
-        )
+        response['Access-Control-Allow-Methods'] = ALLOWED_METHODS
+        response['Access-Control-Allow-Headers'] = ALLOWED_HEADERS
         return response
 
     def _get_default_stage(self) -> Stage | None:
