@@ -331,9 +331,20 @@ REST_KNOX = {
 }
 
 # CORS settings
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'http://localhost:9101',
+    'http://127.0.0.1:9101',
+    'http://localhost:45663',
+    'http://127.0.0.1:45663',
+]
 
 # Разрешенные заголовки
 CORS_ALLOW_HEADERS = [
