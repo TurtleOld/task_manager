@@ -10,6 +10,9 @@ class IsAuthenticatedOrOptions(IsAuthenticated):
 
         return super().has_permission(request, view)
 
+    def has_object_permission(self, request, view, obj):
+        return self.has_permission(request, view)
+
 
 class IsStaffOrReadOnly(BasePermission):
     """Разрешает полный доступ только персоналу, остальным только чтение."""
@@ -28,5 +31,4 @@ class IsStaffOrReadOnly(BasePermission):
         )
 
     def has_object_permission(self, request, view, obj):
-        """Check object-level permissions (same as view-level)."""
         return self.has_permission(request, view)
