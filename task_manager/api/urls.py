@@ -2,11 +2,12 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from task_manager.users.apis import LoginView, LogoutView, UserProfileView
-from task_manager.tasks.apis import TaskViewSet
+from task_manager.tasks.apis import TaskViewSet, StageViewSet
 
 
 router = DefaultRouter(trailing_slash=False)
 router.register('tasks', TaskViewSet, basename='task')
+router.register('stages', StageViewSet, basename='stage')
 
 
 app_name = 'api'
