@@ -71,13 +71,15 @@ if DEBUG:
 MIDDLEWARE = (
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django_htmx.middleware.HtmxMiddleware',
 )
 
 AUTH_USER_MODEL = 'users.User'
@@ -345,6 +347,15 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:9101',
     'http://localhost:45663',
     'http://127.0.0.1:45663',
+    # Flutter PWA development ports (динамические порты)
+    'http://localhost:40853',  # Текущий порт PWA
+    'http://127.0.0.1:40853',
+]
+
+# Для разработки разрешаем любые localhost порты
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^http://localhost:\d+$',
+    r'^http://127\.0\.0\.1:\d+$',
 ]
 
 CORS_ALLOW_HEADERS = [
