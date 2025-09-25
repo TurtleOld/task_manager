@@ -127,19 +127,6 @@ def get_database_config():
 
 DATABASES = get_database_config()
 
-MIDDLEWARE = (
-    'django.middleware.security.SecurityMiddleware',
-    'django.middleware.locale.LocaleMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django_htmx.middleware.HtmxMiddleware',
-)
-
 ROOT_URLCONF = 'task_manager.urls'
 TEMPLATE_DIR = BASE_DIR / 'templates'
 
@@ -333,48 +320,11 @@ REST_KNOX = {
 }
 
 # CORS settings
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
     'http://localhost:8080',
     'http://127.0.0.1:8080',
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    'http://localhost:9101',
-    'http://127.0.0.1:9101',
-    'http://localhost:45663',
-    'http://127.0.0.1:45663',
-    # Flutter PWA development ports (динамические порты)
-    'http://localhost:40853',  # Текущий порт PWA
-    'http://127.0.0.1:40853',
 ]
-
-# Для разработки разрешаем любые localhost порты
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r'^http://localhost:\d+$',
-    r'^http://127\.0\.0\.1:\d+$',
-]
-
-CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-]
-
-CORS_ALLOW_METHODS = [
-    'DELETE',
-    'GET',
-    'OPTIONS',
-    'PATCH',
-    'POST',
-    'PUT',
-]
+CORS_ALLOW_ALL_ORIGINS = DEBUG

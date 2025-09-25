@@ -1,19 +1,14 @@
 from __future__ import annotations
 
-from rest_framework import serializers
+from rest_framework import serializers, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from task_manager.tasks.models import Stage, Task
-from task_manager.tasks.permissions import (
-    IsAuthenticatedOrOptions,
-    IsStaffOrReadOnly,
-)
+from task_manager.tasks.permissions import IsAuthenticated
 from task_manager.tasks.serializers import TaskSerializer
 from task_manager.tasks.services import slugify_translit
-
-# Constants for CORS headers
-ALLOWED_METHODS = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-ALLOWED_HEADERS = 'Content-Type, Authorization, Accept'
 
 
 class StageSerializer(serializers.ModelSerializer):
@@ -24,30 +19,19 @@ class StageSerializer(serializers.ModelSerializer):
 
 class StageViewSet(ModelViewSet):
     serializer_class = StageSerializer
-    permission_classes = [IsStaffOrReadOnly]
+    permission_classes = [IsAuthenticated]
     queryset = Stage.objects.all()
 
     def get_queryset(self):
         return Stage.objects.all().order_by('order')
 
-    def options(self, request, *args, **kwargs):
-        response = super().options(request, *args, **kwargs)
-        response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Methods'] = ALLOWED_METHODS
-        response['Access-Control-Allow-Headers'] = ALLOWED_HEADERS
-        return response
-
     def list(self, request, *args, **kwargs):
-        response = super().list(request, *args, **kwargs)
-        response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Methods'] = ALLOWED_METHODS
-        response['Access-Control-Allow-Headers'] = ALLOWED_HEADERS
-        return response
+        return super().list(request, *args, **kwargs)
 
 
 class TaskViewSet(ModelViewSet):
     serializer_class = TaskSerializer
-    permission_classes = [IsAuthenticatedOrOptions]
+    permission_classes = [IsAuthenticated]
     queryset = Task.objects.select_related(
         'stage', 'author', 'executor'
     ).prefetch_related('labels')
@@ -55,19 +39,8 @@ class TaskViewSet(ModelViewSet):
     def get_queryset(self):
         return super().get_queryset().filter(author=self.request.user)
 
-    def options(self, request, *args, **kwargs):
-        response = super().options(request, *args, **kwargs)
-        response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Methods'] = ALLOWED_METHODS
-        response['Access-Control-Allow-Headers'] = ALLOWED_HEADERS
-        return response
-
     def list(self, request, *args, **kwargs):
-        response = super().list(request, *args, **kwargs)
-        response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Methods'] = ALLOWED_METHODS
-        response['Access-Control-Allow-Headers'] = ALLOWED_HEADERS
-        return response
+        return super().list(request, *args, **kwargs)
 
     def _get_default_stage(self) -> Stage | None:
         return Stage.objects.order_by('order').first()
@@ -99,3 +72,17 @@ class TaskViewSet(ModelViewSet):
             slug=slug,
             stage=stage,
         )
+
+    @action(detail=True, methods=['post'], url_path='update')
+    def update_task(self, request, pk=None):
+        task = self.get_object()
+        serializer = self.get_serializer(task, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='delete')
+    def delete_task(self, request, pk=None):
+        task = self.get_object()
+        task.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
