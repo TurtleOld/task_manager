@@ -74,7 +74,18 @@ class TaskViewSet(ModelViewSet):
         )
 
     @action(detail=True, methods=['post'], url_path='update')
-    def update_task(self, request, pk=None):
+    def update_task(self, request):
+        """Update a task with partial data.
+
+        Args:
+            request: The HTTP request object containing the task data to update.
+
+        Returns:
+            Response: JSON response containing the updated task data.
+
+        Raises:
+            ValidationError: If the provided data is invalid.
+        """
         task = self.get_object()
         serializer = self.get_serializer(task, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -82,7 +93,16 @@ class TaskViewSet(ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'], url_path='delete')
-    def delete_task(self, request, pk=None):
+    def delete_task(self, request):
+        """Delete a task.
+
+        Args:
+            request: The HTTP request object.
+
+        Returns:
+            Response: HTTP 204 No Content response indicating successful
+                deletion.
+        """
         task = self.get_object()
         task.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
