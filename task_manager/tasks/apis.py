@@ -74,11 +74,12 @@ class TaskViewSet(ModelViewSet):
         )
 
     @action(detail=True, methods=['post'], url_path='update')
-    def update_task(self, request):
+    def update_task(self, request, pk=None):
         """Update a task with partial data.
 
         Args:
             request: The HTTP request object containing the task data to update.
+            pk: The primary key of the task to update.
 
         Returns:
             Response: JSON response containing the updated task data.
@@ -93,11 +94,12 @@ class TaskViewSet(ModelViewSet):
         return Response(serializer.data)
 
     @action(detail=True, methods=['post'], url_path='delete')
-    def delete_task(self, request):
+    def delete_task(self, request, pk=None):
         """Delete a task.
 
         Args:
             request: The HTTP request object.
+            pk: The primary key of the task to delete.
 
         Returns:
             Response: HTTP 204 No Content response indicating successful
