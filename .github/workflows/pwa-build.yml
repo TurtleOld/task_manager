@@ -179,7 +179,7 @@ jobs:
             --dart-define=FLUTTER_WEB_USE_SKIA=false
 
       - name: Set up Node.js
-        uses: actions/setup-node@89d709d423dc495668cd762a18dd4a070611be3f
+        uses: actions/setup-node@633bb92bc0aabcae06e8ea93b85aecddd374c402
         with:
           node-version: '22'
 
