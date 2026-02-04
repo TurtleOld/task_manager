@@ -1,0 +1,44 @@
+# Global
+.env
+.env.*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Backend (Python/Django)
+backend/.venv/
+backend/**/__pycache__/
+backend/**/*.py[cod]
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.pytest_cache/
+backend/.tox/
+backend/.coverage
+backend/.coverage.*
+backend/htmlcov/
+backend/build/
+backend/dist/
+backend/**/*.egg-info/
+backend/db.sqlite3
+
+# Frontend (Node/Vite/TypeScript)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.eslintcache
+frontend/*.tsbuildinfo
+
+# Docker
+**/.docker-volume/
+
+# Logs
+logs/
+**/*.log
+
+# Note: keep lock files committed for reproducible builds
+!frontend/package-lock.json
+!backend/uv.lock
+
+# Ignore vscode AI rules
+.github/instructions/codacy.instructions.md
