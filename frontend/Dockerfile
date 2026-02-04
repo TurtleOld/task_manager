@@ -1,0 +1,8 @@
+FROM node:20-alpine
+WORKDIR /app
+
+# Use cached deps when possible
+COPY package.json ./package.json
+
+EXPOSE 5173
+CMD ["sh", "-lc", "npm install && npm run dev -- --host 0.0.0.0 --port 5173"]
