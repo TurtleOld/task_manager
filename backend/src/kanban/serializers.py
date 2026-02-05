@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import AbstractUser, Permission
 from django.contrib.auth.password_validation import validate_password
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -196,7 +196,7 @@ ROLE_PRESETS: dict[str, list[str]] = {
 }
 
 
-class UserSerializer(serializers.ModelSerializer[User]):
+class UserSerializer(serializers.ModelSerializer[AbstractUser]):
     full_name = serializers.CharField(source="first_name")
     is_admin = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
@@ -206,17 +206,17 @@ class UserSerializer(serializers.ModelSerializer[User]):
         model = User
         fields = ["id", "username", "full_name", "is_admin", "role", "permissions"]
 
-    def get_is_admin(self, obj: User) -> bool:
+    def get_is_admin(self, obj: AbstractUser) -> bool:
         return bool(obj.is_staff or obj.is_superuser)
 
-    def get_role(self, obj: User) -> str:
+    def get_role(self, obj: AbstractUser) -> str:
         if obj.is_superuser:
             return "admin"
         if obj.is_staff:
             return "manager"
         return "viewer"
 
-    def get_permissions(self, obj: User) -> list[str]:
+    def get_permissions(self, obj: AbstractUser) -> list[str]:
         return sorted(
             [
                 key
@@ -252,7 +252,7 @@ class UserUpdateSerializer(serializers.Serializer):
             raise serializers.ValidationError(_("Некорректные права доступа"))
         return value
 
-    def update(self, instance: User, validated_data: dict[str, Any]) -> User:
+    def update(self, instance: AbstractUser, validated_data: dict[str, Any]) -> AbstractUser:
         full_name = validated_data.get("full_name")
         if full_name is not None:
             instance.first_name = full_name
@@ -284,7 +284,7 @@ class PasswordChangeSerializer(serializers.Serializer):
         validate_password(value)
         return value
 
-    def update(self, instance: User, validated_data: dict[str, Any]) -> User:
+    def update(self, instance: AbstractUser, validated_data: dict[str, Any]) -> AbstractUser:
         instance.set_password(validated_data["new_password"])
         instance.save(update_fields=["password"])
         return instance
@@ -325,7 +325,7 @@ class RegisterSerializer(serializers.Serializer):
             raise serializers.ValidationError(_("Некорректные права доступа"))
         return value
 
-    def create(self, validated_data: dict[str, Any]) -> User:
+    def create(self, validated_data: dict[str, Any]) -> AbstractUser:
         role = validated_data.get("role") or "viewer"
         permissions = validated_data.get("permissions")
         if permissions is None:

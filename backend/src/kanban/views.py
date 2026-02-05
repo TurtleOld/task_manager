@@ -45,7 +45,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         board = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
-            event_type=NotificationEventType.BOARD_CREATED,
+            event_type=NotificationEventType.BOARD_CREATED[0],
             actor=actor,
             board=board,
             summary=f"Создана доска “{board.name}”",
@@ -56,7 +56,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         board = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
-            event_type=NotificationEventType.BOARD_UPDATED,
+            event_type=NotificationEventType.BOARD_UPDATED[0],
             actor=actor,
             board=board,
             summary=f"Обновлена доска “{board.name}”",
@@ -70,7 +70,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         board = instance
         instance.delete()
         create_notification_event(
-            event_type=NotificationEventType.BOARD_DELETED,
+            event_type=NotificationEventType.BOARD_DELETED[0],
             actor=actor,
             board=board,
             summary=summary,
@@ -87,7 +87,7 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
         column = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
-            event_type=NotificationEventType.COLUMN_CREATED,
+            event_type=NotificationEventType.COLUMN_CREATED[0],
             actor=actor,
             board=column.board,
             column=column,
@@ -99,7 +99,7 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
         column = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
-            event_type=NotificationEventType.COLUMN_UPDATED,
+            event_type=NotificationEventType.COLUMN_UPDATED[0],
             actor=actor,
             board=column.board,
             column=column,
@@ -114,7 +114,7 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
         board = instance.board
         instance.delete()
         create_notification_event(
-            event_type=NotificationEventType.COLUMN_DELETED,
+            event_type=NotificationEventType.COLUMN_DELETED[0],
             actor=actor,
             board=board,
             summary=summary,
@@ -131,7 +131,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         card = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
-            event_type=NotificationEventType.CARD_CREATED,
+            event_type=NotificationEventType.CARD_CREATED[0],
             actor=actor,
             board=card.board,
             column=card.column,
@@ -144,7 +144,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         card = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
-            event_type=NotificationEventType.CARD_UPDATED,
+            event_type=NotificationEventType.CARD_UPDATED[0],
             actor=actor,
             board=card.board,
             column=card.column,
@@ -165,7 +165,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         column = instance.column
         instance.delete()
         create_notification_event(
-            event_type=NotificationEventType.CARD_DELETED,
+            event_type=NotificationEventType.CARD_DELETED[0],
             actor=actor,
             board=board,
             column=column,
@@ -231,7 +231,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             "from_column": before_column.name if before_column else "",
         }
         create_notification_event(
-            event_type=NotificationEventType.CARD_MOVED,
+            event_type=NotificationEventType.CARD_MOVED[0],
             actor=actor,
             board=card.board,
             column=card.column,
@@ -378,7 +378,7 @@ class NotificationPreferenceViewSet(viewsets.ModelViewSet[NotificationPreference
     serializer_class = NotificationPreferenceSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):  # type: ignore[override]
+    def get_queryset(self):
         queryset = NotificationPreference.objects.filter(user=self.request.user).order_by("id")
         board = self.request.query_params.get("board")
         if board:

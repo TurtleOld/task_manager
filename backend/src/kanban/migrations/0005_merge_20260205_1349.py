@@ -9,5 +9,4 @@ class Migration(migrations.Migration):
         ('kanban', '0004_rename_kanban_car_column_p_idx_kanban_card_column__f189d9_idx_and_more'),
     ]
 
-    operations = [
-    ]
+    operations: list[migrations.Operation] = []

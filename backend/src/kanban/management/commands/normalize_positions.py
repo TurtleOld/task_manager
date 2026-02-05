@@ -10,7 +10,7 @@ from kanban.models import Card, Column
 class Command(BaseCommand):
     help = "Normalize positions for columns and cards to sequential integers starting at 1"
 
-    def handle(self, *args, **options):  # type: ignore[no-untyped-def]
+    def handle(self, *args: object, **options: object) -> None:
         self.stdout.write("Normalizing column positions...")
         for board_id in Column.objects.values_list("board_id", flat=True).distinct():
             columns = Column.objects.filter(board_id=board_id).order_by("position", "id")

@@ -4,6 +4,7 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AbstractUser
 from django.db import transaction
 
 from .models import Board, Card, Column, NotificationEvent, NotificationEventType
@@ -22,7 +23,7 @@ def build_frontend_link(board_id: int | None) -> str:
 def create_notification_event(
     *,
     event_type: NotificationEventType | str,
-    actor: User | None,
+    actor: AbstractUser | None,
     board: Board | None,
     column: Column | None = None,
     card: Card | None = None,

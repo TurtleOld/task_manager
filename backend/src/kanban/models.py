@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any
 
 from django.conf import settings
 from django.db import models
@@ -17,7 +18,7 @@ class TimestampedModel(models.Model):
     class Meta:
         abstract = True
 
-    def save(self, *args, **kwargs) -> None:  # type: ignore[override]
+    def save(self, *args: Any, **kwargs: Any) -> None:
         # optimistic version bump on updates
         if self.pk:
             self.version += 1
@@ -97,10 +98,10 @@ class Card(TimestampedModel):
             models.Index(fields=["column", "position"]),
         ]
 
-    def save(self, *args, **kwargs) -> None:  # type: ignore[override]
+    def save(self, *args: Any, **kwargs: Any) -> None:
         # Ensure denormalized board stays in sync with column.board
-        if self.column_id and (self.board_id != self.column.board_id):
-            self.board_id = self.column.board_id
+        if self.column_id:
+            self.board = self.column.board
         super().save(*args, **kwargs)
 
 

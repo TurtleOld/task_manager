@@ -111,10 +111,11 @@ def send_notification_event(self, event_id: int) -> None:
             profile = NotificationProfile.objects.create(user=user)
 
         for channel in [NotificationChannel.EMAIL, NotificationChannel.TELEGRAM]:
-            if not _preferences_enabled(user.id, event, channel):
+            channel_value = channel[0] if isinstance(channel, tuple) else channel
+            if not _preferences_enabled(user.id, event, channel_value):
                 continue
 
-            if channel == NotificationChannel.EMAIL:
+            if channel_value == NotificationChannel.EMAIL:
                 if not profile.email:
                     continue
                 delivery = NotificationDelivery.objects.create(
@@ -133,7 +134,7 @@ def send_notification_event(self, event_id: int) -> None:
                     delivery.save(update_fields=["status", "error"])
                     continue
 
-            if channel == NotificationChannel.TELEGRAM:
+            if channel_value == NotificationChannel.TELEGRAM:
                 if not profile.telegram_chat_id:
                     continue
                 delivery = NotificationDelivery.objects.create(

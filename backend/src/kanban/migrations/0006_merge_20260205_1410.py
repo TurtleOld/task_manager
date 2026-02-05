@@ -11,5 +11,4 @@ class Migration(migrations.Migration):
         ("kanban", "0004_card_extra_fields"),
     ]
 
-    operations = [
-    ]
+    operations: list[migrations.Operation] = []
