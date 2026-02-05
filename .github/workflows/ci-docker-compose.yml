@@ -46,3 +46,9 @@ jobs:
           IMAGE_REGISTRY: ghcr.io/turtleold/task_manager
           IMAGE_TAG: ${{ github.sha }}
         run: docker compose build --pull
+
+      - name: Push images to GHCR
+        env:
+          IMAGE_REGISTRY: ghcr.io/turtleold/task_manager
+          IMAGE_TAG: ${{ github.sha }}
+        run: docker compose push

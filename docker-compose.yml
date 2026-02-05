@@ -19,7 +19,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    image: ${IMAGE_REGISTRY:-ghcr.io/TurtleOld/task_manager}/backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/backend:${IMAGE_TAG:-latest}
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
@@ -49,7 +49,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    image: ${IMAGE_REGISTRY:-ghcr.io/TurtleOld/task_manager}/celery:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/celery:${IMAGE_TAG:-latest}
     command: ["sh", "-lc", "/app/.venv/bin/celery -A config worker -l info"]
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
@@ -78,7 +78,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    image: ${IMAGE_REGISTRY:-ghcr.io/TurtleOld/task_manager}/frontend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/frontend:${IMAGE_TAG:-latest}
     environment:
       VITE_API_BASE_URL: /api
       VITE_PROXY_TARGET: http://backend:8000
