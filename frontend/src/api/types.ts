@@ -27,7 +27,7 @@ export interface Card {
   description: string
   deadline: string | null
   estimate: string
-  priority: string
+  priority: '🔥' | '🟡' | '🟢'
   tags: string[]
   categories: string[]
   checklist: { id: string; text: string; done: boolean }[]

@@ -362,7 +362,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
         setCardAssignees((prev) => ({ ...prev, [updated.id]: updated.assignee ?? undefined }))
       }
       if (patch.priority) {
-        setCardPriorities((prev) => ({ ...prev, [updated.id]: (updated.priority as any) ?? '🟡' }))
+        setCardPriorities((prev) => ({ ...prev, [updated.id]: updated.priority ?? '🟡' }))
       }
     } catch {
       // ignore UI save errors for now

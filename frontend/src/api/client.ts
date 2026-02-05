@@ -11,7 +11,13 @@ import type {
   NotificationPreference,
 } from './types'
 
-const BASE = (import.meta as any).env?.VITE_API_BASE_URL || '/api'
+type ViteImportMeta = ImportMeta & {
+  env?: {
+    VITE_API_BASE_URL?: string
+  }
+}
+
+const BASE = (import.meta as ViteImportMeta).env?.VITE_API_BASE_URL || '/api'
 const V1 = `${BASE}/v1`
 
 async function json<T>(res: Response): Promise<T> {
