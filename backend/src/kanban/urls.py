@@ -20,7 +20,11 @@ router.register(r"boards", BoardViewSet, basename="board")
 router.register(r"columns", ColumnViewSet, basename="column")
 router.register(r"cards", CardViewSet, basename="card")
 router.register(r"users", UserAdminViewSet, basename="user-admin")
-router.register(r"notification-preferences", NotificationPreferenceViewSet, basename="notification-preference")
+router.register(
+    r"notification-preferences",
+    NotificationPreferenceViewSet,
+    basename="notification-preference",
+)
 
 urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),

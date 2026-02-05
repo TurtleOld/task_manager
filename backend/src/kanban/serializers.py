@@ -4,21 +4,22 @@ from decimal import Decimal
 from typing import Any
 
 from django.contrib.auth import get_user_model
-from django.db import models
 from django.contrib.auth.models import Permission
 from django.contrib.auth.password_validation import validate_password
+from django.db import models
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
+
 from .models import (
     Board,
     Card,
-    Column,
-    Tag,
     Category,
-    NotificationProfile,
-    NotificationPreference,
+    Column,
     NotificationChannel,
     NotificationEventType,
+    NotificationPreference,
+    NotificationProfile,
+    Tag,
 )
 
 User = get_user_model()
@@ -231,7 +232,12 @@ class UserSerializer(serializers.ModelSerializer[User]):
 class UserUpdateSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     role = serializers.ChoiceField(
-        choices=[("admin", "admin"), ("manager", "manager"), ("editor", "editor"), ("viewer", "viewer")],
+        choices=[
+            ("admin", "admin"),
+            ("manager", "manager"),
+            ("editor", "editor"),
+            ("viewer", "viewer"),
+        ],
         required=False,
     )
     permissions = serializers.ListField(
@@ -289,7 +295,12 @@ class RegisterSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
     full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     role = serializers.ChoiceField(
-        choices=[("admin", "admin"), ("manager", "manager"), ("editor", "editor"), ("viewer", "viewer")],
+        choices=[
+            ("admin", "admin"),
+            ("manager", "manager"),
+            ("editor", "editor"),
+            ("viewer", "viewer"),
+        ],
         default="viewer",
         required=False,
     )
@@ -331,7 +342,10 @@ class RegisterSerializer(serializers.Serializer):
         permission_pairs = [PERMISSION_MAP[key] for key in permissions]
         app_labels = {app for app, _ in permission_pairs}
         codenames = [codename for _, codename in permission_pairs]
-        perms = Permission.objects.filter(content_type__app_label__in=app_labels, codename__in=codenames)
+        perms = Permission.objects.filter(
+            content_type__app_label__in=app_labels,
+            codename__in=codenames,
+        )
         user.user_permissions.set(perms)
         NotificationProfile.objects.get_or_create(user=user)
         return user

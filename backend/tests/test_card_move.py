@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+
 import pytest
 from django.test import Client
 
@@ -30,7 +31,7 @@ def test_card_move_flow(client: Client) -> None:
         data={"column": col1["id"], "title": "A"},
         content_type="application/json",
     )
-    card1 = json.loads(r1.content)
+    json.loads(r1.content)
     r2 = client.post(
         "/api/v1/cards/",
         data={"column": col1["id"], "title": "B"},

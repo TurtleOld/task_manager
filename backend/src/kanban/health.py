@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from django.urls import path
 from django.http import JsonResponse
+from django.urls import path
 
 
 def health_view(_request):

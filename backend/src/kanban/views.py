@@ -7,10 +7,10 @@ from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.db import transaction
 from rest_framework import permissions, status, viewsets
+from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView
 
 from .models import (
@@ -156,7 +156,11 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     def perform_destroy(self, instance: Card) -> None:
         actor = self.request.user if self.request.user.is_authenticated else None
         summary = f"Удалена карточка “{instance.title}”"
-        payload = {"board": instance.board.name, "column": instance.column.name, "card": instance.title}
+        payload = {
+            "board": instance.board.name,
+            "column": instance.column.name,
+            "card": instance.title,
+        }
         board = instance.board
         column = instance.column
         instance.delete()

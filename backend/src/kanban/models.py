@@ -3,9 +3,8 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import models, transaction
+from django.db import models
 from django.utils import timezone
-
 
 POSITION_DEFAULT = Decimal("1")
 

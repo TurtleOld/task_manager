@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
+from urllib import request
+
 from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.utils import timezone
 from django.utils.text import Truncator
-from urllib import request
 
 from .models import (
     NotificationChannel,
@@ -73,7 +74,11 @@ def _send_telegram(chat_id: str, message: str) -> None:
 
 
 def _preferences_enabled(user_id: int, event: NotificationEvent, channel: str) -> bool:
-    qs = NotificationPreference.objects.filter(user_id=user_id, channel=channel, event_type=event.event_type)
+    qs = NotificationPreference.objects.filter(
+        user_id=user_id,
+        channel=channel,
+        event_type=event.event_type,
+    )
     if event.board_id:
         board_qs = qs.filter(board_id=event.board_id)
         if board_qs.exists():
@@ -86,7 +91,11 @@ def _preferences_enabled(user_id: int, event: NotificationEvent, channel: str) -
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def send_notification_event(self, event_id: int) -> None:
-    event = NotificationEvent.objects.filter(id=event_id).select_related("actor", "board", "column", "card").first()
+    event = (
+        NotificationEvent.objects.filter(id=event_id)
+        .select_related("actor", "board", "column", "card")
+        .first()
+    )
     if not event:
         return
 

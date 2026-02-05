@@ -11,7 +11,15 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="Tag",
             fields=[
-                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
                 ("created_at", models.DateTimeField(default=timezone.now, editable=False)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
                 ("version", models.PositiveIntegerField(default=1)),
@@ -24,7 +32,15 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="Category",
             fields=[
-                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
                 ("created_at", models.DateTimeField(default=timezone.now, editable=False)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
                 ("version", models.PositiveIntegerField(default=1)),
