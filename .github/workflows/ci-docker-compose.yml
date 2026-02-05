@@ -52,3 +52,17 @@ jobs:
           IMAGE_REGISTRY: ghcr.io/turtleold/task_manager
           IMAGE_TAG: ${{ github.sha }}
         run: docker compose push
+
+      - name: Tag and push moving tags (main, latest)
+        if: github.ref == 'refs/heads/main'
+        env:
+          IMAGE_REGISTRY: ghcr.io/turtleold/task_manager
+          SHA_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          for img in backend celery frontend; do
+            docker tag "$IMAGE_REGISTRY/$img:$SHA_TAG" "$IMAGE_REGISTRY/$img:main"
+            docker push "$IMAGE_REGISTRY/$img:main"
+            docker tag "$IMAGE_REGISTRY/$img:$SHA_TAG" "$IMAGE_REGISTRY/$img:latest"
+            docker push "$IMAGE_REGISTRY/$img:latest"
+          done
