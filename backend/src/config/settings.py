@@ -85,6 +85,19 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
+
+# Where collectstatic will gather static files.
+# Default aligned with Docker image layout (APP_ROOT defaults to /app in container).
+STATIC_ROOT = os.getenv(
+    "DJANGO_STATIC_ROOT",
+    str((Path(os.getenv("APP_ROOT", "/app")) / "static").resolve()),
+)
+
+# Media files (user uploads etc.)
+MEDIA_ROOT = os.getenv(
+    "DJANGO_MEDIA_ROOT",
+    str((Path(os.getenv("APP_ROOT", "/app")) / "media").resolve()),
+)
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
