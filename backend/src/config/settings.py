@@ -6,8 +6,11 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 
-env_path = Path(__file__).resolve().parents[2] / ".env"
-load_dotenv(env_path)
+# Load env vars from repo root `.env` (preferred, used by docker-compose by default).
+# Fallback to `backend/.env` for legacy local setups.
+_repo_root_env = Path(__file__).resolve().parents[3] / ".env"
+_backend_env = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(_repo_root_env if _repo_root_env.exists() else _backend_env)
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent  # points to backend/src

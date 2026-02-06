@@ -26,6 +26,7 @@ import type {
 
 const AUTH_TOKEN_KEY = 'auth_token'
 const AUTH_USER_KEY = 'auth_user'
+const THEME_KEY = 'theme'
 
 const permissionCatalog: { key: PermissionKey; label: string; desc: string }[] = [
   { key: 'boards:view', label: 'Просмотр досок', desc: 'Доступ к списку и содержимому досок' },
@@ -105,6 +106,20 @@ function useAuthState() {
   }
 
   return { user, token, login, logout }
+}
+
+function persistTheme(isDark: boolean) {
+  try {
+    localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light')
+  } catch {
+    // ignore
+  }
+}
+
+function toggleTheme() {
+  const nextIsDark = !document.documentElement.classList.contains('dark')
+  document.documentElement.classList.toggle('dark', nextIsDark)
+  persistTheme(nextIsDark)
 }
 
 function useBoards() {
@@ -709,12 +724,12 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
             >
               Выйти
             </button>
-            <button
-              type="button"
-              onClick={() => document.documentElement.classList.toggle('dark')}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-              aria-label="Переключить тему"
-            >
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                aria-label="Переключить тему"
+              >
               <span aria-hidden="true">🌓</span>
               Тема
             </button>
@@ -1644,7 +1659,7 @@ function RegisterPage({ user }: { user: AuthUser | null }) {
               </Link>
               <button
                 type="button"
-                onClick={() => document.documentElement.classList.toggle('dark')}
+                onClick={toggleTheme}
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
               >
                 🌓 Тема
@@ -2029,7 +2044,7 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
     setUseCustomPermissions(false)
     setEditErrors({})
     setPasswordOpen(false)
-    setProfileOpen(true)
+    setProfileOpen(false)
     setNewPassword('')
     setPasswordError('')
   }
@@ -2425,22 +2440,31 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                         <p className="text-sm text-slate-500 dark:text-slate-400">Загрузка…</p>
                       ) : null}
                       {users.map((item) => (
-                        <button
+                        <div
                           key={item.id}
-                          type="button"
-                          onClick={() => selectUser(item)}
-                          className={`w-full rounded-xl border px-3 py-3 text-left text-sm transition ${
+                          className={`w-full rounded-xl border px-3 py-3 text-left text-sm ${
                             selectedUser?.id === item.id
                               ? 'border-sky-500 bg-sky-50 text-slate-900 dark:border-sky-400 dark:bg-slate-900'
-                              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300'
+                              : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300'
                           }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold">{item.full_name || item.username}</span>
-                            <span className="text-xs text-slate-400">#{item.id}</span>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between">
+                                <span className="truncate font-semibold">{item.full_name || item.username}</span>
+                                <span className="ml-2 shrink-0 text-xs text-slate-400">#{item.id}</span>
+                              </div>
+                              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{item.username}</div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => selectUser(item)}
+                              className="shrink-0 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
+                            >
+                              Выбрать
+                            </button>
                           </div>
-                          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{item.username}</div>
-                        </button>
+                        </div>
                       ))}
                       {!loadingUsers && users.length === 0 ? (
                         <p className="text-sm text-slate-500 dark:text-slate-400">Пользователи не найдены.</p>
@@ -2477,13 +2501,6 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                             className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500"
                           >
                             Открыть профиль
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => selectUser(selectedUser)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
-                          >
-                            Обновить данные
                           </button>
                         </div>
                       </div>

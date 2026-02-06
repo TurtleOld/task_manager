@@ -4,6 +4,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     VIRTUAL_ENV=/app/.venv \
     PATH=/app/.venv/bin:$PATH \
+    # Ensure Django project packages (./src/config, ./src/kanban, etc.) are importable
+    # for process entrypoints that don't go through manage.py (e.g. daphne, celery).
+    PYTHONPATH=/app/src \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 

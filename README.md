@@ -22,6 +22,13 @@
 docker compose up --build
 ```
 
+### Единый файл переменных окружения
+
+Используйте один файл `./.env` в корне репозитория (рядом с [`docker-compose.yml`](docker-compose.yml:1)).
+
+- Docker Compose использует этот файл для подстановки `${...}` в `docker-compose.yml`.
+- Backend (Django) также загружает `./.env` при старте (с fallback на `backend/.env` для legacy-окружений).
+
 После старта:
 
 - Frontend: http://localhost:5173
@@ -31,7 +38,7 @@ docker compose up --build
 
 ### Переменные окружения (опционально)
 
-Можно переопределить в `.env` или через окружение:
+Можно переопределить в `./.env` или через окружение:
 
 - `POSTGRES_USER` (по умолчанию `postgres`)
 - `POSTGRES_PASSWORD` (по умолчанию `postgres`)

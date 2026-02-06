@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16
+    image: postgres:17
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -13,7 +13,13 @@ services:
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "16379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
 
   backend:
     build:
@@ -36,9 +42,18 @@ services:
       EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
       EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-notifications@task-manager.local}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:$$PORT/api/health > /dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "8000:8000"
     volumes:
@@ -68,8 +83,10 @@ services:
       EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-notifications@task-manager.local}
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./backend/src:/app/src
       - ./backend/manage.py:/app/manage.py
@@ -79,15 +96,25 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/frontend:${IMAGE_TAG:-main}
+    command:
+      [
+        "sh",
+        "-lc",
+        "if [ ! -d node_modules ] || [ -z \"$(ls -A node_modules 2>/dev/null || true)\" ]; then npm ci --include=optional; fi; npm run dev -- --host 0.0.0.0 --port 5173"
+      ]
     environment:
       VITE_API_BASE_URL: /api
       VITE_PROXY_TARGET: http://backend:8000
     ports:
       - "5173:5173"
-    depends_on:
-      - backend
     volumes:
       - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   db-data:
+  frontend-node-modules:

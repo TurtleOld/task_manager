@@ -1,8 +1,21 @@
 @import "tailwindcss";
 
+/* Tailwind v4 (CSS-first): чтобы Tailwind точно использовал наш конфиг (в т.ч. `darkMode: 'class'`),
+   подключаем его явно через `@config`.
+
+   Важно: в v4 `@config` должен идти ПОСЛЕ `@import "tailwindcss";`, иначе Tailwind может
+   некорректно обработать `@apply` (симптом: "Cannot apply unknown utility class ...").
+*/
+@config "../tailwind.config.cjs";
+
 @layer base {
   :root {
-    color-scheme: light dark;
+    /* Для корректной отрисовки встроенных элементов (scrollbar, формы и т.п.) */
+    color-scheme: light;
+  }
+
+  :root.dark {
+    color-scheme: dark;
   }
 
   body {
