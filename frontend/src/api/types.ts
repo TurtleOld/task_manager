@@ -31,7 +31,15 @@ export interface Card {
   tags: string[]
   categories: string[]
   checklist: { id: string; text: string; done: boolean }[]
-  attachments: { id: string; name: string; type: 'file' | 'link' | 'photo'; url?: string }[]
+  attachments: {
+    id: string
+    name: string
+    type: 'file' | 'link' | 'photo'
+    url?: string
+    mimeType?: string
+    size?: number
+    createdAt?: string
+  }[]
   position: string
   created_at: string
   updated_at: string

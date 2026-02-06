@@ -101,6 +101,7 @@ MEDIA_ROOT = os.getenv(
     "DJANGO_MEDIA_ROOT",
     str((Path(os.getenv("APP_ROOT", "/app")) / "media").resolve()),
 )
+MEDIA_URL = os.getenv("DJANGO_MEDIA_URL", "/media/")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 

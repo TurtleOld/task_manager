@@ -5,6 +5,12 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-task_manager}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1 -p 5432"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
     ports:
       - "5437:5432"
     volumes:
@@ -43,7 +49,8 @@ services:
       EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-notifications@task-manager.local}
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsSL http://localhost:$$PORT/api/health > /dev/null"]
+      # PORT env is not set in this compose file; Django runs on 8000 inside the container
+      test: ["CMD-SHELL", "curl -fsSL http://localhost:8000/api/health > /dev/null"]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -59,6 +66,7 @@ services:
     volumes:
       - ./backend/src:/app/src
       - ./backend/manage.py:/app/manage.py
+      - ./media:/app/media
 
   celery:
     build:
@@ -90,6 +98,7 @@ services:
     volumes:
       - ./backend/src:/app/src
       - ./backend/manage.py:/app/manage.py
+      - ./media:/app/media
 
   frontend:
     build:

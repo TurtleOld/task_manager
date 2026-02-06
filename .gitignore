@@ -36,6 +36,10 @@ frontend/*.tsbuildinfo
 logs/
 **/*.log
 
+# User uploads (Django MEDIA_ROOT)
+media/
+!media/.gitkeep
+
 # Note: keep lock files committed for reproducible builds
 !frontend/package-lock.json
 !backend/uv.lock

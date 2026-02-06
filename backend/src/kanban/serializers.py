@@ -149,6 +149,16 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             card.categories.set(categories)
         return card
 
+    def to_representation(self, instance: Card) -> dict[str, Any]:
+        data = super().to_representation(instance)
+        # Do not leak internal storage paths (used only for server-side deletes).
+        attachments = data.get("attachments")
+        if isinstance(attachments, list):
+            for item in attachments:
+                if isinstance(item, dict):
+                    item.pop("path", None)
+        return data
+
 
 PERMISSION_MAP: dict[str, tuple[str, str]] = {
     "boards:view": ("kanban", "view_board"),

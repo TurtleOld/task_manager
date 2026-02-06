@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Link,
   Navigate,
@@ -244,7 +244,18 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   const [cardCategories, setCardCategories] = useState<Record<number, string[]>>({})
   const [cardChecklist, setCardChecklist] = useState<Record<number, { id: string; text: string; done: boolean }[]>>({})
   const [cardAttachments, setCardAttachments] = useState<
-    Record<number, { id: string; name: string; type: 'file' | 'link' | 'photo'; url?: string }[]>
+    Record<
+      number,
+      {
+        id: string
+        name: string
+        type: 'file' | 'link' | 'photo'
+        url?: string
+        mimeType?: string
+        size?: number
+        createdAt?: string
+      }[]
+    >
   >({})
   const [cardAssignees, setCardAssignees] = useState<Record<number, number | undefined>>({})
   const [cardDeadlines, setCardDeadlines] = useState<Record<number, string>>({})
@@ -256,6 +267,9 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   const [newAttachmentName, setNewAttachmentName] = useState('')
   const [newAttachmentType, setNewAttachmentType] = useState<'file' | 'link' | 'photo'>('file')
   const [newAttachmentUrl, setNewAttachmentUrl] = useState('')
+  const [newAttachmentFiles, setNewAttachmentFiles] = useState<File[]>([])
+  const [attachmentFileInputKey, setAttachmentFileInputKey] = useState(0)
+  const attachmentFileInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     api.listColumns(boardId).then(setColumns)
@@ -277,7 +291,18 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
         return next
       })
       setCardAttachments(() => {
-        const next: Record<number, { id: string; name: string; type: 'file' | 'link' | 'photo'; url?: string }[]> = {}
+        const next: Record<
+          number,
+          {
+            id: string
+            name: string
+            type: 'file' | 'link' | 'photo'
+            url?: string
+            mimeType?: string
+            size?: number
+            createdAt?: string
+          }[]
+        > = {}
         for (const card of loaded) next[card.id] = card.attachments ?? []
         return next
       })
@@ -337,6 +362,8 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
     setNewAttachmentName('')
     setNewAttachmentUrl('')
     setNewAttachmentType('file')
+    setNewAttachmentFiles([])
+    setAttachmentFileInputKey((k) => k + 1)
   }, [selectedCard?.id])
 
   useEffect(() => {
@@ -362,7 +389,15 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
       tags: string[]
       categories: string[]
       checklist: { id: string; text: string; done: boolean }[]
-      attachments: { id: string; name: string; type: 'file' | 'link' | 'photo'; url?: string }[]
+      attachments: {
+        id: string
+        name: string
+        type: 'file' | 'link' | 'photo'
+        url?: string
+        mimeType?: string
+        size?: number
+        createdAt?: string
+      }[]
     }>
   ) => {
     if (!selectedCardId) return
@@ -650,8 +685,23 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
     void persistSelectedCard({ checklist: next })
   }
 
-  const addAttachment = () => {
+  const addAttachment = async () => {
     if (!selectedCardId) return
+
+    if (newAttachmentType === 'file') {
+      if (newAttachmentFiles.length === 0) return
+      try {
+        const updated = await api.uploadCardAttachments(selectedCardId, newAttachmentFiles)
+        applyCardUpdate(updated)
+        setCardAttachments((prev) => ({ ...prev, [updated.id]: updated.attachments ?? [] }))
+        setNewAttachmentFiles([])
+        setAttachmentFileInputKey((k) => k + 1)
+      } catch {
+        // ignore UI upload errors for now
+      }
+      return
+    }
+
     const name = newAttachmentName.trim()
     if (!name) return
     const attachment = {
@@ -667,9 +717,21 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
     setNewAttachmentUrl('')
   }
 
-  const removeAttachment = (attachmentId: string) => {
+  const removeAttachment = async (item: { id: string; type: 'file' | 'link' | 'photo' }) => {
     if (!selectedCardId) return
-    const next = (cardAttachments[selectedCardId] ?? []).filter((item) => item.id !== attachmentId)
+
+    if (item.type === 'file') {
+      try {
+        const updated = await api.deleteCardAttachment(selectedCardId, item.id)
+        applyCardUpdate(updated)
+        setCardAttachments((prev) => ({ ...prev, [updated.id]: updated.attachments ?? [] }))
+      } catch {
+        // ignore UI delete errors for now
+      }
+      return
+    }
+
+    const next = (cardAttachments[selectedCardId] ?? []).filter((x) => x.id !== item.id)
     setCardAttachments((prev) => ({ ...prev, [selectedCardId]: next }))
     void persistSelectedCard({ attachments: next })
   }
@@ -1165,18 +1227,48 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                         <option value="link">Ссылка</option>
                         <option value="photo">Фото</option>
                       </select>
-                      <input
-                        value={newAttachmentName}
-                        onChange={(event) => setNewAttachmentName(event.target.value)}
-                        placeholder="Название"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                      />
-                      <input
-                        value={newAttachmentUrl}
-                        onChange={(event) => setNewAttachmentUrl(event.target.value)}
-                        placeholder="URL (необязательно)"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                      />
+
+                      {newAttachmentType === 'file' ? (
+                        <>
+                          <input
+                            key={attachmentFileInputKey}
+                            ref={attachmentFileInputRef}
+                            type="file"
+                            multiple
+                            onChange={(event) => {
+                              const list = event.target.files ? Array.from(event.target.files) : []
+                              setNewAttachmentFiles(list)
+                            }}
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => attachmentFileInputRef.current?.click()}
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                          >
+                            {newAttachmentFiles.length === 0
+                              ? 'Файл не выбран'
+                              : newAttachmentFiles.length === 1
+                                ? newAttachmentFiles[0]?.name
+                                : `Выбрано: ${newAttachmentFiles.length} файла(ов)`}
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <input
+                            value={newAttachmentName}
+                            onChange={(event) => setNewAttachmentName(event.target.value)}
+                            placeholder="Название"
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                          />
+                          <input
+                            value={newAttachmentUrl}
+                            onChange={(event) => setNewAttachmentUrl(event.target.value)}
+                            placeholder="URL (необязательно)"
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                          />
+                        </>
+                      )}
                       <button
                         type="button"
                         onClick={addAttachment}
@@ -1196,10 +1288,29 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                             {item.type === 'file' ? '📎' : item.type === 'photo' ? '🖼️' : '🔗'} {item.name}
                           </span>
                           <div className="flex items-center gap-2 text-xs">
-                            {item.url ? <span className="text-slate-400">{item.url}</span> : null}
+                            {item.type === 'file' && item.url ? (
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-semibold text-sky-600 hover:text-sky-500"
+                              >
+                                Открыть
+                              </a>
+                            ) : null}
+                            {item.type !== 'file' && item.url ? (
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-semibold text-sky-600 hover:text-sky-500"
+                              >
+                                Открыть
+                              </a>
+                            ) : null}
                             <button
                               type="button"
-                              onClick={() => removeAttachment(item.id)}
+                              onClick={() => void removeAttachment(item)}
                               className="text-rose-600 hover:text-rose-500"
                             >
                               Удалить

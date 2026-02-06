@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import logging
 from urllib import request
+from urllib.error import HTTPError, URLError
 
 from celery import shared_task
 from django.conf import settings
@@ -19,6 +21,8 @@ from .models import (
 )
 
 User = get_user_model()
+
+logger = logging.getLogger(__name__)
 
 
 def _event_title(event: NotificationEvent) -> str:
@@ -68,9 +72,23 @@ def _send_telegram(chat_id: str, message: str) -> None:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with request.urlopen(req, timeout=10) as resp:
-        if resp.status >= 400:
-            raise RuntimeError(f"Telegram API error: {resp.status}")
+    try:
+        with request.urlopen(req, timeout=10) as resp:
+            if resp.status >= 400:
+                raise RuntimeError(f"Telegram API error: HTTP {resp.status}")
+    except HTTPError as exc:
+        # Telegram API usually returns a JSON body like:
+        # {"ok":false,"error_code":403,"description":"Forbidden: bot was blocked by the user"}
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")
+        except Exception:  # noqa: BLE001
+            body = "<failed to read response body>"
+        logger.warning("Telegram API HTTPError: status=%s body=%s", exc.code, body)
+        raise RuntimeError(f"Telegram API error: HTTP {exc.code}; body={body}") from exc
+    except URLError as exc:
+        logger.warning("Telegram API URLError: %s", exc)
+        raise RuntimeError(f"Telegram API connection error: {exc}") from exc
 
 
 def _preferences_enabled(user_id: int, event: NotificationEvent, channel: str) -> bool:

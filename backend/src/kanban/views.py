@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import uuid
 from decimal import Decimal
 from typing import Any
 
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.models import AnonymousUser
+from django.core.files.storage import default_storage
 from django.db import transaction
+from django.utils.text import get_valid_filename
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -126,6 +130,111 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     queryset = Card.objects.select_related("board", "column").all().order_by("position", "id")
     serializer_class = CardSerializer
     filterset_fields = ["board", "column"]
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="attachments",
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def upload_attachments(self, request: Request, pk: str | None = None) -> Response:
+        """Upload one or many files and attach them to the card.
+
+        Expects multipart/form-data with field name: files
+        """
+        # Note: `self.get_object()` does not lock the row; we lock explicitly for race-safety.
+        card_id = int(pk) if pk is not None else None
+        if not card_id:
+            return Response({"detail": "Card id is required"}, status=400)
+
+        files = request.FILES.getlist("files") or request.FILES.getlist("file")
+        if not files:
+            return Response(
+                {"detail": "No files uploaded. Use form field 'files'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            try:
+                card = Card.objects.select_for_update().get(id=card_id)
+            except Card.DoesNotExist:
+                return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+            existing = list(card.attachments or [])
+
+            for f in files:
+                attachment_id = str(uuid.uuid4())
+                safe_name = get_valid_filename(getattr(f, "name", "file"))
+                storage_path = f"cards/{card.id}/{attachment_id}-{safe_name}"
+
+                saved_path = default_storage.save(storage_path, f)
+                url = default_storage.url(saved_path)
+
+                item = {
+                    "id": attachment_id,
+                    "name": safe_name,
+                    "type": "file",
+                    "url": url,
+                    "mimeType": getattr(f, "content_type", ""),
+                    "size": getattr(f, "size", None),
+                    "path": saved_path,
+                }
+                existing.append(item)
+
+            card.attachments = existing
+            card.save(update_fields=["attachments"])
+
+        # Return updated card to keep frontend state consistent
+        return Response(self.get_serializer(card).data, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=["delete"],
+        url_path=r"attachments/(?P<attachment_id>[^/]+)",
+    )
+    def delete_attachment(
+        self,
+        request: Request,
+        pk: str | None = None,
+        attachment_id: str | None = None,
+    ) -> Response:
+        card_id = int(pk) if pk is not None else None
+        if not card_id or not attachment_id:
+            return Response({"detail": "Card id and attachment id are required"}, status=400)
+
+        with transaction.atomic():
+            try:
+                card = Card.objects.select_for_update().get(id=card_id)
+            except Card.DoesNotExist:
+                return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+            existing = list(card.attachments or [])
+
+            removed: dict[str, Any] | None = None
+            kept: list[dict[str, Any]] = []
+            for item in existing:
+                if str(item.get("id")) == attachment_id and removed is None:
+                    removed = item
+                    continue
+                kept.append(item)
+
+            if removed is None:
+                return Response(
+                    {"detail": "Attachment not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Best-effort delete from storage if we have the internal path.
+            path = removed.get("path")
+            if isinstance(path, str) and path:
+                try:
+                    default_storage.delete(path)
+                except Exception:  # noqa: BLE001
+                    # File might be already removed; do not fail the API.
+                    pass
+
+            card.attachments = kept
+            card.save(update_fields=["attachments"])
+
+        return Response(self.get_serializer(card).data, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer: CardSerializer) -> None:
         card = serializer.save()

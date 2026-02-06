@@ -58,6 +58,8 @@ services:
         condition: service_healthy
     ports:
       - "18000:8000"
+    volumes:
+      - ./media:/app/media
     healthcheck:
       test: ["CMD-SHELL", "curl -fsSL http://localhost:$$PORT/api/health > /dev/null"]
       interval: 5s
@@ -92,6 +94,8 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    volumes:
+      - ./media:/app/media
 
   frontend:
     image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/frontend:${IMAGE_TAG:-latest}

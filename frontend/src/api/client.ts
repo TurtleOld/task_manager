@@ -41,6 +41,12 @@ function authHeaders(): HeadersInit {
   return { 'Content-Type': 'application/json', Authorization: `Token ${token}` }
 }
 
+function authOnlyHeaders(): HeadersInit {
+  const token = localStorage.getItem('auth_token')
+  if (!token) return {}
+  return { Authorization: `Token ${token}` }
+}
+
 export const api = {
   // Boards
   listBoards: async (): Promise<Board[]> => {
@@ -107,6 +113,25 @@ export const api = {
       method: 'PATCH',
       headers: authHeaders(),
       body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+
+  uploadCardAttachments: async (id: number, files: File[]): Promise<Card> => {
+    const form = new FormData()
+    for (const f of files) form.append('files', f)
+    const res = await fetch(`${V1}/cards/${id}/attachments/`, {
+      method: 'POST',
+      headers: authOnlyHeaders(),
+      body: form,
+    })
+    return json(res)
+  },
+
+  deleteCardAttachment: async (id: number, attachmentId: string): Promise<Card> => {
+    const res = await fetch(`${V1}/cards/${id}/attachments/${encodeURIComponent(attachmentId)}/`, {
+      method: 'DELETE',
+      headers: authOnlyHeaders(),
     })
     return json(res)
   },
