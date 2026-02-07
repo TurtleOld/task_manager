@@ -2,27 +2,187 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime
 from urllib import request
 from urllib.error import HTTPError, URLError
+from zoneinfo import ZoneInfo
 
 from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
+from django.db.utils import IntegrityError
 from django.utils import timezone
 from django.utils.text import Truncator
 
 from .models import (
+    Card,
+    CardDeadlineReminder,
+    CardDeadlineReminderDelivery,
     NotificationChannel,
     NotificationDelivery,
     NotificationEvent,
     NotificationPreference,
     NotificationProfile,
 )
+from .reminders import reminder_channel_availability, resolve_delivery_channel
 
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
+
+
+def _ru_plural(value: int, forms: tuple[str, str, str]) -> str:
+    # forms: (one, few, many) e.g. ("минута", "минуты", "минут")
+    n = abs(int(value))
+    if n % 10 == 1 and n % 100 != 11:
+        return forms[0]
+    if 2 <= n % 10 <= 4 and not (12 <= n % 100 <= 14):
+        return forms[1]
+    return forms[2]
+
+
+def _format_offset_ru(*, value: int, unit: str) -> str:
+    if unit == CardDeadlineReminder.Unit.HOURS:
+        word = _ru_plural(value, ("час", "часа", "часов"))
+        return f"за {value} {word} до срока"
+    word = _ru_plural(value, ("минуту", "минуты", "минут"))
+    return f"за {value} {word} до срока"
+
+
+def _format_deadline_ru(*, dt: datetime, tz_name: str) -> str:
+    try:
+        tz = ZoneInfo(tz_name or "UTC")
+    except Exception:  # noqa: BLE001
+        tz = ZoneInfo("UTC")
+    local = timezone.localtime(dt, tz)
+    return local.strftime("%d.%m.%Y %H:%M")
+
+
+def _build_card_link(*, card: Card) -> str:
+    base = settings.FRONTEND_BASE_URL.rstrip("/")
+    # Frontend has a board page; we include a fragment with card id for quick manual search.
+    return f"{base}/boards/{card.board_id}#card-{card.id}"
+
+
+@shared_task(bind=True, max_retries=5, default_retry_delay=60)
+def send_card_deadline_reminder(self, reminder_id: int, schedule_token: str) -> None:
+    reminder = (
+        CardDeadlineReminder.objects.filter(id=reminder_id).select_related("card", "user").first()
+    )
+    if not reminder:
+        return
+
+    # Skip outdated enqueued tasks after reschedule.
+    if not reminder.schedule_token or str(reminder.schedule_token) != str(schedule_token):
+        return
+
+    card = Card.objects.filter(id=reminder.card_id).first()
+    if not card or not card.deadline:
+        reminder.status = CardDeadlineReminder.Status.INVALID_NO_DEADLINE
+        reminder.scheduled_at = None
+        reminder.schedule_token = None
+        reminder.save(
+            update_fields=[
+                "status",
+                "scheduled_at",
+                "schedule_token",
+                "updated_at",
+                "version",
+            ]
+        )
+        return
+
+    availability = reminder_channel_availability(
+        user_id=reminder.user_id,
+        board_id=card.board_id,
+        event_type="card.deadline_reminder",
+    )
+    channel = resolve_delivery_channel(reminder=reminder, availability=availability)
+    if not channel:
+        reminder.status = CardDeadlineReminder.Status.INVALID_CHANNEL
+        reminder.scheduled_at = None
+        reminder.schedule_token = None
+        reminder.save(
+            update_fields=[
+                "status",
+                "scheduled_at",
+                "schedule_token",
+                "updated_at",
+                "version",
+            ]
+        )
+        return
+
+    # Idempotency: one delivery per (reminder, schedule_token).
+    dedupe_key = f"card.deadline_reminder:{reminder.id}:{schedule_token}"
+    try:
+        delivery, _created = CardDeadlineReminderDelivery.objects.get_or_create(
+            dedupe_key=dedupe_key,
+            defaults={
+                "reminder_id": reminder.id,
+                "card_id": card.id,
+                "user_id": reminder.user_id,
+                "channel": channel,
+                "status": CardDeadlineReminderDelivery.Status.QUEUED,
+            },
+        )
+    except IntegrityError:
+        delivery = CardDeadlineReminderDelivery.objects.get(dedupe_key=dedupe_key)
+
+    if delivery.status == CardDeadlineReminderDelivery.Status.SENT:
+        return
+
+    # Mark processing (safe on retries)
+    if delivery.status != CardDeadlineReminderDelivery.Status.PROCESSING:
+        delivery.status = CardDeadlineReminderDelivery.Status.PROCESSING
+        delivery.started_at = timezone.now()
+        delivery.save(update_fields=["status", "started_at"])
+
+    profile, _ = NotificationProfile.objects.get_or_create(user_id=reminder.user_id)
+    offset_text = _format_offset_ru(value=reminder.offset_value, unit=reminder.offset_unit)
+    deadline_text = _format_deadline_ru(dt=card.deadline, tz_name=profile.timezone)
+    link = _build_card_link(card=card)
+
+    subject = f"Напоминание: {card.title}"
+    body_lines = [
+        f"Напоминание по задаче: {card.title}",
+        f"Дедлайн: {deadline_text}",
+        f"Интервал: {offset_text}",
+        "",
+        f"Открыть задачу: {link}",
+    ]
+    body = "\n".join(body_lines)
+
+    try:
+        if channel == NotificationChannel.EMAIL:
+            if not profile.email:
+                raise RuntimeError("Email is not configured")
+            _send_email(profile.email, subject, body)
+        elif channel == NotificationChannel.TELEGRAM:
+            if not profile.telegram_chat_id:
+                raise RuntimeError("Telegram chat_id is not configured")
+            _send_telegram(profile.telegram_chat_id, body)
+        else:
+            raise RuntimeError(f"Unsupported channel: {channel}")
+
+        delivery.status = CardDeadlineReminderDelivery.Status.SENT
+        delivery.sent_at = timezone.now()
+        delivery.save(update_fields=["status", "sent_at"])
+
+        reminder.status = CardDeadlineReminder.Status.SENT
+        reminder.sent_at = delivery.sent_at
+        reminder.last_error = ""
+        reminder.save(update_fields=["status", "sent_at", "last_error", "updated_at", "version"])
+    except Exception as exc:  # noqa: BLE001
+        delivery.status = CardDeadlineReminderDelivery.Status.FAILED
+        delivery.error = str(exc)
+        delivery.save(update_fields=["status", "error"])
+
+        reminder.status = CardDeadlineReminder.Status.FAILED
+        reminder.last_error = str(exc)
+        reminder.save(update_fields=["status", "last_error", "updated_at", "version"])
+        raise self.retry(exc=exc)
 
 
 def _event_title(event: NotificationEvent) -> str:

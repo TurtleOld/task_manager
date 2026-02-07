@@ -20,14 +20,17 @@ from rest_framework.views import APIView
 from .models import (
     Board,
     Card,
+    CardDeadlineReminder,
     Column,
     NotificationEventType,
     NotificationPreference,
     NotificationProfile,
 )
 from .notifications import create_notification_event
+from .reminders import reminder_channel_availability, upsert_and_schedule_reminder
 from .serializers import (
     BoardSerializer,
+    CardDeadlineReminderSerializer,
     CardSerializer,
     ColumnSerializer,
     NotificationPreferenceSerializer,
@@ -49,7 +52,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         board = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
-            event_type=NotificationEventType.BOARD_CREATED[0],
+            event_type=NotificationEventType.BOARD_CREATED.value,
             actor=actor,
             board=board,
             summary=f"Создана доска “{board.name}”",
@@ -60,7 +63,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         board = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
-            event_type=NotificationEventType.BOARD_UPDATED[0],
+            event_type=NotificationEventType.BOARD_UPDATED.value,
             actor=actor,
             board=board,
             summary=f"Обновлена доска “{board.name}”",
@@ -74,7 +77,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         board = instance
         instance.delete()
         create_notification_event(
-            event_type=NotificationEventType.BOARD_DELETED[0],
+            event_type=NotificationEventType.BOARD_DELETED.value,
             actor=actor,
             board=board,
             summary=summary,
@@ -91,7 +94,7 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
         column = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
-            event_type=NotificationEventType.COLUMN_CREATED[0],
+            event_type=NotificationEventType.COLUMN_CREATED.value,
             actor=actor,
             board=column.board,
             column=column,
@@ -103,7 +106,7 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
         column = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
-            event_type=NotificationEventType.COLUMN_UPDATED[0],
+            event_type=NotificationEventType.COLUMN_UPDATED.value,
             actor=actor,
             board=column.board,
             column=column,
@@ -118,7 +121,7 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
         board = instance.board
         instance.delete()
         create_notification_event(
-            event_type=NotificationEventType.COLUMN_DELETED[0],
+            event_type=NotificationEventType.COLUMN_DELETED.value,
             actor=actor,
             board=board,
             summary=summary,
@@ -240,7 +243,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         card = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
-            event_type=NotificationEventType.CARD_CREATED[0],
+            event_type=NotificationEventType.CARD_CREATED.value,
             actor=actor,
             board=card.board,
             column=card.column,
@@ -250,36 +253,193 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         )
 
     def perform_update(self, serializer: CardSerializer) -> None:
+        # Notifications for card updates are sent explicitly via the notify endpoint
+        # after a user-confirmed save action from the UI.
         card = serializer.save()
-        actor = self.request.user if self.request.user.is_authenticated else None
-        create_notification_event(
-            event_type=NotificationEventType.CARD_UPDATED[0],
+
+        # Reschedule all reminders for this card (personal reminders of all users).
+        reminders = CardDeadlineReminder.objects.filter(card_id=card.id, enabled=True)
+        for reminder in reminders:
+            upsert_and_schedule_reminder(card=card, reminder=reminder)
+
+    def perform_destroy(self, instance: Card) -> None:
+        # Notifications for card deletion are sent explicitly via the notify endpoint
+        # after the API confirms the card is deleted.
+        instance.delete()
+
+    @action(detail=True, methods=["get", "put", "patch", "delete"], url_path="deadline-reminder")
+    def deadline_reminder(self, request: Request, pk: str | None = None) -> Response:
+        card = self.get_object()
+        if not request.user or not request.user.is_authenticated:
+            return Response({"detail": "Authentication required"}, status=401)
+
+        if request.method == "GET":
+            reminders = list(
+                CardDeadlineReminder.objects.filter(
+                    card_id=card.id, user_id=request.user.id
+                ).order_by("order", "id")
+            )
+            availability = reminder_channel_availability(
+                user_id=request.user.id,
+                board_id=card.board_id,
+                event_type="card.deadline_reminder",
+            )
+            return Response(
+                {
+                    "reminders": CardDeadlineReminderSerializer(reminders, many=True).data,
+                    "channels": {
+                        "email": {
+                            "available": availability["email"].available,
+                            "reason": availability["email"].reason,
+                        },
+                        "telegram": {
+                            "available": availability["telegram"].available,
+                            "reason": availability["telegram"].reason,
+                        },
+                    },
+                    "deadline": card.deadline,
+                }
+            )
+
+        if request.method == "DELETE":
+            CardDeadlineReminder.objects.filter(card_id=card.id, user_id=request.user.id).delete()
+            return Response(status=204)
+
+        if request.method == "PATCH":
+            return Response({"detail": "PATCH is not supported for multi reminders"}, status=405)
+
+        payload = request.data or {}
+        reminders_payload = payload.get("reminders")
+        if not isinstance(reminders_payload, list):
+            return Response({"detail": "reminders must be a list"}, status=400)
+
+        incoming: list[CardDeadlineReminder] = []
+        with transaction.atomic():
+            CardDeadlineReminder.objects.filter(card_id=card.id, user_id=request.user.id).delete()
+            for idx, item in enumerate(reminders_payload, start=1):
+                serializer = CardDeadlineReminderSerializer(data=item)
+                serializer.is_valid(raise_exception=True)
+                reminder = serializer.save(
+                    card=card,
+                    user=request.user,
+                    order=idx,
+                )
+                reminder = upsert_and_schedule_reminder(card=card, reminder=reminder)
+                incoming.append(reminder)
+
+        return Response(CardDeadlineReminderSerializer(incoming, many=True).data)
+
+    @action(detail=True, methods=["post"], url_path="notify-updated")
+    def notify_updated(self, request: Request, pk: str | None = None) -> Response:
+        """Create a single idempotent notification event for a card update.
+
+        Expected payload: {"version": <int>}
+        """
+        card = self.get_object()
+        payload: dict[str, Any] = request.data or {}
+        version = payload.get("version")
+        if version is None:
+            return Response({"detail": "version is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            version_int = int(version)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "version must be an integer"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if version_int != card.version:
+            return Response({"detail": "Version conflict"}, status=status.HTTP_409_CONFLICT)
+
+        actor = request.user if request.user.is_authenticated else None
+        dedupe_key = f"card.updated:{card.id}:{version_int}"
+        event = create_notification_event(
+            event_type=NotificationEventType.CARD_UPDATED.value,
             actor=actor,
             board=card.board,
             column=card.column,
             card=card,
             summary=f"Обновлена карточка “{card.title}”",
             payload={"board": card.board.name, "column": card.column.name, "card": card.title},
+            dedupe_key=dedupe_key,
+        )
+        return Response(
+            {"event_id": getattr(event, "pk", None), "dedupe_key": dedupe_key},
+            status=200,
         )
 
-    def perform_destroy(self, instance: Card) -> None:
-        actor = self.request.user if self.request.user.is_authenticated else None
-        summary = f"Удалена карточка “{instance.title}”"
-        payload = {
-            "board": instance.board.name,
-            "column": instance.column.name,
-            "card": instance.title,
+    @action(detail=False, methods=["post"], url_path="notify-deleted")
+    def notify_deleted(self, request: Request) -> Response:
+        """Create a single idempotent notification event for a deleted card.
+
+        Because the card is already deleted, the client must provide metadata.
+
+        Expected payload:
+        {
+          "card_id": <int>,
+          "version": <int>,
+          "board": <int>,
+          "column": <int>,
+          "card_title": <str>
         }
-        board = instance.board
-        column = instance.column
-        instance.delete()
-        create_notification_event(
-            event_type=NotificationEventType.CARD_DELETED[0],
+        """
+        payload: dict[str, Any] = request.data or {}
+        board_id = payload.get("board")
+        column_id = payload.get("column")
+        card_title = payload.get("card_title")
+
+        missing = [k for k in ["card_id", "version"] if payload.get(k) is None]
+        if missing:
+            return Response(
+                {"detail": f"Missing fields: {', '.join(missing)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # At this point values are present, but can still be non-int types.
+            card_id_int = int(payload["card_id"])
+            version_int = int(payload["version"])
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "card_id and version must be integers"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        board: Board | None = None
+        column: Column | None = None
+        if board_id is not None:
+            try:
+                board = Board.objects.get(id=int(board_id))
+            except Exception:  # noqa: BLE001
+                board = None
+        if column_id is not None:
+            try:
+                column = Column.objects.get(id=int(column_id))
+            except Exception:  # noqa: BLE001
+                column = None
+
+        title = str(card_title) if card_title is not None else "(без названия)"
+
+        actor = request.user if request.user.is_authenticated else None
+        dedupe_key = f"card.deleted:{card_id_int}:{version_int}"
+        event = create_notification_event(
+            event_type=NotificationEventType.CARD_DELETED.value,
             actor=actor,
             board=board,
             column=column,
-            summary=summary,
-            payload=payload,
+            summary=f"Удалена карточка “{title}”",
+            payload={
+                "board": getattr(board, "name", ""),
+                "column": getattr(column, "name", ""),
+                "card": title,
+            },
+            dedupe_key=dedupe_key,
+        )
+
+        return Response(
+            {"event_id": getattr(event, "pk", None), "dedupe_key": dedupe_key},
+            status=200,
         )
 
     @action(detail=True, methods=["post"], url_path="move")
@@ -340,7 +500,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             "from_column": before_column.name if before_column else "",
         }
         create_notification_event(
-            event_type=NotificationEventType.CARD_MOVED[0],
+            event_type=NotificationEventType.CARD_MOVED.value,
             actor=actor,
             board=card.board,
             column=card.column,
@@ -415,9 +575,7 @@ class RegistrationStatusView(APIView):
     def get(self, request: Request) -> Response:
         user_count = User.objects.count()
         requester = request.user
-        allow_admin = (
-            not isinstance(requester, AnonymousUser) and requester.is_staff
-        )
+        allow_admin = not isinstance(requester, AnonymousUser) and requester.is_staff
         return Response(
             {
                 "user_count": user_count,

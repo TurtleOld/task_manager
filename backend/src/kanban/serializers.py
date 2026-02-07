@@ -13,6 +13,7 @@ from rest_framework import serializers
 from .models import (
     Board,
     Card,
+    CardDeadlineReminder,
     Category,
     Column,
     NotificationChannel,
@@ -102,7 +103,6 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "title",
             "description",
             "deadline",
-            "estimate",
             "priority",
             "tags",
             "categories",
@@ -364,7 +364,7 @@ class RegisterSerializer(serializers.Serializer):
 class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProfile]):
     class Meta:
         model = NotificationProfile
-        fields = ["email", "telegram_chat_id"]
+        fields = ["email", "telegram_chat_id", "timezone"]
 
     def update(
         self, instance: NotificationProfile, validated_data: dict[str, Any]
@@ -375,7 +375,10 @@ class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProf
         telegram_chat_id = validated_data.get("telegram_chat_id")
         if telegram_chat_id is not None:
             instance.telegram_chat_id = telegram_chat_id.strip()
-        instance.save(update_fields=["email", "telegram_chat_id"])
+        tz = validated_data.get("timezone")
+        if tz is not None:
+            instance.timezone = str(tz).strip() or "UTC"
+        instance.save(update_fields=["email", "telegram_chat_id", "timezone"])
         return instance
 
 
@@ -387,3 +390,60 @@ class NotificationPreferenceSerializer(serializers.ModelSerializer[NotificationP
         model = NotificationPreference
         fields = ["id", "board", "channel", "event_type", "enabled"]
         read_only_fields = ["id"]
+
+
+class CardDeadlineReminderSerializer(serializers.ModelSerializer[CardDeadlineReminder]):
+    class Meta:
+        model = CardDeadlineReminder
+        fields = [
+            "id",
+            "order",
+            "enabled",
+            "offset_value",
+            "offset_unit",
+            "channel",
+            "scheduled_at",
+            "status",
+            "last_error",
+            "sent_at",
+        ]
+        read_only_fields = ["id", "scheduled_at", "status", "last_error", "sent_at"]
+
+    def validate_offset_value(self, value: int) -> int:
+        try:
+            v = int(value)
+        except Exception:  # noqa: BLE001
+            raise serializers.ValidationError("Должно быть целым числом")
+        if v <= 0:
+            raise serializers.ValidationError("Должно быть положительным числом")
+        return v
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        unit = attrs.get("offset_unit")
+        if unit and unit not in {
+            CardDeadlineReminder.Unit.MINUTES,
+            CardDeadlineReminder.Unit.HOURS,
+        }:
+            raise serializers.ValidationError({"offset_unit": "Некорректная единица"})
+
+        channel = attrs.get("channel")
+        if channel is not None and channel not in {
+            NotificationChannel.EMAIL,
+            NotificationChannel.TELEGRAM,
+        }:
+            raise serializers.ValidationError({"channel": "Некорректный канал"})
+
+        if self.instance is not None:
+            effective_unit = unit or self.instance.offset_unit
+            effective_value = attrs.get("offset_value", self.instance.offset_value)
+        else:
+            effective_unit = unit
+            effective_value = attrs.get("offset_value")
+
+        if effective_unit == CardDeadlineReminder.Unit.HOURS and effective_value is not None:
+            if int(effective_value) > 168:
+                raise serializers.ValidationError({"offset_value": "Слишком большое значение"})
+        if effective_unit == CardDeadlineReminder.Unit.MINUTES and effective_value is not None:
+            if int(effective_value) > 24 * 60:
+                raise serializers.ValidationError({"offset_value": "Слишком большое значение"})
+        return attrs

@@ -84,7 +84,6 @@ class Card(TimestampedModel):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     deadline = models.DateTimeField(null=True, blank=True)
-    estimate = models.CharField(max_length=100, blank=True, default="")
     priority = models.CharField(max_length=10, blank=True, default="🟡")
     tags = models.ManyToManyField(Tag, blank=True, related_name="cards")
     categories = models.ManyToManyField(Category, blank=True, related_name="cards")
@@ -121,12 +120,14 @@ class NotificationEventType(models.TextChoices):
     CARD_UPDATED = "card.updated", "Card updated"
     CARD_DELETED = "card.deleted", "Card deleted"
     CARD_MOVED = "card.moved", "Card moved"
+    CARD_DEADLINE_REMINDER = "card.deadline_reminder", "Card deadline reminder"
 
 
 class NotificationProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     email = models.EmailField(blank=True, default="")
     telegram_chat_id = models.CharField(max_length=64, blank=True, default="")
+    timezone = models.CharField(max_length=64, blank=True, default="UTC")
 
     class Meta:
         ordering = ["id"]
@@ -157,6 +158,9 @@ class NotificationPreference(models.Model):
 
 class NotificationEvent(models.Model):
     event_type = models.CharField(max_length=50, choices=NotificationEventType.choices)
+    # Optional idempotency key to prevent duplicate notification events on retries/double-clicks.
+    # If provided, must be globally unique.
+    dedupe_key = models.CharField(max_length=200, null=True, blank=True, unique=True)
     actor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -205,3 +209,108 @@ class NotificationDelivery(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.event_id}:{self.user_id}:{self.channel}:{self.status}"
+
+
+class CardDeadlineReminder(TimestampedModel):
+    """Per-user reminder relative to card.deadline.
+
+    Reminder is personal: only the user who configured it receives it.
+    """
+
+    class Unit(models.TextChoices):
+        MINUTES = "minutes", "Minutes"
+        HOURS = "hours", "Hours"
+
+    class Status(models.TextChoices):
+        DISABLED = "disabled", "Disabled"
+        SCHEDULED = "scheduled", "Scheduled"
+        SENT = "sent", "Sent"
+        SKIPPED = "skipped", "Skipped"
+        FAILED = "failed", "Failed"
+        INVALID_NO_DEADLINE = "invalid.no_deadline", "Invalid: no deadline"
+        INVALID_PAST = "invalid.past", "Invalid: time in past"
+        INVALID_CHANNEL = "invalid.channel", "Invalid: channel unavailable"
+
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="deadline_reminders")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="card_deadline_reminders",
+    )
+
+    order = models.PositiveIntegerField(default=1)
+
+    enabled = models.BooleanField(default=False)
+
+    offset_value = models.PositiveIntegerField(default=20)
+    offset_unit = models.CharField(
+        max_length=10,
+        choices=Unit.choices,
+        default=Unit.MINUTES,
+    )
+
+    # Chosen delivery channel (optional):
+    # - null/blank => auto (only possible when there is exactly one available channel)
+    # - email / telegram => explicit
+    channel = models.CharField(
+        max_length=20,
+        choices=NotificationChannel.choices,
+        null=True,
+        blank=True,
+    )
+
+    # Scheduling
+    scheduled_at = models.DateTimeField(null=True, blank=True)
+    schedule_token = models.UUIDField(null=True, blank=True, editable=False)
+
+    # Result tracking
+    status = models.CharField(max_length=30, choices=Status.choices, default=Status.DISABLED)
+    last_error = models.TextField(blank=True, default="")
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["scheduled_at"]),
+            models.Index(fields=["card", "user"]),
+        ]
+
+    def offset_minutes(self) -> int:
+        if self.offset_unit == self.Unit.HOURS:
+            return int(self.offset_value) * 60
+        return int(self.offset_value)
+
+
+class CardDeadlineReminderDelivery(models.Model):
+    class Status(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        PROCESSING = "processing", "Processing"
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+
+    # Global idempotency key for a single reminder send attempt.
+    dedupe_key = models.CharField(max_length=200, unique=True)
+
+    reminder = models.ForeignKey(
+        CardDeadlineReminder,
+        on_delete=models.CASCADE,
+        related_name="deliveries",
+    )
+    card = models.ForeignKey(Card, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+    channel = models.CharField(max_length=20, choices=NotificationChannel.choices)
+
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUEUED)
+    error = models.TextField(blank=True, default="")
+    started_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["reminder", "status"]),
+            models.Index(fields=["user", "channel"]),
+        ]

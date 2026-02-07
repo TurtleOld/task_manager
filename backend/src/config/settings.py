@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import dj_database_url
@@ -78,6 +79,20 @@ DATABASES = {
         conn_max_age=600,
     )
 }
+
+# Tests should be runnable without external services (PostgreSQL/Redis).
+# If running under pytest, default to a local sqlite database unless explicitly requested.
+if "pytest" in sys.modules and os.getenv("DJANGO_TEST_USE_ENV_DB", "").lower() not in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}:
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        # Use in-memory DB for hermetic and fast test runs.
+        "NAME": ":memory:",
+    }
 
 
 AUTH_PASSWORD_VALIDATORS: list[dict[str, str]] = []
