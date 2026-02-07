@@ -16,6 +16,7 @@ run:
 
 lint:
 	cd backend && uv run ruff check .
+	cd frontend && npm run lint
 
 typecheck:
 	cd backend && uv run mypy src
@@ -25,4 +26,3 @@ test:
 
 openapi-export:
 	cd backend && uv run python manage.py spectacular --file openapi.json
-

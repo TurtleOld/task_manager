@@ -343,21 +343,6 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
     return parsed.toISOString()
   }
 
-  const formatReminderOffset = (value: number, unit: 'minutes' | 'hours') => {
-    const ruPlural = (n: number, forms: [string, string, string]) => {
-      const abs = Math.abs(n)
-      if (abs % 10 === 1 && abs % 100 !== 11) return forms[0]
-      if (abs % 10 >= 2 && abs % 10 <= 4 && (abs % 100 < 12 || abs % 100 > 14)) return forms[1]
-      return forms[2]
-    }
-    if (unit === 'hours') {
-      const word = ruPlural(value, ['час', 'часа', 'часов'])
-      return `за ${value} ${word} до срока`
-    }
-    const word = ruPlural(value, ['минуту', 'минуты', 'минут'])
-    return `за ${value} ${word} до срока`
-  }
-
   useEffect(() => {
     api.listColumns(boardId).then(setColumns)
     api.listCardsByBoard(boardId).then((loaded) => {
@@ -845,8 +830,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
       if (toast.retry.type === 'updated') {
         await api.notifyCardUpdated(toast.retry.cardId, { version: toast.retry.version })
       } else {
-        const { type: _type, ...payload } = toast.retry
-        await api.notifyCardDeleted(payload)
+        await api.notifyCardDeleted(toast.retry)
       }
       setToast(null)
     } catch {
@@ -936,11 +920,8 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
 
   const tagsFor = (card: Card) => cardTags[card.id] ?? []
   const categoriesFor = (card: Card) => cardCategories[card.id] ?? []
-  const assigneeFor = (card: Card) => cardAssignees[card.id]
   const deadlineFor = (card: Card) => cardDeadlines[card.id] ?? card.deadline ?? ''
   const priorityMarkerFor = (card: Card) => cardPriorities[card.id] ?? '🟡'
-  const checklistFor = (card: Card) => cardChecklist[card.id] ?? []
-  const attachmentsFor = (card: Card) => cardAttachments[card.id] ?? []
 
   const filteredCards = cards.filter((card) => {
     const tags = tagsFor(card)
