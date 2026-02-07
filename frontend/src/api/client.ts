@@ -9,6 +9,8 @@ import type {
   AdminUser,
   NotificationProfile,
   NotificationPreference,
+  CardDeadlineReminderResponse,
+  CardDeadlineReminder,
 } from './types'
 
 type ViteImportMeta = ImportMeta & {
@@ -101,7 +103,6 @@ export const api = {
       description: string
       assignee: number | null
       deadline: string | null
-      estimate: string
       priority: string
       tags: string[]
       categories: string[]
@@ -147,6 +148,30 @@ export const api = {
     payload: Partial<{ to_column: number; before_id: number; after_id: number; expected_version: number }>
   ): Promise<Card> => {
     const res = await fetch(`${V1}/cards/${id}/move/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+
+  notifyCardUpdated: async (id: number, payload: { version: number }): Promise<{ event_id: number | null; dedupe_key: string }> => {
+    const res = await fetch(`${V1}/cards/${id}/notify-updated/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+
+  notifyCardDeleted: async (payload: {
+    card_id: number
+    version: number
+    board?: number
+    column?: number
+    card_title?: string
+  }): Promise<{ event_id: number | null; dedupe_key: string }> => {
+    const res = await fetch(`${V1}/cards/notify-deleted/`, {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify(payload),
@@ -218,6 +243,30 @@ export const api = {
     })
     return json(res)
   },
+
+  // Card deadline reminders (per-user)
+  getCardDeadlineReminder: async (cardId: number): Promise<CardDeadlineReminderResponse> => {
+    const res = await fetch(`${V1}/cards/${cardId}/deadline-reminder/`, { headers: authHeaders() })
+    return json(res)
+  },
+  saveCardDeadlineReminder: async (
+    cardId: number,
+    payload: { reminders: Array<Pick<CardDeadlineReminder, 'enabled' | 'offset_value' | 'offset_unit' | 'channel'>> }
+  ): Promise<CardDeadlineReminder[]> => {
+    const res = await fetch(`${V1}/cards/${cardId}/deadline-reminder/`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+  deleteCardDeadlineReminder: async (cardId: number): Promise<void> => {
+    const res = await fetch(`${V1}/cards/${cardId}/deadline-reminder/`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    })
+    return ok(res)
+  },
   listNotificationPreferences: async (boardId?: number): Promise<NotificationPreference[]> => {
     const query = boardId ? `?board=${boardId}` : ''
     const res = await fetch(`${V1}/notification-preferences/${query}`, { headers: authHeaders() })
@@ -252,4 +301,3 @@ export const api = {
     return ok(res)
   },
 }
-

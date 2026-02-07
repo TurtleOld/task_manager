@@ -22,6 +22,8 @@ import type {
   NotificationPreference,
   NotificationChannel,
   NotificationEventType,
+  CardDeadlineReminderResponse,
+  CardDeadlineReminder,
 } from './api/types'
 
 const AUTH_TOKEN_KEY = 'auth_token'
@@ -237,8 +239,47 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   const [activeTag, setActiveTag] = useState('Все')
   const [activeCategory, setActiveCategory] = useState('Все')
   const [selectedCard, setSelectedCard] = useState<Card | null>(null)
-  const [editTitle, setEditTitle] = useState('')
-  const [editDescription, setEditDescription] = useState('')
+
+  type CardDraft = {
+    title: string
+    description: string
+    assignee: number | null
+    deadline: string
+    priority: '🔥' | '🟡' | '🟢'
+    tags: string[]
+    categories: string[]
+    checklist: { id: string; text: string; done: boolean }[]
+    attachments: {
+      id: string
+      name: string
+      type: 'file' | 'link' | 'photo'
+      url?: string
+      mimeType?: string
+      size?: number
+      createdAt?: string
+    }[]
+  }
+
+  const [draft, setDraft] = useState<CardDraft | null>(null)
+  const draftBaseRef = useRef<CardDraft | null>(null)
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([])
+  const [pendingDeleteAttachmentIds, setPendingDeleteAttachmentIds] = useState<string[]>([])
+
+  const [saveBusy, setSaveBusy] = useState(false)
+  const saveBusyRef = useRef(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [modalError, setModalError] = useState('')
+
+  const [toast, setToast] = useState<
+    | null
+    | {
+        tone: 'error' | 'info'
+        message: string
+        retry?:
+          | { type: 'updated'; cardId: number; version: number }
+          | { type: 'deleted'; card_id: number; version: number; board?: number; column?: number; card_title?: string }
+      }
+  >(null)
   const [assignees, setAssignees] = useState<{ id: number; name: string }[]>([])
   const [cardTags, setCardTags] = useState<Record<number, string[]>>({})
   const [cardCategories, setCardCategories] = useState<Record<number, string[]>>({})
@@ -259,7 +300,6 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   >({})
   const [cardAssignees, setCardAssignees] = useState<Record<number, number | undefined>>({})
   const [cardDeadlines, setCardDeadlines] = useState<Record<number, string>>({})
-  const [cardEstimates, setCardEstimates] = useState<Record<number, string>>({})
   const [cardPriorities, setCardPriorities] = useState<Record<number, '🔥' | '🟡' | '🟢'>>({})
   const [newTag, setNewTag] = useState('')
   const [newCategory, setNewCategory] = useState('')
@@ -270,6 +310,53 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   const [newAttachmentFiles, setNewAttachmentFiles] = useState<File[]>([])
   const [attachmentFileInputKey, setAttachmentFileInputKey] = useState(0)
   const attachmentFileInputRef = useRef<HTMLInputElement | null>(null)
+  const deadlineSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const [reminderData, setReminderData] = useState<CardDeadlineReminderResponse | null>(null)
+  const [reminderDrafts, setReminderDrafts] = useState<CardDeadlineReminder[]>([])
+  const [reminderLoading, setReminderLoading] = useState(false)
+  const [reminderSaving, setReminderSaving] = useState(false)
+  const [reminderError, setReminderError] = useState('')
+  const [reminderFieldError, setReminderFieldError] = useState('')
+  const [newReminderValue, setNewReminderValue] = useState(10)
+  const [newReminderUnit, setNewReminderUnit] = useState<'minutes' | 'hours'>('minutes')
+
+  // ---- datetime helpers ----
+  // Backend stores datetimes as ISO strings. The card modal uses <input type="datetime-local" />.
+  // We normalize UI state to the datetime-local format: YYYY-MM-DDTHH:mm (local time).
+  const isoToDatetimeLocal = (value: string) => {
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return ''
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const yyyy = parsed.getFullYear()
+    const mm = pad(parsed.getMonth() + 1)
+    const dd = pad(parsed.getDate())
+    const hh = pad(parsed.getHours())
+    const min = pad(parsed.getMinutes())
+    return `${yyyy}-${mm}-${dd}T${hh}:${min}`
+  }
+
+  const datetimeLocalToIso = (value: string) => {
+    if (!value) return null
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return null
+    return parsed.toISOString()
+  }
+
+  const formatReminderOffset = (value: number, unit: 'minutes' | 'hours') => {
+    const ruPlural = (n: number, forms: [string, string, string]) => {
+      const abs = Math.abs(n)
+      if (abs % 10 === 1 && abs % 100 !== 11) return forms[0]
+      if (abs % 10 >= 2 && abs % 10 <= 4 && (abs % 100 < 12 || abs % 100 > 14)) return forms[1]
+      return forms[2]
+    }
+    if (unit === 'hours') {
+      const word = ruPlural(value, ['час', 'часа', 'часов'])
+      return `за ${value} ${word} до срока`
+    }
+    const word = ruPlural(value, ['минуту', 'минуты', 'минут'])
+    return `за ${value} ${word} до срока`
+  }
 
   useEffect(() => {
     api.listColumns(boardId).then(setColumns)
@@ -324,14 +411,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
       setCardDeadlines((prev) => {
         const next = { ...prev }
         for (const card of loaded) {
-          if (card.deadline) next[card.id] = card.deadline
-        }
-        return next
-      })
-      setCardEstimates((prev) => {
-        const next = { ...prev }
-        for (const card of loaded) {
-          if (card.estimate) next[card.id] = card.estimate
+          if (card.deadline) next[card.id] = isoToDatetimeLocal(card.deadline)
         }
         return next
       })
@@ -364,13 +444,68 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
     setNewAttachmentType('file')
     setNewAttachmentFiles([])
     setAttachmentFileInputKey((k) => k + 1)
+    setPendingUploadFiles([])
+    setPendingDeleteAttachmentIds([])
+    setModalError('')
+    setSaveBusy(false)
+    saveBusyRef.current = false
+    setDeleteBusy(false)
+    setReminderData(null)
+    setReminderDrafts([])
+    setReminderLoading(false)
+    setReminderSaving(false)
+    setReminderError('')
+    setReminderFieldError('')
+    if (!selectedCard) {
+      setDraft(null)
+      draftBaseRef.current = null
+      return
+    }
+
+    const id = selectedCard.id
+    const base: CardDraft = {
+      title: selectedCard.title || '',
+      description: selectedCard.description || '',
+      assignee: (cardAssignees[id] ?? selectedCard.assignee) ?? null,
+      deadline: cardDeadlines[id] ?? (selectedCard.deadline ? isoToDatetimeLocal(selectedCard.deadline) : ''),
+      priority: (cardPriorities[id] ?? selectedCard.priority ?? '🟡') as '🔥' | '🟡' | '🟢',
+      tags: (cardTags[id] ?? selectedCard.tags ?? []) as string[],
+      categories: (cardCategories[id] ?? selectedCard.categories ?? []) as string[],
+      checklist: (cardChecklist[id] ?? selectedCard.checklist ?? []) as { id: string; text: string; done: boolean }[],
+      attachments: (cardAttachments[id] ?? selectedCard.attachments ?? []) as {
+        id: string
+        name: string
+        type: 'file' | 'link' | 'photo'
+        url?: string
+        mimeType?: string
+        size?: number
+        createdAt?: string
+      }[],
+    }
+    setDraft(base)
+    draftBaseRef.current = base
   }, [selectedCard?.id])
 
+  const selectedCardId = selectedCard?.id ?? null
+  const selectedTags = draft?.tags ?? []
+  const selectedCategories = draft?.categories ?? []
+  const selectedChecklist = draft?.checklist ?? []
+  const selectedAttachments = draft?.attachments ?? []
+  const selectedPriority = draft?.priority ?? ''
+
   useEffect(() => {
-    if (!selectedCard) return
-    setEditTitle(selectedCard.title || '')
-    setEditDescription(selectedCard.description || '')
-  }, [selectedCard?.id])
+    if (!selectedCardId) return
+    setReminderLoading(true)
+    setReminderError('')
+    api
+      .getCardDeadlineReminder(selectedCardId)
+      .then((data) => {
+        setReminderData(data)
+        setReminderDrafts(data.reminders ?? [])
+      })
+      .catch((e) => setReminderError((e as Error).message))
+      .finally(() => setReminderLoading(false))
+  }, [selectedCardId])
 
   const applyCardUpdate = (updated: Card) => {
     setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
@@ -384,7 +519,6 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
       description: string
       assignee: number | null
       deadline: string | null
-      estimate: string
       priority: string
       tags: string[]
       categories: string[]
@@ -401,40 +535,48 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
     }>
   ) => {
     if (!selectedCardId) return
-    try {
-      const updated = await api.updateCard(selectedCardId, patch)
-      applyCardUpdate(updated)
-      if (patch.tags) setCardTags((prev) => ({ ...prev, [updated.id]: updated.tags ?? [] }))
-      if (patch.categories) setCardCategories((prev) => ({ ...prev, [updated.id]: updated.categories ?? [] }))
-      if (patch.checklist) setCardChecklist((prev) => ({ ...prev, [updated.id]: updated.checklist ?? [] }))
-      if (patch.attachments) setCardAttachments((prev) => ({ ...prev, [updated.id]: updated.attachments ?? [] }))
-      if (patch.assignee !== undefined) {
-        setCardAssignees((prev) => ({ ...prev, [updated.id]: updated.assignee ?? undefined }))
-      }
-      if (patch.priority) {
-        setCardPriorities((prev) => ({ ...prev, [updated.id]: updated.priority ?? '🟡' }))
-      }
-    } catch {
-      // ignore UI save errors for now
+    const updated = await api.updateCard(selectedCardId, patch)
+    applyCardUpdate(updated)
+    if (patch.tags) setCardTags((prev) => ({ ...prev, [updated.id]: updated.tags ?? [] }))
+    if (patch.categories) setCardCategories((prev) => ({ ...prev, [updated.id]: updated.categories ?? [] }))
+    if (patch.checklist) setCardChecklist((prev) => ({ ...prev, [updated.id]: updated.checklist ?? [] }))
+    if (patch.attachments) setCardAttachments((prev) => ({ ...prev, [updated.id]: updated.attachments ?? [] }))
+    if (patch.assignee !== undefined) {
+      setCardAssignees((prev) => ({ ...prev, [updated.id]: updated.assignee ?? undefined }))
     }
+    if (patch.deadline !== undefined) {
+      setCardDeadlines((prev) => ({ ...prev, [updated.id]: updated.deadline ? isoToDatetimeLocal(updated.deadline) : '' }))
+    }
+    if (patch.priority) {
+      setCardPriorities((prev) => ({ ...prev, [updated.id]: updated.priority ?? '🟡' }))
+    }
+    return updated
   }
 
-  const persistTitleDescriptionIfChanged = async () => {
-    if (!selectedCardId || !selectedCard) return
-    const nextTitle = editTitle.trim()
-    const nextDescription = editDescription
-    const patch: { title?: string; description?: string } = {}
-    if (nextTitle && nextTitle !== selectedCard.title) patch.title = nextTitle
-    if (nextDescription !== (selectedCard.description || '')) patch.description = nextDescription
-    if (Object.keys(patch).length === 0) return
-    await persistSelectedCard(patch)
+  const scheduleDeadlineSave = () => {
+    if (deadlineSaveTimeoutRef.current) {
+      clearTimeout(deadlineSaveTimeoutRef.current)
+      deadlineSaveTimeoutRef.current = null
+    }
   }
 
   const deleteSelectedCard = async () => {
     const cardId = selectedCard?.id
     if (!cardId) return
+    if (deleteBusy || saveBusy) return
     const title = selectedCard?.title || 'задачу'
     if (!window.confirm(`Удалить ${title}?`)) return
+
+    const meta = {
+      card_id: cardId,
+      version: selectedCard?.version ?? 0,
+      board: selectedCard?.board,
+      column: selectedCard?.column,
+      card_title: selectedCard?.title,
+    }
+
+    setDeleteBusy(true)
+    setModalError('')
     try {
       await api.deleteCard(cardId)
       setCards((prev) => prev.filter((c) => c.id !== cardId))
@@ -470,18 +612,247 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
         delete next[cardId]
         return next
       })
-      setCardEstimates((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
       setCardPriorities((prev) => {
         const next = { ...prev }
         delete next[cardId]
         return next
       })
+
+      try {
+        await api.notifyCardDeleted(meta)
+      } catch {
+        setToast({
+          tone: 'error',
+          message: 'Задача удалена, но уведомление отправить не удалось.',
+          retry: { type: 'deleted', ...meta },
+        })
+      }
+    } catch (e) {
+      setModalError((e as Error).message)
+    } finally {
+      setDeleteBusy(false)
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (deadlineSaveTimeoutRef.current) {
+        clearTimeout(deadlineSaveTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const onSaveCard = async () => {
+    if (!selectedCardId || !selectedCard || !draft || !draftBaseRef.current) return
+    if (saveBusyRef.current) return
+    saveBusyRef.current = true
+    setSaveBusy(true)
+    setModalError('')
+
+    if (deadlineSaveTimeoutRef.current) {
+      clearTimeout(deadlineSaveTimeoutRef.current)
+      deadlineSaveTimeoutRef.current = null
+    }
+
+    const base = draftBaseRef.current
+
+    const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+    const patch: Partial<{
+      title: string
+      description: string
+      assignee: number | null
+      deadline: string | null
+      priority: string
+      tags: string[]
+      categories: string[]
+      checklist: { id: string; text: string; done: boolean }[]
+      attachments: {
+        id: string
+        name: string
+        type: 'file' | 'link' | 'photo'
+        url?: string
+        mimeType?: string
+        size?: number
+        createdAt?: string
+      }[]
+    }> = {}
+
+    const nextTitle = draft.title.trim()
+    if (!nextTitle) {
+      setModalError('Заголовок не может быть пустым')
+      setSaveBusy(false)
+      saveBusyRef.current = false
+      return
+    }
+
+    if (nextTitle !== base.title) patch.title = nextTitle
+    if (draft.description !== base.description) patch.description = draft.description
+    if (draft.assignee !== base.assignee) patch.assignee = draft.assignee
+    if (draft.deadline !== base.deadline) patch.deadline = draft.deadline ? datetimeLocalToIso(draft.deadline) : null
+    if (draft.priority !== base.priority) patch.priority = draft.priority
+    if (!sameJson(draft.tags, base.tags)) patch.tags = draft.tags
+    if (!sameJson(draft.categories, base.categories)) patch.categories = draft.categories
+    if (!sameJson(draft.checklist, base.checklist)) patch.checklist = draft.checklist
+    if (!sameJson(draft.attachments, base.attachments)) patch.attachments = draft.attachments
+
+    const hasPatch = Object.keys(patch).length > 0
+    const hasAttachmentOps = pendingUploadFiles.length > 0 || pendingDeleteAttachmentIds.length > 0
+
+    const reminderChanged = reminderData
+      ? JSON.stringify(reminderDrafts) !== JSON.stringify(reminderData.reminders)
+      : reminderDrafts.length > 0
+
+    if (!hasPatch && !hasAttachmentOps && !reminderChanged) {
+      setSelectedCard(null)
+      setSaveBusy(false)
+      saveBusyRef.current = false
+      return
+    }
+
+    try {
+      let updated: Card | undefined
+
+      if (hasPatch) {
+        updated = await persistSelectedCard(patch)
+      }
+
+      if (reminderChanged) {
+        const reminderOk = await saveReminder()
+        if (!reminderOk) {
+          setSaveBusy(false)
+          saveBusyRef.current = false
+          return
+        }
+      }
+
+      if (pendingUploadFiles.length > 0) {
+        const uploaded = await api.uploadCardAttachments(selectedCardId, pendingUploadFiles)
+        updated = uploaded
+        applyCardUpdate(uploaded)
+        setCardAttachments((prev) => ({ ...prev, [uploaded.id]: uploaded.attachments ?? [] }))
+        setPendingUploadFiles([])
+      }
+
+      for (const attachmentId of pendingDeleteAttachmentIds) {
+        const deleted = await api.deleteCardAttachment(selectedCardId, attachmentId)
+        updated = deleted
+        applyCardUpdate(deleted)
+        setCardAttachments((prev) => ({ ...prev, [deleted.id]: deleted.attachments ?? [] }))
+      }
+      setPendingDeleteAttachmentIds([])
+
+      const finalCard = updated ?? selectedCard
+      // Close modal BEFORE notifying (strict order).
+      setSelectedCard(null)
+
+      try {
+        await api.notifyCardUpdated(finalCard.id, { version: finalCard.version })
+      } catch {
+        setToast({
+          tone: 'error',
+          message: 'Изменения сохранены, но уведомление отправить не удалось.',
+          retry: { type: 'updated', cardId: finalCard.id, version: finalCard.version },
+        })
+      }
+    } catch (e) {
+      setModalError((e as Error).message)
+    } finally {
+      setSaveBusy(false)
+      saveBusyRef.current = false
+    }
+  }
+
+  const saveReminder = async () => {
+    if (!selectedCardId) return false
+    if (reminderSaving) return false
+    setReminderSaving(true)
+    setReminderError('')
+    setReminderFieldError('')
+    try {
+      const availableCount = reminderData?.channels
+        ? Object.values(reminderData.channels).filter((c) => c.available).length
+        : 0
+      const invalidChannel = reminderDrafts.some((item) => item.enabled && !item.channel && availableCount !== 1)
+      if (invalidChannel) {
+        setReminderFieldError('Выберите доступный канал доставки')
+        setReminderSaving(false)
+        return false
+      }
+      const updated = await api.saveCardDeadlineReminder(selectedCardId, {
+        reminders: reminderDrafts.map((item) => ({
+          enabled: item.enabled,
+          offset_value: item.offset_value,
+          offset_unit: item.offset_unit,
+          channel: item.channel,
+        })),
+      })
+      setReminderData((prev) => (prev ? { ...prev, reminders: updated } : prev))
+      setReminderDrafts(updated)
+      return true
+    } catch (e) {
+      setReminderError((e as Error).message)
+      return false
+    } finally {
+      setReminderSaving(false)
+    }
+  }
+
+  const applyReminderValue = (id: number, value: number) => {
+    setReminderDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, offset_value: value } : item)))
+  }
+
+  const applyReminderUnit = (id: number, unit: 'minutes' | 'hours') => {
+    setReminderDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, offset_unit: unit } : item)))
+  }
+
+  const applyReminderChannel = (channel: 'email' | 'telegram' | null) => {
+    setReminderDrafts((prev) => prev.map((item) => ({ ...item, channel })))
+  }
+
+  const toggleReminder = (id: number, enabled: boolean) => {
+    setReminderDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, enabled } : item)))
+  }
+
+  const addReminderInterval = (value: number, unit: 'minutes' | 'hours') => {
+    const nextId = Math.max(0, ...reminderDrafts.map((item) => item.id)) + 1
+    setReminderDrafts((prev) => [
+      ...prev,
+      {
+        id: nextId,
+        order: prev.length + 1,
+        enabled: true,
+        offset_value: value,
+        offset_unit: unit,
+        channel: prev[0]?.channel ?? null,
+        scheduled_at: null,
+        status: 'disabled',
+        last_error: '',
+        sent_at: null,
+      },
+    ])
+  }
+
+  const removeReminderInterval = (id: number) => {
+    setReminderDrafts((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const [toastSending, setToastSending] = useState(false)
+
+  const retryToast = async () => {
+    if (!toast?.retry || toastSending) return
+    setToastSending(true)
+    try {
+      if (toast.retry.type === 'updated') {
+        await api.notifyCardUpdated(toast.retry.cardId, { version: toast.retry.version })
+      } else {
+        const { type: _type, ...payload } = toast.retry
+        await api.notifyCardDeleted(payload)
+      }
+      setToast(null)
     } catch {
-      // ignore UI delete errors for now
+      // keep toast as-is
+    } finally {
+      setToastSending(false)
     }
   }
 
@@ -567,7 +938,6 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   const categoriesFor = (card: Card) => cardCategories[card.id] ?? []
   const assigneeFor = (card: Card) => cardAssignees[card.id]
   const deadlineFor = (card: Card) => cardDeadlines[card.id] ?? card.deadline ?? ''
-  const estimateFor = (card: Card) => cardEstimates[card.id] ?? card.estimate ?? ''
   const priorityMarkerFor = (card: Card) => cardPriorities[card.id] ?? '🟡'
   const checklistFor = (card: Card) => cardChecklist[card.id] ?? []
   const attachmentsFor = (card: Card) => cardAttachments[card.id] ?? []
@@ -592,46 +962,23 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
     return g
   }, [filteredCards])
 
-  const selectedDetails = selectedCard
-    ? {
-        priority: priorityFor(selectedCard),
-        tags: tagsFor(selectedCard),
-        categories: categoriesFor(selectedCard),
-        assigneeId: assigneeFor(selectedCard),
-        deadline: deadlineFor(selectedCard),
-        estimate: estimateFor(selectedCard),
-        checklist: checklistFor(selectedCard),
-        attachments: attachmentsFor(selectedCard),
-      }
-    : null
-
-  const selectedCardId = selectedCard?.id ?? null
-  const selectedTags = selectedDetails?.tags ?? []
-  const selectedCategories = selectedDetails?.categories ?? []
-  const selectedChecklist = selectedDetails?.checklist ?? []
-  const selectedAttachments = selectedDetails?.attachments ?? []
-  const selectedAssigneeId = selectedDetails?.assigneeId
-  const selectedPriority = selectedDetails?.priority.marker ?? ''
-
   const allKnownTags = tagOptions.filter((t) => t !== 'Все')
   const allKnownCategories = categoryOptions.filter((c) => c !== 'Все')
 
   const addTagValue = (valueRaw: string) => {
-    if (!selectedCardId) return
+    if (!selectedCardId || !draft) return
     const value = valueRaw.trim()
     if (!value) return
-    const next = Array.from(new Set([...(cardTags[selectedCardId] ?? []), value]))
-    setCardTags((prev) => ({ ...prev, [selectedCardId]: next }))
-    void persistSelectedCard({ tags: next })
+    const next = Array.from(new Set([...(draft.tags ?? []), value]))
+    setDraft((prev) => (prev ? { ...prev, tags: next } : prev))
   }
 
   const addCategoryValue = (valueRaw: string) => {
-    if (!selectedCardId) return
+    if (!selectedCardId || !draft) return
     const value = valueRaw.trim()
     if (!value) return
-    const next = Array.from(new Set([...(cardCategories[selectedCardId] ?? []), value]))
-    setCardCategories((prev) => ({ ...prev, [selectedCardId]: next }))
-    void persistSelectedCard({ categories: next })
+    const next = Array.from(new Set([...(draft.categories ?? []), value]))
+    setDraft((prev) => (prev ? { ...prev, categories: next } : prev))
   }
 
   const addTag = () => {
@@ -641,10 +988,9 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   }
 
   const removeTag = (tag: string) => {
-    if (!selectedCardId) return
-    const next = (cardTags[selectedCardId] ?? []).filter((item) => item !== tag)
-    setCardTags((prev) => ({ ...prev, [selectedCardId]: next }))
-    void persistSelectedCard({ tags: next })
+    if (!selectedCardId || !draft) return
+    const next = (draft.tags ?? []).filter((item) => item !== tag)
+    setDraft((prev) => (prev ? { ...prev, tags: next } : prev))
   }
 
   const addCategory = () => {
@@ -654,51 +1000,41 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   }
 
   const removeCategory = (category: string) => {
-    if (!selectedCardId) return
-    const next = (cardCategories[selectedCardId] ?? []).filter((item) => item !== category)
-    setCardCategories((prev) => ({ ...prev, [selectedCardId]: next }))
-    void persistSelectedCard({ categories: next })
+    if (!selectedCardId || !draft) return
+    const next = (draft.categories ?? []).filter((item) => item !== category)
+    setDraft((prev) => (prev ? { ...prev, categories: next } : prev))
   }
 
   const addChecklistItem = () => {
-    if (!selectedCardId) return
+    if (!selectedCardId || !draft) return
     const value = newChecklistItem.trim()
     if (!value) return
     const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, text: value, done: false }
-    const next = [...(cardChecklist[selectedCardId] ?? []), item]
-    setCardChecklist((prev) => ({ ...prev, [selectedCardId]: next }))
-    void persistSelectedCard({ checklist: next })
+    const next = [...(draft.checklist ?? []), item]
+    setDraft((prev) => (prev ? { ...prev, checklist: next } : prev))
     setNewChecklistItem('')
   }
 
   const toggleChecklistItem = (itemId: string) => {
-    if (!selectedCardId) return
-    const next = (cardChecklist[selectedCardId] ?? []).map((item) => (item.id === itemId ? { ...item, done: !item.done } : item))
-    setCardChecklist((prev) => ({ ...prev, [selectedCardId]: next }))
-    void persistSelectedCard({ checklist: next })
+    if (!selectedCardId || !draft) return
+    const next = (draft.checklist ?? []).map((item) => (item.id === itemId ? { ...item, done: !item.done } : item))
+    setDraft((prev) => (prev ? { ...prev, checklist: next } : prev))
   }
 
   const removeChecklistItem = (itemId: string) => {
-    if (!selectedCardId) return
-    const next = (cardChecklist[selectedCardId] ?? []).filter((item) => item.id !== itemId)
-    setCardChecklist((prev) => ({ ...prev, [selectedCardId]: next }))
-    void persistSelectedCard({ checklist: next })
+    if (!selectedCardId || !draft) return
+    const next = (draft.checklist ?? []).filter((item) => item.id !== itemId)
+    setDraft((prev) => (prev ? { ...prev, checklist: next } : prev))
   }
 
   const addAttachment = async () => {
-    if (!selectedCardId) return
+    if (!selectedCardId || !draft) return
 
     if (newAttachmentType === 'file') {
       if (newAttachmentFiles.length === 0) return
-      try {
-        const updated = await api.uploadCardAttachments(selectedCardId, newAttachmentFiles)
-        applyCardUpdate(updated)
-        setCardAttachments((prev) => ({ ...prev, [updated.id]: updated.attachments ?? [] }))
-        setNewAttachmentFiles([])
-        setAttachmentFileInputKey((k) => k + 1)
-      } catch {
-        // ignore UI upload errors for now
-      }
+      setPendingUploadFiles((prev) => [...prev, ...newAttachmentFiles])
+      setNewAttachmentFiles([])
+      setAttachmentFileInputKey((k) => k + 1)
       return
     }
 
@@ -710,30 +1046,22 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
       type: newAttachmentType,
       url: newAttachmentUrl.trim() || undefined,
     }
-    const next = [...(cardAttachments[selectedCardId] ?? []), attachment]
-    setCardAttachments((prev) => ({ ...prev, [selectedCardId]: next }))
-    void persistSelectedCard({ attachments: next })
+    const next = [...(draft.attachments ?? []), attachment]
+    setDraft((prev) => (prev ? { ...prev, attachments: next } : prev))
     setNewAttachmentName('')
     setNewAttachmentUrl('')
   }
 
   const removeAttachment = async (item: { id: string; type: 'file' | 'link' | 'photo' }) => {
-    if (!selectedCardId) return
+    if (!selectedCardId || !draft) return
 
     if (item.type === 'file') {
-      try {
-        const updated = await api.deleteCardAttachment(selectedCardId, item.id)
-        applyCardUpdate(updated)
-        setCardAttachments((prev) => ({ ...prev, [updated.id]: updated.attachments ?? [] }))
-      } catch {
-        // ignore UI delete errors for now
-      }
+      setPendingDeleteAttachmentIds((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]))
+      setDraft((prev) => (prev ? { ...prev, attachments: (prev.attachments ?? []).filter((x) => x.id !== item.id) } : prev))
       return
     }
 
-    const next = (cardAttachments[selectedCardId] ?? []).filter((x) => x.id !== item.id)
-    setCardAttachments((prev) => ({ ...prev, [selectedCardId]: next }))
-    void persistSelectedCard({ attachments: next })
+    setDraft((prev) => (prev ? { ...prev, attachments: (prev.attachments ?? []).filter((x) => x.id !== item.id) } : prev))
   }
 
   const handleDropOnColumn = async (columnId: number) => {
@@ -962,7 +1290,6 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                     const tags = tagsFor(card)
                     const categories = categoriesFor(card)
                     const deadline = deadlineFor(card)
-                    const estimate = estimateFor(card)
                     return (
                       <li
                         key={card.id}
@@ -1016,16 +1343,11 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                           ))}
                         </div>
 
-                        {(deadline || estimate) && (
+                        {deadline && (
                           <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             {deadline ? (
                               <span className="rounded-full border border-slate-200 px-2 py-1 dark:border-slate-700">
                                 ⏰ {formatDateTime(deadline)}
-                              </span>
-                            ) : null}
-                            {estimate ? (
-                              <span className="rounded-full border border-slate-200 px-2 py-1 dark:border-slate-700">
-                                ⏳ {estimate}
                               </span>
                             ) : null}
                           </div>
@@ -1113,7 +1435,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
         </section>
       </main>
 
-      {selectedCard && selectedDetails ? (
+      {selectedCard && draft ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
           <div className="w-full max-w-5xl rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-950">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1126,22 +1448,32 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => void deleteSelectedCard()}
-                  className="inline-flex items-center justify-center rounded-xl border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-50 dark:border-rose-900/50 dark:text-rose-200 dark:hover:bg-rose-950"
+                  onClick={() => void onSaveCard()}
+                  disabled={saveBusy || deleteBusy}
+                  className={`inline-flex items-center justify-center rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60`}
                 >
-                  Удалить задачу
+                  {saveBusy ? 'Сохранение…' : 'Сохранить'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    void persistTitleDescriptionIfChanged().finally(() => setSelectedCard(null))
-                  }}
+                  onClick={() => void deleteSelectedCard()}
+                  disabled={saveBusy || deleteBusy}
+                  className="inline-flex items-center justify-center rounded-xl border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-50 dark:border-rose-900/50 dark:text-rose-200 dark:hover:bg-rose-950"
+                >
+                  {deleteBusy ? 'Удаление…' : 'Удалить задачу'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCard(null)}
+                  disabled={saveBusy || deleteBusy}
                   className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
                 >
                   Закрыть
                 </button>
               </div>
             </div>
+
+            {modalError ? <p className="mt-3 text-sm text-rose-600">{modalError}</p> : null}
 
             <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
               <div className="space-y-5">
@@ -1150,9 +1482,8 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                     Заголовок
                   </span>
                   <input
-                    value={editTitle}
-                    onChange={(event) => setEditTitle(event.target.value)}
-                    onBlur={() => void persistTitleDescriptionIfChanged()}
+                    value={draft.title}
+                    onChange={(event) => setDraft((prev) => (prev ? { ...prev, title: event.target.value } : prev))}
                     className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   />
                 </label>
@@ -1162,12 +1493,225 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                   </span>
                     <textarea
                       rows={4}
-                      value={editDescription}
-                      onChange={(event) => setEditDescription(event.target.value)}
-                      onBlur={() => void persistTitleDescriptionIfChanged()}
+                      value={draft.description}
+                      onChange={(event) => setDraft((prev) => (prev ? { ...prev, description: event.target.value } : prev))}
                       className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                     />
                 </label>
+                <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-950">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                        Напоминание о дедлайне
+                      </p>
+                      <h3 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                        {reminderDrafts.length > 0
+                          ? `Напоминаний: ${reminderDrafts.filter((item) => item.enabled).length}`
+                          : 'Напоминание отключено'}
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="inline-flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+                        <input
+                          type="checkbox"
+                          checked={reminderDrafts.some((item) => item.enabled)}
+                          onChange={(event) => {
+                            const nextEnabled = event.target.checked
+                            setReminderDrafts((prev) => prev.map((item) => ({ ...item, enabled: nextEnabled })))
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 text-sky-600"
+                          disabled={!(reminderData?.deadline || draft?.deadline) || reminderDrafts.length === 0}
+                        />
+                        Включено
+                      </label>
+                    </div>
+                  </div>
+
+                  {reminderLoading ? (
+                    <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Загрузка настроек…</p>
+                  ) : null}
+
+                  {reminderError ? (
+                    <p className="mt-2 text-[11px] text-rose-600">{reminderError}</p>
+                  ) : null}
+
+                  {!reminderData?.deadline && !draft?.deadline ? (
+                    <div className="mt-2 rounded-lg border border-dashed border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
+                      Установите срок выполнения, чтобы настроить напоминание.
+                    </div>
+                  ) : null}
+
+                  {reminderDrafts.length === 0 && (reminderData?.deadline || draft?.deadline) ? (
+                    <div className="mt-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                      Добавьте один или несколько интервалов напоминания.
+                    </div>
+                  ) : null}
+
+                  {reminderDrafts.length > 0 && (reminderData?.deadline || draft?.deadline) ? (
+                    <div className="mt-3 space-y-3">
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                          Интервалы до дедлайна
+                        </span>
+                        <div className="space-y-2">
+                          {reminderDrafts.map((item) => (
+                            <div key={item.id} className="flex flex-wrap items-center gap-2">
+                              <input
+                                type="number"
+                                min={1}
+                                max={item.offset_unit === 'hours' ? 168 : 1440}
+                                step={1}
+                                value={item.offset_value}
+                                onChange={(event) => {
+                                  const raw = event.target.value
+                                  const next = Number(raw)
+                                  if (!Number.isFinite(next) || !Number.isInteger(next)) {
+                                    setReminderFieldError('Введите целое положительное число')
+                                    return
+                                  }
+                                  if (next <= 0) {
+                                    setReminderFieldError('Значение должно быть больше нуля')
+                                    return
+                                  }
+                                  if (next > (item.offset_unit === 'hours' ? 168 : 1440)) {
+                                    setReminderFieldError('Слишком большое значение')
+                                    return
+                                  }
+                                  setReminderFieldError('')
+                                  applyReminderValue(item.id, next)
+                                }}
+                                className="w-20 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                disabled={!item.enabled}
+                              />
+                              <select
+                                value={item.offset_unit}
+                                onChange={(event) => {
+                                  applyReminderUnit(item.id, event.target.value as 'minutes' | 'hours')
+                                  setReminderFieldError('')
+                                }}
+                                className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                disabled={!item.enabled}
+                              >
+                                <option value="minutes">минут</option>
+                                <option value="hours">часов</option>
+                              </select>
+                              <label className="inline-flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                                <input
+                                  type="checkbox"
+                                  checked={item.enabled}
+                                  onChange={(event) => toggleReminder(item.id, event.target.checked)}
+                                  className="h-3.5 w-3.5 rounded border-slate-300 text-sky-600"
+                                />
+                                Активно
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => removeReminderInterval(item.id)}
+                                className="text-[11px] font-semibold text-rose-600 hover:text-rose-500"
+                              >
+                                Удалить
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <input
+                              type="number"
+                              min={1}
+                              max={newReminderUnit === 'hours' ? 168 : 1440}
+                              step={1}
+                              value={newReminderValue}
+                              onChange={(event) => setNewReminderValue(Number(event.target.value) || 1)}
+                              className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            />
+                            <select
+                              value={newReminderUnit}
+                              onChange={(event) => setNewReminderUnit(event.target.value as 'minutes' | 'hours')}
+                              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            >
+                              <option value="minutes">минут</option>
+                              <option value="hours">часов</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => addReminderInterval(newReminderValue, newReminderUnit)}
+                              disabled={!(reminderData?.deadline || draft?.deadline)}
+                              className="rounded-full border border-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 transition hover:border-sky-300 hover:text-sky-700 disabled:opacity-60 dark:border-slate-700 dark:text-slate-300"
+                            >
+                              Добавить интервал
+                            </button>
+                          </div>
+                        <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                          Изменения сохраняются вместе с общей кнопкой “Сохранить”.
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                        <p className="font-semibold">Канал доставки</p>
+                        <div className="mt-2 grid gap-2">
+                          {(['email', 'telegram'] as const).map((channel) => {
+                            const info = reminderData?.channels?.[channel]
+                            const available = info?.available ?? false
+                            const availableCount = reminderData?.channels
+                              ? Object.values(reminderData.channels).filter((c) => c.available).length
+                              : 0
+                            const isOnlyAvailable = availableCount === 1
+                            const isAuto = reminderDrafts.every((item) => item.channel === null) && isOnlyAvailable && available
+                            return (
+                              <label
+                                key={channel}
+                                className={`flex items-start gap-2 rounded-md border px-2.5 py-2 ${
+                                  available
+                                    ? 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950'
+                                    : 'border-rose-200 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/40'
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="reminder-channel"
+                                  value={channel}
+                                  checked={reminderDrafts.every((item) => item.channel === channel) || isAuto}
+                                  onChange={() => applyReminderChannel(channel)}
+                                  disabled={!available}
+                                  className="mt-1 h-4 w-4 text-sky-600"
+                                />
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold">
+                                      {channel === 'email' ? 'Email' : 'Telegram'}
+                                    </span>
+                                    {isAuto ? (
+                                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200">
+                                        единственный доступный
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {!available ? (
+                                    <p className="mt-1 text-[10px] text-rose-600">{info?.reason || 'Недоступен'}</p>
+                                  ) : null}
+                                </div>
+                              </label>
+                            )
+                          })}
+                        </div>
+                        {reminderFieldError ? (
+                          <p className="mt-2 text-[10px] text-rose-600">{reminderFieldError}</p>
+                        ) : null}
+                      </div>
+
+                      {reminderDrafts.some((item) => item.status === 'invalid.past') ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
+                          Время напоминания уже прошло. Скорректируйте интервал или срок выполнения.
+                        </div>
+                      ) : null}
+                      {reminderDrafts.some((item) => item.status === 'invalid.channel') ? (
+                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
+                          Канал доставки недоступен. Проверьте настройки уведомлений.
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h3 className="text-sm font-semibold">Чек-лист</h3>
@@ -1330,12 +1874,11 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                       Ответственный
                     </span>
                     <select
-                      value={selectedAssigneeId ?? ''}
+                      value={draft.assignee ?? ''}
                       onChange={(event) => {
                         if (!selectedCardId) return
                         const next = event.target.value ? Number(event.target.value) : null
-                        setCardAssignees((prev) => ({ ...prev, [selectedCardId]: next ?? undefined }))
-                        void persistSelectedCard({ assignee: next })
+                        setDraft((prev) => (prev ? { ...prev, assignee: next } : prev))
                       }}
                       className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                     >
@@ -1353,15 +1896,12 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                     </span>
                     <input
                       type="datetime-local"
-                      value={selectedDetails.deadline}
+                      value={draft.deadline}
                       onChange={(event) => {
                         if (!selectedCardId) return
                         const value = event.target.value
-                        setCardDeadlines((prev) => ({ ...prev, [selectedCardId]: value }))
-                        api
-                          .updateCard(selectedCardId, { deadline: value || null })
-                          .then((updated) => setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c))))
-                          .catch(() => undefined)
+                        setDraft((prev) => (prev ? { ...prev, deadline: value } : prev))
+                        scheduleDeadlineSave()
                       }}
                       className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                     />
@@ -1386,8 +1926,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                           checked={selectedPriority === item.marker}
                           onChange={() => {
                             if (!selectedCardId) return
-                            setCardPriorities((prev) => ({ ...prev, [selectedCardId]: item.marker as '🔥' | '🟡' | '🟢' }))
-                            void persistSelectedCard({ priority: item.marker })
+                            setDraft((prev) => (prev ? { ...prev, priority: item.marker as '🔥' | '🟡' | '🟢' } : prev))
                           }}
                           className="h-4 w-4 text-sky-600"
                         />
@@ -1514,25 +2053,42 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                  <p className="font-semibold">Оценка времени</p>
-                  <p className="mt-1">
-                    Предсказуемая оценка снижает прокрастинацию.
-                  </p>
-                  <input
-                    value={selectedDetails.estimate}
-                    onChange={(event) => {
-                      if (!selectedCardId) return
-                      const value = event.target.value
-                      setCardEstimates((prev) => ({ ...prev, [selectedCardId]: value }))
-                      api
-                        .updateCard(selectedCardId, { estimate: value })
-                        .then((updated) => setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c))))
-                        .catch(() => undefined)
-                    }}
-                    className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {toast ? (
+        <div className="fixed bottom-4 left-1/2 z-[60] w-[min(720px,calc(100%-2rem))] -translate-x-1/2">
+          <div
+            className={`rounded-2xl border px-4 py-3 shadow-lg backdrop-blur dark:bg-slate-950/90 ${
+              toast.tone === 'error'
+                ? 'border-rose-200 bg-white/95 text-slate-900 dark:border-rose-900/50 dark:text-slate-100'
+                : 'border-slate-200 bg-white/95 text-slate-900 dark:border-slate-800 dark:text-slate-100'
+            }`}
+            role="status"
+          >
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-medium">{toast.message}</p>
+              <div className="flex items-center gap-2">
+                {toast.retry ? (
+                  <button
+                    type="button"
+                    onClick={() => void retryToast()}
+                    disabled={toastSending}
+                    className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                  >
+                    {toastSending ? 'Отправка…' : 'Повторить'}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setToast(null)}
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
+                >
+                  Закрыть
+                </button>
               </div>
             </div>
           </div>
@@ -2363,6 +2919,7 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                         setNotificationProfile((prev) => ({
                           email: event.target.value,
                           telegram_chat_id: prev?.telegram_chat_id ?? '',
+                          timezone: prev?.timezone ?? 'UTC',
                         }))
                       }
                       onBlur={(event) => void saveProfile({ email: event.target.value })}
@@ -2380,6 +2937,7 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                         setNotificationProfile((prev) => ({
                           email: prev?.email ?? '',
                           telegram_chat_id: event.target.value,
+                          timezone: prev?.timezone ?? 'UTC',
                         }))
                       }
                       onBlur={(event) => void saveProfile({ telegram_chat_id: event.target.value })}
@@ -2869,4 +3427,3 @@ export default function App() {
     </Routes>
   )
 }
-

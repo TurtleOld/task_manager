@@ -26,7 +26,6 @@ export interface Card {
   title: string
   description: string
   deadline: string | null
-  estimate: string
   priority: '🔥' | '🟡' | '🟢'
   tags: string[]
   categories: string[]
@@ -99,10 +98,51 @@ export type NotificationEventType =
   | 'card.updated'
   | 'card.deleted'
   | 'card.moved'
+  | 'card.deadline_reminder'
 
 export interface NotificationProfile {
   email: string
   telegram_chat_id: string
+  timezone: string
+}
+
+export type ReminderOffsetUnit = 'minutes' | 'hours'
+
+export type ReminderChannel = 'email' | 'telegram'
+
+export interface CardDeadlineReminder {
+  id: number
+  order: number
+  enabled: boolean
+  offset_value: number
+  offset_unit: ReminderOffsetUnit
+  channel: ReminderChannel | null
+  scheduled_at: string | null
+  status:
+    | 'disabled'
+    | 'scheduled'
+    | 'sent'
+    | 'skipped'
+    | 'failed'
+    | 'invalid.no_deadline'
+    | 'invalid.past'
+    | 'invalid.channel'
+  last_error: string
+  sent_at: string | null
+}
+
+export interface ReminderChannelInfo {
+  available: boolean
+  reason: string
+}
+
+export interface CardDeadlineReminderResponse {
+  reminders: CardDeadlineReminder[]
+  channels: {
+    email: ReminderChannelInfo
+    telegram: ReminderChannelInfo
+  }
+  deadline: string | null
 }
 
 export interface NotificationPreference {
@@ -112,4 +152,3 @@ export interface NotificationPreference {
   event_type: NotificationEventType
   enabled: boolean
 }
-
