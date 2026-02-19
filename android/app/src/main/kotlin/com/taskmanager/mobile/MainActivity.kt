@@ -41,6 +41,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,7 +61,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.onesignal.OneSignal
+import com.onesignal.user.subscriptions.IPushSubscriptionObserver
+import com.onesignal.user.subscriptions.PushSubscriptionChangedState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -108,6 +112,36 @@ private fun MainScreen(vm: KanbanViewModel = viewModel()) {
 
         if (BuildConfig.ONESIGNAL_APP_ID.isNotBlank()) {
             OneSignal.Notifications.requestPermission(true)
+        }
+    }
+
+    LaunchedEffect(uiState.isAuthenticated) {
+        if (!uiState.isAuthenticated) return@LaunchedEffect
+
+        repeat(15) {
+            val playerId = currentOneSignalPlayerId()
+            if (playerId.isNotBlank()) {
+                vm.registerPushPlayerId(playerId)
+                return@LaunchedEffect
+            }
+            delay(2000)
+        }
+    }
+
+    DisposableEffect(uiState.isAuthenticated, uiState.domain, uiState.token) {
+        val observer = object : IPushSubscriptionObserver {
+            override fun onPushSubscriptionChange(state: PushSubscriptionChangedState) {
+                val playerId = state.current.id ?: ""
+                if (playerId.isNotBlank()) {
+                    vm.registerPushPlayerId(playerId)
+                }
+            }
+        }
+
+        OneSignal.User.pushSubscription.addObserver(observer)
+
+        onDispose {
+            OneSignal.User.pushSubscription.removeObserver(observer)
         }
     }
 
