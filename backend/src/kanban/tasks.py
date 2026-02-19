@@ -251,6 +251,47 @@ def _send_telegram(chat_id: str, message: str) -> None:
         raise RuntimeError(f"Telegram API connection error: {exc}") from exc
 
 
+def _send_push(player_id: str, title: str, message: str) -> None:
+    app_id = settings.ONESIGNAL_APP_ID
+    api_key = settings.ONESIGNAL_REST_API_KEY
+    if not app_id or not api_key:
+        raise RuntimeError("OneSignal is not configured")
+
+    payload = json.dumps(
+        {
+            "app_id": app_id,
+            "include_subscription_ids": [player_id],
+            "headings": {"en": title, "ru": title},
+            "contents": {"en": message, "ru": message},
+        }
+    ).encode("utf-8")
+
+    req = request.Request(
+        url="https://api.onesignal.com/notifications?c=push",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Key {api_key}",
+        },
+        method="POST",
+    )
+    try:
+        with request.urlopen(req, timeout=10) as resp:
+            if resp.status >= 400:
+                raise RuntimeError(f"OneSignal API error: HTTP {resp.status}")
+    except HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")
+        except Exception:  # noqa: BLE001
+            body = "<failed to read response body>"
+        logger.warning("OneSignal API HTTPError: status=%s body=%s", exc.code, body)
+        raise RuntimeError(f"OneSignal API error: HTTP {exc.code}; body={body}") from exc
+    except URLError as exc:
+        logger.warning("OneSignal API URLError: %s", exc)
+        raise RuntimeError(f"OneSignal API connection error: {exc}") from exc
+
+
 def _preferences_enabled(user_id: int, event: NotificationEvent, channel: str) -> bool:
     qs = NotificationPreference.objects.filter(
         user_id=user_id,
@@ -297,7 +338,11 @@ def send_notification_event(self, event_id: int) -> None:
         if not profile:
             profile = NotificationProfile.objects.create(user=user)
 
-        for channel in [NotificationChannel.EMAIL, NotificationChannel.TELEGRAM]:
+        for channel in [
+            NotificationChannel.EMAIL,
+            NotificationChannel.TELEGRAM,
+            NotificationChannel.PUSH,
+        ]:
             channel_value = channel[0] if isinstance(channel, tuple) else channel
             if not _preferences_enabled(user.id, event, channel_value):
                 continue
@@ -333,6 +378,26 @@ def send_notification_event(self, event_id: int) -> None:
                 )
                 try:
                     _send_telegram(target_chat, body)
+                    delivery.status = NotificationDelivery.Status.SENT
+                    delivery.sent_at = timezone.now()
+                    delivery.save(update_fields=["status", "sent_at"])
+                except Exception as exc:  # noqa: BLE001
+                    delivery.status = NotificationDelivery.Status.FAILED
+                    delivery.error = str(exc)
+                    delivery.save(update_fields=["status", "error"])
+                    continue
+
+            if channel_value == NotificationChannel.PUSH:
+                target_player_id = (profile.onesignal_player_id or "").strip()
+                if not target_player_id:
+                    continue
+                delivery = NotificationDelivery.objects.create(
+                    event=event,
+                    user=user,
+                    channel=channel,
+                )
+                try:
+                    _send_push(target_player_id, subject, body)
                     delivery.status = NotificationDelivery.Status.SENT
                     delivery.sent_at = timezone.now()
                     delivery.save(update_fields=["status", "sent_at"])

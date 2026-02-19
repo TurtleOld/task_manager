@@ -393,7 +393,7 @@ class RegisterSerializer(serializers.Serializer):
 class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProfile]):
     class Meta:
         model = NotificationProfile
-        fields = ["email", "telegram_chat_id", "timezone"]
+        fields = ["email", "telegram_chat_id", "onesignal_player_id", "timezone"]
 
     def update(
         self, instance: NotificationProfile, validated_data: dict[str, Any]
@@ -404,10 +404,15 @@ class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProf
         telegram_chat_id = validated_data.get("telegram_chat_id")
         if telegram_chat_id is not None:
             instance.telegram_chat_id = telegram_chat_id.strip()
+        onesignal_player_id = validated_data.get("onesignal_player_id")
+        if onesignal_player_id is not None:
+            instance.onesignal_player_id = str(onesignal_player_id).strip()
         tz = validated_data.get("timezone")
         if tz is not None:
             instance.timezone = str(tz).strip() or "UTC"
-        instance.save(update_fields=["email", "telegram_chat_id", "timezone"])
+        instance.save(
+            update_fields=["email", "telegram_chat_id", "onesignal_player_id", "timezone"]
+        )
         return instance
 
 

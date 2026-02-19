@@ -109,6 +109,7 @@ class Card(TimestampedModel):
 class NotificationChannel(models.TextChoices):
     EMAIL = "email", "Email"
     TELEGRAM = "telegram", "Telegram"
+    PUSH = "push", "Push"
 
 
 class NotificationEventType(models.TextChoices):
@@ -129,6 +130,7 @@ class NotificationProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     email = models.EmailField(blank=True, default="")
     telegram_chat_id = models.CharField(max_length=64, blank=True, default="")
+    onesignal_player_id = models.CharField(max_length=200, blank=True, default="")
     timezone = models.CharField(max_length=64, blank=True, default="UTC")
 
     class Meta:
