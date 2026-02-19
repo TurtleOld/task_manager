@@ -538,6 +538,115 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
     return updated
   }
 
+  const formatReminder = (reminder: CardDeadlineReminder) => {
+    if (reminder.offset_unit === 'hours') {
+      const unit = reminder.offset_value === 1 ? 'час' : reminder.offset_value < 5 ? 'часа' : 'часов'
+      return `за ${reminder.offset_value} ${unit}`
+    }
+    const unit = reminder.offset_value === 1 ? 'минуту' : reminder.offset_value < 5 ? 'минуты' : 'минут'
+    return `за ${reminder.offset_value} ${unit}`
+  }
+
+  const buildCardUpdateChanges = (base: CardDraft, next: CardDraft) => {
+    const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+    const changes: string[] = []
+    const changesMeta: Record<string, unknown> = {}
+
+    const nextTitle = next.title.trim()
+    if (nextTitle && nextTitle !== base.title) {
+      changes.push(`Заголовок: “${nextTitle}”`)
+      changesMeta.title = nextTitle
+    }
+
+    const nextDescription = next.description.trim()
+    if (nextDescription !== base.description.trim()) {
+      if (nextDescription) {
+        changes.push(`Описание: ${nextDescription}`)
+        changesMeta.description = nextDescription
+      } else {
+        changes.push('Описание удалено')
+        changesMeta.description = ''
+      }
+    }
+
+    if (next.assignee !== base.assignee) {
+      if (next.assignee != null) {
+        const assigneeName = assignees.find((item) => item.id === next.assignee)?.name
+        changes.push(`Исполнитель: ${assigneeName || `#${next.assignee}`}`)
+        changesMeta.assignee = assigneeName || next.assignee
+      } else {
+        changes.push('Исполнитель удален')
+        changesMeta.assignee = null
+      }
+    }
+
+    if (next.deadline !== base.deadline) {
+      if (next.deadline) {
+        changes.push(`Срок: ${formatDateTime(next.deadline)}`)
+        changesMeta.deadline = next.deadline
+      } else {
+        changes.push('Срок удален')
+        changesMeta.deadline = null
+      }
+    }
+
+    if (next.priority !== base.priority) {
+      changes.push(`Приоритет: ${next.priority}`)
+      changesMeta.priority = next.priority
+    }
+
+    if (!sameJson(next.tags, base.tags)) {
+      if (next.tags.length > 0) {
+        changes.push(`Теги: ${next.tags.join(', ')}`)
+        changesMeta.tags = next.tags
+      } else {
+        changes.push('Теги удалены')
+        changesMeta.tags = []
+      }
+    }
+
+    if (!sameJson(next.categories, base.categories)) {
+      if (next.categories.length > 0) {
+        changes.push(`Категории: ${next.categories.join(', ')}`)
+        changesMeta.categories = next.categories
+      } else {
+        changes.push('Категории удалены')
+        changesMeta.categories = []
+      }
+    }
+
+    if (!sameJson(next.checklist, base.checklist)) {
+      const baseMap = new Map(base.checklist.map((item) => [item.id, item]))
+      const nextMap = new Map(next.checklist.map((item) => [item.id, item]))
+      const added = next.checklist.filter((item) => !baseMap.has(item.id))
+      const removed = base.checklist.filter((item) => !nextMap.has(item.id))
+      if (added.length > 0) {
+        changes.push(`Чек-лист добавлено: ${added.map((item) => item.text).join(', ')}`)
+        changesMeta.checklist_added = added
+      }
+      if (removed.length > 0) {
+        changes.push(`Чек-лист удалено: ${removed.map((item) => item.text).join(', ')}`)
+        changesMeta.checklist_removed = removed
+      }
+      if (added.length === 0 && removed.length === 0) {
+        changes.push('Чек-лист обновлен')
+        changesMeta.checklist_updated = true
+      }
+    }
+
+    if (!sameJson(next.attachments, base.attachments)) {
+      if (next.attachments.length > 0) {
+        changes.push(`Вложения: ${next.attachments.length}`)
+        changesMeta.attachments = next.attachments
+      } else {
+        changes.push('Вложения удалены')
+        changesMeta.attachments = []
+      }
+    }
+
+    return { changes, changesMeta }
+  }
+
   const scheduleDeadlineSave = () => {
     if (deadlineSaveTimeoutRef.current) {
       clearTimeout(deadlineSaveTimeoutRef.current)
@@ -731,7 +840,35 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
       setSelectedCard(null)
 
       try {
-        await api.notifyCardUpdated(finalCard.id, { version: finalCard.version })
+        const { changes, changesMeta } = buildCardUpdateChanges(base, {
+          ...draft,
+          title: draft.title.trim(),
+          description: draft.description,
+          deadline: draft.deadline,
+          tags: draft.tags,
+          categories: draft.categories,
+          checklist: draft.checklist,
+          attachments: draft.attachments,
+        })
+
+        if (reminderChanged) {
+          const enabled = reminderDrafts.filter((item) => item.enabled)
+          if (enabled.length > 0) {
+            const reminderTexts = enabled.map((item) => formatReminder(item))
+            changes.push(`Напоминания: ${reminderTexts.join(', ')}`)
+            changesMeta.reminders = reminderTexts
+          } else {
+            changes.push('Напоминания отключены')
+            changesMeta.reminders = []
+          }
+        }
+
+        await api.notifyCardUpdated(finalCard.id, {
+          version: finalCard.version,
+          description: draft.description.trim() || undefined,
+          changes,
+          changes_meta: changesMeta,
+        })
       } catch {
         setToast({
           tone: 'error',
@@ -854,7 +991,6 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
     const card = await api.createCard(columnId, title)
     setCards((prev) => [...prev, card])
     setNewCardTitle((s) => ({ ...s, [columnId]: '' }))
-    setSelectedCard(card)
   }
 
   const move = async (card: Card, dir: 'up' | 'down' | 'left' | 'right') => {
@@ -913,6 +1049,15 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
       hour: '2-digit',
       minute: '2-digit',
     })
+  }
+
+  const formatUpdatedStatus = (value: string) => {
+    if (!value) return 'Обновлено недавно'
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return 'Обновлено недавно'
+    const diffMs = Date.now() - parsed.getTime()
+    if (diffMs < 60_000) return 'Обновлено недавно'
+    return `Обновлено ${formatDateTime(value)}`
   }
 
   const tagOptions = ['Все', ...new Set(Object.values(cardTags).flat())]
@@ -1337,7 +1482,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                         <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                           <span className="inline-flex items-center gap-1">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
-                            Обновлено недавно
+                            {formatUpdatedStatus(card.updated_at)}
                           </span>
                           <div className="flex items-center gap-1">
                             <button
@@ -2684,6 +2829,20 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
     }
   }
 
+  const saveBoardNotificationContacts = async (boardId: number, payload: { notification_email?: string; notification_telegram_chat_id?: string }) => {
+    if (notificationSaving) return
+    setNotificationSaving(true)
+    setNotificationError('')
+    try {
+      const updated = await api.updateBoard(boardId, payload)
+      setNotificationBoards((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
+    } catch (e) {
+      setNotificationError((e as Error).message)
+    } finally {
+      setNotificationSaving(false)
+    }
+  }
+
   const selectUser = (next: AdminUser) => {
     setSelectedUser(next)
     setEditRole(next.role)
@@ -2892,45 +3051,6 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                 <div className="grid gap-4 sm:grid-cols-2">
                   <label className="block">
                     <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                      Email
-                    </span>
-                    <input
-                      value={notificationProfile?.email ?? ''}
-                      onChange={(event) =>
-                        setNotificationProfile((prev) => ({
-                          email: event.target.value,
-                          telegram_chat_id: prev?.telegram_chat_id ?? '',
-                          timezone: prev?.timezone ?? 'UTC',
-                        }))
-                      }
-                      onBlur={(event) => void saveProfile({ email: event.target.value })}
-                      placeholder="name@company.com"
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                      Telegram chat_id
-                    </span>
-                    <input
-                      value={notificationProfile?.telegram_chat_id ?? ''}
-                      onChange={(event) =>
-                        setNotificationProfile((prev) => ({
-                          email: prev?.email ?? '',
-                          telegram_chat_id: event.target.value,
-                          timezone: prev?.timezone ?? 'UTC',
-                        }))
-                      }
-                      onBlur={(event) => void saveProfile({ telegram_chat_id: event.target.value })}
-                      placeholder="123456789"
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                    />
-                  </label>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                       Уровень настроек
                     </span>
                     <select
@@ -2952,6 +3072,88 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
                     Выберите доску, чтобы переопределить глобальные правила.
                   </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                      Email
+                    </span>
+                    <input
+                      value={
+                        notificationBoardFilter === 'all'
+                          ? notificationProfile?.email ?? ''
+                          : notificationBoards.find((board) => board.id === notificationBoardFilter)?.notification_email ?? ''
+                      }
+                      onChange={(event) => {
+                        const value = event.target.value
+                        if (notificationBoardFilter === 'all') {
+                          setNotificationProfile((prev) => ({
+                            email: value,
+                            telegram_chat_id: prev?.telegram_chat_id ?? '',
+                            timezone: prev?.timezone ?? 'UTC',
+                          }))
+                          return
+                        }
+                        setNotificationBoards((prev) =>
+                          prev.map((board) =>
+                            board.id === notificationBoardFilter ? { ...board, notification_email: value } : board
+                          )
+                        )
+                      }}
+                      onBlur={(event) => {
+                        const value = event.target.value
+                        if (notificationBoardFilter === 'all') {
+                          void saveProfile({ email: value })
+                        } else {
+                          void saveBoardNotificationContacts(notificationBoardFilter, { notification_email: value })
+                        }
+                      }}
+                      placeholder="name@company.com"
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                      Telegram chat_id
+                    </span>
+                    <input
+                      value={
+                        notificationBoardFilter === 'all'
+                          ? notificationProfile?.telegram_chat_id ?? ''
+                          : notificationBoards.find((board) => board.id === notificationBoardFilter)
+                              ?.notification_telegram_chat_id ?? ''
+                      }
+                      onChange={(event) => {
+                        const value = event.target.value
+                        if (notificationBoardFilter === 'all') {
+                          setNotificationProfile((prev) => ({
+                            email: prev?.email ?? '',
+                            telegram_chat_id: value,
+                            timezone: prev?.timezone ?? 'UTC',
+                          }))
+                          return
+                        }
+                        setNotificationBoards((prev) =>
+                          prev.map((board) =>
+                            board.id === notificationBoardFilter
+                              ? { ...board, notification_telegram_chat_id: value }
+                              : board
+                          )
+                        )
+                      }}
+                      onBlur={(event) => {
+                        const value = event.target.value
+                        if (notificationBoardFilter === 'all') {
+                          void saveProfile({ telegram_chat_id: value })
+                        } else {
+                          void saveBoardNotificationContacts(notificationBoardFilter, { notification_telegram_chat_id: value })
+                        }
+                      }}
+                      placeholder="123456789"
+                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                    />
+                  </label>
                 </div>
 
                 <div className="space-y-3">

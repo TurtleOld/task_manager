@@ -29,8 +29,37 @@ User = get_user_model()
 class BoardSerializer(serializers.ModelSerializer[Board]):
     class Meta:
         model = Board
-        fields = ["id", "name", "created_at", "updated_at", "version"]
+        fields = [
+            "id",
+            "name",
+            "notification_email",
+            "notification_telegram_chat_id",
+            "created_at",
+            "updated_at",
+            "version",
+        ]
         read_only_fields = ["id", "created_at", "updated_at", "version"]
+
+    def update(self, instance: Board, validated_data: dict[str, Any]) -> Board:
+        name = validated_data.get("name")
+        if name is not None:
+            instance.name = name
+        notification_email = validated_data.get("notification_email")
+        if notification_email is not None:
+            instance.notification_email = notification_email.strip()
+        notification_telegram_chat_id = validated_data.get("notification_telegram_chat_id")
+        if notification_telegram_chat_id is not None:
+            instance.notification_telegram_chat_id = notification_telegram_chat_id.strip()
+        instance.save(
+            update_fields=[
+                "name",
+                "notification_email",
+                "notification_telegram_chat_id",
+                "updated_at",
+                "version",
+            ]
+        )
+        return instance
 
 
 class ColumnSerializer(serializers.ModelSerializer[Column]):

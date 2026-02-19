@@ -63,6 +63,17 @@ export const api = {
     })
     return json(res)
   },
+  updateBoard: async (
+    id: number,
+    payload: Partial<{ name: string; notification_email: string; notification_telegram_chat_id: string }>
+  ): Promise<Board> => {
+    const res = await fetch(`${V1}/boards/${id}/`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
 
   // Columns
   listColumns: async (boardId: number): Promise<Column[]> => {
@@ -155,7 +166,10 @@ export const api = {
     return json(res)
   },
 
-  notifyCardUpdated: async (id: number, payload: { version: number }): Promise<{ event_id: number | null; dedupe_key: string }> => {
+  notifyCardUpdated: async (
+    id: number,
+    payload: { version: number; description?: string; changes?: string[]; changes_meta?: Record<string, unknown> }
+  ): Promise<{ event_id: number | null; dedupe_key: string }> => {
     const res = await fetch(`${V1}/cards/${id}/notify-updated/`, {
       method: 'POST',
       headers: authHeaders(),

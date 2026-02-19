@@ -333,7 +333,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     def notify_updated(self, request: Request, pk: str | None = None) -> Response:
         """Create a single idempotent notification event for a card update.
 
-        Expected payload: {"version": <int>}
+        Expected payload: {"version": <int>, "description": <str?>, "changes": <list?>}
         """
         card = self.get_object()
         payload: dict[str, Any] = request.data or {}
@@ -354,14 +354,39 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         actor = request.user if request.user.is_authenticated else None
         dedupe_key = f"card.updated:{card.id}:{version_int}"
+        description = payload.get("description")
+        changes = payload.get("changes")
+
+        summary_parts = [f'Обновлена карточка "{card.title}"']
+        if isinstance(description, str) and description.strip():
+            summary_parts.append(f"\nОписание: {description.strip()}")
+        if isinstance(changes, list):
+            changes_text = "\n".join([str(item) for item in changes if str(item).strip()])
+            if changes_text:
+                summary_parts.append(f"\nИзменения:\n{changes_text}")
+
+        summary = "".join(summary_parts)
+
+        payload_updates = {
+            "board": card.board.name,
+            "column": card.column.name,
+            "card": card.title,
+        }
+        if isinstance(description, str) and description.strip():
+            payload_updates["description"] = description.strip()
+        if isinstance(changes, list):
+            payload_updates["changes"] = changes
+        if isinstance(payload.get("changes_meta"), dict):
+            payload_updates["changes_meta"] = payload.get("changes_meta")
+
         event = create_notification_event(
             event_type=NotificationEventType.CARD_UPDATED.value,
             actor=actor,
             board=card.board,
             column=card.column,
             card=card,
-            summary=f"Обновлена карточка “{card.title}”",
-            payload={"board": card.board.name, "column": card.column.name, "card": card.title},
+            summary=summary,
+            payload=payload_updates,
             dedupe_key=dedupe_key,
         )
         return Response(

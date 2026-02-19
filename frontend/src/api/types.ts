@@ -2,6 +2,8 @@
 export interface Board {
   id: number
   name: string
+  notification_email: string
+  notification_telegram_chat_id: string
   created_at: string
   updated_at: string
   version: number

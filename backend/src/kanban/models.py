@@ -27,6 +27,8 @@ class TimestampedModel(models.Model):
 
 class Board(TimestampedModel):
     name = models.CharField(max_length=200)
+    notification_email = models.EmailField(blank=True, default="")
+    notification_telegram_chat_id = models.CharField(max_length=64, blank=True, default="")
 
     class Meta:
         ordering = ["id"]
