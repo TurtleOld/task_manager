@@ -1,0 +1,58 @@
+name: Android APK Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'android/**'
+      - '.github/workflows/android-apk.yml'
+
+jobs:
+  build-release-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Generate self-signed keystore
+        run: |
+          mkdir -p .keystore
+          keytool -genkeypair \
+            -v \
+            -storetype PKCS12 \
+            -keystore .keystore/release.keystore \
+            -alias release \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'android' }}" \
+            -keypass "${{ secrets.ANDROID_KEY_PASSWORD || 'android' }}" \
+            -dname "CN=TaskManager, OU=Mobile, O=TaskManager, L=Moscow, S=Moscow, C=RU"
+
+      - name: Build signed release APK
+        env:
+          ANDROID_API_BASE_URL: http://localhost:8000
+          ANDROID_WEB_BASE_URL: http://localhost:5173
+          ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
+        run: |
+          ./gradlew :app:assembleRelease \
+            -Pandroid.injected.signing.store.file=.keystore/release.keystore \
+            -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'android' }}" \
+            -Pandroid.injected.signing.key.alias=release \
+            -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD || 'android' }}"
+
+      - name: Upload release APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
