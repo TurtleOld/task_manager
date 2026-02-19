@@ -184,6 +184,24 @@ set PYTHONPATH=src && uv run --active celery -A config worker -l info
 - `ANDROID_WEB_BASE_URL` — base URL Web UI (по умолчанию `http://10.0.2.2:5173`)
 - `ONESIGNAL_APP_ID` — App ID из OneSignal (для push)
 
+### Firebase / google-services.json
+
+- Файл [`android/app/google-services.json`](android/app/google-services.json) не хранится в Git.
+- Для локальной разработки положите свой файл вручную в [`android/app/google-services.json`](android/app/google-services.json).
+- Для CI используется секрет `GOOGLE_SERVICES_JSON_B64` (base64 от содержимого файла), из которого на этапе сборки восстанавливается [`android/app/google-services.json`](android/app/google-services.json).
+
+Пример получения base64 для секрета:
+
+```bash
+base64 -w 0 android/app/google-services.json
+```
+
+Проверка перед локальной сборкой (файл обязателен при подключенном Firebase plugin):
+
+```bash
+test -f android/app/google-services.json || (echo "Missing android/app/google-services.json" && exit 1)
+```
+
 ### Локальная сборка
 
 ```bash

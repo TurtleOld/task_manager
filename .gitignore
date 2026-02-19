@@ -48,3 +48,6 @@ media/
 .github/instructions/codacy.instructions.md
 
 **/**/db.sqlite3
+
+# Android Firebase/Google Services config (must be provided via local file or CI secret)
+android/app/google-services.json

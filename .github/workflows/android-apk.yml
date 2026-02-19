@@ -26,6 +26,16 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Restore google-services.json from secret
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "GOOGLE_SERVICES_JSON_B64 secret is not set" >&2
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICES_JSON_B64" | base64 -d > app/google-services.json
+
       - name: Generate self-signed keystore
         run: |
           mkdir -p .keystore
