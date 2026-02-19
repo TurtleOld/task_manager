@@ -55,3 +55,28 @@ jobs:
         run: npm run lint
       - name: Typecheck
         run: npm run typecheck
+
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build debug APK
+        env:
+          ANDROID_API_BASE_URL: http://localhost:8000
+          ANDROID_WEB_BASE_URL: http://localhost:5173
+          ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
+        run: ./gradlew :app:assembleDebug
+      - name: Build release AAB
+        env:
+          ANDROID_API_BASE_URL: http://localhost:8000
+          ANDROID_WEB_BASE_URL: http://localhost:5173
+          ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
+        run: ./gradlew :app:bundleRelease

@@ -168,4 +168,34 @@ set PYTHONPATH=src && uv run --active celery -A config worker -l info
 
 - `backend/` — Django API
 - `frontend/` — React UI
+- `android/` — Android (Kotlin + Jetpack Compose, WebView + OneSignal push)
 - `docker-compose.yml` — инфраструктура для разработки
+
+## Mobile (Android)
+
+### Требования
+
+- JDK 17
+- Android SDK (локально) или Docker (для сборки через compose)
+
+### Переменные окружения
+
+- `ANDROID_API_BASE_URL` — base URL API (по умолчанию `http://10.0.2.2:8000` для эмулятора)
+- `ANDROID_WEB_BASE_URL` — base URL Web UI (по умолчанию `http://10.0.2.2:5173`)
+- `ONESIGNAL_APP_ID` — App ID из OneSignal (для push)
+
+### Локальная сборка
+
+```bash
+cd android
+./gradlew :app:assembleDebug
+./gradlew :app:bundleRelease
+```
+
+### Сборка через Docker Compose
+
+```bash
+docker compose build android
+```
+
+APK/AAB находятся в `android/app/build/outputs`.

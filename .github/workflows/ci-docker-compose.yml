@@ -60,7 +60,7 @@ jobs:
           SHA_TAG: ${{ github.sha }}
         run: |
           set -euo pipefail
-          for img in backend celery frontend; do
+          for img in backend celery frontend android; do
             docker tag "$IMAGE_REGISTRY/$img:$SHA_TAG" "$IMAGE_REGISTRY/$img:main"
             docker push "$IMAGE_REGISTRY/$img:main"
             docker tag "$IMAGE_REGISTRY/$img:$SHA_TAG" "$IMAGE_REGISTRY/$img:latest"

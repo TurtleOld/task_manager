@@ -114,5 +114,15 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  android:
+    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/android:${IMAGE_TAG:-latest}
+    build:
+      context: ./android
+      dockerfile: Dockerfile
+      args:
+        ANDROID_API_BASE_URL: ${ANDROID_API_BASE_URL:-http://10.0.2.2:8000}
+        ANDROID_WEB_BASE_URL: ${ANDROID_WEB_BASE_URL:-http://10.0.2.2:5173}
+        ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
+
 volumes:
   db-data:
