@@ -18,23 +18,23 @@ jobs:
       BUILDKIT_PROGRESS: plain
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           submodules: recursive
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2
 
       - name: Cache BuildKit
-        uses: actions/cache@v4
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
         with:
           path: ~/.cache/buildx
           key: ${{ runner.os }}-buildx-${{ hashFiles('**/Dockerfile', 'docker-compose.yml') }}
@@ -45,13 +45,13 @@ jobs:
         env:
           IMAGE_REGISTRY: ghcr.io/turtleold/task_manager
           IMAGE_TAG: ${{ github.sha }}
-        run: docker compose build --pull
+        run: docker compose build --pull backend celery frontend
 
       - name: Push images to GHCR
         env:
           IMAGE_REGISTRY: ghcr.io/turtleold/task_manager
           IMAGE_TAG: ${{ github.sha }}
-        run: docker compose push
+        run: docker compose push backend celery frontend
 
       - name: Tag and push moving tags (main, latest)
         if: github.ref == 'refs/heads/main'
@@ -60,7 +60,7 @@ jobs:
           SHA_TAG: ${{ github.sha }}
         run: |
           set -euo pipefail
-          for img in backend celery frontend android; do
+          for img in backend celery frontend; do
             docker tag "$IMAGE_REGISTRY/$img:$SHA_TAG" "$IMAGE_REGISTRY/$img:main"
             docker push "$IMAGE_REGISTRY/$img:main"
             docker tag "$IMAGE_REGISTRY/$img:$SHA_TAG" "$IMAGE_REGISTRY/$img:latest"
