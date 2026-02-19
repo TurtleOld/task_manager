@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
@@ -89,6 +91,10 @@ class MainActivity : ComponentActivity() {
 private fun MainScreen(vm: KanbanViewModel = viewModel()) {
     val context = LocalContext.current
     val uiState = vm.uiState
+    var createBoardDialogVisible by remember { mutableStateOf(false) }
+    var createColumnDialogVisible by remember { mutableStateOf(false) }
+    var createCardColumnId by remember { mutableStateOf<Int?>(null) }
+    var editingCard by remember { mutableStateOf<KanbanCard?>(null) }
 
     LaunchedEffect(Unit) {
         val savedDomain = readSavedDomain(context)
@@ -129,21 +135,14 @@ private fun MainScreen(vm: KanbanViewModel = viewModel()) {
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(text = "Task Manager", style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            text = "Mobile Kanban",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                    Text(text = "Task Manager", style = MaterialTheme.typography.titleLarge)
+                },
+                actions = {
+                    TextButton(onClick = { createBoardDialogVisible = true }) {
+                        Text("Новая доска")
                     }
                 }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { vm.addCardToBacklog("Новая задача") }) {
-                Text(text = "+")
-            }
         }
     ) { padding ->
         if (uiState.isLoading) {
@@ -210,9 +209,12 @@ private fun MainScreen(vm: KanbanViewModel = viewModel()) {
                 selectedBoardId = selectedBoard.id,
                 onBoardSelected = vm::selectBoard
             )
-            BoardOverview(board = selectedBoard)
             KanbanColumns(
                 board = selectedBoard,
+                onCreateColumn = { createColumnDialogVisible = true },
+                onCreateCard = { columnId -> createCardColumnId = columnId },
+                onEditCard = { card -> editingCard = card },
+                onDeleteCard = vm::deleteCard,
                 onMoveLeft = { cardId, columnIndex ->
                     if (columnIndex > 0) {
                         vm.moveCard(cardId, selectedBoard.columns[columnIndex - 1].id)
@@ -226,6 +228,55 @@ private fun MainScreen(vm: KanbanViewModel = viewModel()) {
             )
             Spacer(modifier = Modifier.height(80.dp))
         }
+    }
+
+    if (createBoardDialogVisible) {
+        TextInputDialog(
+            title = "Новая доска",
+            label = "Название доски",
+            confirmText = "Создать",
+            onDismiss = { createBoardDialogVisible = false },
+            onConfirm = {
+                vm.createBoard(it)
+                createBoardDialogVisible = false
+            }
+        )
+    }
+
+    if (createColumnDialogVisible && uiState.selectedBoard != null) {
+        CreateColumnDialog(
+            onDismiss = { createColumnDialogVisible = false },
+            onConfirm = { name, icon ->
+                vm.createColumn(name = name, icon = icon)
+                createColumnDialogVisible = false
+            }
+        )
+    }
+
+    val createColumnIdSnapshot = createCardColumnId
+    if (createColumnIdSnapshot != null) {
+        CardEditorDialog(
+            title = "Новая карточка",
+            initialCard = null,
+            onDismiss = { createCardColumnId = null },
+            onSubmit = { payload ->
+                vm.createCard(columnId = createColumnIdSnapshot, payload = payload)
+                createCardColumnId = null
+            }
+        )
+    }
+
+    val editingCardSnapshot = editingCard
+    if (editingCardSnapshot != null) {
+        CardEditorDialog(
+            title = "Редактирование карточки",
+            initialCard = editingCardSnapshot,
+            onDismiss = { editingCard = null },
+            onSubmit = { payload ->
+                vm.updateCard(cardId = editingCardSnapshot.id, payload = payload)
+                editingCard = null
+            }
+        )
     }
 }
 
@@ -316,57 +367,12 @@ private fun BoardSelector(
 }
 
 @Composable
-private fun BoardOverview(board: KanbanBoard) {
-    val allCards = board.columns.flatMap { it.cards }
-    val highPriority = allCards.count { it.priority == TaskPriority.High }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        OverviewCard(
-            modifier = Modifier.weight(1f),
-            title = "Всего",
-            value = allCards.size.toString(),
-            accent = MaterialTheme.colorScheme.primary
-        )
-        OverviewCard(
-            modifier = Modifier.weight(1f),
-            title = "High",
-            value = highPriority.toString(),
-            accent = MaterialTheme.colorScheme.error
-        )
-        OverviewCard(
-            modifier = Modifier.weight(1f),
-            title = "Колонки",
-            value = board.columns.size.toString(),
-            accent = MaterialTheme.colorScheme.tertiary
-        )
-    }
-}
-
-@Composable
-private fun OverviewCard(modifier: Modifier, title: String, value: String, accent: Color) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Box(modifier = Modifier.size(10.dp).background(accent, CircleShape))
-            Text(text = value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
 private fun KanbanColumns(
     board: KanbanBoard,
+    onCreateColumn: () -> Unit,
+    onCreateCard: (columnId: Int) -> Unit,
+    onEditCard: (KanbanCard) -> Unit,
+    onDeleteCard: (Int) -> Unit,
     onMoveLeft: (cardId: Int, columnIndex: Int) -> Unit,
     onMoveRight: (cardId: Int, columnIndex: Int) -> Unit
 ) {
@@ -396,7 +402,7 @@ private fun KanbanColumns(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Spacer(modifier = Modifier.weight(1f))
+                        TextButton(onClick = { onCreateCard(column.id) }) { Text("+") }
                         AssistChip(
                             onClick = {},
                             label = { Text(column.cards.size.toString()) },
@@ -421,10 +427,33 @@ private fun KanbanColumns(
                                 card = card,
                                 canMoveLeft = columnIndex > 0,
                                 canMoveRight = columnIndex < board.columns.lastIndex,
+                                onEdit = { onEditCard(card) },
+                                onDelete = { onDeleteCard(card.id) },
                                 onMoveLeft = { onMoveLeft(card.id, columnIndex) },
                                 onMoveRight = { onMoveRight(card.id, columnIndex) }
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.width(220.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Колонки", style = MaterialTheme.typography.titleSmall)
+                    Button(onClick = onCreateColumn, modifier = Modifier.fillMaxWidth()) {
+                        Text("Добавить колонку")
                     }
                 }
             }
@@ -437,6 +466,8 @@ private fun TaskCardItem(
     card: KanbanCard,
     canMoveLeft: Boolean,
     canMoveRight: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
     onMoveLeft: () -> Unit,
     onMoveRight: () -> Unit
 ) {
@@ -461,19 +492,61 @@ private fun TaskCardItem(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 PriorityPill(priority = card.priority)
                 Text(
-                    text = card.assignee,
+                    text = card.assigneeLabel,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
-                    text = card.dueDate,
+                    text = card.deadline ?: "No date",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (card.tags.isNotEmpty()) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(card.tags) { tag ->
+                        Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.secondaryContainer) {
+                            Text(
+                                text = "#$tag",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (card.categories.isNotEmpty()) {
+                Text(
+                    text = "Категории: ${card.categories.joinToString()}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (card.checklist.isNotEmpty()) {
+                val doneCount = card.checklist.count { it.done }
+                Text(
+                    text = "Checklist: $doneCount/${card.checklist.size}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (card.attachmentsCount > 0) {
+                Text(
+                    text = "Вложения: ${card.attachmentsCount}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onEdit) { Text("Edit") }
+                TextButton(onClick = onDelete) { Text("Delete") }
                 if (canMoveLeft) {
                     TextButton(onClick = onMoveLeft) { Text("←") }
                 }
@@ -483,6 +556,199 @@ private fun TaskCardItem(
             }
         }
     }
+}
+
+@Composable
+private fun TextInputDialog(
+    title: String,
+    label: String,
+    confirmText: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var value by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { value = it },
+                label = { Text(label) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(value.trim()) }, enabled = value.isNotBlank()) {
+                Text(confirmText)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        }
+    )
+}
+
+@Composable
+private fun CreateColumnDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, icon: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var icon by remember { mutableStateOf("📋") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Новая колонка") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Название") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = icon,
+                    onValueChange = { icon = it },
+                    label = { Text("Иконка") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name.trim(), icon.trim().ifBlank { "📋" }) }, enabled = name.isNotBlank()) {
+                Text("Создать")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        }
+    )
+}
+
+@Composable
+private fun CardEditorDialog(
+    title: String,
+    initialCard: KanbanCard?,
+    onDismiss: () -> Unit,
+    onSubmit: (CardPayload) -> Unit
+) {
+    var cardTitle by remember(initialCard) { mutableStateOf(initialCard?.title.orEmpty()) }
+    var description by remember(initialCard) { mutableStateOf(initialCard?.description.orEmpty()) }
+    var assigneeId by remember(initialCard) { mutableStateOf(initialCard?.assigneeId?.toString().orEmpty()) }
+    var deadline by remember(initialCard) { mutableStateOf(initialCard?.deadline.orEmpty()) }
+    var tagsRaw by remember(initialCard) { mutableStateOf(initialCard?.tags?.joinToString(", ").orEmpty()) }
+    var categoriesRaw by remember(initialCard) { mutableStateOf(initialCard?.categories?.joinToString(", ").orEmpty()) }
+    var checklistRaw by remember(initialCard) {
+        mutableStateOf(initialCard?.checklist?.joinToString("\n") { it.text }.orEmpty())
+    }
+    var priority by remember(initialCard) { mutableStateOf(initialCard?.priority ?: TaskPriority.Medium) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = cardTitle,
+                    onValueChange = { cardTitle = it },
+                    label = { Text("Заголовок") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Описание") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = assigneeId,
+                    onValueChange = { assigneeId = it },
+                    label = { Text("Assignee ID") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = deadline,
+                    onValueChange = { deadline = it },
+                    label = { Text("Deadline ISO (optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = priority == TaskPriority.Low,
+                        onClick = { priority = TaskPriority.Low },
+                        label = { Text("Low") }
+                    )
+                    FilterChip(
+                        selected = priority == TaskPriority.Medium,
+                        onClick = { priority = TaskPriority.Medium },
+                        label = { Text("Medium") }
+                    )
+                    FilterChip(
+                        selected = priority == TaskPriority.High,
+                        onClick = { priority = TaskPriority.High },
+                        label = { Text("High") }
+                    )
+                }
+                OutlinedTextField(
+                    value = tagsRaw,
+                    onValueChange = { tagsRaw = it },
+                    label = { Text("Tags (comma separated)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = categoriesRaw,
+                    onValueChange = { categoriesRaw = it },
+                    label = { Text("Categories (comma separated)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = checklistRaw,
+                    onValueChange = { checklistRaw = it },
+                    label = { Text("Checklist (one item per line)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSubmit(
+                        CardPayload(
+                            title = cardTitle.trim(),
+                            description = description.trim(),
+                            assigneeId = assigneeId.trim().toIntOrNull(),
+                            deadline = deadline.trim().ifBlank { null },
+                            priority = priority,
+                            tags = tagsRaw.split(',').map { it.trim() }.filter { it.isNotBlank() },
+                            categories = categoriesRaw.split(',').map { it.trim() }.filter { it.isNotBlank() },
+                            checklist = checklistRaw.lines().mapIndexedNotNull { index, text ->
+                                val value = text.trim()
+                                if (value.isBlank()) null else KanbanChecklistItem(id = "android-$index", text = value, done = false)
+                            }
+                        )
+                    )
+                },
+                enabled = cardTitle.isNotBlank()
+            ) {
+                Text("Сохранить")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        }
+    )
 }
 
 @Composable
@@ -619,22 +885,84 @@ class KanbanViewModel : ViewModel() {
         uiState = uiState.copy(selectedBoardId = boardId)
     }
 
-    fun addCardToBacklog(title: String) {
-        val board = uiState.selectedBoard ?: return
-        val firstColumnId = board.columns.firstOrNull()?.id ?: return
+    fun createBoard(name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            try {
+                repository.createBoard(
+                    baseUrl = uiState.domain,
+                    apiToken = uiState.token,
+                    name = name.trim()
+                )
+                refresh()
+            } catch (e: Exception) {
+                uiState = uiState.copy(errorMessage = e.message ?: "Не удалось создать доску")
+            }
+        }
+    }
 
+    fun createColumn(name: String, icon: String) {
+        val boardId = uiState.selectedBoard?.id ?: return
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            try {
+                repository.createColumn(
+                    baseUrl = uiState.domain,
+                    apiToken = uiState.token,
+                    boardId = boardId,
+                    name = name.trim(),
+                    icon = icon
+                )
+                refresh()
+            } catch (e: Exception) {
+                uiState = uiState.copy(errorMessage = e.message ?: "Не удалось создать колонку")
+            }
+        }
+    }
+
+    fun createCard(columnId: Int, payload: CardPayload) {
         viewModelScope.launch {
             try {
                 repository.createCard(
                     baseUrl = uiState.domain,
                     apiToken = uiState.token,
-                    columnId = firstColumnId,
-                    title = title,
-                    description = "Добавлено из Android"
+                    columnId = columnId,
+                    payload = payload
                 )
                 refresh()
             } catch (e: Exception) {
                 uiState = uiState.copy(errorMessage = e.message ?: "Не удалось добавить карточку")
+            }
+        }
+    }
+
+    fun updateCard(cardId: Int, payload: CardPayload) {
+        viewModelScope.launch {
+            try {
+                repository.updateCard(
+                    baseUrl = uiState.domain,
+                    apiToken = uiState.token,
+                    cardId = cardId,
+                    payload = payload
+                )
+                refresh()
+            } catch (e: Exception) {
+                uiState = uiState.copy(errorMessage = e.message ?: "Не удалось обновить карточку")
+            }
+        }
+    }
+
+    fun deleteCard(cardId: Int) {
+        viewModelScope.launch {
+            try {
+                repository.deleteCard(
+                    baseUrl = uiState.domain,
+                    apiToken = uiState.token,
+                    cardId = cardId
+                )
+                refresh()
+            } catch (e: Exception) {
+                uiState = uiState.copy(errorMessage = e.message ?: "Не удалось удалить карточку")
             }
         }
     }
@@ -673,6 +1001,25 @@ data class KanbanUiState(
 }
 
 class KanbanRepository {
+
+    suspend fun createBoard(baseUrl: String, apiToken: String, name: String) = withContext(Dispatchers.IO) {
+        val body = JSONObject().put("name", name)
+        request(baseUrl, apiToken, "POST", "/boards/", body.toString())
+    }
+
+    suspend fun createColumn(
+        baseUrl: String,
+        apiToken: String,
+        boardId: Int,
+        name: String,
+        icon: String
+    ) = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put("board", boardId)
+            .put("name", name)
+            .put("icon", icon)
+        request(baseUrl, apiToken, "POST", "/columns/", body.toString())
+    }
 
     suspend fun login(baseUrl: String, username: String, password: String): String = withContext(Dispatchers.IO) {
         val body = JSONObject()
@@ -726,18 +1073,35 @@ class KanbanRepository {
         result
     }
 
-    suspend fun createCard(
-        baseUrl: String,
-        apiToken: String,
-        columnId: Int,
-        title: String,
-        description: String
-    ) = withContext(Dispatchers.IO) {
+    suspend fun createCard(baseUrl: String, apiToken: String, columnId: Int, payload: CardPayload) = withContext(Dispatchers.IO) {
         val body = JSONObject()
             .put("column", columnId)
-            .put("title", title)
-            .put("description", description)
+            .put("title", payload.title)
+            .put("description", payload.description)
+            .put("assignee", payload.assigneeId)
+            .put("deadline", payload.deadline)
+            .put("priority", payload.priority.toEmoji())
+            .put("tags", JSONArray(payload.tags))
+            .put("categories", JSONArray(payload.categories))
+            .put("checklist", checklistToJson(payload.checklist))
         request(baseUrl, apiToken, "POST", "/cards/", body.toString())
+    }
+
+    suspend fun updateCard(baseUrl: String, apiToken: String, cardId: Int, payload: CardPayload) = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put("title", payload.title)
+            .put("description", payload.description)
+            .put("assignee", payload.assigneeId)
+            .put("deadline", payload.deadline)
+            .put("priority", payload.priority.toEmoji())
+            .put("tags", JSONArray(payload.tags))
+            .put("categories", JSONArray(payload.categories))
+            .put("checklist", checklistToJson(payload.checklist))
+        request(baseUrl, apiToken, "PATCH", "/cards/$cardId/", body.toString())
+    }
+
+    suspend fun deleteCard(baseUrl: String, apiToken: String, cardId: Int) = withContext(Dispatchers.IO) {
+        request(baseUrl, apiToken, "DELETE", "/cards/$cardId/", null)
     }
 
     suspend fun moveCard(baseUrl: String, apiToken: String, cardId: Int, toColumnId: Int) = withContext(Dispatchers.IO) {
@@ -795,11 +1159,51 @@ class KanbanRepository {
             id = getInt("id"),
             title = optString("title", "Без названия"),
             description = optString("description", ""),
-            assignee = assigneeId?.let { "User #$it" } ?: "Unassigned",
-            dueDate = if (deadlineRaw.isBlank() || deadlineRaw == "null") "No date" else deadlineRaw,
+            assigneeId = assigneeId,
+            deadline = if (deadlineRaw.isBlank() || deadlineRaw == "null") null else deadlineRaw,
             priority = priorityFromEmoji(optString("priority", "🟡")),
-            position = optString("position", "0").toFloatOrNull() ?: 0f
+            position = optString("position", "0").toFloatOrNull() ?: 0f,
+            tags = getStringArray("tags"),
+            categories = getStringArray("categories"),
+            checklist = getChecklist("checklist"),
+            attachmentsCount = optJSONArray("attachments")?.length() ?: 0
         )
+    }
+
+    private fun JSONObject.getStringArray(key: String): List<String> {
+        val arr = optJSONArray(key) ?: return emptyList()
+        return buildList {
+            for (i in 0 until arr.length()) {
+                val value = arr.optString(i)
+                if (value.isNotBlank()) add(value)
+            }
+        }
+    }
+
+    private fun JSONObject.getChecklist(key: String): List<KanbanChecklistItem> {
+        val arr = optJSONArray(key) ?: return emptyList()
+        return buildList {
+            for (i in 0 until arr.length()) {
+                val obj = arr.optJSONObject(i) ?: continue
+                val id = obj.optString("id", "")
+                val text = obj.optString("text", "")
+                if (text.isBlank()) continue
+                add(KanbanChecklistItem(id = id.ifBlank { "item-$i" }, text = text, done = obj.optBoolean("done", false)))
+            }
+        }
+    }
+
+    private fun checklistToJson(items: List<KanbanChecklistItem>): JSONArray {
+        val array = JSONArray()
+        items.forEach { item ->
+            array.put(
+                JSONObject()
+                    .put("id", item.id)
+                    .put("text", item.text)
+                    .put("done", item.done)
+            )
+        }
+        return array
     }
 }
 
@@ -820,14 +1224,44 @@ data class KanbanCard(
     val id: Int,
     val title: String,
     val description: String,
-    val assignee: String,
-    val dueDate: String,
+    val assigneeId: Int?,
+    val deadline: String?,
     val priority: TaskPriority,
-    val position: Float
+    val position: Float,
+    val tags: List<String>,
+    val categories: List<String>,
+    val checklist: List<KanbanChecklistItem>,
+    val attachmentsCount: Int
+) {
+    val assigneeLabel: String
+        get() = assigneeId?.let { "User #$it" } ?: "Unassigned"
+}
+
+data class KanbanChecklistItem(
+    val id: String,
+    val text: String,
+    val done: Boolean
+)
+
+data class CardPayload(
+    val title: String,
+    val description: String,
+    val assigneeId: Int?,
+    val deadline: String?,
+    val priority: TaskPriority,
+    val tags: List<String>,
+    val categories: List<String>,
+    val checklist: List<KanbanChecklistItem>
 )
 
 enum class TaskPriority {
     Low, Medium, High
+}
+
+private fun TaskPriority.toEmoji(): String = when (this) {
+    TaskPriority.Low -> "🟢"
+    TaskPriority.Medium -> "🟡"
+    TaskPriority.High -> "🔥"
 }
 
 private fun priorityFromEmoji(value: String): TaskPriority = when (value) {
