@@ -61,6 +61,10 @@ jobs:
         run: |
           set -euo pipefail
           for img in backend celery frontend; do
+            if ! docker image inspect "$IMAGE_REGISTRY/$img:$SHA_TAG" >/dev/null 2>&1; then
+              echo "Skip $img: image $IMAGE_REGISTRY/$img:$SHA_TAG not found"
+              continue
+            fi
             docker tag "$IMAGE_REGISTRY/$img:$SHA_TAG" "$IMAGE_REGISTRY/$img:main"
             docker push "$IMAGE_REGISTRY/$img:main"
             docker tag "$IMAGE_REGISTRY/$img:$SHA_TAG" "$IMAGE_REGISTRY/$img:latest"
