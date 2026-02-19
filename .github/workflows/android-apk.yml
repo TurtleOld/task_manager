@@ -46,9 +46,10 @@ jobs:
           ANDROID_API_BASE_URL: http://localhost:8000
           ANDROID_WEB_BASE_URL: http://localhost:5173
           ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
+          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/android/.keystore/release.keystore
         run: |
           ./gradlew :app:assembleRelease \
-            -Pandroid.injected.signing.store.file=.keystore/release.keystore \
+            -Pandroid.injected.signing.store.file="$ANDROID_KEYSTORE_FILE" \
             -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'android' }}" \
             -Pandroid.injected.signing.key.alias=release \
             -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD || 'android' }}"
