@@ -51,5 +51,5 @@ media/
 
 # Android Firebase/Google Services config (must be provided via local file or CI secret)
 android/app/google-services.json
-# Network security config is required for Android builds.
-# Keep it tracked; if local overrides are needed, they should be handled via flavors/manifest placeholders.
+
+android/app/src/main/res/xml/network_security_config.xml
