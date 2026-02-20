@@ -1,10 +1,10 @@
 package com.taskmanager.mobile
 
-import android.os.Bundle
 import android.content.Context
+import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,111 +13,123 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.onesignal.OneSignal
 import com.onesignal.user.subscriptions.IPushSubscriptionObserver
 import com.onesignal.user.subscriptions.PushSubscriptionChangedState
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
+import okhttp3.ResponseBody
+import okhttp3.MediaType
+import retrofit2.Retrofit
+import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.PATCH
+import retrofit2.http.POST
+import retrofit2.http.Path
+import java.util.concurrent.TimeUnit
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             TaskManagerTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    MainScreen()
-                }
+                AppRoot()
             }
         }
     }
 }
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
-private fun MainScreen(vm: KanbanViewModel = viewModel()) {
+private fun AppRoot(vm: KanbanViewModel = viewModel()) {
     val context = LocalContext.current
-    val uiState = vm.uiState
-    var createBoardDialogVisible by remember { mutableStateOf(false) }
-    var createColumnDialogVisible by remember { mutableStateOf(false) }
-    var createCardColumnId by remember { mutableStateOf<Int?>(null) }
-    var editingCard by remember { mutableStateOf<KanbanCard?>(null) }
+    val session by vm.session.collectAsStateWithLifecycle()
+    val boardState by vm.boardState.collectAsStateWithLifecycle()
+    val navController = rememberNavController()
 
     LaunchedEffect(Unit) {
-        val savedDomain = readSavedDomain(context)
-        val savedToken = readSavedToken(context)
         vm.bootstrap(
-            domain = if (savedDomain.isBlank()) BuildConfig.API_BASE_URL else savedDomain,
-            token = savedToken
+            domain = readSavedDomain(context).ifBlank { BuildConfig.API_BASE_URL },
+            token = readSavedToken(context)
         )
 
         vm.registerPushPlayerId(currentOneSignalPlayerId())
-
         if (BuildConfig.ONESIGNAL_APP_ID.isNotBlank()) {
             OneSignal.Notifications.requestPermission(true)
         }
     }
 
-    LaunchedEffect(uiState.isAuthenticated) {
-        if (!uiState.isAuthenticated) return@LaunchedEffect
+    LaunchedEffect(session.isAuthenticated) {
+        val route = if (session.isAuthenticated) Route.Board else Route.Login
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+            launchSingleTop = true
+        }
+    }
 
+    LaunchedEffect(session.isAuthenticated) {
+        if (!session.isAuthenticated) return@LaunchedEffect
         repeat(15) {
             val playerId = currentOneSignalPlayerId()
             if (playerId.isNotBlank()) {
@@ -128,7 +140,7 @@ private fun MainScreen(vm: KanbanViewModel = viewModel()) {
         }
     }
 
-    DisposableEffect(uiState.isAuthenticated, uiState.domain, uiState.token) {
+    DisposableEffect(session.isAuthenticated, session.domain, session.token) {
         val observer = object : IPushSubscriptionObserver {
             override fun onPushSubscriptionChange(state: PushSubscriptionChangedState) {
                 val playerId = state.current.id ?: ""
@@ -137,1109 +149,953 @@ private fun MainScreen(vm: KanbanViewModel = viewModel()) {
                 }
             }
         }
-
         OneSignal.User.pushSubscription.addObserver(observer)
-
         onDispose {
             OneSignal.User.pushSubscription.removeObserver(observer)
         }
     }
 
-    if (!uiState.isAuthenticated) {
-        LoginScreen(
-            domain = uiState.domain,
-            username = uiState.username,
-            password = uiState.password,
-            isLoading = uiState.isLoading,
-            errorMessage = uiState.errorMessage,
-            onDomainChange = vm::onDomainChanged,
-            onUsernameChange = vm::onUsernameChanged,
-            onPasswordChange = vm::onPasswordChanged,
-            onLoginClick = {
-                vm.login(playerId = currentOneSignalPlayerId()) {
-                    saveDomain(context, uiState.domain)
-                    saveToken(context, it)
-                }
-            }
-        )
-        return
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(text = "Task Manager", style = MaterialTheme.typography.titleLarge)
-                },
-                actions = {
-                    TextButton(onClick = { createBoardDialogVisible = true }) {
-                        Text("Новая доска")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-            return@Scaffold
-        }
-
-        if (uiState.errorMessage != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = uiState.errorMessage, color = MaterialTheme.colorScheme.error)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    TextButton(onClick = vm::refresh) { Text("Повторить") }
-                    TextButton(
-                        onClick = {
-                            clearToken(context)
-                            vm.logout()
+    NavHost(
+        navController = navController,
+        startDestination = Route.Login,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        composable(Route.Login) {
+            LoginScreen(
+                state = session,
+                onDomainChange = vm::onDomainChanged,
+                onUsernameChange = vm::onUsernameChanged,
+                onPasswordChange = vm::onPasswordChanged,
+                onLoginClick = {
+                    val domainToSave = session.domain
+                    vm.login(
+                        playerId = currentOneSignalPlayerId(),
+                        onSuccess = { token ->
+                            saveDomain(context, domainToSave)
+                            saveToken(context, token)
                         }
-                    ) {
-                        Text("Выйти")
-                    }
+                    )
                 }
-            }
-            return@Scaffold
-        }
-
-        val selectedBoard = uiState.selectedBoard
-        if (selectedBoard == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Нет досок")
-            }
-            return@Scaffold
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Spacer(modifier = Modifier.height(2.dp))
-            BoardSelector(
-                boards = uiState.boards,
-                selectedBoardId = selectedBoard.id,
-                onBoardSelected = vm::selectBoard
             )
-            KanbanColumns(
-                board = selectedBoard,
-                onCreateColumn = { createColumnDialogVisible = true },
-                onCreateCard = { columnId -> createCardColumnId = columnId },
-                onEditCard = { card -> editingCard = card },
-                onDeleteCard = vm::deleteCard,
-                onMoveLeft = { cardId, columnIndex ->
-                    if (columnIndex > 0) {
-                        vm.moveCard(cardId, selectedBoard.columns[columnIndex - 1].id)
-                    }
+        }
+
+        composable(Route.Board) {
+            BoardRoute(
+                boardState = boardState,
+                onRetry = vm::refresh,
+                onLogout = {
+                    clearToken(context)
+                    vm.logout()
                 },
-                onMoveRight = { cardId, columnIndex ->
-                    if (columnIndex < selectedBoard.columns.lastIndex) {
-                        vm.moveCard(cardId, selectedBoard.columns[columnIndex + 1].id)
-                    }
-                }
+                onSelectBoard = vm::selectBoard,
+                onAddTask = vm::createTask,
+                onMoveTask = vm::moveTask
             )
-            Spacer(modifier = Modifier.height(80.dp))
         }
-    }
-
-    if (createBoardDialogVisible) {
-        TextInputDialog(
-            title = "Новая доска",
-            label = "Название доски",
-            confirmText = "Создать",
-            onDismiss = { createBoardDialogVisible = false },
-            onConfirm = {
-                vm.createBoard(it)
-                createBoardDialogVisible = false
-            }
-        )
-    }
-
-    if (createColumnDialogVisible && uiState.selectedBoard != null) {
-        CreateColumnDialog(
-            onDismiss = { createColumnDialogVisible = false },
-            onConfirm = { name, icon ->
-                vm.createColumn(name = name, icon = icon)
-                createColumnDialogVisible = false
-            }
-        )
-    }
-
-    val createColumnIdSnapshot = createCardColumnId
-    if (createColumnIdSnapshot != null) {
-        CardEditorDialog(
-            title = "Новая карточка",
-            initialCard = null,
-            onDismiss = { createCardColumnId = null },
-            onSubmit = { payload ->
-                vm.createCard(columnId = createColumnIdSnapshot, payload = payload)
-                createCardColumnId = null
-            }
-        )
-    }
-
-    val editingCardSnapshot = editingCard
-    if (editingCardSnapshot != null) {
-        CardEditorDialog(
-            title = "Редактирование карточки",
-            initialCard = editingCardSnapshot,
-            onDismiss = { editingCard = null },
-            onSubmit = { payload ->
-                vm.updateCard(cardId = editingCardSnapshot.id, payload = payload)
-                editingCard = null
-            }
-        )
     }
 }
 
+private object Route {
+    const val Login = "login"
+    const val Board = "board"
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LoginScreen(
-    domain: String,
-    username: String,
-    password: String,
-    isLoading: Boolean,
-    errorMessage: String?,
+    state: SessionUiState,
     onDomainChange: (String) -> Unit,
     onUsernameChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
     onLoginClick: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp),
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Авторизация",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(18.dp))
+    var showSettings by rememberSaveable { mutableStateOf(false) }
 
-        OutlinedTextField(
-            value = domain,
-            onValueChange = onDomainChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text("Домен backend") },
-            placeholder = { Text("Например: https://task-manager.example.com") },
-            supportingText = { Text("Поле обязательно. Адрес сохраняется в памяти приложения") }
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        OutlinedTextField(
-            value = username,
-            onValueChange = onUsernameChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text("Логин") }
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        OutlinedTextField(
-            value = password,
-            onValueChange = onPasswordChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text("Пароль") },
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-        )
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Button(
-            onClick = onLoginClick,
-            enabled = !isLoading,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (isLoading) "Вход..." else "Войти")
-        }
-
-        if (!errorMessage.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
-        }
-    }
-}
-
-@Composable
-private fun BoardSelector(
-    boards: List<KanbanBoard>,
-    selectedBoardId: Int,
-    onBoardSelected: (Int) -> Unit
-) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(boards) { board ->
-            FilterChip(
-                selected = selectedBoardId == board.id,
-                onClick = { onBoardSelected(board.id) },
-                label = { Text(board.title) }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Авторизация") },
+                actions = {
+                    IconButton(onClick = { showSettings = true }) {
+                        Text("⚙️")
+                    }
+                }
             )
         }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(20.dp),
+            verticalArrangement = Arrangement.Center
+        ) {
+            OutlinedTextField(
+                value = state.username,
+                onValueChange = onUsernameChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Логин") }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+            OutlinedTextField(
+                value = state.password,
+                onValueChange = onPasswordChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Пароль") },
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+            Button(
+                onClick = onLoginClick,
+                enabled = !state.isBusy,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (state.isBusy) "Вход..." else "Войти")
+            }
+
+            if (!state.errorMessage.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(text = state.errorMessage, color = MaterialTheme.colorScheme.error)
+            }
+        }
+
+        if (showSettings) {
+            ModalBottomSheet(onDismissRequest = { showSettings = false }) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "Настройки API",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = state.domain,
+                        onValueChange = onDomainChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Домен backend") },
+                        placeholder = { Text("Например: https://task-manager.example.com") }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { showSettings = false }) {
+                            Text("Закрыть")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(onClick = { showSettings = false }) {
+                            Text("Сохранить")
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+        }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun KanbanColumns(
-    board: KanbanBoard,
-    onCreateColumn: () -> Unit,
-    onCreateCard: (columnId: Int) -> Unit,
-    onEditCard: (KanbanCard) -> Unit,
-    onDeleteCard: (Int) -> Unit,
-    onMoveLeft: (cardId: Int, columnIndex: Int) -> Unit,
-    onMoveRight: (cardId: Int, columnIndex: Int) -> Unit
+private fun BoardRoute(
+    boardState: BoardUiState,
+    onRetry: () -> Unit,
+    onLogout: () -> Unit,
+    onSelectBoard: (Int) -> Unit,
+    onAddTask: (title: String, columnId: Int) -> Unit,
+    onMoveTask: (taskId: Int, toColumnId: Int) -> Unit
 ) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(board.columns.indices.toList()) { columnIndex ->
-            val column = board.columns[columnIndex]
-            Card(
-                modifier = Modifier.width(290.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                shape = RoundedCornerShape(20.dp)
-            ) {
+    when (boardState) {
+        BoardUiState.Loading -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+
+        is BoardUiState.Error -> {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(boardState.message, color = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TextButton(onClick = onRetry) { Text("Повторить") }
+                    TextButton(onClick = onLogout) { Text("Выйти") }
+                }
+            }
+        }
+
+        is BoardUiState.Content -> {
+            val selectedBoard = boardState.boards.firstOrNull { it.id == boardState.selectedBoardId }
+                ?: boardState.boards.firstOrNull()
+            var addTaskSheetVisible by remember { mutableStateOf(false) }
+            var moveTask by remember { mutableStateOf<KanbanTask?>(null) }
+
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { Text("Task Manager") },
+                        actions = {
+                            TextButton(onClick = onLogout) { Text("Выйти") }
+                        }
+                    )
+                },
+                floatingActionButtonPosition = FabPosition.End,
+                floatingActionButton = {
+                    if (selectedBoard != null) {
+                        FloatingActionButton(onClick = { addTaskSheetVisible = true }) {
+                            Text("+")
+                        }
+                    }
+                }
+            ) { paddingValues ->
                 Column(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .background(color = column.accent, shape = CircleShape)
-                        )
-                        Text(
-                            text = column.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        TextButton(onClick = { onCreateCard(column.id) }) { Text("+") }
-                        AssistChip(
-                            onClick = {},
-                            label = { Text(column.cards.size.toString()) },
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = MaterialTheme.colorScheme.surface
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(boardState.boards) { board ->
+                            FilterChip(
+                                selected = board.id == boardState.selectedBoardId,
+                                onClick = { onSelectBoard(board.id) },
+                                label = { Text(board.title) }
                             )
-                        )
+                        }
                     }
 
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                    if (column.cards.isEmpty()) {
-                        Text(
-                            text = "Нет карточек",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(vertical = 6.dp)
-                        )
+                    if (selectedBoard == null) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Нет досок")
+                        }
                     } else {
-                        column.cards.forEach { card ->
-                            TaskCardItem(
-                                card = card,
-                                canMoveLeft = columnIndex > 0,
-                                canMoveRight = columnIndex < board.columns.lastIndex,
-                                onEdit = { onEditCard(card) },
-                                onDelete = { onDeleteCard(card.id) },
-                                onMoveLeft = { onMoveLeft(card.id, columnIndex) },
-                                onMoveRight = { onMoveRight(card.id, columnIndex) }
-                            )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            items(selectedBoard.columns) { column ->
+                                ColumnView(
+                                    column = column,
+                                    onMoveClick = { moveTask = it }
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        item {
-            Card(
-                modifier = Modifier.width(220.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("Колонки", style = MaterialTheme.typography.titleSmall)
-                    Button(onClick = onCreateColumn, modifier = Modifier.fillMaxWidth()) {
-                        Text("Добавить колонку")
+            if (addTaskSheetVisible && selectedBoard != null) {
+                AddTaskSheet(
+                    columns = selectedBoard.columns,
+                    onDismiss = { addTaskSheetVisible = false },
+                    onSubmit = { title, columnId ->
+                        onAddTask(title, columnId)
+                        addTaskSheetVisible = false
                     }
-                }
+                )
+            }
+
+            if (moveTask != null && selectedBoard != null) {
+                MoveTaskSheet(
+                    task = moveTask!!,
+                    columns = selectedBoard.columns,
+                    onDismiss = { moveTask = null },
+                    onMove = { toColumnId ->
+                        onMoveTask(moveTask!!.id, toColumnId)
+                        moveTask = null
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun TaskCardItem(
-    card: KanbanCard,
-    canMoveLeft: Boolean,
-    canMoveRight: Boolean,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onMoveLeft: () -> Unit,
-    onMoveRight: () -> Unit
+private fun ColumnView(
+    column: KanbanColumn,
+    onMoveClick: (KanbanTask) -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        modifier = Modifier.width(320.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(text = card.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(
-                text = card.description.ifBlank { "Без описания" },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                PriorityPill(priority = card.priority)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = card.assigneeLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    text = if (column.icon.isBlank()) column.title else "${column.icon} ${column.title}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    text = card.deadline ?: "No date",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                AssistChip(onClick = {}, label = { Text(column.tasks.size.toString()) })
             }
 
-            if (card.tags.isNotEmpty()) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(card.tags) { tag ->
-                        Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.secondaryContainer) {
-                            Text(
-                                text = "#$tag",
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 560.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(column.tasks, key = { it.id }) { task ->
+                    TaskCard(
+                        task = task,
+                        columnTitle = column.title,
+                        onMoveClick = { onMoveClick(task) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TaskCard(
+    task: KanbanTask,
+    columnTitle: String,
+    onMoveClick: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = task.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                Box {
+                    TextButton(onClick = { menuExpanded = true }) { Text("⋮") }
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Move to…") },
+                            onClick = {
+                                menuExpanded = false
+                                onMoveClick()
+                            }
+                        )
                     }
                 }
             }
 
-            if (card.categories.isNotEmpty()) {
+            if (task.description.isNotBlank()) {
                 Text(
-                    text = "Категории: ${card.categories.joinToString()}",
-                    style = MaterialTheme.typography.labelSmall,
+                    text = task.description,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            if (card.checklist.isNotEmpty()) {
-                val doneCount = card.checklist.count { it.done }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Checklist: $doneCount/${card.checklist.size}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "${task.priority.display} · $columnTitle",
+                    style = MaterialTheme.typography.labelMedium
                 )
-            }
-
-            if (card.attachmentsCount > 0) {
-                Text(
-                    text = "Вложения: ${card.attachmentsCount}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onEdit) { Text("Edit") }
-                TextButton(onClick = onDelete) { Text("Delete") }
-                if (canMoveLeft) {
-                    TextButton(onClick = onMoveLeft) { Text("←") }
-                }
-                if (canMoveRight) {
-                    TextButton(onClick = onMoveRight) { Text("→") }
+                if (!task.dueDate.isNullOrBlank()) {
+                    Text(
+                        text = task.dueDate,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TextInputDialog(
-    title: String,
-    label: String,
-    confirmText: String,
+private fun AddTaskSheet(
+    columns: List<KanbanColumn>,
     onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
+    onSubmit: (title: String, columnId: Int) -> Unit
 ) {
-    var value by remember { mutableStateOf("") }
+    var title by remember { mutableStateOf("") }
+    var selectedColumnId by remember(columns) { mutableStateOf(columns.firstOrNull()?.id) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Новая задача", style = MaterialTheme.typography.titleLarge)
             OutlinedTextField(
-                value = value,
-                onValueChange = { value = it },
-                label = { Text(label) },
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("Title") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(value.trim()) }, enabled = value.isNotBlank()) {
-                Text(confirmText)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
-        }
-    )
-}
 
-@Composable
-private fun CreateColumnDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (name: String, icon: String) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var icon by remember { mutableStateOf("📋") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Новая колонка") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Название") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = icon,
-                    onValueChange = { icon = it },
-                    label = { Text("Иконка") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(name.trim(), icon.trim().ifBlank { "📋" }) }, enabled = name.isNotBlank()) {
-                Text("Создать")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
-        }
-    )
-}
-
-@Composable
-private fun CardEditorDialog(
-    title: String,
-    initialCard: KanbanCard?,
-    onDismiss: () -> Unit,
-    onSubmit: (CardPayload) -> Unit
-) {
-    var cardTitle by remember(initialCard) { mutableStateOf(initialCard?.title.orEmpty()) }
-    var description by remember(initialCard) { mutableStateOf(initialCard?.description.orEmpty()) }
-    var assigneeId by remember(initialCard) { mutableStateOf(initialCard?.assigneeId?.toString().orEmpty()) }
-    var deadline by remember(initialCard) { mutableStateOf(initialCard?.deadline.orEmpty()) }
-    var tagsRaw by remember(initialCard) { mutableStateOf(initialCard?.tags?.joinToString(", ").orEmpty()) }
-    var categoriesRaw by remember(initialCard) { mutableStateOf(initialCard?.categories?.joinToString(", ").orEmpty()) }
-    var checklistRaw by remember(initialCard) {
-        mutableStateOf(initialCard?.checklist?.joinToString("\n") { it.text }.orEmpty())
-    }
-    var priority by remember(initialCard) { mutableStateOf(initialCard?.priority ?: TaskPriority.Medium) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = cardTitle,
-                    onValueChange = { cardTitle = it },
-                    label = { Text("Заголовок") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Описание") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = assigneeId,
-                    onValueChange = { assigneeId = it },
-                    label = { Text("Assignee ID") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = deadline,
-                    onValueChange = { deadline = it },
-                    label = { Text("Deadline ISO (optional)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Колонка", style = MaterialTheme.typography.titleMedium)
+            LazyColumn(modifier = Modifier.heightIn(max = 220.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(columns, key = { it.id }) { column ->
                     FilterChip(
-                        selected = priority == TaskPriority.Low,
-                        onClick = { priority = TaskPriority.Low },
-                        label = { Text("Low") }
-                    )
-                    FilterChip(
-                        selected = priority == TaskPriority.Medium,
-                        onClick = { priority = TaskPriority.Medium },
-                        label = { Text("Medium") }
-                    )
-                    FilterChip(
-                        selected = priority == TaskPriority.High,
-                        onClick = { priority = TaskPriority.High },
-                        label = { Text("High") }
+                        selected = selectedColumnId == column.id,
+                        onClick = { selectedColumnId = column.id },
+                        label = { Text(if (column.icon.isBlank()) column.title else "${column.icon} ${column.title}") }
                     )
                 }
-                OutlinedTextField(
-                    value = tagsRaw,
-                    onValueChange = { tagsRaw = it },
-                    label = { Text("Tags (comma separated)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = categoriesRaw,
-                    onValueChange = { categoriesRaw = it },
-                    label = { Text("Categories (comma separated)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = checklistRaw,
-                    onValueChange = { checklistRaw = it },
-                    label = { Text("Checklist (one item per line)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
-        },
-        confirmButton = {
-            TextButton(
+
+            Button(
                 onClick = {
-                    onSubmit(
-                        CardPayload(
-                            title = cardTitle.trim(),
-                            description = description.trim(),
-                            assigneeId = assigneeId.trim().toIntOrNull(),
-                            deadline = deadline.trim().ifBlank { null },
-                            priority = priority,
-                            tags = tagsRaw.split(',').map { it.trim() }.filter { it.isNotBlank() },
-                            categories = categoriesRaw.split(',').map { it.trim() }.filter { it.isNotBlank() },
-                            checklist = checklistRaw.lines().mapIndexedNotNull { index, text ->
-                                val value = text.trim()
-                                if (value.isBlank()) null else KanbanChecklistItem(id = "android-$index", text = value, done = false)
-                            }
-                        )
-                    )
+                    val columnId = selectedColumnId ?: return@Button
+                    onSubmit(title.trim(), columnId)
                 },
-                enabled = cardTitle.isNotBlank()
+                enabled = title.isNotBlank() && selectedColumnId != null,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Сохранить")
+                Text("Добавить")
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            Spacer(modifier = Modifier.height(12.dp))
         }
-    )
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PriorityPill(priority: TaskPriority) {
-    val color = when (priority) {
-        TaskPriority.Low -> Color(0xFF4CAF50)
-        TaskPriority.Medium -> Color(0xFFFF9800)
-        TaskPriority.High -> Color(0xFFF44336)
+private fun MoveTaskSheet(
+    task: KanbanTask,
+    columns: List<KanbanColumn>,
+    onDismiss: () -> Unit,
+    onMove: (toColumnId: Int) -> Unit
+) {
+    var selectedColumnId by remember { mutableStateOf<Int?>(null) }
+    val availableColumns = remember(columns, task.columnId) {
+        columns.filter { it.id != task.columnId }
     }
 
-    Surface(shape = RoundedCornerShape(50), color = color.copy(alpha = 0.16f)) {
-        Text(
-            text = priority.name,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            color = color,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Medium
-        )
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Move to…", style = MaterialTheme.typography.titleLarge)
+            Text(task.title, style = MaterialTheme.typography.bodyMedium)
+
+            if (availableColumns.isEmpty()) {
+                Text("Нет доступных колонок")
+            } else {
+                LazyColumn(modifier = Modifier.heightIn(max = 220.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(availableColumns, key = { it.id }) { column ->
+                        FilterChip(
+                            selected = selectedColumnId == column.id,
+                            onClick = { selectedColumnId = column.id },
+                            label = { Text(if (column.icon.isBlank()) column.title else "${column.icon} ${column.title}") }
+                        )
+                    }
+                }
+            }
+
+            Button(
+                onClick = { selectedColumnId?.let(onMove) },
+                enabled = selectedColumnId != null,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Переместить")
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
     }
 }
 
 class KanbanViewModel : ViewModel() {
     private val repository = KanbanRepository()
+    private val notificationEventTypes = listOf(
+        "board.created",
+        "board.updated",
+        "board.deleted",
+        "column.created",
+        "column.updated",
+        "column.deleted",
+        "card.created",
+        "card.updated",
+        "card.deleted",
+        "card.moved",
+        "card.deadline_reminder"
+    )
 
-    var uiState by mutableStateOf(KanbanUiState(isLoading = true))
-        private set
+    private val _session = MutableStateFlow(SessionUiState())
+    val session: StateFlow<SessionUiState> = _session.asStateFlow()
+
+    private val _boardState = MutableStateFlow<BoardUiState>(BoardUiState.Loading)
+    val boardState: StateFlow<BoardUiState> = _boardState.asStateFlow()
 
     fun bootstrap(domain: String, token: String) {
         val normalizedDomain = normalizeBaseUrl(domain)
-        uiState = uiState.copy(
-            domain = normalizedDomain,
-            token = token,
-            isAuthenticated = token.isNotBlank(),
-            isLoading = false
-        )
+        _session.update {
+            it.copy(
+                domain = normalizedDomain,
+                token = token,
+                isAuthenticated = token.isNotBlank(),
+                isBusy = false
+            )
+        }
         if (token.isNotBlank()) {
             refresh()
         }
     }
 
     fun onDomainChanged(value: String) {
-        uiState = uiState.copy(domain = value)
+        _session.update { it.copy(domain = value) }
     }
 
     fun onUsernameChanged(value: String) {
-        uiState = uiState.copy(username = value)
+        _session.update { it.copy(username = value) }
     }
 
     fun onPasswordChanged(value: String) {
-        uiState = uiState.copy(password = value)
+        _session.update { it.copy(password = value) }
     }
 
     fun login(playerId: String, onSuccess: (String) -> Unit) {
-        val domain = normalizeBaseUrl(uiState.domain)
+        val domain = normalizeBaseUrl(session.value.domain)
         if (domain.isBlank()) {
-            uiState = uiState.copy(errorMessage = "Введите домен backend")
+            _session.update { it.copy(errorMessage = "Введите домен backend") }
             return
         }
-        if (uiState.username.isBlank() || uiState.password.isBlank()) {
-            uiState = uiState.copy(errorMessage = "Введите логин и пароль")
+        if (session.value.username.isBlank() || session.value.password.isBlank()) {
+            _session.update { it.copy(errorMessage = "Введите логин и пароль") }
             return
         }
 
         viewModelScope.launch {
-            uiState = uiState.copy(isLoading = true, errorMessage = null, domain = domain)
-            try {
-                val token = repository.login(domain, uiState.username, uiState.password)
+            _session.update { it.copy(isBusy = true, errorMessage = null, domain = domain) }
+            runCatching {
+                repository.login(domain, session.value.username, session.value.password)
+            }.onSuccess { token ->
                 onSuccess(token)
-                uiState = uiState.copy(
-                    token = token,
-                    isAuthenticated = true,
-                    isLoading = false,
-                    errorMessage = null,
-                    password = "",
-                    registeredPlayerId = ""
-                )
+                _session.update {
+                    it.copy(
+                        token = token,
+                        isAuthenticated = true,
+                        isBusy = false,
+                        errorMessage = null,
+                        password = "",
+                        registeredPlayerId = ""
+                    )
+                }
                 registerPushPlayerId(playerId)
                 refresh()
-            } catch (e: Exception) {
-                uiState = uiState.copy(isLoading = false, errorMessage = e.message ?: "Ошибка входа")
+            }.onFailure { error ->
+                _session.update { it.copy(isBusy = false, errorMessage = error.message ?: "Ошибка входа") }
             }
         }
     }
 
     fun logout() {
-        uiState = KanbanUiState(
-            isLoading = false,
-            domain = uiState.domain
-        )
-    }
-
-    fun registerPushPlayerId(playerId: String) {
-        if (playerId.isBlank()) return
-        if (!uiState.isAuthenticated || uiState.token.isBlank() || uiState.domain.isBlank()) return
-        if (uiState.registeredPlayerId == playerId) return
-
-        viewModelScope.launch {
-            try {
-                repository.updateNotificationProfile(
-                    baseUrl = uiState.domain,
-                    apiToken = uiState.token,
-                    oneSignalPlayerId = playerId
-                )
-                uiState = uiState.copy(registeredPlayerId = playerId)
-            } catch (_: Exception) {
-                // Do not block main workflow if push registration sync fails.
-            }
-        }
+        _session.value = SessionUiState(domain = session.value.domain)
+        _boardState.value = BoardUiState.Loading
     }
 
     fun refresh() {
-        if (!uiState.isAuthenticated || uiState.token.isBlank()) return
+        val s = session.value
+        if (!s.isAuthenticated || s.token.isBlank()) return
 
         viewModelScope.launch {
-            uiState = uiState.copy(isLoading = true, errorMessage = null)
-            try {
-                val boards = repository.fetchBoards(
-                    baseUrl = uiState.domain,
-                    apiToken = uiState.token
-                )
-                uiState = uiState.copy(
-                    isLoading = false,
-                    boards = boards,
-                    selectedBoardId = uiState.selectedBoardId ?: boards.firstOrNull()?.id,
-                    errorMessage = null
-                )
-            } catch (e: Exception) {
-                uiState = uiState.copy(isLoading = false, errorMessage = e.message ?: "Ошибка загрузки")
+            _boardState.value = BoardUiState.Loading
+            runCatching {
+                repository.fetchBoards(baseUrl = s.domain, apiToken = s.token)
+            }.onSuccess { boards ->
+                val selectedId = (_boardState.value as? BoardUiState.Content)?.selectedBoardId
+                    ?.takeIf { candidate -> boards.any { it.id == candidate } }
+                    ?: boards.firstOrNull()?.id
+                _boardState.value = BoardUiState.Content(boards = boards, selectedBoardId = selectedId)
+            }.onFailure { error ->
+                _boardState.value = BoardUiState.Error(error.message ?: "Ошибка загрузки")
             }
         }
     }
 
     fun selectBoard(boardId: Int) {
-        uiState = uiState.copy(selectedBoardId = boardId)
+        val current = _boardState.value as? BoardUiState.Content ?: return
+        _boardState.value = current.copy(selectedBoardId = boardId)
     }
 
-    fun createBoard(name: String) {
-        if (name.isBlank()) return
+    fun createTask(title: String, columnId: Int) {
+        if (title.isBlank()) return
+        val s = session.value
         viewModelScope.launch {
-            try {
-                repository.createBoard(
-                    baseUrl = uiState.domain,
-                    apiToken = uiState.token,
-                    name = name.trim()
-                )
-                refresh()
-            } catch (e: Exception) {
-                uiState = uiState.copy(errorMessage = e.message ?: "Не удалось создать доску")
-            }
-        }
-    }
-
-    fun createColumn(name: String, icon: String) {
-        val boardId = uiState.selectedBoard?.id ?: return
-        if (name.isBlank()) return
-        viewModelScope.launch {
-            try {
-                repository.createColumn(
-                    baseUrl = uiState.domain,
-                    apiToken = uiState.token,
-                    boardId = boardId,
-                    name = name.trim(),
-                    icon = icon
-                )
-                refresh()
-            } catch (e: Exception) {
-                uiState = uiState.copy(errorMessage = e.message ?: "Не удалось создать колонку")
-            }
-        }
-    }
-
-    fun createCard(columnId: Int, payload: CardPayload) {
-        viewModelScope.launch {
-            try {
+            runCatching {
                 repository.createCard(
-                    baseUrl = uiState.domain,
-                    apiToken = uiState.token,
-                    columnId = columnId,
-                    payload = payload
+                    baseUrl = s.domain,
+                    apiToken = s.token,
+                    request = CreateCardRequest(
+                        column = columnId,
+                        title = title.trim()
+                    )
                 )
-                refresh()
-            } catch (e: Exception) {
-                uiState = uiState.copy(errorMessage = e.message ?: "Не удалось добавить карточку")
             }
+            refresh()
         }
     }
 
-    fun updateCard(cardId: Int, payload: CardPayload) {
+    fun moveTask(taskId: Int, toColumnId: Int) {
+        val s = session.value
         viewModelScope.launch {
-            try {
-                repository.updateCard(
-                    baseUrl = uiState.domain,
-                    apiToken = uiState.token,
-                    cardId = cardId,
-                    payload = payload
-                )
-                refresh()
-            } catch (e: Exception) {
-                uiState = uiState.copy(errorMessage = e.message ?: "Не удалось обновить карточку")
-            }
-        }
-    }
-
-    fun deleteCard(cardId: Int) {
-        viewModelScope.launch {
-            try {
-                repository.deleteCard(
-                    baseUrl = uiState.domain,
-                    apiToken = uiState.token,
-                    cardId = cardId
-                )
-                refresh()
-            } catch (e: Exception) {
-                uiState = uiState.copy(errorMessage = e.message ?: "Не удалось удалить карточку")
-            }
-        }
-    }
-
-    fun moveCard(cardId: Int, toColumnId: Int) {
-        viewModelScope.launch {
-            try {
+            runCatching {
                 repository.moveCard(
-                    baseUrl = uiState.domain,
-                    apiToken = uiState.token,
-                    cardId = cardId,
+                    baseUrl = s.domain,
+                    apiToken = s.token,
+                    cardId = taskId,
                     toColumnId = toColumnId
                 )
-                refresh()
-            } catch (e: Exception) {
-                uiState = uiState.copy(errorMessage = e.message ?: "Не удалось переместить карточку")
+            }
+            refresh()
+        }
+    }
+
+    fun registerPushPlayerId(playerId: String) {
+        val s = session.value
+        Log.d(PUSH_DEBUG_TAG, "registerPushPlayerId called: playerId=$playerId isAuth=${s.isAuthenticated} domain=${s.domain}")
+        if (playerId.isBlank() || !s.isAuthenticated || s.token.isBlank() || s.domain.isBlank()) return
+        if (s.registeredPlayerId == playerId) return
+
+        viewModelScope.launch {
+            runCatching {
+                repository.updateNotificationProfile(
+                    baseUrl = s.domain,
+                    apiToken = s.token,
+                    oneSignalPlayerId = playerId
+                )
+                repository.ensurePushNotificationPreferences(
+                    baseUrl = s.domain,
+                    apiToken = s.token,
+                    eventTypes = notificationEventTypes
+                )
+            }.onSuccess {
+                _session.update { it.copy(registeredPlayerId = playerId) }
             }
         }
     }
 }
 
-data class KanbanUiState(
-    val isLoading: Boolean = false,
+data class SessionUiState(
+    val isBusy: Boolean = false,
     val isAuthenticated: Boolean = false,
     val domain: String = "",
     val token: String = "",
     val username: String = "",
     val password: String = "",
     val registeredPlayerId: String = "",
-    val boards: List<KanbanBoard> = emptyList(),
-    val selectedBoardId: Int? = null,
     val errorMessage: String? = null
-) {
-    val selectedBoard: KanbanBoard?
-        get() = boards.firstOrNull { it.id == selectedBoardId }
+)
+
+sealed interface BoardUiState {
+    data object Loading : BoardUiState
+    data class Error(val message: String) : BoardUiState
+    data class Content(
+        val boards: List<KanbanBoard>,
+        val selectedBoardId: Int?
+    ) : BoardUiState
 }
 
 class KanbanRepository {
-
-    suspend fun createBoard(baseUrl: String, apiToken: String, name: String) = withContext(Dispatchers.IO) {
-        val body = JSONObject().put("name", name)
-        request(baseUrl, apiToken, "POST", "/boards/", body.toString())
+    private val json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+        coerceInputValues = true
     }
 
-    suspend fun createColumn(
-        baseUrl: String,
-        apiToken: String,
-        boardId: Int,
-        name: String,
-        icon: String
-    ) = withContext(Dispatchers.IO) {
-        val body = JSONObject()
-            .put("board", boardId)
-            .put("name", name)
-            .put("icon", icon)
-        request(baseUrl, apiToken, "POST", "/columns/", body.toString())
+    suspend fun login(baseUrl: String, username: String, password: String): String {
+        val token = api(baseUrl = baseUrl, apiToken = "")
+            .login(LoginRequest(username = username, password = password))
+            .token
+        if (token.isBlank()) error("Токен не получен")
+        return token
     }
 
-    suspend fun login(baseUrl: String, username: String, password: String): String = withContext(Dispatchers.IO) {
-        val body = JSONObject()
-            .put("username", username)
-            .put("password", password)
-        val response = JSONObject(request(baseUrl = baseUrl, token = "", method = "POST", path = "/auth/login/", body = body.toString()))
-        response.optString("token", "")
-            .takeIf { it.isNotBlank() }
-            ?: throw IllegalStateException("Токен не получен")
-    }
+    suspend fun fetchBoards(baseUrl: String, apiToken: String): List<KanbanBoard> {
+        val service = api(baseUrl, apiToken)
+        val boards = service.getBoards()
+        val columns = service.getColumns()
+        val cards = service.getCards()
 
-    suspend fun fetchBoards(baseUrl: String, apiToken: String): List<KanbanBoard> = withContext(Dispatchers.IO) {
-        val boards = getArray(baseUrl, apiToken, "/boards/")
-        val columns = getArray(baseUrl, apiToken, "/columns/")
-        val cards = getArray(baseUrl, apiToken, "/cards/")
-
-        val cardsByColumn = mutableMapOf<Int, MutableList<KanbanCard>>()
-        for (i in 0 until cards.length()) {
-            val obj = cards.getJSONObject(i)
-            val columnId = obj.getInt("column")
-            cardsByColumn.getOrPut(columnId) { mutableListOf() }.add(obj.toKanbanCard())
-        }
-
-        val columnsByBoard = mutableMapOf<Int, MutableList<KanbanColumn>>()
-        for (i in 0 until columns.length()) {
-            val obj = columns.getJSONObject(i)
-            val id = obj.getInt("id")
-            val boardId = obj.getInt("board")
-            val column = KanbanColumn(
-                id = id,
-                title = obj.optString("name", "Column"),
-                accent = accentForColumn(obj.optString("name", "")),
-                cards = (cardsByColumn[id] ?: mutableListOf()).sortedBy { it.position }
-            )
-            columnsByBoard.getOrPut(boardId) { mutableListOf() }.add(column)
-        }
-
-        val result = mutableListOf<KanbanBoard>()
-        for (i in 0 until boards.length()) {
-            val obj = boards.getJSONObject(i)
-            val boardId = obj.getInt("id")
-            val boardColumns = (columnsByBoard[boardId] ?: mutableListOf())
-            result.add(
-                KanbanBoard(
-                    id = boardId,
-                    title = obj.optString("name", "Board"),
-                    columns = boardColumns
+        val tasksByColumn = cards.groupBy { it.column }.mapValues { (_, items) ->
+            items.map { dto ->
+                KanbanTask(
+                    id = dto.id,
+                    title = dto.title.orEmpty().ifBlank { "Без названия" },
+                    description = dto.description.orEmpty(),
+                    columnId = dto.column,
+                    dueDate = dto.deadline,
+                    priority = TaskPriority.fromApiValue(dto.priority),
+                    position = dto.position.asPosition()
                 )
+            }.sortedBy { it.position }
+        }
+
+        val columnsByBoard = columns.groupBy { it.board }.mapValues { (_, items) ->
+            items.map { dto ->
+                KanbanColumn(
+                    id = dto.id,
+                    boardId = dto.board,
+                    title = dto.name,
+                    icon = dto.icon.orEmpty(),
+                    tasks = tasksByColumn[dto.id].orEmpty()
+                )
+            }
+        }
+
+        return boards.map { dto ->
+            KanbanBoard(
+                id = dto.id,
+                title = dto.name,
+                columns = columnsByBoard[dto.id].orEmpty()
             )
         }
-        result
     }
 
-    suspend fun createCard(baseUrl: String, apiToken: String, columnId: Int, payload: CardPayload) = withContext(Dispatchers.IO) {
-        val body = JSONObject()
-            .put("column", columnId)
-            .put("title", payload.title)
-            .put("description", payload.description)
-            .put("assignee", payload.assigneeId)
-            .put("deadline", payload.deadline)
-            .put("priority", payload.priority.toEmoji())
-            .put("tags", JSONArray(payload.tags))
-            .put("categories", JSONArray(payload.categories))
-            .put("checklist", checklistToJson(payload.checklist))
-        request(baseUrl, apiToken, "POST", "/cards/", body.toString())
+    suspend fun createCard(baseUrl: String, apiToken: String, request: CreateCardRequest) {
+        api(baseUrl, apiToken).createCard(request)
     }
 
-    suspend fun updateCard(baseUrl: String, apiToken: String, cardId: Int, payload: CardPayload) = withContext(Dispatchers.IO) {
-        val body = JSONObject()
-            .put("title", payload.title)
-            .put("description", payload.description)
-            .put("assignee", payload.assigneeId)
-            .put("deadline", payload.deadline)
-            .put("priority", payload.priority.toEmoji())
-            .put("tags", JSONArray(payload.tags))
-            .put("categories", JSONArray(payload.categories))
-            .put("checklist", checklistToJson(payload.checklist))
-        request(baseUrl, apiToken, "PATCH", "/cards/$cardId/", body.toString())
+    suspend fun moveCard(baseUrl: String, apiToken: String, cardId: Int, toColumnId: Int) {
+        api(baseUrl, apiToken).moveCard(cardId = cardId, request = MoveCardRequest(toColumn = toColumnId))
     }
 
-    suspend fun deleteCard(baseUrl: String, apiToken: String, cardId: Int) = withContext(Dispatchers.IO) {
-        request(baseUrl, apiToken, "DELETE", "/cards/$cardId/", null)
+    suspend fun updateNotificationProfile(baseUrl: String, apiToken: String, oneSignalPlayerId: String) {
+        val body = api(baseUrl, apiToken).updateNotificationProfile(
+            request = NotificationProfileRequest(onesignalPlayerId = oneSignalPlayerId)
+        ).string()
+        Log.d(PUSH_DEBUG_TAG, "PATCH /notifications/profile -> $body")
     }
 
-    suspend fun moveCard(baseUrl: String, apiToken: String, cardId: Int, toColumnId: Int) = withContext(Dispatchers.IO) {
-        val body = JSONObject().put("column", toColumnId)
-        request(baseUrl, apiToken, "PATCH", "/cards/$cardId/", body.toString())
-    }
-
-    suspend fun updateNotificationProfile(
+    suspend fun ensurePushNotificationPreferences(
         baseUrl: String,
         apiToken: String,
-        oneSignalPlayerId: String
-    ) = withContext(Dispatchers.IO) {
-        val body = JSONObject().put("onesignal_player_id", oneSignalPlayerId)
-        request(baseUrl, apiToken, "PATCH", "/notifications/profile/", body.toString())
-    }
+        eventTypes: List<String>
+    ) {
+        val service = api(baseUrl, apiToken)
+        val preferences = service.listNotificationPreferences()
+        Log.d(PUSH_DEBUG_TAG, "GET /notification-preferences -> count=${preferences.size} items=$preferences")
 
-    private fun getArray(baseUrl: String, apiToken: String, path: String): JSONArray {
-        return JSONArray(request(baseUrl, apiToken, "GET", path, null))
-    }
+        val grouped = preferences.groupBy { it.eventType }
 
-    private fun request(baseUrl: String, token: String, method: String, path: String, body: String?): String {
-        val url = normalizeBaseUrl(baseUrl).trimEnd('/') + "/api/v1" + path
-        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-            requestMethod = method
-            connectTimeout = 15000
-            readTimeout = 15000
-            setRequestProperty("Accept", "application/json")
-            setRequestProperty("Content-Type", "application/json")
-            if (token.isNotBlank()) {
-                setRequestProperty("Authorization", "Token $token")
+        for (eventType in eventTypes) {
+            val eventPrefs = grouped[eventType].orEmpty()
+            val hasGlobalPush = eventPrefs.any { it.board == null && it.channel == "push" }
+            val hasGlobalTelegram = eventPrefs.any { it.board == null && it.channel == "telegram" }
+
+            if (!hasGlobalPush) {
+                val createPushResponse = service.createNotificationPreference(
+                    NotificationPreferenceRequest(
+                        board = null,
+                        channel = "push",
+                        eventType = eventType,
+                        enabled = true
+                    )
+                ).string()
+                Log.d(PUSH_DEBUG_TAG, "POST /notification-preferences push event=$eventType -> $createPushResponse")
             }
-            doInput = true
-            doOutput = body != null
-        }
+            if (!hasGlobalTelegram) {
+                val createTelegramResponse = service.createNotificationPreference(
+                    NotificationPreferenceRequest(
+                        board = null,
+                        channel = "telegram",
+                        eventType = eventType,
+                        enabled = false
+                    )
+                ).string()
+                Log.d(PUSH_DEBUG_TAG, "POST /notification-preferences telegram event=$eventType -> $createTelegramResponse")
+            }
 
-        if (body != null) {
-            OutputStreamWriter(connection.outputStream).use { it.write(body) }
-        }
-
-        val code = connection.responseCode
-        val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-        val payload = BufferedReader(stream.reader()).use { it.readText() }
-        connection.disconnect()
-
-        if (code !in 200..299) {
-            throw IllegalStateException("HTTP $code: $payload")
-        }
-        return payload
-    }
-
-    private fun JSONObject.toKanbanCard(): KanbanCard {
-        val assigneeId = if (isNull("assignee")) null else optInt("assignee")
-        val deadlineRaw = optString("deadline", "")
-        return KanbanCard(
-            id = getInt("id"),
-            title = optString("title", "Без названия"),
-            description = optString("description", ""),
-            assigneeId = assigneeId,
-            deadline = if (deadlineRaw.isBlank() || deadlineRaw == "null") null else deadlineRaw,
-            priority = priorityFromEmoji(optString("priority", "🟡")),
-            position = optString("position", "0").toFloatOrNull() ?: 0f,
-            tags = getStringArray("tags"),
-            categories = getStringArray("categories"),
-            checklist = getChecklist("checklist"),
-            attachmentsCount = optJSONArray("attachments")?.length() ?: 0
-        )
-    }
-
-    private fun JSONObject.getStringArray(key: String): List<String> {
-        val arr = optJSONArray(key) ?: return emptyList()
-        return buildList {
-            for (i in 0 until arr.length()) {
-                val value = arr.optString(i)
-                if (value.isNotBlank()) add(value)
+            for (pref in eventPrefs) {
+                if (pref.channel == "push" && !pref.enabled) {
+                    val updatePushResponse = service.updateNotificationPreference(
+                        pref.id,
+                        NotificationPreferencePatch(enabled = true)
+                    ).string()
+                    Log.d(PUSH_DEBUG_TAG, "PATCH /notification-preferences/${pref.id} push->true event=$eventType -> $updatePushResponse")
+                }
+                if (pref.channel == "telegram" && pref.enabled) {
+                    val updateTelegramResponse = service.updateNotificationPreference(
+                        pref.id,
+                        NotificationPreferencePatch(enabled = false)
+                    ).string()
+                    Log.d(PUSH_DEBUG_TAG, "PATCH /notification-preferences/${pref.id} telegram->false event=$eventType -> $updateTelegramResponse")
+                }
             }
         }
+
+        val finalPreferences = service.listNotificationPreferences()
+        Log.d(PUSH_DEBUG_TAG, "GET /notification-preferences (final) -> count=${finalPreferences.size} items=$finalPreferences")
     }
 
-    private fun JSONObject.getChecklist(key: String): List<KanbanChecklistItem> {
-        val arr = optJSONArray(key) ?: return emptyList()
-        return buildList {
-            for (i in 0 until arr.length()) {
-                val obj = arr.optJSONObject(i) ?: continue
-                val id = obj.optString("id", "")
-                val text = obj.optString("text", "")
-                if (text.isBlank()) continue
-                add(KanbanChecklistItem(id = id.ifBlank { "item-$i" }, text = text, done = obj.optBoolean("done", false)))
+    private fun api(baseUrl: String, apiToken: String): KanbanApi {
+        val authInterceptor = Interceptor { chain ->
+            val requestBuilder = chain.request().newBuilder()
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+            if (apiToken.isNotBlank()) {
+                requestBuilder.header("Authorization", "Token $apiToken")
             }
+            chain.proceed(requestBuilder.build())
         }
-    }
 
-    private fun checklistToJson(items: List<KanbanChecklistItem>): JSONArray {
-        val array = JSONArray()
-        items.forEach { item ->
-            array.put(
-                JSONObject()
-                    .put("id", item.id)
-                    .put("text", item.text)
-                    .put("done", item.done)
-            )
-        }
-        return array
+        val client = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .addInterceptor(authInterceptor)
+            .build()
+
+        return Retrofit.Builder()
+            .baseUrl(normalizeBaseUrl(baseUrl).trimEnd('/') + "/api/v1/")
+            .client(client)
+            .addConverterFactory(json.asConverterFactory(MediaType.parse("application/json")!!))
+            .build()
+            .create(KanbanApi::class.java)
     }
 }
+
+private interface KanbanApi {
+    @POST("auth/login/")
+    suspend fun login(@Body request: LoginRequest): LoginResponse
+
+    @GET("boards/")
+    suspend fun getBoards(): List<BoardDto>
+
+    @GET("columns/")
+    suspend fun getColumns(): List<ColumnDto>
+
+    @GET("cards/")
+    suspend fun getCards(): List<CardDto>
+
+    @POST("cards/")
+    suspend fun createCard(@Body request: CreateCardRequest): ResponseBody
+
+    @POST("cards/{cardId}/move/")
+    suspend fun moveCard(@Path("cardId") cardId: Int, @Body request: MoveCardRequest): ResponseBody
+
+    @PATCH("notifications/profile/")
+    suspend fun updateNotificationProfile(@Body request: NotificationProfileRequest): ResponseBody
+
+    @GET("notification-preferences/")
+    suspend fun listNotificationPreferences(): List<NotificationPreferenceDto>
+
+    @POST("notification-preferences/")
+    suspend fun createNotificationPreference(@Body request: NotificationPreferenceRequest): ResponseBody
+
+    @PATCH("notification-preferences/{id}/")
+    suspend fun updateNotificationPreference(
+        @Path("id") id: Int,
+        @Body request: NotificationPreferencePatch
+    ): ResponseBody
+}
+
+@Serializable
+private data class LoginRequest(
+    val username: String,
+    val password: String
+)
+
+@Serializable
+private data class LoginResponse(
+    val token: String = ""
+)
+
+@Serializable
+private data class BoardDto(
+    val id: Int,
+    val name: String
+)
+
+@Serializable
+private data class ColumnDto(
+    val id: Int,
+    val board: Int,
+    val name: String,
+    val icon: String? = null
+)
+
+@Serializable
+private data class CardDto(
+    val id: Int,
+    val column: Int,
+    val title: String? = null,
+    val description: String? = null,
+    val deadline: String? = null,
+    val priority: String? = null,
+    val position: JsonElement? = null
+)
+
+@Serializable
+data class CreateCardRequest(
+    val column: Int,
+    val title: String,
+    val description: String = "",
+    val assignee: Int? = null,
+    val deadline: String? = null,
+    val priority: String = TaskPriority.Medium.apiValue,
+    val tags: List<String> = emptyList(),
+    val categories: List<String> = emptyList(),
+    val checklist: List<ChecklistItemDto> = emptyList()
+)
+
+@Serializable
+private data class MoveCardRequest(
+    @SerialName("to_column")
+    val toColumn: Int
+)
+
+@Serializable
+private data class NotificationProfileRequest(
+    @SerialName("onesignal_player_id")
+    val onesignalPlayerId: String
+)
+
+@Serializable
+private data class NotificationPreferenceDto(
+    val id: Int,
+    val board: Int? = null,
+    val channel: String,
+    @SerialName("event_type")
+    val eventType: String,
+    val enabled: Boolean
+)
+
+@Serializable
+private data class NotificationPreferenceRequest(
+    val board: Int? = null,
+    val channel: String,
+    @SerialName("event_type")
+    val eventType: String,
+    val enabled: Boolean
+)
+
+@Serializable
+private data class NotificationPreferencePatch(
+    val enabled: Boolean
+)
+
+@Serializable
+data class ChecklistItemDto(
+    val id: String,
+    val text: String,
+    val done: Boolean
+)
 
 data class KanbanBoard(
     val id: Int,
@@ -1249,69 +1105,39 @@ data class KanbanBoard(
 
 data class KanbanColumn(
     val id: Int,
+    val boardId: Int,
     val title: String,
-    val accent: Color,
-    val cards: List<KanbanCard>
+    val icon: String,
+    val tasks: List<KanbanTask>
 )
 
-data class KanbanCard(
+data class KanbanTask(
     val id: Int,
     val title: String,
     val description: String,
-    val assigneeId: Int?,
-    val deadline: String?,
+    val columnId: Int,
+    val dueDate: String?,
     val priority: TaskPriority,
-    val position: Float,
-    val tags: List<String>,
-    val categories: List<String>,
-    val checklist: List<KanbanChecklistItem>,
-    val attachmentsCount: Int
-) {
-    val assigneeLabel: String
-        get() = assigneeId?.let { "User #$it" } ?: "Unassigned"
-}
-
-data class KanbanChecklistItem(
-    val id: String,
-    val text: String,
-    val done: Boolean
+    val position: Float
 )
 
-data class CardPayload(
-    val title: String,
-    val description: String,
-    val assigneeId: Int?,
-    val deadline: String?,
-    val priority: TaskPriority,
-    val tags: List<String>,
-    val categories: List<String>,
-    val checklist: List<KanbanChecklistItem>
-)
+enum class TaskPriority(val apiValue: String, val display: String) {
+    Low("🟢", "Low"),
+    Medium("🟡", "Medium"),
+    High("🔥", "High");
 
-enum class TaskPriority {
-    Low, Medium, High
-}
-
-private fun TaskPriority.toEmoji(): String = when (this) {
-    TaskPriority.Low -> "🟢"
-    TaskPriority.Medium -> "🟡"
-    TaskPriority.High -> "🔥"
-}
-
-private fun priorityFromEmoji(value: String): TaskPriority = when (value) {
-    "🟢" -> TaskPriority.Low
-    "🔥" -> TaskPriority.High
-    else -> TaskPriority.Medium
-}
-
-private fun accentForColumn(name: String): Color {
-    val normalized = name.lowercase()
-    return when {
-        normalized.contains("todo") || normalized.contains("backlog") -> Color(0xFF7C4DFF)
-        normalized.contains("progress") || normalized.contains("review") -> Color(0xFF26C6DA)
-        normalized.contains("done") || normalized.contains("release") -> Color(0xFF66BB6A)
-        else -> Color(0xFF42A5F5)
+    companion object {
+        fun fromApiValue(value: String?): TaskPriority = when (value) {
+            Low.apiValue -> Low
+            High.apiValue -> High
+            else -> Medium
+        }
     }
+}
+
+private fun JsonElement?.asPosition(): Float {
+    val primitive = this as? JsonPrimitive ?: return 0f
+    return primitive.content.toFloatOrNull() ?: 0f
 }
 
 private fun normalizeBaseUrl(value: String): String {
@@ -1368,3 +1194,5 @@ private fun currentOneSignalPlayerId(): String {
         ""
     }
 }
+
+private const val PUSH_DEBUG_TAG = "TM_PUSH_DEBUG"
