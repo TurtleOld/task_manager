@@ -293,7 +293,8 @@ def _send_push(player_id: str, title: str, message: str, event_id: int | None = 
                 parsed = json.loads(body)
             except json.JSONDecodeError as exc:
                 logger.warning(
-                    "onesignal_push_delivery_failed event_id=%s player_id=%s status=%s reason=invalid_json body=%s",
+                    "onesignal_push_delivery_failed event_id=%s player_id=%s "
+                    "status=%s reason=invalid_json body=%s",
                     event_id,
                     player_id,
                     resp.status,
@@ -303,7 +304,8 @@ def _send_push(player_id: str, title: str, message: str, event_id: int | None = 
 
             if not isinstance(parsed, dict):
                 logger.warning(
-                    "onesignal_push_delivery_failed event_id=%s player_id=%s status=%s reason=unexpected_payload_type payload_type=%s",
+                    "onesignal_push_delivery_failed event_id=%s player_id=%s status=%s "
+                    "reason=unexpected_payload_type payload_type=%s",
                     event_id,
                     player_id,
                     resp.status,
@@ -334,7 +336,8 @@ def _send_push(player_id: str, title: str, message: str, event_id: int | None = 
                     summary,
                 )
                 raise RuntimeError(
-                    f"OneSignal API delivery not confirmed: status={resp.status}, response={summary}"
+                    "OneSignal API delivery not confirmed: "
+                    f"status={resp.status}, response={summary}"
                 )
 
             logger.info(
@@ -351,7 +354,8 @@ def _send_push(player_id: str, title: str, message: str, event_id: int | None = 
         except Exception:  # noqa: BLE001
             body = "<failed to read response body>"
         logger.warning(
-            "onesignal_push_delivery_failed event_id=%s player_id=%s status=%s reason=http_error body=%s",
+            "onesignal_push_delivery_failed event_id=%s player_id=%s "
+            "status=%s reason=http_error body=%s",
             event_id,
             player_id,
             exc.code,
