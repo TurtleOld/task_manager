@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024"><svg xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2e1065"></stop>
+      <stop offset="60%" style="stop-color:#4c1d95"></stop>
+      <stop offset="100%" style="stop-color:#5b21b6"></stop>
+    </linearGradient>
+    <linearGradient id="clipboardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ede9fe"></stop>
+      <stop offset="100%" style="stop-color:#ddd6fe"></stop>
+    </linearGradient>
+    <linearGradient id="clipGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed"></stop>
+      <stop offset="100%" style="stop-color:#6d28d9"></stop>
+    </linearGradient>
+    <linearGradient id="check1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#7c3aed"></stop>
+      <stop offset="100%" style="stop-color:#a855f7"></stop>
+    </linearGradient>
+    <linearGradient id="check2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#8b5cf6"></stop>
+      <stop offset="100%" style="stop-color:#c084fc"></stop>
+    </linearGradient>
+    <linearGradient id="check3" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#a78bfa"></stop>
+      <stop offset="100%" style="stop-color:#d8b4fe"></stop>
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7" stop-opacity="0.4"></stop>
+      <stop offset="100%" style="stop-color:#7c3aed" stop-opacity="0"></stop>
+    </linearGradient>
+    <filter id="softShadow" x="-15%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="20" flood-color="#1e0050" flood-opacity="0.5"></feDropShadow>
+    </filter>
+    <filter id="glowFilter">
+      <feGaussianBlur stdDeviation="6" result="blur"></feGaussianBlur>
+      <feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge>
+    </filter>
+    <filter id="checkGlow">
+      <feGaussianBlur stdDeviation="3" result="blur"></feGaussianBlur>
+      <feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="220" ry="220" fill="url(#bg)"></rect>
+
+  <!-- Ambient glow top -->
+  <ellipse cx="512" cy="200" rx="380" ry="180" fill="url(#glowGrad)" opacity="0.5"></ellipse>
+
+  <!-- Sparkle dots -->
+  <circle cx="140" cy="180" r="5" fill="#c084fc" opacity="0.6"></circle>
+  <circle cx="880" cy="220" r="4" fill="#a78bfa" opacity="0.5"></circle>
+  <circle cx="160" cy="820" r="3" fill="#c084fc" opacity="0.4"></circle>
+  <circle cx="860" cy="800" r="5" fill="#a78bfa" opacity="0.5"></circle>
+  <circle cx="900" cy="450" r="3" fill="#ddd6fe" opacity="0.4"></circle>
+  <circle cx="120" cy="560" r="4" fill="#ddd6fe" opacity="0.3"></circle>
+
+  <!-- ===== CLIPBOARD BODY ===== -->
+  <rect x="222" y="200" width="580" height="660" rx="36" fill="url(#clipboardGrad)" filter="url(#softShadow)"></rect>
+
+  <!-- Clipboard top strip -->
+  <rect x="222" y="200" width="580" height="80" rx="36" fill="url(#clipGrad)"></rect>
+  <rect x="222" y="248" width="580" height="32" fill="url(#clipGrad)"></rect>
+
+  <!-- Clip (clamp at top) -->
+  <rect x="412" y="158" width="200" height="90" rx="20" fill="url(#clipGrad)"></rect>
+  <rect x="440" y="178" width="144" height="50" rx="12" fill="#3b0764"></rect>
+  <rect x="462" y="192" width="100" height="22" rx="11" fill="url(#clipGrad)" opacity="0.6"></rect>
+
+  <!-- ===== TASK ROWS ===== -->
+
+  <!-- Task 1 — DONE -->
+  <!-- Checkbox filled -->
+  <rect x="278" y="332" width="56" height="56" rx="14" fill="url(#check1)" filter="url(#checkGlow)"></rect>
+  <!-- Checkmark -->
+  <polyline points="292,361 308,378 334,346" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></polyline>
+  <!-- Task bar (strikethrough style, muted) -->
+  <rect x="360" y="348" width="340" height="20" rx="10" fill="#7c3aed" opacity="0.3"></rect>
+  <rect x="360" y="348" width="340" height="20" rx="10" fill="none"></rect>
+  <!-- strikethrough line -->
+  <line x1="360" y1="358" x2="700" y2="358" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" opacity="0.5"></line>
+  <!-- small tag -->
+  <rect x="360" y="376" width="80" height="18" rx="9" fill="#7c3aed" opacity="0.2"></rect>
+
+  <!-- Task 2 — DONE -->
+  <rect x="278" y="430" width="56" height="56" rx="14" fill="url(#check1)" filter="url(#checkGlow)"></rect>
+  <polyline points="292,459 308,476 334,444" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></polyline>
+  <rect x="360" y="446" width="280" height="20" rx="10" fill="#7c3aed" opacity="0.3"></rect>
+  <line x1="360" y1="456" x2="640" y2="456" stroke="#7c3aed" stroke-width="2.5" stroke-linecap="round" opacity="0.5"></line>
+  <rect x="360" y="474" width="96" height="18" rx="9" fill="#7c3aed" opacity="0.2"></rect>
+
+  <!-- Divider -->
+  <line x1="278" y1="520" x2="746" y2="520" stroke="#7c3aed" stroke-width="1.5" opacity="0.15"></line>
+
+  <!-- Task 3 — IN PROGRESS (active, glowing) -->
+  <rect x="278" y="538" width="56" height="56" rx="14" fill="url(#check2)" filter="url(#glowFilter)"></rect>
+  <!-- Half check / loading indicator -->
+  <circle cx="306" cy="566" r="16" fill="none" stroke="white" stroke-width="4" stroke-dasharray="40 60" stroke-linecap="round"></circle>
+  <polyline points="298,566 305,573 316,558" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"></polyline>
+  <!-- Task bar bright -->
+  <rect x="360" y="550" width="340" height="22" rx="11" fill="#7c3aed" opacity="0.5"></rect>
+  <!-- Progress bar below -->
+  <rect x="360" y="580" width="300" height="10" rx="5" fill="#7c3aed" opacity="0.15"></rect>
+  <rect x="360" y="580" width="180" height="10" rx="5" fill="url(#check2)"></rect>
+  <rect x="360" y="598" width="110" height="18" rx="9" fill="#8b5cf6" opacity="0.35"></rect>
+
+  <!-- Task 4 — TODO -->
+  <rect x="278" y="642" width="56" height="56" rx="14" fill="none" stroke="#a78bfa" stroke-width="3" opacity="0.5"></rect>
+  <rect x="360" y="658" width="310" height="20" rx="10" fill="#4c1d95" opacity="0.5"></rect>
+  <rect x="360" y="686" width="85" height="18" rx="9" fill="#4c1d95" opacity="0.3"></rect>
+
+  <!-- Task 5 — TODO -->
+  <rect x="278" y="742" width="56" height="56" rx="14" fill="none" stroke="#a78bfa" stroke-width="3" opacity="0.5"></rect>
+  <rect x="360" y="758" width="260" height="20" rx="10" fill="#4c1d95" opacity="0.5"></rect>
+  <rect x="360" y="786" width="68" height="18" rx="9" fill="#4c1d95" opacity="0.3"></rect>
+
+  <!-- ===== BOTTOM STATS BAR ===== -->
+  <rect x="222" y="816" width="580" height="44" rx="0" fill="#7c3aed" opacity="0.12"></rect>
+  <rect x="222" y="816" width="580" height="44" rx="0" ry="0" fill="none"></rect>
+  <!-- bottom corners rounded -->
+  <rect x="222" y="830" width="580" height="30" rx="0" fill="#7c3aed" opacity="0.08"></rect>
+  <!-- 2 done of 5 text via bars -->
+  <rect x="278" y="829" width="50" height="14" rx="7" fill="#a78bfa" opacity="0.6"></rect>
+  <rect x="340" y="829" width="30" height="14" rx="7" fill="#7c3aed" opacity="0.3"></rect>
+  <rect x="382" y="829" width="40" height="14" rx="7" fill="#7c3aed" opacity="0.3"></rect>
+  <rect x="434" y="829" width="25" height="14" rx="7" fill="#7c3aed" opacity="0.3"></rect>
+
+  <!-- ===== Floating accent circle (bottom right) ===== -->
+  <circle cx="780" cy="780" r="64" fill="#7c3aed" opacity="0.18"></circle>
+  <circle cx="780" cy="780" r="44" fill="url(#check2)" opacity="0.9" filter="url(#softShadow)"></circle>
+  <!-- Lightning / priority icon -->
+  <polygon points="786,754 766,782 780,782 774,806 794,778 780,778" fill="white"></polygon>
+
+  <!-- Bottom glow -->
+  <ellipse cx="512" cy="980" rx="260" ry="36" fill="#7c3aed" opacity="0.18"></ellipse>
+</svg></svg><style>@media (prefers-color-scheme: light) { :root { filter: none; } }
+@media (prefers-color-scheme: dark) { :root { filter: none; } }
+</style></svg>
