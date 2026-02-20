@@ -251,7 +251,7 @@ def _send_telegram(chat_id: str, message: str) -> None:
         raise RuntimeError(f"Telegram API connection error: {exc}") from exc
 
 
-def _send_push(player_id: str, title: str, message: str) -> None:
+def _send_push(player_id: str, title: str, message: str, event_id: int | None = None) -> None:
     app_id = settings.ONESIGNAL_APP_ID
     api_key = settings.ONESIGNAL_REST_API_KEY
     if not app_id or not api_key:
@@ -275,20 +275,96 @@ def _send_push(player_id: str, title: str, message: str) -> None:
         },
         method="POST",
     )
+
+    def _response_summary(resp_json: dict[str, object]) -> dict[str, object]:
+        return {
+            "id": resp_json.get("id"),
+            "recipients": resp_json.get("recipients"),
+            "errors": resp_json.get("errors"),
+        }
+
     try:
         with request.urlopen(req, timeout=10) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
             if resp.status >= 400:
-                raise RuntimeError(f"OneSignal API error: HTTP {resp.status}")
+                raise RuntimeError(f"OneSignal API error: HTTP {resp.status}; body={body}")
+
+            try:
+                parsed = json.loads(body)
+            except json.JSONDecodeError as exc:
+                logger.warning(
+                    "onesignal_push_delivery_failed event_id=%s player_id=%s status=%s reason=invalid_json body=%s",
+                    event_id,
+                    player_id,
+                    resp.status,
+                    body,
+                )
+                raise RuntimeError("OneSignal API error: invalid JSON response") from exc
+
+            if not isinstance(parsed, dict):
+                logger.warning(
+                    "onesignal_push_delivery_failed event_id=%s player_id=%s status=%s reason=unexpected_payload_type payload_type=%s",
+                    event_id,
+                    player_id,
+                    resp.status,
+                    type(parsed).__name__,
+                )
+                raise RuntimeError(
+                    f"OneSignal API error: unexpected JSON payload type {type(parsed).__name__}"
+                )
+
+            errors = parsed.get("errors")
+            recipients = parsed.get("recipients")
+            recipient_count = None
+            if isinstance(recipients, int):
+                recipient_count = recipients
+            elif isinstance(recipients, float):
+                recipient_count = int(recipients)
+            elif isinstance(recipients, str):
+                if recipients.isdigit():
+                    recipient_count = int(recipients)
+
+            if errors or recipient_count == 0:
+                summary = _response_summary(parsed)
+                logger.warning(
+                    "onesignal_push_delivery_failed event_id=%s player_id=%s status=%s response=%s",
+                    event_id,
+                    player_id,
+                    resp.status,
+                    summary,
+                )
+                raise RuntimeError(
+                    f"OneSignal API delivery not confirmed: status={resp.status}, response={summary}"
+                )
+
+            logger.info(
+                "onesignal_push_delivery_sent event_id=%s player_id=%s status=%s response=%s",
+                event_id,
+                player_id,
+                resp.status,
+                _response_summary(parsed),
+            )
     except HTTPError as exc:
         body = ""
         try:
             body = exc.read().decode("utf-8", errors="replace")
         except Exception:  # noqa: BLE001
             body = "<failed to read response body>"
-        logger.warning("OneSignal API HTTPError: status=%s body=%s", exc.code, body)
+        logger.warning(
+            "onesignal_push_delivery_failed event_id=%s player_id=%s status=%s reason=http_error body=%s",
+            event_id,
+            player_id,
+            exc.code,
+            body,
+        )
         raise RuntimeError(f"OneSignal API error: HTTP {exc.code}; body={body}") from exc
     except URLError as exc:
-        logger.warning("OneSignal API URLError: %s", exc)
+        logger.warning(
+            "onesignal_push_delivery_failed event_id=%s player_id=%s reason=url_error error=%s",
+            event_id,
+            player_id,
+            exc,
+        )
         raise RuntimeError(f"OneSignal API connection error: {exc}") from exc
 
 
@@ -397,7 +473,7 @@ def send_notification_event(self, event_id: int) -> None:
                     channel=channel,
                 )
                 try:
-                    _send_push(target_player_id, subject, body)
+                    _send_push(target_player_id, subject, body, event_id=event.id)
                     delivery.status = NotificationDelivery.Status.SENT
                     delivery.sent_at = timezone.now()
                     delivery.save(update_fields=["status", "sent_at"])
