@@ -834,7 +834,7 @@ private fun KanbanHeader(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Kanban",
+                    text = "Task Manager",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
