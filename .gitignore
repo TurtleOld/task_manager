@@ -52,4 +52,5 @@ media/
 # Android Firebase/Google Services config (must be provided via local file or CI secret)
 android/app/google-services.json
 
+# Local-only Android network security config (do not commit private IPs)
 android/app/src/main/res/xml/network_security_config.xml
