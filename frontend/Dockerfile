@@ -2,9 +2,6 @@ FROM node:20-slim
 
 WORKDIR /app
 
-USER node
-
-
 RUN npm config set strict-ssl false
 
 COPY package.json package-lock.json ./
