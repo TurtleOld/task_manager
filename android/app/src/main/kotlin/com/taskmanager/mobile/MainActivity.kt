@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -60,9 +61,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.onesignal.OneSignal
 import com.onesignal.user.subscriptions.IPushSubscriptionObserver
 import com.onesignal.user.subscriptions.PushSubscriptionChangedState
@@ -106,6 +109,7 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
     val context = LocalContext.current
     val session by vm.session.collectAsStateWithLifecycle()
     val boardState by vm.boardState.collectAsStateWithLifecycle()
+    val taskDetailState by vm.taskDetailState.collectAsStateWithLifecycle()
     val navController = rememberNavController()
 
     LaunchedEffect(Unit) {
@@ -189,7 +193,24 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
                 },
                 onSelectBoard = vm::selectBoard,
                 onAddTask = vm::createTask,
-                onMoveTask = vm::moveTask
+                onMoveTask = vm::moveTask,
+                onTaskClick = { taskId ->
+                    navController.navigate(Route.taskDetail(taskId))
+                }
+            )
+        }
+
+        composable(
+            route = "${Route.TaskDetail}/{taskId}",
+            arguments = listOf(navArgument("taskId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val taskId = backStackEntry.arguments?.getInt("taskId") ?: return@composable
+            TaskDetailScreen(
+                taskId = taskId,
+                taskDetailState = taskDetailState,
+                onLoadTask = vm::loadTaskDetail,
+                onBack = { navController.popBackStack() },
+                onClearDetail = vm::clearTaskDetail
             )
         }
     }
@@ -198,6 +219,9 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
 private object Route {
     const val Login = "login"
     const val Board = "board"
+    const val TaskDetail = "task_detail"
+    
+    fun taskDetail(taskId: Int) = "$TaskDetail/$taskId"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -313,7 +337,8 @@ private fun BoardRoute(
     onLogout: () -> Unit,
     onSelectBoard: (Int) -> Unit,
     onAddTask: (title: String, columnId: Int) -> Unit,
-    onMoveTask: (taskId: Int, toColumnId: Int) -> Unit
+    onMoveTask: (taskId: Int, toColumnId: Int) -> Unit,
+    onTaskClick: (Int) -> Unit
 ) {
     when (boardState) {
         BoardUiState.Loading -> {
@@ -383,7 +408,8 @@ private fun BoardRoute(
                             items(selectedBoard.columns) { column ->
                                 ColumnView(
                                     column = column,
-                                    onMoveClick = { moveTask = it }
+                                    onMoveClick = { moveTask = it },
+                                    onTaskClick = onTaskClick
                                 )
                             }
                         }
@@ -420,7 +446,8 @@ private fun BoardRoute(
 @Composable
 private fun ColumnView(
     column: KanbanColumn,
-    onMoveClick: (KanbanTask) -> Unit
+    onMoveClick: (KanbanTask) -> Unit,
+    onTaskClick: (Int) -> Unit
 ) {
     Card(
         modifier = Modifier.width(320.dp),
@@ -452,7 +479,8 @@ private fun ColumnView(
                     TaskCard(
                         task = task,
                         columnTitle = column.title,
-                        onMoveClick = { onMoveClick(task) }
+                        onMoveClick = { onMoveClick(task) },
+                        onClick = { onTaskClick(task.id) }
                     )
                 }
             }
@@ -464,10 +492,16 @@ private fun ColumnView(
 private fun TaskCard(
     task: KanbanTask,
     columnTitle: String,
-    onMoveClick: () -> Unit
+    onMoveClick: () -> Unit,
+    onClick: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -621,6 +655,300 @@ private fun MoveTaskSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TaskDetailScreen(
+    taskId: Int,
+    taskDetailState: TaskDetailState?,
+    onLoadTask: (Int) -> Unit,
+    onBack: () -> Unit,
+    onClearDetail: () -> Unit
+) {
+    LaunchedEffect(taskId) {
+        onLoadTask(taskId)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            onClearDetail()
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Детали задачи") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Text("←")
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        when (taskDetailState) {
+            null, TaskDetailState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+
+            is TaskDetailState.Error -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(taskDetailState.message, color = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        TextButton(onClick = { onLoadTask(taskId) }) { Text("Повторить") }
+                        TextButton(onClick = onBack) { Text("Назад") }
+                    }
+                }
+            }
+
+            is TaskDetailState.Content -> {
+                TaskDetailContent(
+                    task = taskDetailState.task,
+                    modifier = Modifier.padding(paddingValues)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TaskDetailContent(task: KanbanTask, modifier: Modifier = Modifier) {
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Заголовок
+        item {
+            Text(
+                text = task.title,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        // Приоритет и дедлайн
+        item {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+                    Text(
+                        text = task.priority.display,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+                if (!task.dueDate.isNullOrBlank()) {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                        Text(
+                            text = "📅 ${task.dueDate}",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    }
+                }
+            }
+        }
+
+        // Описание
+        if (task.description.isNotBlank()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Описание",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                        Text(
+                            text = task.description,
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        }
+
+        // Теги
+        if (task.tags.isNotEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Теги",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(task.tags) { tag ->
+                            AssistChip(
+                                onClick = {},
+                                label = { Text(tag) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Категории
+        if (task.categories.isNotEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Категории",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(task.categories) { category ->
+                            AssistChip(
+                                onClick = {},
+                                label = { Text(category) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Чек-лист
+        if (task.checklist.isNotEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Чек-лист",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            task.checklist.forEach { item ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = if (item.done) "✅" else "⬜",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = item.text,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Вложения
+        if (task.attachments.isNotEmpty()) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Вложения",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            task.attachments.forEach { attachment ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = "📎",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = attachment.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        if (attachment.size != null) {
+                                            Text(
+                                                text = formatFileSize(attachment.size),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Метаданные
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Информация",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (!task.createdAt.isNullOrBlank()) {
+                    Text(
+                        text = "Создано: ${task.createdAt}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (!task.updatedAt.isNullOrBlank()) {
+                    Text(
+                        text = "Обновлено: ${task.updatedAt}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    text = "ID: ${task.id}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+private fun formatFileSize(bytes: Long): String {
+    return when {
+        bytes < 1024 -> "$bytes B"
+        bytes < 1024 * 1024 -> "${bytes / 1024} KB"
+        else -> "${bytes / (1024 * 1024)} MB"
+    }
+}
+
 class KanbanViewModel : ViewModel() {
     private val repository = KanbanRepository()
     private val notificationEventTypes = listOf(
@@ -642,6 +970,9 @@ class KanbanViewModel : ViewModel() {
 
     private val _boardState = MutableStateFlow<BoardUiState>(BoardUiState.Loading)
     val boardState: StateFlow<BoardUiState> = _boardState.asStateFlow()
+
+    private val _taskDetailState = MutableStateFlow<TaskDetailState?>(null)
+    val taskDetailState: StateFlow<TaskDetailState?> = _taskDetailState.asStateFlow()
 
     fun bootstrap(domain: String, token: String) {
         val normalizedDomain = normalizeBaseUrl(domain)
@@ -790,6 +1121,30 @@ class KanbanViewModel : ViewModel() {
             }
         }
     }
+
+    fun loadTaskDetail(taskId: Int) {
+        val s = session.value
+        if (!s.isAuthenticated || s.token.isBlank()) return
+
+        viewModelScope.launch {
+            _taskDetailState.value = TaskDetailState.Loading
+            runCatching {
+                repository.getCard(
+                    baseUrl = s.domain,
+                    apiToken = s.token,
+                    cardId = taskId
+                )
+            }.onSuccess { task ->
+                _taskDetailState.value = TaskDetailState.Content(task)
+            }.onFailure { error ->
+                _taskDetailState.value = TaskDetailState.Error(error.message ?: "Ошибка загрузки")
+            }
+        }
+    }
+
+    fun clearTaskDetail() {
+        _taskDetailState.value = null
+    }
 }
 
 data class SessionUiState(
@@ -810,6 +1165,12 @@ sealed interface BoardUiState {
         val boards: List<KanbanBoard>,
         val selectedBoardId: Int?
     ) : BoardUiState
+}
+
+sealed interface TaskDetailState {
+    data object Loading : TaskDetailState
+    data class Error(val message: String) : TaskDetailState
+    data class Content(val task: KanbanTask) : TaskDetailState
 }
 
 class KanbanRepository {
@@ -842,7 +1203,14 @@ class KanbanRepository {
                     columnId = dto.column,
                     dueDate = dto.deadline,
                     priority = TaskPriority.fromApiValue(dto.priority),
-                    position = dto.position.asPosition()
+                    position = dto.position.asPosition(),
+                    assignee = dto.assignee,
+                    tags = dto.tags,
+                    categories = dto.categories,
+                    checklist = dto.checklist,
+                    attachments = dto.attachments,
+                    createdAt = dto.createdAt,
+                    updatedAt = dto.updatedAt
                 )
             }.sortedBy { it.position }
         }
@@ -866,6 +1234,26 @@ class KanbanRepository {
                 columns = columnsByBoard[dto.id].orEmpty()
             )
         }
+    }
+
+    suspend fun getCard(baseUrl: String, apiToken: String, cardId: Int): KanbanTask {
+        val dto = api(baseUrl, apiToken).getCard(cardId)
+        return KanbanTask(
+            id = dto.id,
+            title = dto.title.orEmpty().ifBlank { "Без названия" },
+            description = dto.description.orEmpty(),
+            columnId = dto.column,
+            dueDate = dto.deadline,
+            priority = TaskPriority.fromApiValue(dto.priority),
+            position = dto.position.asPosition(),
+            assignee = dto.assignee,
+            tags = dto.tags,
+            categories = dto.categories,
+            checklist = dto.checklist,
+            attachments = dto.attachments,
+            createdAt = dto.createdAt,
+            updatedAt = dto.updatedAt
+        )
     }
 
     suspend fun createCard(baseUrl: String, apiToken: String, request: CreateCardRequest) {
@@ -983,6 +1371,9 @@ private interface KanbanApi {
     @GET("cards/")
     suspend fun getCards(): List<CardDto>
 
+    @GET("cards/{cardId}/")
+    suspend fun getCard(@Path("cardId") cardId: Int): CardDto
+
     @POST("cards/")
     suspend fun createCard(@Body request: CreateCardRequest): ResponseBody
 
@@ -1038,7 +1429,16 @@ private data class CardDto(
     val description: String? = null,
     val deadline: String? = null,
     val priority: String? = null,
-    val position: JsonElement? = null
+    val position: JsonElement? = null,
+    val assignee: Int? = null,
+    val tags: List<String> = emptyList(),
+    val categories: List<String> = emptyList(),
+    val checklist: List<ChecklistItemDto> = emptyList(),
+    val attachments: List<AttachmentDto> = emptyList(),
+    @SerialName("created_at")
+    val createdAt: String? = null,
+    @SerialName("updated_at")
+    val updatedAt: String? = null
 )
 
 @Serializable
@@ -1091,6 +1491,14 @@ private data class NotificationPreferencePatch(
 )
 
 @Serializable
+data class AttachmentDto(
+    val id: String,
+    val name: String,
+    val url: String,
+    val size: Long? = null
+)
+
+@Serializable
 data class ChecklistItemDto(
     val id: String,
     val text: String,
@@ -1118,7 +1526,14 @@ data class KanbanTask(
     val columnId: Int,
     val dueDate: String?,
     val priority: TaskPriority,
-    val position: Float
+    val position: Float,
+    val assignee: Int? = null,
+    val tags: List<String> = emptyList(),
+    val categories: List<String> = emptyList(),
+    val checklist: List<ChecklistItemDto> = emptyList(),
+    val attachments: List<AttachmentDto> = emptyList(),
+    val createdAt: String? = null,
+    val updatedAt: String? = null
 )
 
 enum class TaskPriority(val apiValue: String, val display: String) {
