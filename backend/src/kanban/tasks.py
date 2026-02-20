@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from urllib import request
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 from celery import shared_task
@@ -226,8 +227,13 @@ def _send_telegram(chat_id: str, message: str) -> None:
     if not token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured")
     payload = json.dumps({"chat_id": chat_id, "text": message}).encode("utf-8")
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.netloc != "api.telegram.org":
+        raise RuntimeError("Refusing to send Telegram request to non-official host")
+
     req = request.Request(
-        url=f"https://api.telegram.org/bot{token}/sendMessage",
+        url=url,
         data=payload,
         headers={"Content-Type": "application/json"},
         method="POST",
@@ -266,8 +272,13 @@ def _send_push(player_id: str, title: str, message: str, event_id: int | None = 
         }
     ).encode("utf-8")
 
+    url = "https://api.onesignal.com/notifications?c=push"
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.netloc != "api.onesignal.com":
+        raise RuntimeError("Refusing to send OneSignal request to non-official host")
+
     req = request.Request(
-        url="https://api.onesignal.com/notifications?c=push",
+        url=url,
         data=payload,
         headers={
             "Content-Type": "application/json",

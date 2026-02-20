@@ -2,6 +2,9 @@ FROM node:20-slim
 
 WORKDIR /app
 
+# Run as a non-root user for security (the official Node image provides `node`).
+USER node
+
 # Docker Desktop in some corporate/proxy environments can MITM HTTPS which breaks npm with
 # `SELF_SIGNED_CERT_IN_CHAIN`. Disable strict SSL inside the container build.
 RUN npm config set strict-ssl false

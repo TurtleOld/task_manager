@@ -324,6 +324,7 @@ class PasswordChangeSerializer(serializers.Serializer):
         return value
 
     def update(self, instance: AbstractUser, validated_data: dict[str, Any]) -> AbstractUser:
+        validate_password(validated_data["new_password"], user=instance)
         instance.set_password(validated_data["new_password"])
         instance.save(update_fields=["password"])
         return instance
@@ -374,6 +375,7 @@ class RegisterSerializer(serializers.Serializer):
         full_name = validated_data.get("full_name")
         if full_name:
             user.first_name = full_name
+        validate_password(validated_data["password"], user=user)
         user.set_password(validated_data["password"])
         user.is_staff = role in {"admin", "manager"}
         user.save()

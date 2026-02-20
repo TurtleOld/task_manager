@@ -154,6 +154,16 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.TokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
+    # Basic global throttling to reduce risk of resource starvation / DoS.
+    # Per-view overrides can be added where needed.
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.getenv("DRF_THROTTLE_ANON_RATE", "60/min"),
+        "user": os.getenv("DRF_THROTTLE_USER_RATE", "600/min"),
+    },
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
         "rest_framework.filters.OrderingFilter",
