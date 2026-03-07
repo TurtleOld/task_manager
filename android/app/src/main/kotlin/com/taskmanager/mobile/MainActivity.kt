@@ -155,10 +155,9 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
 
         vm.registerPushPlayerId(currentOneSignalPlayerId())
         if (BuildConfig.ONESIGNAL_APP_ID.isNotBlank()) {
-            OneSignal.Notifications.requestPermission(true) { accepted ->
-                if (accepted) {
-                    OneSignal.User.pushSubscription.optIn()
-                }
+            val accepted = OneSignal.Notifications.requestPermission(true)
+            if (accepted) {
+                OneSignal.User.pushSubscription.optIn()
             }
         }
     }
