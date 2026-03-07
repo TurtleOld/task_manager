@@ -181,7 +181,6 @@ set PYTHONPATH=src && uv run --active celery -A config worker -l info
 ### Переменные окружения
 
 - `ANDROID_API_BASE_URL` — base URL API (по умолчанию `http://10.0.2.2:8000` для эмулятора)
-- `ANDROID_WEB_BASE_URL` — base URL Web UI (по умолчанию `http://10.0.2.2:5173`)
 - `ONESIGNAL_APP_ID` — App ID из OneSignal (для push)
 
 ### Firebase / google-services.json
