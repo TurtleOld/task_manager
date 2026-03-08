@@ -96,6 +96,7 @@ import androidx.navigation.navArgument
 import com.onesignal.OneSignal
 import com.onesignal.user.subscriptions.IPushSubscriptionObserver
 import com.onesignal.user.subscriptions.PushSubscriptionChangedState
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -147,6 +148,7 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
     val session by vm.session.collectAsStateWithLifecycle()
     val boardState by vm.boardState.collectAsStateWithLifecycle()
     val taskDetailState by vm.taskDetailState.collectAsStateWithLifecycle()
+    val boardUsers by vm.boardUsers.collectAsStateWithLifecycle()
     val securitySettings by vm.securitySettings.collectAsStateWithLifecycle()
     val navController = rememberNavController()
 
@@ -249,6 +251,7 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
         composable(Route.Board) {
             BoardRoute(
                 boardState = boardState,
+                boardUsers = boardUsers,
                 onRetry = vm::refresh,
                 onRefresh = vm::refresh,
                 onLogout = {
@@ -631,6 +634,7 @@ private fun ModernTextField(
 @Composable
 private fun BoardRoute(
     boardState: BoardUiState,
+    boardUsers: List<BoardUser>,
     onRetry: () -> Unit,
     onRefresh: () -> Unit,
     onLogout: () -> Unit,
@@ -753,6 +757,7 @@ private fun BoardRoute(
                             items(selectedBoard.columns) { column ->
                                 ColumnView(
                                     column = column,
+                                    boardUsers = boardUsers,
                                     onMoveClick = { moveTask = it },
                                     onTaskClick = onTaskClick
                                 )
@@ -992,6 +997,7 @@ private fun BoardTab(
 @Composable
 private fun ColumnView(
     column: KanbanColumn,
+    boardUsers: List<BoardUser>,
     onMoveClick: (KanbanTask) -> Unit,
     onTaskClick: (Int) -> Unit
 ) {
@@ -1080,6 +1086,7 @@ private fun ColumnView(
                 TaskCard(
                     task = task,
                     accentColor = accentColor,
+                    boardUsers = boardUsers,
                     onMoveClick = { onMoveClick(task) },
                     onClick = { onTaskClick(task.id) }
                 )
@@ -1122,6 +1129,7 @@ private fun ColumnView(
 private fun TaskCard(
     task: KanbanTask,
     accentColor: Color,
+    boardUsers: List<BoardUser>,
     onMoveClick: () -> Unit,
     onClick: () -> Unit
 ) {
@@ -1235,6 +1243,40 @@ private fun TaskCard(
                                 )
                             }
                         }
+                    }
+                }
+
+                // Assignee
+                val assigneeName = task.assignee?.let { id -> boardUsers.find { it.id == id }?.name }
+                if (assigneeName != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = assigneeName.first().uppercaseChar().toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontSize = 9.sp
+                            )
+                        }
+                        Text(
+                            text = assigneeName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
 
@@ -3414,6 +3456,9 @@ class KanbanViewModel : ViewModel() {
     private val _taskDetailState = MutableStateFlow<TaskDetailState?>(null)
     val taskDetailState: StateFlow<TaskDetailState?> = _taskDetailState.asStateFlow()
 
+    private val _boardUsers = MutableStateFlow<List<BoardUser>>(emptyList())
+    val boardUsers: StateFlow<List<BoardUser>> = _boardUsers.asStateFlow()
+
     private val _securitySettings = MutableStateFlow(SecuritySettings())
     val securitySettings: StateFlow<SecuritySettings> = _securitySettings.asStateFlow()
 
@@ -3592,11 +3637,20 @@ class KanbanViewModel : ViewModel() {
         if (!s.isAuthenticated || s.token.isBlank()) return
 
         viewModelScope.launch {
-            _boardState.value = BoardUiState.Loading
-            runCatching {
-                repository.fetchBoards(baseUrl = s.domain, apiToken = s.token)
-            }.onSuccess { boards ->
-                val selectedId = (_boardState.value as? BoardUiState.Content)?.selectedBoardId
+            val prev = _boardState.value
+            if (prev !is BoardUiState.Content) {
+                _boardState.value = BoardUiState.Loading
+            }
+            // Load boards and users in parallel
+            val boardsDeferred = async { runCatching { repository.fetchBoards(baseUrl = s.domain, apiToken = s.token) } }
+            val usersDeferred = async { runCatching { repository.fetchUsers(baseUrl = s.domain, apiToken = s.token) } }
+            val boardsResult = boardsDeferred.await()
+            val usersResult = usersDeferred.await()
+
+            usersResult.onSuccess { users -> _boardUsers.value = users }
+
+            boardsResult.onSuccess { boards ->
+                val selectedId = (prev as? BoardUiState.Content)?.selectedBoardId
                     ?.takeIf { candidate -> boards.any { it.id == candidate } }
                     ?: boards.firstOrNull()?.id
                 _boardState.value = BoardUiState.Content(boards = boards, selectedBoardId = selectedId)
@@ -3604,7 +3658,9 @@ class KanbanViewModel : ViewModel() {
                     startWebSocket(domain = s.domain, token = s.token, boardId = selectedId)
                 }
             }.onFailure { error ->
-                _boardState.value = BoardUiState.Error(error.message ?: "Ошибка загрузки")
+                if (prev !is BoardUiState.Content) {
+                    _boardState.value = BoardUiState.Error(error.message ?: "Ошибка загрузки")
+                }
             }
         }
     }
@@ -3621,6 +3677,29 @@ class KanbanViewModel : ViewModel() {
     fun createTask(title: String, columnId: Int) {
         if (title.isBlank()) return
         val s = session.value
+
+        // Optimistic update: add a placeholder task to UI immediately
+        val current = _boardState.value as? BoardUiState.Content
+        val tempId = -(System.nanoTime() % Int.MAX_VALUE).toInt() // negative temp ID
+        if (current != null) {
+            val placeholder = KanbanTask(
+                id = tempId,
+                title = title.trim(),
+                description = "",
+                columnId = columnId,
+                dueDate = null,
+                priority = TaskPriority.Medium,
+                position = Float.MAX_VALUE // place at end
+            )
+            val updatedBoards = current.boards.map { board ->
+                board.copy(columns = board.columns.map { col ->
+                    if (col.id == columnId) col.copy(tasks = col.tasks + placeholder)
+                    else col
+                })
+            }
+            _boardState.value = current.copy(boards = updatedBoards)
+        }
+
         viewModelScope.launch {
             runCatching {
                 repository.createCard(
@@ -3628,18 +3707,53 @@ class KanbanViewModel : ViewModel() {
                     apiToken = s.token,
                     request = CreateCardRequest(column = columnId, title = title.trim())
                 )
+            }.onFailure {
+                // Rollback: remove the placeholder on error
+                val state = _boardState.value as? BoardUiState.Content ?: return@launch
+                val rolledBack = state.boards.map { board ->
+                    board.copy(columns = board.columns.map { col ->
+                        col.copy(tasks = col.tasks.filter { it.id != tempId })
+                    })
+                }
+                _boardState.value = state.copy(boards = rolledBack)
             }
-            refresh()
+            // No refresh() needed — WebSocket will deliver the real card
         }
     }
 
     fun moveTask(taskId: Int, toColumnId: Int) {
         val s = session.value
+
+        // Optimistic update: move the task between columns immediately
+        val current = _boardState.value as? BoardUiState.Content
+        if (current != null) {
+            // First, find the task across all boards/columns
+            val movedTask = current.boards.flatMap { it.columns }.flatMap { it.tasks }.find { it.id == taskId }
+            if (movedTask != null) {
+                val relocated = movedTask.copy(columnId = toColumnId, position = Float.MAX_VALUE)
+                val updatedBoards = current.boards.map { board ->
+                    board.copy(columns = board.columns.map { col ->
+                        when (col.id) {
+                            toColumnId -> col.copy(tasks = (col.tasks.filter { it.id != taskId } + relocated).sortedBy { it.position })
+                            else -> col.copy(tasks = col.tasks.filter { it.id != taskId })
+                        }
+                    })
+                }
+                _boardState.value = current.copy(boards = updatedBoards)
+            }
+        }
+
+        val snapshot = current // for rollback
         viewModelScope.launch {
             runCatching {
                 repository.moveCard(baseUrl = s.domain, apiToken = s.token, cardId = taskId, toColumnId = toColumnId)
+            }.onFailure {
+                // Rollback to previous state on error
+                if (snapshot != null) {
+                    _boardState.value = snapshot
+                }
             }
-            refresh()
+            // No refresh() needed — WebSocket will deliver the update
         }
     }
 

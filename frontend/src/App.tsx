@@ -1022,12 +1022,43 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   const onCreateCard = async (columnId: number) => {
     const title = (newCardTitle[columnId] || '').trim()
     if (!title) return
-    const card = await api.createCard(columnId, title)
-    setCards((prev) => [...prev, card])
+
+    const tempId = -Date.now()
+    const placeholder: Card = {
+      id: tempId,
+      board: boardId,
+      column: columnId,
+      assignee: null,
+      title,
+      description: '',
+      deadline: null,
+      priority: '🟡',
+      tags: [],
+      categories: [],
+      checklist: [],
+      attachments: [],
+      position: '999999',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      version: 1,
+    }
+    setCards((prev) => [...prev, placeholder])
     setNewCardTitle((s) => ({ ...s, [columnId]: '' }))
+
+    try {
+      const card = await api.createCard(columnId, title)
+      setCards((prev) => {
+        const withoutTemp = prev.filter((c) => c.id !== tempId)
+        if (withoutTemp.some((c) => c.id === card.id)) return withoutTemp
+        return [...withoutTemp, card]
+      })
+    } catch {
+      setCards((prev) => prev.filter((c) => c.id !== tempId))
+    }
   }
 
   const move = async (card: Card, dir: 'up' | 'down' | 'left' | 'right') => {
+    const originalCard = card
     if (dir === 'up' || dir === 'down') {
       const colCards = [...(grouped[card.column] || [])]
       const idx = colCards.findIndex((c) => c.id === card.id)
@@ -1041,27 +1072,47 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
         const next = colCards[idx + 1]
         if (next) before_id = next.id
       }
-      const updated = await api.moveCard(card.id, { before_id, after_id })
-      setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+
+      const swapIdx = dir === 'up' ? idx - 1 : idx + 1
+      const swapCard = colCards[swapIdx]
+      if (swapCard) {
+        setCards((prev) => prev.map((c) => {
+          if (c.id === card.id) return { ...c, position: swapCard.position }
+          if (c.id === swapCard.id) return { ...c, position: card.position }
+          return c
+        }))
+      }
+
+      try {
+        const updated = await api.moveCard(card.id, { before_id, after_id })
+        setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+      } catch {
+        setCards((prev) => prev.map((c) => (c.id === originalCard.id ? originalCard : c)))
+      }
     } else {
       // left/right change column
       const order = [...columns].sort((a, b) => (a.position > b.position ? 1 : -1))
       const curIdx = order.findIndex((c) => c.id === card.column)
       const target = dir === 'left' ? order[curIdx - 1] : order[curIdx + 1]
       if (!target) return
-      const updated = await api.moveCard(card.id, { to_column: target.id })
-      setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+
+      setCards((prev) => prev.map((c) => (c.id === card.id ? { ...c, column: target.id } : c)))
+
+      try {
+        const updated = await api.moveCard(card.id, { to_column: target.id })
+        setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+      } catch {
+        setCards((prev) => prev.map((c) => (c.id === originalCard.id ? originalCard : c)))
+      }
     }
   }
 
   const stopCardOpen = (event: { preventDefault: () => void; stopPropagation: () => void }) => {
-    // Внутренние элементы карточки (стрелки) не должны открывать модалку карточки.
     event.preventDefault()
     event.stopPropagation()
   }
 
   const stopCardKeyBubble = (event: { stopPropagation: () => void }) => {
-    // Для <button> Enter/Space и так триггерят click. Тут гасим всплытие, чтобы не сработал onKeyDown карточки.
     event.stopPropagation()
   }
 
@@ -1226,8 +1277,18 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
 
   const handleDropOnColumn = async (columnId: number) => {
     if (!dragged || dragged.column === columnId) return
-    const updated = await api.moveCard(dragged.id, { to_column: columnId })
-    setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+    const cardId = dragged.id
+
+    // Optimistic update: move card to target column immediately
+    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, column: columnId } : c)))
+
+    try {
+      const updated = await api.moveCard(cardId, { to_column: columnId })
+      setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+    } catch {
+      // Rollback on error
+      setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, column: dragged.column } : c)))
+    }
   }
 
   const sortedColumns = [...columns].sort((a, b) => (a.position > b.position ? 1 : -1))
@@ -1450,6 +1511,8 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                     const tags = tagsFor(card)
                     const categories = categoriesFor(card)
                     const deadline = deadlineFor(card)
+                    const assigneeId = cardAssignees[card.id] ?? card.assignee
+                    const assigneeName = assigneeId != null ? (assignees.find((u) => u.id === assigneeId)?.name ?? null) : null
                     return (
                       <li
                         key={card.id}
@@ -1513,12 +1576,21 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                           </div>
                         )}
 
+                        {assigneeName && (
+                          <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-100 text-[10px] font-bold text-sky-700 dark:bg-sky-900 dark:text-sky-300">
+                              {assigneeName[0]?.toUpperCase()}
+                            </span>
+                            <span>{assigneeName}</span>
+                          </div>
+                        )}
+
                         <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
                           <span className="inline-flex items-center gap-1">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
                             {formatUpdatedStatus(card.updated_at)}
                           </span>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 md:hidden">
                             <button
                               type="button"
                               onClick={(event) => {

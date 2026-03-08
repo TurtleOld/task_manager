@@ -148,7 +148,7 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
 
 
 class CardViewSet(viewsets.ModelViewSet[Card]):
-    queryset = Card.objects.select_related("board", "column").all().order_by("position", "id")
+    queryset = Card.objects.select_related("board", "column").prefetch_related("tags", "categories").all().order_by("position", "id")
     serializer_class = CardSerializer
     filterset_fields = ["board", "column"]
 
@@ -275,6 +275,11 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         )
         from .serializers import CardSerializer as CardS
 
+        card = (
+            Card.objects.select_related("board", "column")
+            .prefetch_related("tags", "categories")
+            .get(pk=card.pk)
+        )
         broadcast_board_event(card.board_id, "card.created", {"card": CardS(card).data})
 
     def perform_update(self, serializer: CardSerializer) -> None:
@@ -289,6 +294,11 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         from .serializers import CardSerializer as CardS
 
+        card = (
+            Card.objects.select_related("board", "column")
+            .prefetch_related("tags", "categories")
+            .get(pk=card.pk)
+        )
         broadcast_board_event(card.board_id, "card.updated", {"card": CardS(card).data})
 
     def perform_destroy(self, instance: Card) -> None:
@@ -515,21 +525,27 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             before_column = card.column
             if to_column_id is not None and int(to_column_id) != card.column_id:
                 try:
-                    target_column = Column.objects.select_for_update().get(id=int(to_column_id))
+                    target_column = Column.objects.get(id=int(to_column_id))
                 except Column.DoesNotExist:
                     return Response({"detail": "Target column not found"}, status=404)
             else:
-                target_column = Column.objects.select_for_update().get(id=card.column_id)
+                target_column = card.column
 
-            def pos_of(card_id: int) -> Decimal | None:
-                try:
-                    c = Card.objects.select_for_update().get(id=card_id)
-                    return c.position
-                except Card.DoesNotExist:
-                    return None
+            # Batch-fetch positions for before/after cards in a single query
+            neighbor_ids = [
+                int(cid)
+                for cid in [before_id, after_id]
+                if cid is not None
+            ]
+            positions: dict[int, Decimal] = {}
+            if neighbor_ids:
+                for c in Card.objects.filter(
+                    id__in=neighbor_ids,
+                ).only("id", "position"):
+                    positions[c.id] = c.position
 
-            before_pos = pos_of(int(before_id)) if before_id is not None else None
-            after_pos = pos_of(int(after_id)) if after_id is not None else None
+            before_pos = positions.get(int(before_id)) if before_id is not None else None
+            after_pos = positions.get(int(after_id)) if after_id is not None else None
 
             if before_pos is not None and after_pos is not None:
                 new_position = (before_pos + after_pos) / Decimal("2")
@@ -546,6 +562,12 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             card.position = new_position
             card.save()
 
+        # Prefetch M2M for serialization
+        card = (
+            Card.objects.select_related("board", "column")
+            .prefetch_related("tags", "categories")
+            .get(pk=card.pk)
+        )
         serializer = self.get_serializer(card)
 
         actor = request.user if request.user.is_authenticated else None
