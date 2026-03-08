@@ -3372,20 +3372,14 @@ private fun DetailSection(
                 color = MaterialTheme.colorScheme.onSurface
             )
             if (badge != null) {
-                Box(
+                Text(
+                    text = badge,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
-                        .background(
-                            MaterialTheme.colorScheme.surfaceVariant,
-                            RoundedCornerShape(6.dp)
-                        )
+                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(6.dp))
                         .padding(horizontal = 7.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = badge,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                )
             }
         }
 
