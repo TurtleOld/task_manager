@@ -148,7 +148,12 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
 
 
 class CardViewSet(viewsets.ModelViewSet[Card]):
-    queryset = Card.objects.select_related("board", "column").prefetch_related("tags", "categories").all().order_by("position", "id")
+    queryset = (
+        Card.objects.select_related("board", "column")
+        .prefetch_related("tags", "categories")
+        .all()
+        .order_by("position", "id")
+    )
     serializer_class = CardSerializer
     filterset_fields = ["board", "column"]
 
@@ -532,11 +537,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 target_column = card.column
 
             # Batch-fetch positions for before/after cards in a single query
-            neighbor_ids = [
-                int(cid)
-                for cid in [before_id, after_id]
-                if cid is not None
-            ]
+            neighbor_ids = [int(cid) for cid in [before_id, after_id] if cid is not None]
             positions: dict[int, Decimal] = {}
             if neighbor_ids:
                 for c in Card.objects.filter(
