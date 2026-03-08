@@ -9,6 +9,8 @@ import {
   useParams,
 } from 'react-router-dom'
 import { api } from './api/client'
+import { useBoardWebSocket } from './useBoardWebSocket'
+import type { BoardEvent } from './useBoardWebSocket'
 import type {
   AuthUser,
   Board,
@@ -419,6 +421,38 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
       setAssignees([{ id: user.id, name: user.full_name || user.username }])
     }
   }, [user])
+
+  // ---- Real-time WebSocket updates ----
+  const wsToken = localStorage.getItem(AUTH_TOKEN_KEY)
+  useBoardWebSocket({
+    boardId,
+    token: wsToken,
+    onEvent: (event: BoardEvent) => {
+      if (event.type === 'card.created') {
+        setCards((prev) => {
+          if (prev.some((c) => c.id === event.card.id)) return prev
+          return [...prev, event.card]
+        })
+      } else if (event.type === 'card.updated' || event.type === 'card.moved') {
+        setCards((prev) => prev.map((c) => (c.id === event.card.id ? event.card : c)))
+        setSelectedCard((prev) => (prev?.id === event.card.id ? event.card : prev))
+      } else if (event.type === 'card.deleted') {
+        setCards((prev) => prev.filter((c) => c.id !== event.card_id))
+        setSelectedCard((prev) => (prev?.id === event.card_id ? null : prev))
+      } else if (event.type === 'column.created') {
+        setColumns((prev) => {
+          if (prev.some((col) => col.id === event.column.id)) return prev
+          return [...prev, event.column]
+        })
+      } else if (event.type === 'column.updated') {
+        setColumns((prev) => prev.map((col) => (col.id === event.column.id ? event.column : col)))
+      } else if (event.type === 'column.deleted') {
+        setColumns((prev) => prev.filter((col) => col.id !== event.column_id))
+      } else if (event.type === 'board.updated') {
+        setBoardName(event.board.name)
+      }
+    },
+  })
 
   useEffect(() => {
     setNewTag('')
