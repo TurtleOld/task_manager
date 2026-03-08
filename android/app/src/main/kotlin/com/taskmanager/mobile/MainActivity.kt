@@ -110,7 +110,11 @@ import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.Interceptor
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import okhttp3.ResponseBody
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import retrofit2.Retrofit
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -3413,6 +3417,131 @@ class KanbanViewModel : ViewModel() {
     private val _securitySettings = MutableStateFlow(SecuritySettings())
     val securitySettings: StateFlow<SecuritySettings> = _securitySettings.asStateFlow()
 
+    // ---- WebSocket real-time sync ----
+    private val wsClient = OkHttpClient.Builder()
+        .readTimeout(0, TimeUnit.SECONDS) // no read timeout for WebSocket
+        .build()
+    private var activeWebSocket: WebSocket? = null
+    private var wsReconnectJob: kotlinx.coroutines.Job? = null
+
+    private val wsJson = Json { ignoreUnknownKeys = true; explicitNulls = false; coerceInputValues = true }
+
+    private fun startWebSocket(domain: String, token: String, boardId: Int) {
+        stopWebSocket()
+        val proto = if (domain.startsWith("https")) "wss" else "ws"
+        val host = domain.removePrefix("https://").removePrefix("http://").trimEnd('/')
+        val url = "$proto://$host/ws/boards/$boardId/?token=$token"
+        val request = Request.Builder().url(url).build()
+
+        activeWebSocket = wsClient.newWebSocket(request, object : WebSocketListener() {
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                handleWsMessage(text)
+            }
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                scheduleWsReconnect(domain, token, boardId)
+            }
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                if (code != 1000) scheduleWsReconnect(domain, token, boardId)
+            }
+        })
+    }
+
+    private fun stopWebSocket() {
+        wsReconnectJob?.cancel()
+        wsReconnectJob = null
+        activeWebSocket?.close(1000, "logout")
+        activeWebSocket = null
+    }
+
+    private fun scheduleWsReconnect(domain: String, token: String, boardId: Int) {
+        wsReconnectJob?.cancel()
+        wsReconnectJob = viewModelScope.launch {
+            delay(3000L)
+            startWebSocket(domain, token, boardId)
+        }
+    }
+
+    private fun handleWsMessage(text: String) {
+        try {
+            val obj = wsJson.parseToJsonElement(text)
+            val map = (obj as? kotlinx.serialization.json.JsonObject) ?: return
+            val type = (map["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content ?: return
+
+            val current = _boardState.value as? BoardUiState.Content ?: return
+
+            when (type) {
+                "card.created", "card.updated", "card.moved" -> {
+                    val cardDto = wsJson.decodeFromJsonElement(CardDto.serializer(), map["card"] ?: return)
+                    val task = repository.dtoToTask(cardDto)
+                    val updatedBoards = current.boards.map { board ->
+                        board.copy(columns = board.columns.map { col ->
+                            if (col.id == task.columnId) {
+                                val tasks = col.tasks.filter { it.id != task.id } + task
+                                col.copy(tasks = tasks.sortedBy { it.position })
+                            } else {
+                                col.copy(tasks = col.tasks.filter { it.id != task.id })
+                            }
+                        })
+                    }
+                    _boardState.value = current.copy(boards = updatedBoards)
+                }
+                "card.deleted" -> {
+                    val cardId = (map["card_id"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: return
+                    val updatedBoards = current.boards.map { board ->
+                        board.copy(columns = board.columns.map { col ->
+                            col.copy(tasks = col.tasks.filter { it.id != cardId })
+                        })
+                    }
+                    _boardState.value = current.copy(boards = updatedBoards)
+                }
+                "column.created" -> {
+                    val colDto = wsJson.decodeFromJsonElement(ColumnDto.serializer(), map["column"] ?: return)
+                    val updatedBoards = current.boards.map { board ->
+                        if (board.id == colDto.board) {
+                            val newCol = KanbanColumn(id = colDto.id, boardId = colDto.board, title = colDto.name, icon = colDto.icon.orEmpty(), tasks = emptyList())
+                            if (board.columns.any { it.id == colDto.id }) board
+                            else board.copy(columns = board.columns + newCol)
+                        } else board
+                    }
+                    _boardState.value = current.copy(boards = updatedBoards)
+                }
+                "column.updated" -> {
+                    val colDto = wsJson.decodeFromJsonElement(ColumnDto.serializer(), map["column"] ?: return)
+                    val updatedBoards = current.boards.map { board ->
+                        board.copy(columns = board.columns.map { col ->
+                            if (col.id == colDto.id) col.copy(title = colDto.name, icon = colDto.icon.orEmpty()) else col
+                        })
+                    }
+                    _boardState.value = current.copy(boards = updatedBoards)
+                }
+                "column.deleted" -> {
+                    val colId = (map["column_id"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: return
+                    val updatedBoards = current.boards.map { board ->
+                        board.copy(columns = board.columns.filter { it.id != colId })
+                    }
+                    _boardState.value = current.copy(boards = updatedBoards)
+                }
+                "board.updated" -> {
+                    val boardDto = wsJson.decodeFromJsonElement(BoardDto.serializer(), map["board"] ?: return)
+                    val updatedBoards = current.boards.map { board ->
+                        if (board.id == boardDto.id) board.copy(title = boardDto.name) else board
+                    }
+                    _boardState.value = current.copy(boards = updatedBoards)
+                }
+                "board.deleted" -> {
+                    val boardId = (map["board_id"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: return
+                    val updatedBoards = current.boards.filter { it.id != boardId }
+                    _boardState.value = current.copy(boards = updatedBoards, selectedBoardId = updatedBoards.firstOrNull()?.id)
+                }
+            }
+        } catch (_: Exception) {}
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopWebSocket()
+    }
+
     fun bootstrap(domain: String, token: String) {
         val normalizedDomain = normalizeBaseUrl(domain)
         _session.update {
@@ -3454,6 +3583,7 @@ class KanbanViewModel : ViewModel() {
     }
 
     fun logout() {
+        stopWebSocket()
         _session.value = SessionUiState(domain = session.value.domain)
         _boardState.value = BoardUiState.Loading
     }
@@ -3471,6 +3601,9 @@ class KanbanViewModel : ViewModel() {
                     ?.takeIf { candidate -> boards.any { it.id == candidate } }
                     ?: boards.firstOrNull()?.id
                 _boardState.value = BoardUiState.Content(boards = boards, selectedBoardId = selectedId)
+                if (selectedId != null) {
+                    startWebSocket(domain = s.domain, token = s.token, boardId = selectedId)
+                }
             }.onFailure { error ->
                 _boardState.value = BoardUiState.Error(error.message ?: "Ошибка загрузки")
             }
@@ -3480,6 +3613,10 @@ class KanbanViewModel : ViewModel() {
     fun selectBoard(boardId: Int) {
         val current = _boardState.value as? BoardUiState.Content ?: return
         _boardState.value = current.copy(selectedBoardId = boardId)
+        val s = session.value
+        if (s.isAuthenticated && s.token.isNotBlank()) {
+            startWebSocket(domain = s.domain, token = s.token, boardId = boardId)
+        }
     }
 
     fun createTask(title: String, columnId: Int) {
@@ -3767,7 +3904,7 @@ class KanbanRepository {
         return dtoToTask(updatedDto)
     }
 
-    private fun dtoToTask(dto: CardDto) = KanbanTask(
+    fun dtoToTask(dto: CardDto) = KanbanTask(
         id = dto.id,
         title = dto.title.orEmpty().ifBlank { "Без названия" },
         description = dto.description.orEmpty(),
