@@ -179,9 +179,7 @@ def test_patch_card_does_not_auto_create_notification_event(
 ) -> None:
     """PATCH must not create card.updated event — only explicit /notify-updated/ does."""
     api_client.patch(f"/api/v1/cards/{card.id}/", data={"title": "v2"}, format="json")
-    assert (
-        NotificationEvent.objects.filter(event_type="card.updated", card_id=card.id).count() == 0
-    )
+    assert NotificationEvent.objects.filter(event_type="card.updated", card_id=card.id).count() == 0
 
 
 # ---------------------------------------------------------------------------

@@ -160,9 +160,7 @@ def test_delete_does_not_auto_notify_and_deleted_notify_is_idempotent() -> None:
     version = card["version"]
     resp = client.delete(f"/api/v1/cards/{card['id']}/")
     assert resp.status_code in {200, 204}
-    assert (
-        NotificationEvent.objects.filter(event_type="card.deleted").count() == 0
-    )
+    assert NotificationEvent.objects.filter(event_type="card.deleted").count() == 0
 
     payload = {
         "card_id": card["id"],
@@ -180,4 +178,3 @@ def test_delete_does_not_auto_notify_and_deleted_notify_is_idempotent() -> None:
     assert n2.status_code == 200
     assert n2.json()["event_id"] == first_event_id
     assert NotificationEvent.objects.filter(event_type="card.deleted").count() == 1
-

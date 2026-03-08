@@ -65,9 +65,7 @@ def api_client() -> APIClient:
 
 @pytest.fixture()
 def admin_user(db: None) -> User:
-    user = User.objects.create_superuser(
-        username="admin", password="adminpass", first_name="Admin"
-    )
+    user = User.objects.create_superuser(username="admin", password="adminpass", first_name="Admin")
     user.is_staff = True
     user.is_superuser = True
     user.save()

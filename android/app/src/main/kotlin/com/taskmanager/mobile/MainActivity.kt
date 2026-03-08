@@ -3471,8 +3471,7 @@ class KanbanViewModel : ViewModel() {
 
             when (type) {
                 "card.created", "card.updated", "card.moved" -> {
-                    val cardDto = wsJson.decodeFromJsonElement(CardDto.serializer(), map["card"] ?: return)
-                    val task = repository.dtoToTask(cardDto)
+                    val task = repository.taskFromJsonElement(map["card"] ?: return)
                     val updatedBoards = current.boards.map { board ->
                         board.copy(columns = board.columns.map { col ->
                             if (col.id == task.columnId) {
@@ -3904,7 +3903,10 @@ class KanbanRepository {
         return dtoToTask(updatedDto)
     }
 
-    fun dtoToTask(dto: CardDto) = KanbanTask(
+    fun taskFromJsonElement(element: kotlinx.serialization.json.JsonElement): KanbanTask =
+        dtoToTask(json.decodeFromJsonElement(CardDto.serializer(), element))
+
+    private fun dtoToTask(dto: CardDto) = KanbanTask(
         id = dto.id,
         title = dto.title.orEmpty().ifBlank { "Без названия" },
         description = dto.description.orEmpty(),

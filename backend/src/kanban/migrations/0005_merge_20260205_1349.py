@@ -4,9 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('kanban', '0004_rename_kanban_car_column_p_idx_kanban_card_column__f189d9_idx_and_more'),
+        ("kanban", "0004_rename_kanban_car_column_p_idx_kanban_card_column__f189d9_idx_and_more"),
     ]
 
     operations: list = []

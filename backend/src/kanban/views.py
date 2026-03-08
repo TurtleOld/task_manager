@@ -60,6 +60,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             payload={"board": board.name},
         )
         from .serializers import BoardSerializer as BS
+
         broadcast_board_event(board.id, "board.created", {"board": BS(board).data})
 
     def perform_update(self, serializer: BoardSerializer) -> None:
@@ -73,6 +74,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             payload={"board": board.name},
         )
         from .serializers import BoardSerializer as BS
+
         broadcast_board_event(board.id, "board.updated", {"board": BS(board).data})
 
     def perform_destroy(self, instance: Board) -> None:
@@ -109,6 +111,7 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
             payload={"board": column.board.name, "column": column.name},
         )
         from .serializers import ColumnSerializer as CS
+
         broadcast_board_event(column.board_id, "column.created", {"column": CS(column).data})
 
     def perform_update(self, serializer: ColumnSerializer) -> None:
@@ -123,6 +126,7 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
             payload={"board": column.board.name, "column": column.name},
         )
         from .serializers import ColumnSerializer as CS
+
         broadcast_board_event(column.board_id, "column.updated", {"column": CS(column).data})
 
     def perform_destroy(self, instance: Column) -> None:
@@ -270,6 +274,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             payload={"board": card.board.name, "column": card.column.name, "card": card.title},
         )
         from .serializers import CardSerializer as CardS
+
         broadcast_board_event(card.board_id, "card.created", {"card": CardS(card).data})
 
     def perform_update(self, serializer: CardSerializer) -> None:
@@ -283,6 +288,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             upsert_and_schedule_reminder(card=card, reminder=reminder)
 
         from .serializers import CardSerializer as CardS
+
         broadcast_board_event(card.board_id, "card.updated", {"card": CardS(card).data})
 
     def perform_destroy(self, instance: Card) -> None:

@@ -46,7 +46,7 @@ class BoardConsumer(AsyncJsonWebsocketConsumer):
         token_key = None
         for part in query_string.split("&"):
             if part.startswith("token="):
-                token_key = part[len("token="):]
+                token_key = part[len("token=") :]
                 break
 
         if not token_key:

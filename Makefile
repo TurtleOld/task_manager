@@ -16,6 +16,7 @@ run:
 
 lint:
 	cd backend && uv run ruff check .
+	cd backend && uv run ruff format
 	cd frontend && npm run lint
 
 typecheck:

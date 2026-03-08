@@ -121,8 +121,7 @@ def test_delete_card_broadcasts(api_client: APIClient, card: Card) -> None:
         api_client.delete(f"/api/v1/cards/{card_id}/")
 
     assert any(
-        e["event_type"] == "card.deleted" and e["data"]["card_id"] == card_id
-        for e in captured
+        e["event_type"] == "card.deleted" and e["data"]["card_id"] == card_id for e in captured
     )
 
 
@@ -177,8 +176,7 @@ def test_delete_column_broadcasts(api_client: APIClient, column: Column) -> None
         api_client.delete(f"/api/v1/columns/{col_id}/")
 
     assert any(
-        e["event_type"] == "column.deleted" and e["data"]["column_id"] == col_id
-        for e in captured
+        e["event_type"] == "column.deleted" and e["data"]["column_id"] == col_id for e in captured
     )
 
 

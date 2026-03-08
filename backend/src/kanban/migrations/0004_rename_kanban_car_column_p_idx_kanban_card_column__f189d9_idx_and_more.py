@@ -4,20 +4,19 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('kanban', '0003_card_deadline_estimate'),
+        ("kanban", "0003_card_deadline_estimate"),
     ]
 
     operations = [
         migrations.RenameIndex(
-            model_name='card',
-            new_name='kanban_card_column__f189d9_idx',
-            old_name='kanban_car_column_p_idx',
+            model_name="card",
+            new_name="kanban_card_column__f189d9_idx",
+            old_name="kanban_car_column_p_idx",
         ),
         migrations.RenameIndex(
-            model_name='column',
-            new_name='kanban_colu_board_i_df05fd_idx',
-            old_name='kanban_col_board_po_idx',
+            model_name="column",
+            new_name="kanban_colu_board_i_df05fd_idx",
+            old_name="kanban_col_board_po_idx",
         ),
     ]

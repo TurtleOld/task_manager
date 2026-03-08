@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("kanban", "0004_card_tags_categories_models"),
         ("kanban", "0005_merge_20260205_1349"),
