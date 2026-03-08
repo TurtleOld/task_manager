@@ -17,6 +17,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .broadcast import broadcast_board_event
 from .models import (
     Board,
     Card,
@@ -55,9 +56,11 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             event_type=NotificationEventType.BOARD_CREATED.value,
             actor=actor,
             board=board,
-            summary=f"Создана доска “{board.name}”",
+            summary=f"Создана доска «{board.name}»",
             payload={"board": board.name},
         )
+        from .serializers import BoardSerializer as BS
+        broadcast_board_event(board.id, "board.created", {"board": BS(board).data})
 
     def perform_update(self, serializer: BoardSerializer) -> None:
         board = serializer.save()
@@ -66,14 +69,17 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             event_type=NotificationEventType.BOARD_UPDATED.value,
             actor=actor,
             board=board,
-            summary=f"Обновлена доска “{board.name}”",
+            summary=f"Обновлена доска «{board.name}»",
             payload={"board": board.name},
         )
+        from .serializers import BoardSerializer as BS
+        broadcast_board_event(board.id, "board.updated", {"board": BS(board).data})
 
     def perform_destroy(self, instance: Board) -> None:
         actor = self.request.user if self.request.user.is_authenticated else None
-        summary = f"Удалена доска “{instance.name}”"
+        summary = f"Удалена доска «{instance.name}»"
         payload = {"board": instance.name}
+        board_id = instance.id
         board = instance
         instance.delete()
         create_notification_event(
@@ -83,6 +89,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             summary=summary,
             payload=payload,
         )
+        broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
 
 
 class ColumnViewSet(viewsets.ModelViewSet[Column]):
@@ -98,9 +105,11 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
             actor=actor,
             board=column.board,
             column=column,
-            summary=f"Создана колонка “{column.name}”",
+            summary=f"Создана колонка «{column.name}»",
             payload={"board": column.board.name, "column": column.name},
         )
+        from .serializers import ColumnSerializer as CS
+        broadcast_board_event(column.board_id, "column.created", {"column": CS(column).data})
 
     def perform_update(self, serializer: ColumnSerializer) -> None:
         column = serializer.save()
@@ -110,14 +119,18 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
             actor=actor,
             board=column.board,
             column=column,
-            summary=f"Обновлена колонка “{column.name}”",
+            summary=f"Обновлена колонка «{column.name}»",
             payload={"board": column.board.name, "column": column.name},
         )
+        from .serializers import ColumnSerializer as CS
+        broadcast_board_event(column.board_id, "column.updated", {"column": CS(column).data})
 
     def perform_destroy(self, instance: Column) -> None:
         actor = self.request.user if self.request.user.is_authenticated else None
-        summary = f"Удалена колонка “{instance.name}”"
+        summary = f"Удалена колонка «{instance.name}»"
         payload = {"board": instance.board.name, "column": instance.name}
+        board_id = instance.board_id
+        column_id = instance.id
         board = instance.board
         instance.delete()
         create_notification_event(
@@ -127,6 +140,7 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
             summary=summary,
             payload=payload,
         )
+        broadcast_board_event(board_id, "column.deleted", {"column_id": column_id})
 
 
 class CardViewSet(viewsets.ModelViewSet[Card]):
@@ -186,8 +200,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             card.attachments = existing
             card.save(update_fields=["attachments"])
 
+        card_data = self.get_serializer(card).data
+        broadcast_board_event(card.board_id, "card.updated", {"card": card_data})
         # Return updated card to keep frontend state consistent
-        return Response(self.get_serializer(card).data, status=status.HTTP_200_OK)
+        return Response(card_data, status=status.HTTP_200_OK)
 
     @action(
         detail=True,
@@ -237,7 +253,9 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             card.attachments = kept
             card.save(update_fields=["attachments"])
 
-        return Response(self.get_serializer(card).data, status=status.HTTP_200_OK)
+        card_data = self.get_serializer(card).data
+        broadcast_board_event(card.board_id, "card.updated", {"card": card_data})
+        return Response(card_data, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer: CardSerializer) -> None:
         card = serializer.save()
@@ -248,9 +266,11 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             board=card.board,
             column=card.column,
             card=card,
-            summary=f"Создана карточка “{card.title}”",
+            summary=f"Создана карточка «{card.title}»",
             payload={"board": card.board.name, "column": card.column.name, "card": card.title},
         )
+        from .serializers import CardSerializer as CardS
+        broadcast_board_event(card.board_id, "card.created", {"card": CardS(card).data})
 
     def perform_update(self, serializer: CardSerializer) -> None:
         # Notifications for card updates are sent explicitly via the notify endpoint
@@ -262,10 +282,16 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         for reminder in reminders:
             upsert_and_schedule_reminder(card=card, reminder=reminder)
 
+        from .serializers import CardSerializer as CardS
+        broadcast_board_event(card.board_id, "card.updated", {"card": CardS(card).data})
+
     def perform_destroy(self, instance: Card) -> None:
+        board_id = instance.board_id
+        card_id = instance.id
         # Notifications for card deletion are sent explicitly via the notify endpoint
         # after the API confirms the card is deleted.
         instance.delete()
+        broadcast_board_event(board_id, "card.deleted", {"card_id": card_id})
 
     @action(detail=True, methods=["get", "put", "patch", "delete"], url_path="deadline-reminder")
     def deadline_reminder(self, request: Request, pk: str | None = None) -> Response:
@@ -453,7 +479,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             actor=actor,
             board=board,
             column=column,
-            summary=f"Удалена карточка “{title}”",
+            summary=f"Удалена карточка «{title}»",
             payload={
                 "board": getattr(board, "name", ""),
                 "column": getattr(column, "name", ""),
@@ -517,7 +543,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         serializer = self.get_serializer(card)
 
         actor = request.user if request.user.is_authenticated else None
-        moved_summary = f"Карточка “{card.title}” перемещена"
+        moved_summary = f"Карточка «{card.title}» перемещена"
         payload = {
             "board": card.board.name,
             "column": card.column.name,
@@ -533,6 +559,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             summary=moved_summary,
             payload=payload,
         )
+        broadcast_board_event(card.board_id, "card.moved", {"card": serializer.data})
 
         return Response(serializer.data)
 
