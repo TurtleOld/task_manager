@@ -526,7 +526,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   const selectedPriority = draft?.priority ?? ''
 
   useEffect(() => {
-    if (!selectedCardId) return
+    if (!selectedCardId || selectedCardId < 0) return
     setReminderLoading(true)
     setReminderError('')
     api
@@ -1065,6 +1065,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
         if (withoutTemp.some((c) => c.id === card.id)) return withoutTemp
         return [...withoutTemp, card]
       })
+      setSelectedCard((prev) => (prev?.id === tempId ? card : prev))
     } catch {
       setCards((prev) => prev.filter((c) => c.id !== tempId))
     }
