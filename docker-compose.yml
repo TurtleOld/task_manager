@@ -116,7 +116,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/celery-beat:${IMAGE_TAG:-main}
-    command: ["sh", "-lc", "/app/.venv/bin/celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler"]
+    command: ["sh", "-lc", "/app/.venv/bin/celery -A config beat -l info"]
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-true}

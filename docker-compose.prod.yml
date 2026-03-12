@@ -110,7 +110,7 @@ services:
 
   celery-beat:
     image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/celery:${IMAGE_TAG:-latest}
-    command: ["sh", "-lc", "/app/.venv/bin/celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler"]
+    command: ["sh", "-lc", "/app/.venv/bin/celery -A config beat -l info"]
     environment:
       PYTHONPATH: /app/src
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}

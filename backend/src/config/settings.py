@@ -153,7 +153,6 @@ CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "false").lower(
     "on",
 }
 CELERY_TASK_EAGER_PROPAGATES = True
-CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
     "check-overdue-cards": {
         "task": "kanban.tasks.send_overdue_card_reminders",
