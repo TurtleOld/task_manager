@@ -20,6 +20,7 @@ from .models import (
     NotificationEventType,
     NotificationPreference,
     NotificationProfile,
+    SiteSettings,
     Tag,
 )
 
@@ -71,11 +72,12 @@ class ColumnSerializer(serializers.ModelSerializer[Column]):
             "name",
             "icon",
             "position",
+            "is_default",
             "created_at",
             "updated_at",
             "version",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "version"]
+        read_only_fields = ["id", "is_default", "created_at", "updated_at", "version"]
 
     def create(self, validated_data: dict[str, Any]) -> Column:
         board: Board = validated_data["board"]
@@ -483,3 +485,9 @@ class CardDeadlineReminderSerializer(serializers.ModelSerializer[CardDeadlineRem
             if int(effective_value) > 24 * 60:
                 raise serializers.ValidationError({"offset_value": "Слишком большое значение"})
         return attrs
+
+
+class SiteSettingsSerializer(serializers.ModelSerializer[SiteSettings]):
+    class Meta:
+        model = SiteSettings
+        fields = ["overdue_reminder_interval"]

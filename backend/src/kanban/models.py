@@ -42,6 +42,7 @@ class Column(TimestampedModel):
     name = models.CharField(max_length=200)
     icon = models.CharField(max_length=50, blank=True, default="")
     position = models.DecimalField(max_digits=20, decimal_places=10, default=POSITION_DEFAULT)
+    is_default = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["position", "id"]
@@ -318,3 +319,33 @@ class CardDeadlineReminderDelivery(models.Model):
             models.Index(fields=["reminder", "status"]),
             models.Index(fields=["user", "channel"]),
         ]
+
+
+class SiteSettings(models.Model):
+    class OverdueReminderInterval(models.IntegerChoices):
+        FIVE_MINUTES = 5, "5 минут"
+        TEN_MINUTES = 10, "10 минут"
+        THIRTY_MINUTES = 30, "30 минут"
+        ONE_HOUR = 60, "1 час"
+
+    overdue_reminder_interval = models.IntegerField(
+        choices=OverdueReminderInterval.choices,
+        default=OverdueReminderInterval.THIRTY_MINUTES,
+        verbose_name="Интервал повторяющихся напоминаний",
+    )
+
+    class Meta:
+        verbose_name = "Настройки сайта"
+        verbose_name_plural = "Настройки сайта"
+
+    def __str__(self) -> str:  # pragma: no cover
+        return "SiteSettings"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls) -> SiteSettings:
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

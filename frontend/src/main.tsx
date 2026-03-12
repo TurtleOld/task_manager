@@ -1,6 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+import OneSignal from 'react-onesignal'
 import App from './App'
 import './index.css'
 
@@ -15,6 +16,21 @@ try {
 } catch {
   // ignore: localStorage can be unavailable in private mode / blocked
 }
+
+const ONESIGNAL_APP_ID = (import.meta as { env?: { VITE_ONESIGNAL_APP_ID?: string } }).env?.VITE_ONESIGNAL_APP_ID || ''
+
+if (ONESIGNAL_APP_ID) {
+  OneSignal.init({
+    appId: ONESIGNAL_APP_ID,
+    allowLocalhostAsSecureOrigin: true,
+  }).then(() => {
+    OneSignal.Slidedown.promptPush()
+  }).catch(() => {
+    // OneSignal init failed — not critical
+  })
+}
+
+export { OneSignal }
 
 const container = document.getElementById('root')!
 const root = createRoot(container)

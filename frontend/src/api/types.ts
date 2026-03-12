@@ -15,6 +15,7 @@ export interface Column {
   name: string
   icon: string
   position: string
+  is_default: boolean
   created_at: string
   updated_at: string
   version: number
@@ -105,7 +106,12 @@ export type NotificationEventType =
 export interface NotificationProfile {
   email: string
   telegram_chat_id: string
+  onesignal_player_id?: string
   timezone: string
+}
+
+export interface SiteSettings {
+  overdue_reminder_interval: number
 }
 
 export type ReminderOffsetUnit = 'minutes' | 'hours'

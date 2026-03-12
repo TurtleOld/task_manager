@@ -20,11 +20,14 @@ from .models import (
     Card,
     CardDeadlineReminder,
     CardDeadlineReminderDelivery,
+    Column,
     NotificationChannel,
     NotificationDelivery,
     NotificationEvent,
+    NotificationEventType,
     NotificationPreference,
     NotificationProfile,
+    SiteSettings,
 )
 from .reminders import reminder_channel_availability, resolve_delivery_channel
 
@@ -497,3 +500,114 @@ def send_notification_event(self, event_id: int) -> None:
                     delivery.error = str(exc)
                     delivery.save(update_fields=["status", "error"])
                     continue
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=30)
+def send_overdue_card_reminders(self) -> None:
+    """Periodic task: send push reminders for overdue cards not in 'Done' columns.
+
+    Runs every minute via Celery Beat.  Reads the configured interval from
+    SiteSettings and skips cards that were already notified within that interval.
+    Only sends to users who have onesignal_player_id configured.
+    """
+    site_settings = SiteSettings.load()
+    interval_minutes = site_settings.overdue_reminder_interval
+
+    now = timezone.now()
+    cutoff = now - timezone.timedelta(minutes=interval_minutes)
+
+    # Find all done column IDs (is_default=True and name="Done")
+    done_column_ids = set(
+        Column.objects.filter(is_default=True, name="Done").values_list("id", flat=True)
+    )
+
+    # Overdue cards NOT in Done columns
+    overdue_cards = (
+        Card.objects.filter(deadline__lt=now)
+        .exclude(column_id__in=done_column_ids)
+        .select_related("board", "column")
+    )
+
+    if not overdue_cards.exists():
+        return
+
+    # Get all users with push configured
+    profiles = NotificationProfile.objects.exclude(onesignal_player_id="").select_related("user")
+
+    if not profiles.exists():
+        return
+
+    for card in overdue_cards:
+        # Check if we already sent a reminder for this card within the interval
+        recent_delivery = NotificationDelivery.objects.filter(
+            event__dedupe_key__startswith=f"card.overdue_reminder:{card.id}:",
+            event__created_at__gte=cutoff,
+            status=NotificationDelivery.Status.SENT,
+        ).exists()
+
+        if recent_delivery:
+            continue
+
+        link = _build_card_link(card=card)
+        title = "Задача просрочена"
+        body_text = (
+            f"Задача «{card.title}» просрочена.\n"
+            f"Дедлайн: {_format_deadline_ru(dt=card.deadline, tz_name='Europe/Moscow')}\n"
+            f"Доска: {card.board.name}\n"
+            f"Колонка: {card.column.name}\n\n"
+            f"Перенесите задачу в колонку «Done» после выполнения.\n"
+            f"Открыть: {link}"
+        )
+
+        # Create a notification event with dedupe key including timestamp bucket
+        bucket = now.strftime("%Y%m%d%H%M")
+        dedupe_key = f"card.overdue_reminder:{card.id}:{bucket}"
+
+        from .notifications import create_notification_event
+
+        event = create_notification_event(
+            event_type=NotificationEventType.CARD_DEADLINE_REMINDER.value,
+            actor=None,
+            board=card.board,
+            column=card.column,
+            card=card,
+            summary=f"Задача «{card.title}» просрочена",
+            payload={
+                "board": card.board.name,
+                "column": card.column.name,
+                "card": card.title,
+                "overdue": True,
+            },
+            dedupe_key=dedupe_key,
+            link=link,
+        )
+
+        if not event or not event.pk:
+            continue
+
+        # Send push to all users with player_id
+        for profile in profiles:
+            player_id = (profile.onesignal_player_id or "").strip()
+            if not player_id:
+                continue
+
+            delivery = NotificationDelivery.objects.create(
+                event=event,
+                user=profile.user,
+                channel=NotificationChannel.PUSH,
+            )
+            try:
+                _send_push(player_id, title, body_text, event_id=event.id)
+                delivery.status = NotificationDelivery.Status.SENT
+                delivery.sent_at = timezone.now()
+                delivery.save(update_fields=["status", "sent_at"])
+            except Exception as exc:  # noqa: BLE001
+                delivery.status = NotificationDelivery.Status.FAILED
+                delivery.error = str(exc)
+                delivery.save(update_fields=["status", "error"])
+                logger.warning(
+                    "overdue_push_failed card=%s user=%s error=%s",
+                    card.id,
+                    profile.user_id,
+                    exc,
+                )

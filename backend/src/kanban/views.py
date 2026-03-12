@@ -9,7 +9,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.utils.text import get_valid_filename
-from rest_framework import permissions, status, viewsets
+from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -26,6 +26,7 @@ from .models import (
     NotificationEventType,
     NotificationPreference,
     NotificationProfile,
+    SiteSettings,
 )
 from .notifications import create_notification_event
 from .reminders import reminder_channel_availability, upsert_and_schedule_reminder
@@ -38,6 +39,7 @@ from .serializers import (
     NotificationProfileSerializer,
     PasswordChangeSerializer,
     RegisterSerializer,
+    SiteSettingsSerializer,
     UserSerializer,
     UserUpdateSerializer,
 )
@@ -51,6 +53,15 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
 
     def perform_create(self, serializer: BoardSerializer) -> None:
         board = serializer.save()
+
+        default_columns = [
+            {"name": "To Do", "icon": "📋", "position": Decimal("1"), "is_default": True},
+            {"name": "In Progress", "icon": "⚡", "position": Decimal("2"), "is_default": True},
+            {"name": "Done", "icon": "✅", "position": Decimal("3"), "is_default": True},
+        ]
+        for col_data in default_columns:
+            Column.objects.create(board=board, **col_data)
+
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
             event_type=NotificationEventType.BOARD_CREATED.value,
@@ -130,6 +141,8 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
         broadcast_board_event(column.board_id, "column.updated", {"column": CS(column).data})
 
     def perform_destroy(self, instance: Column) -> None:
+        if instance.is_default:
+            raise serializers.ValidationError({"detail": "Нельзя удалить стандартную колонку"})
         actor = self.request.user if self.request.user.is_authenticated else None
         summary = f"Удалена колонка «{instance.name}»"
         payload = {"board": instance.board.name, "column": instance.name}
@@ -735,3 +748,24 @@ class NotificationPreferenceViewSet(viewsets.ModelViewSet[NotificationPreference
 
     def perform_create(self, serializer: NotificationPreferenceSerializer) -> None:
         serializer.save(user=self.request.user)
+
+
+class SiteSettingsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        settings_obj = SiteSettings.load()
+        serializer = SiteSettingsSerializer(settings_obj)
+        return Response(serializer.data)
+
+    def patch(self, request: Request) -> Response:
+        if not request.user.is_staff:
+            return Response(
+                {"detail": "Только администратор может изменять настройки"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        settings_obj = SiteSettings.load()
+        serializer = SiteSettingsSerializer(settings_obj, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

@@ -11,6 +11,7 @@ import type {
   NotificationPreference,
   CardDeadlineReminderResponse,
   CardDeadlineReminder,
+  SiteSettings,
 } from './types'
 
 type ViteImportMeta = ImportMeta & {
@@ -313,5 +314,19 @@ export const api = {
       headers: authHeaders(),
     })
     return ok(res)
+  },
+
+  // Site settings
+  getSiteSettings: async (): Promise<SiteSettings> => {
+    const res = await fetch(`${V1}/settings/site/`, { headers: authHeaders() })
+    return json(res)
+  },
+  updateSiteSettings: async (payload: Partial<SiteSettings>): Promise<SiteSettings> => {
+    const res = await fetch(`${V1}/settings/site/`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
   },
 }

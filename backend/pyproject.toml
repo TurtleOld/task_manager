@@ -19,6 +19,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "channels>=4.0",
     "channels-redis>=4.2",
+    "django-celery-beat>=2.6",
 ]
 
 [project.optional-dependencies]

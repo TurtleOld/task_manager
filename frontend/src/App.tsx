@@ -8,6 +8,7 @@ import {
   useNavigate,
   useParams,
 } from 'react-router-dom'
+import OneSignal from 'react-onesignal'
 import { api } from './api/client'
 import { useBoardWebSocket } from './useBoardWebSocket'
 import type { BoardEvent } from './useBoardWebSocket'
@@ -88,6 +89,17 @@ function storeAuth(user: AuthUser) {
   localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user))
 }
 
+async function registerOneSignalPlayerId() {
+  try {
+    const playerId = OneSignal.User?.PushSubscription?.id
+    if (playerId) {
+      await api.updateNotificationProfile({ onesignal_player_id: playerId } as Record<string, string>)
+    }
+  } catch {
+    // non-critical
+  }
+}
+
 function clearAuth() {
   localStorage.removeItem(AUTH_TOKEN_KEY)
   localStorage.removeItem(AUTH_USER_KEY)
@@ -101,6 +113,7 @@ function useAuthState() {
     storeAuth(next)
     setUser(next)
     setToken(next.token)
+    void registerOneSignalPlayerId()
   }
 
   const logout = () => {
@@ -2815,6 +2828,8 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
   const [notificationError, setNotificationError] = useState('')
   const [notificationBoardFilter, setNotificationBoardFilter] = useState<'all' | number>('all')
   const [notificationBoards, setNotificationBoards] = useState<Board[]>([])
+  const [overdueInterval, setOverdueInterval] = useState<number>(30)
+  const [overdueIntervalSaving, setOverdueIntervalSaving] = useState(false)
 
   const loadUsers = async () => {
     if (!user.is_admin) return
@@ -2853,6 +2868,10 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
         setNotificationPrefs(prefs)
         const boards = await api.listBoards()
         setNotificationBoards(boards)
+        if (user.is_admin) {
+          const settings = await api.getSiteSettings()
+          setOverdueInterval(settings.overdue_reminder_interval)
+        }
       } catch (e) {
         setNotificationError((e as Error).message)
       }
@@ -3290,6 +3309,41 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                   ))}
                 </div>
                 {notificationError ? <p className="text-sm text-rose-600">{notificationError}</p> : null}
+
+                {user.is_admin ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Повторяющиеся напоминания о просроченных задачах
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      Интервал отправки push-уведомлений о просроченных задачах всем пользователям.
+                    </p>
+                    <div className="mt-3 flex items-center gap-3">
+                      <select
+                        value={overdueInterval}
+                        onChange={(e) => {
+                          const val = Number(e.target.value)
+                          setOverdueInterval(val)
+                          setOverdueIntervalSaving(true)
+                          api.updateSiteSettings({ overdue_reminder_interval: val })
+                            .then((s) => setOverdueInterval(s.overdue_reminder_interval))
+                            .catch(() => {})
+                            .finally(() => setOverdueIntervalSaving(false))
+                        }}
+                        disabled={overdueIntervalSaving}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                      >
+                        <option value={5}>5 минут</option>
+                        <option value={10}>10 минут</option>
+                        <option value={30}>30 минут</option>
+                        <option value={60}>1 час</option>
+                      </select>
+                      {overdueIntervalSaving ? (
+                        <span className="text-xs text-slate-400">Сохранение…</span>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </section>
           </div>
@@ -3684,6 +3738,22 @@ function ProtectedRoute({ token, children }: { token: string | null; children: R
 
 export default function App() {
   const { user, token, login, logout } = useAuthState()
+
+  useEffect(() => {
+    if (!token) return
+    // Register player_id on app mount (if already logged in) and on subscription changes
+    void registerOneSignalPlayerId()
+    const handler = () => void registerOneSignalPlayerId()
+    try {
+      OneSignal.User?.PushSubscription?.addEventListener?.('change', handler)
+    } catch { /* not critical */ }
+    return () => {
+      try {
+        OneSignal.User?.PushSubscription?.removeEventListener?.('change', handler)
+      } catch { /* not critical */ }
+    }
+  }, [token])
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage onLogin={login} token={token} />} />

@@ -111,6 +111,34 @@ services:
       - ./backend/manage.py:/app/manage.py
       - ./media:/app/media
 
+  celery-beat:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/celery-beat:${IMAGE_TAG:-main}
+    command: ["sh", "-lc", "/app/.venv/bin/celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler"]
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-task_manager}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
+      ONESIGNAL_REST_API_KEY: ${ONESIGNAL_REST_API_KEY:-}
+      TZ: Europe/Moscow
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/manage.py:/app/manage.py
+
   frontend:
     build:
       context: ./frontend
@@ -125,6 +153,7 @@ services:
     environment:
       VITE_API_BASE_URL: /api
       VITE_PROXY_TARGET: http://backend:8000
+      VITE_ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
       TZ: Europe/Moscow
     ports:
       - "5173:5173"

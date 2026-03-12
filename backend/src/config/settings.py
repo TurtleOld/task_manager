@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "django_filters",
+    "django_celery_beat",
     # Local
     "kanban",
 ]
@@ -152,6 +153,13 @@ CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "false").lower(
     "on",
 }
 CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+CELERY_BEAT_SCHEDULE = {
+    "check-overdue-cards": {
+        "task": "kanban.tasks.send_overdue_card_reminders",
+        "schedule": 60.0,  # runs every minute, task itself reads interval from SiteSettings
+    },
+}
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 ONESIGNAL_APP_ID = os.getenv("ONESIGNAL_APP_ID", "")
