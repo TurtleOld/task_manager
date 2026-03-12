@@ -15,6 +15,11 @@ export default defineConfig(({ mode }) => {
   })()
   return {
     plugins: [react()],
+    define: {
+      'import.meta.env.VITE_ONESIGNAL_APP_ID': JSON.stringify(
+        process.env.VITE_ONESIGNAL_APP_ID || env.VITE_ONESIGNAL_APP_ID || '',
+      ),
+    },
     server: {
       host: true,
       port: 5173,
