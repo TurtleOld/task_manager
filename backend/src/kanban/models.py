@@ -43,6 +43,7 @@ class Column(TimestampedModel):
     icon = models.CharField(max_length=50, blank=True, default="")
     position = models.DecimalField(max_digits=20, decimal_places=10, default=POSITION_DEFAULT)
     is_default = models.BooleanField(default=False)
+    is_done = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["position", "id"]

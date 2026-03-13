@@ -73,11 +73,12 @@ class ColumnSerializer(serializers.ModelSerializer[Column]):
             "icon",
             "position",
             "is_default",
+            "is_done",
             "created_at",
             "updated_at",
             "version",
         ]
-        read_only_fields = ["id", "is_default", "created_at", "updated_at", "version"]
+        read_only_fields = ["id", "is_default", "is_done", "created_at", "updated_at", "version"]
 
     def create(self, validated_data: dict[str, Any]) -> Column:
         board: Board = validated_data["board"]
