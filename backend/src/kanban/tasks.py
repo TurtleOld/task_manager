@@ -517,9 +517,7 @@ def send_overdue_card_reminders(self) -> None:
     cutoff = now - timezone.timedelta(minutes=interval_minutes)
 
     # Find all done column IDs
-    done_column_ids = set(
-        Column.objects.filter(is_done=True).values_list("id", flat=True)
-    )
+    done_column_ids = set(Column.objects.filter(is_done=True).values_list("id", flat=True))
 
     # Overdue cards NOT in Done columns
     overdue_cards = (

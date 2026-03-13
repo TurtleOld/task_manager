@@ -56,8 +56,19 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
 
         default_columns = [
             {"name": "To Do", "icon": "📋", "position": Decimal("1"), "is_default": True},
-            {"name": "In Progress", "icon": "⚡", "position": Decimal("2"), "is_default": True},
-            {"name": "Done", "icon": "✅", "position": Decimal("3"), "is_default": True, "is_done": True},
+            {
+                "name": "In Progress",
+                "icon": "⚡",
+                "position": Decimal("2"),
+                "is_default": True,
+            },
+            {
+                "name": "Done",
+                "icon": "✅",
+                "position": Decimal("3"),
+                "is_default": True,
+                "is_done": True,
+            },
         ]
         for col_data in default_columns:
             Column.objects.create(board=board, **col_data)
