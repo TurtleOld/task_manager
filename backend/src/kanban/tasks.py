@@ -12,6 +12,7 @@ from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
+from django.db.models import Q
 from django.db.utils import IntegrityError
 from django.utils import timezone
 from django.utils.text import Truncator
@@ -20,7 +21,6 @@ from .models import (
     Card,
     CardDeadlineReminder,
     CardDeadlineReminderDelivery,
-    Column,
     NotificationChannel,
     NotificationDelivery,
     NotificationEvent,
@@ -516,11 +516,9 @@ def send_overdue_card_reminders(self) -> None:
     now = timezone.now()
     cutoff = now - timezone.timedelta(minutes=interval_minutes)
 
-    done_column_ids = set(Column.objects.filter(is_done=True).values_list("id", flat=True))
-
     overdue_cards = (
         Card.objects.filter(deadline__lt=now)
-        .exclude(column_id__in=done_column_ids)
+        .exclude(Q(column__is_done=True) | Q(column__name__iexact="Done"))
         .select_related("board", "column")
     )
 
