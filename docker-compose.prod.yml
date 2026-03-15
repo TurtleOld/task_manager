@@ -19,6 +19,7 @@ services:
 
   redis:
     image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
     environment:
       TZ: Europe/Moscow
     ports:
@@ -29,6 +30,8 @@ services:
       timeout: 3s
       retries: 30
       start_period: 5s
+    volumes:
+      - redis-data:/data
 
   backend:
     image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/backend:${IMAGE_TAG:-latest}
@@ -145,3 +148,4 @@ services:
 
 volumes:
   db-data:
+  redis-data:
