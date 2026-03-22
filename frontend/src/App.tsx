@@ -113,6 +113,7 @@ function useAuthState() {
     storeAuth(next)
     setUser(next)
     setToken(next.token)
+    try { OneSignal.Slidedown.promptPush() } catch { /* not critical */ }
     void registerOneSignalPlayerId()
   }
 

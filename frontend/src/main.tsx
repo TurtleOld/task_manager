@@ -25,8 +25,6 @@ if (ONESIGNAL_APP_ID) {
     allowLocalhostAsSecureOrigin: true,
     serviceWorkerParam: { scope: '/' },
     path: '/OneSignalSDKWorker.js',
-  }).then(() => {
-    OneSignal.Slidedown.promptPush()
   }).catch((err) => {
     console.warn('OneSignal init failed:', err)
   })
