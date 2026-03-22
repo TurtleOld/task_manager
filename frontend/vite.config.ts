@@ -31,6 +31,17 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    preview: {
+      host: true,
+      port: 5173,
+      allowedHosts: allowedHost ? [allowedHost] : undefined,
+      proxy: {
+        '/api': {
+          target: proxyTarget,
+          changeOrigin: true,
+        },
+      },
+    },
   }
 })
 
