@@ -26,7 +26,14 @@ const V1 = `${BASE}/v1`
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const text = await res.text()
-    throw new Error(`HTTP ${res.status}: ${text}`)
+    let detail = text
+    try {
+      const parsed = JSON.parse(text) as { detail?: string }
+      detail = parsed.detail || text
+    } catch {
+      detail = text
+    }
+    throw new Error(detail || `HTTP ${res.status}`)
   }
   return res.json() as Promise<T>
 }
