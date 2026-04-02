@@ -661,7 +661,10 @@ class LoginView(APIView):
             return Response({"detail": "Username and password required"}, status=400)
         user = authenticate(request, username=username, password=password)
         if user is None:
-            return Response({"detail": "Invalid credentials"}, status=400)
+            return Response(
+                {"detail": "Неверный логин или пароль"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
         token, _ = Token.objects.get_or_create(user=user)
         return Response(
             {

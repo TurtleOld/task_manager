@@ -117,7 +117,8 @@ def test_login_wrong_password(api_client: APIClient, regular_user: object) -> No
         data={"username": "user1", "password": "wrong"},
         format="json",
     )
-    assert resp.status_code == 400
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Неверный логин или пароль"
 
 
 @pytest.mark.django_db()
