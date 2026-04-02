@@ -25,7 +25,7 @@ if (ONESIGNAL_APP_ID) {
     allowLocalhostAsSecureOrigin: true,
     serviceWorkerParam: { scope: '/' },
     path: '/OneSignalSDKWorker.js',
-  }).catch((err) => {
+  }).catch((err: unknown) => {
     console.warn('OneSignal init failed:', err)
   })
 }
