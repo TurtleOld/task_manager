@@ -116,6 +116,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import retrofit2.HttpException
 import retrofit2.Retrofit
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -3917,9 +3918,16 @@ class KanbanRepository {
     }
 
     suspend fun login(baseUrl: String, username: String, password: String): String {
-        val token = api(baseUrl = baseUrl, apiToken = "")
-            .login(LoginRequest(username = username, password = password))
-            .token
+        val token = try {
+            api(baseUrl = baseUrl, apiToken = "")
+                .login(LoginRequest(username = username, password = password))
+                .token
+        } catch (error: HttpException) {
+            if (error.code() == 401) {
+                throw IllegalStateException("Неверный логин или пароль")
+            }
+            throw error
+        }
         if (token.isBlank()) error("Токен не получен")
         return token
     }
