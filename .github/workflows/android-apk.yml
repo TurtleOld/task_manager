@@ -24,20 +24,20 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Validate tag matches Android version
+      - name: Validate tag matches project version
         env:
           GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
-          APP_VERSION_NAME=$(grep '^\s*versionName\s*=\s*"' app/build.gradle.kts | sed -E 's/^\s*versionName\s*=\s*"([^"]+)".*/\1/')
+          APP_VERSION_NAME=$(tr -d '\n' < ../version.txt)
           EXPECTED_TAG="v${APP_VERSION_NAME}"
 
           if [ -z "$APP_VERSION_NAME" ]; then
-            echo "Failed to read versionName from android/app/build.gradle.kts" >&2
+            echo "Failed to read version from version.txt" >&2
             exit 1
           fi
 
           if [ "$GITHUB_REF_NAME" != "$EXPECTED_TAG" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match Android version $EXPECTED_TAG" >&2
+            echo "Tag $GITHUB_REF_NAME does not match project version $EXPECTED_TAG" >&2
             exit 1
           fi
 
@@ -93,5 +93,5 @@ jobs:
         run: |
           gh release create "$RELEASE_TAG" \
             --title "Android APK $APP_VERSION_NAME" \
-            --notes "Release generated from android/app/build.gradle.kts versionName $APP_VERSION_NAME." \
+            --notes "Release generated from project version $APP_VERSION_NAME." \
             android/app/build/outputs/apk/release/app-release.apk
