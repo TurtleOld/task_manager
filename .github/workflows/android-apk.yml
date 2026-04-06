@@ -3,13 +3,11 @@ name: Android APK Release
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-  pull_request:
+    tags:
+      - 'v*'
 
 permissions:
-  contents: read
-  packages: write
+  contents: write
 
 jobs:
   build-release-apk:
@@ -25,6 +23,26 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Validate tag matches Android version
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          APP_VERSION_NAME=$(grep '^\s*versionName\s*=\s*"' app/build.gradle.kts | sed -E 's/^\s*versionName\s*=\s*"([^"]+)".*/\1/')
+          EXPECTED_TAG="v${APP_VERSION_NAME}"
+
+          if [ -z "$APP_VERSION_NAME" ]; then
+            echo "Failed to read versionName from android/app/build.gradle.kts" >&2
+            exit 1
+          fi
+
+          if [ "$GITHUB_REF_NAME" != "$EXPECTED_TAG" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match Android version $EXPECTED_TAG" >&2
+            exit 1
+          fi
+
+          echo "APP_VERSION_NAME=$APP_VERSION_NAME" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=$EXPECTED_TAG" >> "$GITHUB_ENV"
 
       - name: Restore google-services.json from secret
         env:
@@ -66,5 +84,14 @@ jobs:
       - name: Upload release APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
+          name: app-release-apk-${{ env.APP_VERSION_NAME }}
           path: android/app/build/outputs/apk/release/app-release.apk
+
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            --title "Android APK $APP_VERSION_NAME" \
+            --notes "Release generated from android/app/build.gradle.kts versionName $APP_VERSION_NAME." \
+            android/app/build/outputs/apk/release/app-release.apk
