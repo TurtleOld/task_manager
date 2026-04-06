@@ -520,6 +520,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   }, [selectedCard?.id])
 
   const selectedCardId = selectedCard?.id ?? null
+  const selectedCardIsPending = selectedCardId != null && selectedCardId < 0
   const selectedTags = draft?.tags ?? []
   const selectedCategories = draft?.categories ?? []
   const selectedChecklist = draft?.checklist ?? []
@@ -527,7 +528,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   const selectedPriority = draft?.priority ?? ''
 
   useEffect(() => {
-    if (!selectedCardId || selectedCardId < 0) return
+    if (!selectedCardId || selectedCardIsPending) return
     setReminderLoading(true)
     setReminderError('')
     api
@@ -538,7 +539,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
       })
       .catch((e) => setReminderError((e as Error).message))
       .finally(() => setReminderLoading(false))
-  }, [selectedCardId])
+  }, [selectedCardId, selectedCardIsPending])
 
   const applyCardUpdate = (updated: Card) => {
     setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
@@ -1057,6 +1058,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
       version: 1,
     }
     setCards((prev) => [...prev, placeholder])
+    setSelectedCard(placeholder)
     setNewCardTitle((s) => ({ ...s, [columnId]: '' }))
 
     try {
