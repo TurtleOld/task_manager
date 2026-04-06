@@ -115,7 +115,9 @@ def test_get_nonexistent_card(api_client: APIClient) -> None:
 
 
 @pytest.mark.django_db()
-def test_create_card_returns_id_for_immediate_detail_usage(api_client: APIClient, column: Column) -> None:
+def test_create_card_returns_id_for_immediate_detail_usage(
+    api_client: APIClient, column: Column
+) -> None:
     resp = api_client.post(
         "/api/v1/cards/",
         data={"column": column.id, "title": "Immediate open"},
