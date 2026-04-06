@@ -85,7 +85,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-release-apk-${{ env.APP_VERSION_NAME }}
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: app/build/outputs/apk/release/app-release.apk
 
       - name: Create GitHub release
         env:
@@ -94,4 +94,4 @@ jobs:
           gh release create "$RELEASE_TAG" \
             --title "Android APK $APP_VERSION_NAME" \
             --notes "Release generated from project version $APP_VERSION_NAME." \
-            android/app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/app-release.apk
