@@ -52,7 +52,7 @@ android {
         minSdk = 24
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0.10"
+        versionName = "1.0.11"
 
         val apiBaseUrl = (project.findProperty("ANDROID_API_BASE_URL") as String?)
             ?: (localProps.getProperty("ANDROID_API_BASE_URL"))
