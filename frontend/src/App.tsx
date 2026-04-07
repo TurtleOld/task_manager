@@ -2978,7 +2978,6 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
   const [accountTimeZone, setAccountTimeZone] = useState(deviceTimeZone)
   const [accountSaving, setAccountSaving] = useState(false)
   const [accountMessage, setAccountMessage] = useState('')
-  const profileTimeZone = resolveTimeZone(notificationProfile?.timezone ?? deviceTimeZone)
 
   const loadUsers = async () => {
     if (!user.is_admin) return
