@@ -1,5 +1,4 @@
 VERSION_FILE := version.txt
-VERSION := $(shell tr -d '\n' < $(VERSION_FILE))
 PYTHON ?= py -3
 
 .PHONY: uv-venv uv-sync dev migrate run lint typecheck test openapi-export version sync-version set-version release-tag
@@ -31,15 +30,14 @@ openapi-export:
 	cd backend && uv run python manage.py spectacular --file openapi.json
 
 version:
-	@printf '%s\n' "$(VERSION)"
+	@$(PYTHON) -c "from pathlib import Path; print(Path(r'$(VERSION_FILE)').read_text(encoding='utf-8').strip())"
 
 sync-version:
 	$(PYTHON) scripts/sync_version.py
 
 set-version:
-	@test -n "$(NEW_VERSION)" || (printf '%s\n' 'NEW_VERSION is required' >&2; exit 1)
-	@printf '%s\n' "$(NEW_VERSION)" > $(VERSION_FILE)
+	@$(PYTHON) -c "import sys; from pathlib import Path; value = r'$(NEW_VERSION)'; (sys.stderr.write('NEW_VERSION is required\n'), sys.exit(1)) if not value else Path(r'$(VERSION_FILE)').write_text(value + '\n', encoding='utf-8')"
 	$(MAKE) sync-version
 
 release-tag:
-	git tag "v$(VERSION)"
+	@$(PYTHON) -c "import subprocess; from pathlib import Path; version = Path(r'$(VERSION_FILE)').read_text(encoding='utf-8').strip(); subprocess.run(['git', 'tag', f'v{version}'], check=True)"
