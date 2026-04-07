@@ -210,6 +210,11 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
         }
     }
 
+    LaunchedEffect(session.isAuthenticated, session.timeZone) {
+        if (!session.isAuthenticated) return@LaunchedEffect
+        saveTimeZone(context, session.timeZone)
+    }
+
     DisposableEffect(session.isAuthenticated, session.domain, session.token) {
         val observer = object : IPushSubscriptionObserver {
             override fun onPushSubscriptionChange(state: PushSubscriptionChangedState) {
@@ -868,11 +873,6 @@ private fun BoardRoute(
                 )
             }
         }
-    }
-
-    LaunchedEffect(session.isAuthenticated, session.timeZone) {
-        if (!session.isAuthenticated) return@LaunchedEffect
-        saveTimeZone(context, session.timeZone)
     }
 }
 
@@ -4581,7 +4581,7 @@ private data class NotificationProfileRequest(
 )
 
 @Serializable
-private data class NotificationProfileDto(
+data class NotificationProfileDto(
     val email: String = "",
     @SerialName("telegram_chat_id") val telegramChatId: String = "",
     @SerialName("onesignal_player_id") val oneSignalPlayerId: String? = null,
