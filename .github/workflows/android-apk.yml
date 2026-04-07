@@ -12,6 +12,7 @@ permissions:
 jobs:
   build-release-apk:
     runs-on: ubuntu-latest
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
     defaults:
       run:
         working-directory: android
