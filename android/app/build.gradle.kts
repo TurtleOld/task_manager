@@ -32,6 +32,21 @@ android {
         }
     }
 
+    val keystoreFile = (project.findProperty("ANDROID_KEYSTORE_FILE") as String?)
+        ?: localProps.getProperty("ANDROID_KEYSTORE_FILE")
+        ?: System.getenv("ANDROID_KEYSTORE_FILE")
+        ?: rootProject.file("keystore/release.jks").takeIf { it.exists() }?.absolutePath
+    val keystorePassword = (project.findProperty("ANDROID_KEYSTORE_PASSWORD") as String?)
+        ?: localProps.getProperty("ANDROID_KEYSTORE_PASSWORD")
+        ?: System.getenv("ANDROID_KEYSTORE_PASSWORD")
+    val keyAlias = (project.findProperty("ANDROID_KEY_ALIAS") as String?)
+        ?: localProps.getProperty("ANDROID_KEY_ALIAS")
+        ?: System.getenv("ANDROID_KEY_ALIAS")
+    val keyPassword = (project.findProperty("ANDROID_KEY_PASSWORD") as String?)
+        ?: localProps.getProperty("ANDROID_KEY_PASSWORD")
+        ?: System.getenv("ANDROID_KEY_PASSWORD")
+    val releaseSigningReady = !keystoreFile.isNullOrBlank() && !keystorePassword.isNullOrBlank() && !keyAlias.isNullOrBlank() && !keyPassword.isNullOrBlank()
+
     defaultConfig {
         applicationId = "com.taskmanager.mobile"
         minSdk = 24
@@ -72,6 +87,21 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            if (releaseSigningReady) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            if (releaseSigningReady) {
+                storeFile = file(keystoreFile)
+                storePassword = keystorePassword
+                keyAlias = this@android.keyAlias
+                keyPassword = this@android.keyPassword
+            }
         }
     }
 

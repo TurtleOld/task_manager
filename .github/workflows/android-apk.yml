@@ -55,32 +55,26 @@ jobs:
           fi
           echo "$GOOGLE_SERVICES_JSON_B64" | base64 -d > app/google-services.json
 
-      - name: Generate self-signed keystore
+      - name: Decode release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           mkdir -p .keystore
-          keytool -genkeypair \
-            -v \
-            -storetype PKCS12 \
-            -keystore .keystore/release.keystore \
-            -alias release \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'android' }}" \
-            -keypass "${{ secrets.ANDROID_KEY_PASSWORD || 'android' }}" \
-            -dname "CN=TaskManager, OU=Mobile, O=TaskManager, L=Moscow, S=Moscow, C=RU"
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "ANDROID_KEYSTORE_BASE64 secret is not set" >&2
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > .keystore/release.jks
 
       - name: Build signed release APK
         env:
           ANDROID_API_BASE_URL: ""
           ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
-          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/android/.keystore/release.keystore
-        run: |
-          ./gradlew :app:assembleRelease \
-            -Pandroid.injected.signing.store.file="$ANDROID_KEYSTORE_FILE" \
-            -Pandroid.injected.signing.store.password="${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'android' }}" \
-            -Pandroid.injected.signing.key.alias=release \
-            -Pandroid.injected.signing.key.password="${{ secrets.ANDROID_KEY_PASSWORD || 'android' }}"
+          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/android/.keystore/release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew :app:assembleRelease
 
       - name: Upload release APK artifact
         uses: actions/upload-artifact@v4

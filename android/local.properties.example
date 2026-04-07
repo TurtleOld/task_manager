@@ -1,0 +1,11 @@
+## Copy values you need into android/local.properties
+## Do not commit the real file if it contains secrets.
+
+# SDK path example:
+# sdk.dir=C\:\\Users\\you\\AppData\\Local\\Android\\Sdk
+
+# Release signing example:
+# ANDROID_KEYSTORE_FILE=keystore/release.jks
+# ANDROID_KEYSTORE_PASSWORD=change-me
+# ANDROID_KEY_ALIAS=release
+# ANDROID_KEY_PASSWORD=change-me
