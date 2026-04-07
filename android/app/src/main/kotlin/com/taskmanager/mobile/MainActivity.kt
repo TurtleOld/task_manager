@@ -50,6 +50,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -120,6 +121,7 @@ import okhttp3.WebSocketListener
 import retrofit2.HttpException
 import retrofit2.Retrofit
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -269,6 +271,7 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
                 onSelectBoard = vm::selectBoard,
                 onAddTask = { title, columnId -> vm.createTask(title, columnId) },
                 onMoveTask = vm::moveTask,
+                onDeleteTask = vm::deleteTask,
                 onTaskClick = { taskId ->
                     navController.navigate(Route.taskDetail(taskId))
                 },
@@ -649,6 +652,7 @@ private fun BoardRoute(
     onSelectBoard: (Int) -> Unit,
     onAddTask: (title: String, columnId: Int) -> Unit,
     onMoveTask: (taskId: Int, toColumnId: Int) -> Unit,
+    onDeleteTask: (taskId: Int) -> Unit,
     onTaskClick: (Int) -> Unit,
     onOpenSettings: () -> Unit = {}
 ) {
@@ -718,6 +722,7 @@ private fun BoardRoute(
                 ?: boardState.boards.firstOrNull()
             var addTaskSheetVisible by remember { mutableStateOf(false) }
             var moveTask by remember { mutableStateOf<KanbanTask?>(null) }
+            var deleteTask by remember { mutableStateOf<KanbanTask?>(null) }
 
             Box(
                 modifier = Modifier
@@ -767,6 +772,7 @@ private fun BoardRoute(
                                     column = column,
                                     boardUsers = boardUsers,
                                     onMoveClick = { moveTask = it },
+                                    onDeleteClick = { deleteTask = it },
                                     onTaskClick = onTaskClick
                                 )
                             }
@@ -817,6 +823,35 @@ private fun BoardRoute(
                     onMove = { toColumnId ->
                         onMoveTask(moveTask!!.id, toColumnId)
                         moveTask = null
+                    }
+                )
+            }
+
+            if (deleteTask != null) {
+                AlertDialog(
+                    onDismissRequest = { deleteTask = null },
+                    title = { Text("Удалить задачу?") },
+                    text = {
+                        Text("Задача «${deleteTask!!.title}» будет удалена без возможности быстрого восстановления.")
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                onDeleteTask(deleteTask!!.id)
+                                deleteTask = null
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError
+                            )
+                        ) {
+                            Text("Удалить")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { deleteTask = null }) {
+                            Text("Отмена")
+                        }
                     }
                 )
             }
@@ -1007,6 +1042,7 @@ private fun ColumnView(
     column: KanbanColumn,
     boardUsers: List<BoardUser>,
     onMoveClick: (KanbanTask) -> Unit,
+    onDeleteClick: (KanbanTask) -> Unit,
     onTaskClick: (Int) -> Unit
 ) {
     val columnColors = listOf(
@@ -1096,6 +1132,7 @@ private fun ColumnView(
                     accentColor = accentColor,
                     boardUsers = boardUsers,
                     onMoveClick = { onMoveClick(task) },
+                    onDeleteClick = { onDeleteClick(task) },
                     onClick = {
                         if (task.id > 0) {
                             onTaskClick(task.id)
@@ -1143,6 +1180,7 @@ private fun TaskCard(
     accentColor: Color,
     boardUsers: List<BoardUser>,
     onMoveClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     onClick: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
@@ -1216,6 +1254,23 @@ private fun TaskCard(
                                 onClick = {
                                     menuExpanded = false
                                     onMoveClick()
+                                }
+                            )
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                                thickness = 0.5.dp
+                            )
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = "Удалить задачу",
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onDeleteClick()
                                 }
                             )
                         }
@@ -3876,6 +3931,25 @@ class KanbanViewModel : ViewModel() {
         }
     }
 
+    fun deleteTask(taskId: Int) {
+        val s = session.value
+        val current = _boardState.value as? BoardUiState.Content ?: return
+        val updatedBoards = current.boards.map { board ->
+            board.copy(columns = board.columns.map { col ->
+                col.copy(tasks = col.tasks.filter { it.id != taskId })
+            })
+        }
+        _boardState.value = current.copy(boards = updatedBoards)
+
+        viewModelScope.launch {
+            runCatching {
+                repository.deleteCard(baseUrl = s.domain, apiToken = s.token, cardId = taskId)
+            }.onFailure {
+                _boardState.value = current
+            }
+        }
+    }
+
     fun registerPushPlayerId(playerId: String) {
         val s = session.value
         Log.d(PUSH_DEBUG_TAG, "registerPushPlayerId called: playerId=$playerId isAuth=${s.isAuthenticated} domain=${s.domain}")
@@ -4096,6 +4170,10 @@ class KanbanRepository {
         api(baseUrl, apiToken).moveCard(cardId = cardId, request = MoveCardRequest(toColumn = toColumnId))
     }
 
+    suspend fun deleteCard(baseUrl: String, apiToken: String, cardId: Int) {
+        api(baseUrl, apiToken).deleteCard(cardId)
+    }
+
     suspend fun fetchUsers(baseUrl: String, apiToken: String): List<BoardUser> {
         return api(baseUrl, apiToken).listUsers().map { BoardUser(id = it.id, name = it.fullName.ifBlank { it.username }) }
     }
@@ -4312,6 +4390,9 @@ private interface KanbanApi {
 
     @POST("cards/{cardId}/move/")
     suspend fun moveCard(@Path("cardId") cardId: Int, @Body request: MoveCardRequest): ResponseBody
+
+    @DELETE("cards/{cardId}/")
+    suspend fun deleteCard(@Path("cardId") cardId: Int): ResponseBody
 
     @PATCH("notifications/profile/")
     suspend fun updateNotificationProfile(@Body request: NotificationProfileRequest): ResponseBody
