@@ -35,6 +35,7 @@ from .serializers import (
     CardDeadlineReminderSerializer,
     CardSerializer,
     ColumnSerializer,
+    CurrentUserUpdateSerializer,
     NotificationPreferenceSerializer,
     NotificationProfileSerializer,
     PasswordChangeSerializer,
@@ -675,6 +676,19 @@ class LoginView(APIView):
                 "token": token.key,
             }
         )
+
+
+class CurrentUserView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        return Response(UserSerializer(request.user).data)
+
+    def patch(self, request: Request) -> Response:
+        serializer = CurrentUserUpdateSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(UserSerializer(request.user).data)
 
 
 class RegistrationStatusView(APIView):

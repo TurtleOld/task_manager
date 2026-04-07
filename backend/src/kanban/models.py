@@ -134,6 +134,7 @@ class NotificationProfile(models.Model):
     telegram_chat_id = models.CharField(max_length=64, blank=True, default="")
     onesignal_player_id = models.CharField(max_length=200, blank=True, default="")
     timezone = models.CharField(max_length=64, blank=True, default="UTC")
+    timezone_configured = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["id"]

@@ -7,6 +7,7 @@ from .views import (
     BoardViewSet,
     CardViewSet,
     ColumnViewSet,
+    CurrentUserView,
     LoginView,
     NotificationPreferenceViewSet,
     NotificationProfileView,
@@ -30,6 +31,7 @@ router.register(
 urlpatterns = [
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/login/", LoginView.as_view(), name="login"),
+    path("auth/me/", CurrentUserView.as_view(), name="current-user"),
     path("auth/registration-status/", RegistrationStatusView.as_view(), name="registration-status"),
     path("notifications/profile/", NotificationProfileView.as_view(), name="notification-profile"),
     path("settings/site/", SiteSettingsView.as_view(), name="site-settings"),

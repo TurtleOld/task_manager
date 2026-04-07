@@ -319,6 +319,17 @@ class UserUpdateSerializer(serializers.Serializer):
         return instance
 
 
+class CurrentUserUpdateSerializer(serializers.Serializer):
+    full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+
+    def update(self, instance: AbstractUser, validated_data: dict[str, Any]) -> AbstractUser:
+        full_name = validated_data.get("full_name")
+        if full_name is not None:
+            instance.first_name = full_name
+            instance.save(update_fields=["first_name"])
+        return instance
+
+
 class PasswordChangeSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True, min_length=8)
 
@@ -398,26 +409,38 @@ class RegisterSerializer(serializers.Serializer):
 class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProfile]):
     class Meta:
         model = NotificationProfile
-        fields = ["email", "telegram_chat_id", "onesignal_player_id", "timezone"]
+        fields = [
+            "email",
+            "telegram_chat_id",
+            "onesignal_player_id",
+            "timezone",
+            "timezone_configured",
+        ]
+        read_only_fields = ["timezone_configured"]
 
     def update(
         self, instance: NotificationProfile, validated_data: dict[str, Any]
     ) -> NotificationProfile:
+        update_fields: list[str] = []
         email = validated_data.get("email")
         if email is not None:
             instance.email = email.strip()
+            update_fields.append("email")
         telegram_chat_id = validated_data.get("telegram_chat_id")
         if telegram_chat_id is not None:
             instance.telegram_chat_id = telegram_chat_id.strip()
+            update_fields.append("telegram_chat_id")
         onesignal_player_id = validated_data.get("onesignal_player_id")
         if onesignal_player_id is not None:
             instance.onesignal_player_id = str(onesignal_player_id).strip()
+            update_fields.append("onesignal_player_id")
         tz = validated_data.get("timezone")
         if tz is not None:
             instance.timezone = str(tz).strip() or "UTC"
-        instance.save(
-            update_fields=["email", "telegram_chat_id", "onesignal_player_id", "timezone"]
-        )
+            instance.timezone_configured = True
+            update_fields.extend(["timezone", "timezone_configured"])
+        if update_fields:
+            instance.save(update_fields=update_fields)
         return instance
 
 
