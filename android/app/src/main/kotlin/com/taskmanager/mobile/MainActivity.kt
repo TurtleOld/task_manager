@@ -113,7 +113,6 @@ import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
-import okhttp3.ResponseBody
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import retrofit2.HttpException
@@ -260,7 +259,7 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
                     vm.logout()
                 },
                 onSelectBoard = vm::selectBoard,
-                onAddTask = vm::createTask,
+                onAddTask = { title, columnId -> vm.createTask(title, columnId) },
                 onMoveTask = vm::moveTask,
                 onTaskClick = { taskId ->
                     navController.navigate(Route.taskDetail(taskId))
@@ -1089,7 +1088,11 @@ private fun ColumnView(
                     accentColor = accentColor,
                     boardUsers = boardUsers,
                     onMoveClick = { onMoveClick(task) },
-                    onClick = { onTaskClick(task.id) }
+                    onClick = {
+                        if (task.id > 0) {
+                            onTaskClick(task.id)
+                        }
+                    }
                 )
             }
 
@@ -3702,6 +3705,22 @@ class KanbanViewModel : ViewModel() {
                     apiToken = s.token,
                     request = CreateCardRequest(column = columnId, title = title.trim())
                 )
+            }.onSuccess { createdTask ->
+                val state = _boardState.value as? BoardUiState.Content ?: return@onSuccess
+                val updatedBoards = state.boards.map { board ->
+                    board.copy(columns = board.columns.map { col ->
+                        if (col.id == columnId) {
+                            col.copy(
+                                tasks = col.tasks.map { task ->
+                                    if (task.id == tempId) createdTask else task
+                                }.sortedBy { it.position }
+                            )
+                        } else {
+                            col
+                        }
+                    })
+                }
+                _boardState.value = state.copy(boards = updatedBoards)
             }.onFailure {
                 // Rollback: remove the placeholder on error
                 val state = _boardState.value as? BoardUiState.Content ?: return@launch
@@ -3962,8 +3981,10 @@ class KanbanRepository {
     suspend fun getCard(baseUrl: String, apiToken: String, cardId: Int): KanbanTask =
         dtoToTask(api(baseUrl, apiToken).getCard(cardId))
 
-    suspend fun createCard(baseUrl: String, apiToken: String, request: CreateCardRequest) {
-        api(baseUrl, apiToken).createCard(request)
+    suspend fun createCard(baseUrl: String, apiToken: String, request: CreateCardRequest): KanbanTask {
+        val dto = api(baseUrl, apiToken).createCard(request)
+        require(dto.id > 0) { "Сервер не вернул корректный id созданной задачи" }
+        return dtoToTask(dto)
     }
 
     suspend fun moveCard(baseUrl: String, apiToken: String, cardId: Int, toColumnId: Int) {
@@ -4176,7 +4197,7 @@ private interface KanbanApi {
     suspend fun getCard(@Path("cardId") cardId: Int): CardDto
 
     @POST("cards/")
-    suspend fun createCard(@Body request: CreateCardRequest): ResponseBody
+    suspend fun createCard(@Body request: CreateCardRequest): CardDto
 
     @PATCH("cards/{cardId}/")
     suspend fun patchCard(@Path("cardId") cardId: Int, @Body request: PatchCardRequest): CardDto

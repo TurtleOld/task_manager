@@ -132,6 +132,25 @@ def test_create_card_returns_id_for_immediate_detail_usage(
     assert detail.json()["title"] == "Immediate open"
 
 
+@pytest.mark.django_db()
+def test_create_card_response_contains_complete_immediate_use_payload(
+    api_client: APIClient, column: Column
+) -> None:
+    resp = api_client.post(
+        "/api/v1/cards/",
+        data={"column": column.id, "title": "Open right away"},
+        format="json",
+    )
+
+    assert resp.status_code == 201
+    data = resp.json()
+    assert isinstance(data["id"], int)
+    assert data["id"] > 0
+    assert data["column"] == column.id
+    assert data["board"] == column.board_id
+    assert data["title"] == "Open right away"
+
+
 # ---------------------------------------------------------------------------
 # Update
 # ---------------------------------------------------------------------------
