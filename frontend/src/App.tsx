@@ -33,6 +33,98 @@ const AUTH_TOKEN_KEY = 'auth_token'
 const AUTH_USER_KEY = 'auth_user'
 const THEME_KEY = 'theme'
 
+const DEFAULT_TIMEZONE = 'UTC'
+
+const FALLBACK_TIMEZONES = ['UTC', 'Europe/Moscow', 'Europe/Berlin', 'Asia/Yekaterinburg', 'Asia/Novosibirsk']
+
+const TIMEZONE_OPTIONS = (() => {
+  const supportedValuesOf = Intl.supportedValuesOf as ((key: 'timeZone') => string[]) | undefined
+  const values = supportedValuesOf?.('timeZone')?.length ? supportedValuesOf('timeZone') : FALLBACK_TIMEZONES
+
+  return values.map((value) => ({
+    value,
+    label: value.replaceAll('_', ' '),
+  }))
+})()
+
+function isValidTimeZone(value: string | null | undefined): value is string {
+  if (!value) return false
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: value })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function resolveTimeZone(value: string | null | undefined): string {
+  return isValidTimeZone(value) ? value : DEFAULT_TIMEZONE
+}
+
+function getTimeZoneLabel(value: string | null | undefined): string {
+  const resolved = resolveTimeZone(value)
+  return TIMEZONE_OPTIONS.find((item) => item.value === resolved)?.label ?? resolved
+}
+
+function formatIsoForTimeZone(value: string, timeZone: string): string {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  const formatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+  const parts = formatter.formatToParts(parsed)
+  const map = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
+  return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}`
+}
+
+function zonedDateTimeLocalToIso(value: string, timeZone: string): string | null {
+  if (!value) return null
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/)
+  if (!match) return null
+  const [, yearStr, monthStr, dayStr, hourStr, minuteStr] = match
+  const year = Number(yearStr)
+  const month = Number(monthStr)
+  const day = Number(dayStr)
+  const hour = Number(hourStr)
+  const minute = Number(minuteStr)
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute)
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+  const getOffset = (ts: number) => {
+    const parts = formatter.formatToParts(new Date(ts))
+    const map = Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]))
+    const asUtc = Date.UTC(
+      Number(map.year),
+      Number(map.month) - 1,
+      Number(map.day),
+      Number(map.hour),
+      Number(map.minute),
+      Number(map.second)
+    )
+    return asUtc - ts
+  }
+  const offset = getOffset(utcGuess)
+  const result = utcGuess - offset
+  const adjustedOffset = getOffset(result)
+  const finalResult = adjustedOffset === offset ? result : utcGuess - adjustedOffset
+  const iso = new Date(finalResult).toISOString()
+  return Number.isNaN(new Date(iso).getTime()) ? null : iso
+}
+
 const permissionCatalog: { key: PermissionKey; label: string; desc: string }[] = [
   { key: 'boards:view', label: 'Просмотр досок', desc: 'Доступ к списку и содержимому досок' },
   { key: 'boards:add', label: 'Создание досок', desc: 'Создавать новые доски' },
@@ -336,28 +428,30 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   const [reminderFieldError, setReminderFieldError] = useState('')
   const [newReminderValue, setNewReminderValue] = useState(10)
   const [newReminderUnit, setNewReminderUnit] = useState<'minutes' | 'hours'>('minutes')
+  const [profileTimeZone, setProfileTimeZone] = useState(DEFAULT_TIMEZONE)
 
   // ---- datetime helpers ----
   // Backend stores datetimes as ISO strings. The card modal uses <input type="datetime-local" />.
   // We normalize UI state to the datetime-local format: YYYY-MM-DDTHH:mm (local time).
-  const isoToDatetimeLocal = (value: string) => {
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return ''
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const yyyy = parsed.getFullYear()
-    const mm = pad(parsed.getMonth() + 1)
-    const dd = pad(parsed.getDate())
-    const hh = pad(parsed.getHours())
-    const min = pad(parsed.getMinutes())
-    return `${yyyy}-${mm}-${dd}T${hh}:${min}`
-  }
+  const isoToDatetimeLocal = (value: string) => formatIsoForTimeZone(value, profileTimeZone)
 
-  const datetimeLocalToIso = (value: string) => {
-    if (!value) return null
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return null
-    return parsed.toISOString()
-  }
+  const datetimeLocalToIso = (value: string) => zonedDateTimeLocalToIso(value, profileTimeZone)
+
+  useEffect(() => {
+    let mounted = true
+    api.getNotificationProfile()
+      .then((profile) => {
+        if (!mounted) return
+        setProfileTimeZone(resolveTimeZone(profile.timezone))
+      })
+      .catch(() => {
+        if (!mounted) return
+        setProfileTimeZone(DEFAULT_TIMEZONE)
+      })
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   useEffect(() => {
     api.listColumns(boardId).then(setColumns)
@@ -1145,6 +1239,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
     const parsed = new Date(value)
     if (Number.isNaN(parsed.getTime())) return value
     return parsed.toLocaleString('ru-RU', {
+      timeZone: profileTimeZone,
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -2155,7 +2250,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                       className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                     />
                     <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Выберите дату и время завершения задачи.
+                      Выберите дату и время завершения задачи в часовом поясе {getTimeZoneLabel(profileTimeZone)}.
                     </p>
                   </label>
                 </div>
@@ -2834,6 +2929,7 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
   const [notificationBoards, setNotificationBoards] = useState<Board[]>([])
   const [overdueInterval, setOverdueInterval] = useState<number>(30)
   const [overdueIntervalSaving, setOverdueIntervalSaving] = useState(false)
+  const profileTimeZone = resolveTimeZone(notificationProfile?.timezone)
 
   const loadUsers = async () => {
     if (!user.is_admin) return
@@ -3122,11 +3218,31 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                 <label className="block">
                   <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                     Часовой пояс</span>
-                  <select className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
-                    <option>Москва (UTC+3)</option>
-                    <option>UTC</option>
-                    <option>GMT+2</option>
+                  <select
+                    value={profileTimeZone}
+                    onChange={(event) => {
+                      const value = resolveTimeZone(event.target.value)
+                      setNotificationProfile((prev) => ({
+                        email: prev?.email ?? '',
+                        telegram_chat_id: prev?.telegram_chat_id ?? '',
+                        onesignal_player_id: prev?.onesignal_player_id,
+                        timezone: value,
+                      }))
+                    }}
+                    onBlur={(event) => {
+                      void saveProfile({ timezone: resolveTimeZone(event.target.value) })
+                    }}
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  >
+                    {TIMEZONE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Этот часовой пояс используется для отображения дат и времени в веб и мобильном приложении.
+                  </p>
                 </label>
               </div>
               <button className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200">
@@ -3220,7 +3336,7 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                           setNotificationProfile((prev) => ({
                             email: value,
                             telegram_chat_id: prev?.telegram_chat_id ?? '',
-                            timezone: prev?.timezone ?? 'UTC',
+                            timezone: resolveTimeZone(prev?.timezone),
                           }))
                           return
                         }
@@ -3259,7 +3375,7 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                           setNotificationProfile((prev) => ({
                             email: prev?.email ?? '',
                             telegram_chat_id: value,
-                            timezone: prev?.timezone ?? 'UTC',
+                            timezone: resolveTimeZone(prev?.timezone),
                           }))
                           return
                         }
