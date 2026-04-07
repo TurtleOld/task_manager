@@ -129,7 +129,9 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.concurrent.TimeUnit
@@ -139,6 +141,8 @@ import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFact
 private val LocalActivity = androidx.compose.runtime.staticCompositionLocalOf<FragmentActivity> {
     error("No FragmentActivity provided")
 }
+
+private const val DEFAULT_TIME_ZONE = "UTC"
 
 class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -161,6 +165,7 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
     val taskDetailState by vm.taskDetailState.collectAsStateWithLifecycle()
     val boardUsers by vm.boardUsers.collectAsStateWithLifecycle()
     val securitySettings by vm.securitySettings.collectAsStateWithLifecycle()
+    val timeZone = session.timeZone
     val navController = rememberNavController()
 
     LaunchedEffect(Unit) {
@@ -263,6 +268,7 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
             BoardRoute(
                 boardState = boardState,
                 boardUsers = boardUsers,
+                timeZone = timeZone,
                 onRetry = vm::refresh,
                 onRefresh = vm::refresh,
                 onLogout = {
@@ -311,6 +317,7 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
             TaskDetailScreen(
                 taskId = taskId,
                 taskDetailState = taskDetailState,
+                timeZone = timeZone,
                 onLoadTask = vm::loadTaskDetail,
                 onBack = { navController.popBackStack() },
                 onClearDetail = vm::clearTaskDetail,
@@ -647,6 +654,7 @@ private fun ModernTextField(
 private fun BoardRoute(
     boardState: BoardUiState,
     boardUsers: List<BoardUser>,
+    timeZone: String,
     onRetry: () -> Unit,
     onRefresh: () -> Unit,
     onLogout: () -> Unit,
@@ -771,6 +779,7 @@ private fun BoardRoute(
                             items(selectedBoard.columns) { column ->
                                 ColumnView(
                                     column = column,
+                                    timeZone = timeZone,
                                     boardUsers = boardUsers,
                                     onMoveClick = { moveTask = it },
                                     onDeleteClick = { deleteTask = it },
@@ -1041,6 +1050,7 @@ private fun BoardTab(
 @Composable
 private fun ColumnView(
     column: KanbanColumn,
+    timeZone: String,
     boardUsers: List<BoardUser>,
     onMoveClick: (KanbanTask) -> Unit,
     onDeleteClick: (KanbanTask) -> Unit,
@@ -1130,6 +1140,7 @@ private fun ColumnView(
             items(column.tasks, key = { it.id }) { task ->
                 TaskCard(
                     task = task,
+                    timeZone = timeZone,
                     accentColor = accentColor,
                     boardUsers = boardUsers,
                     onMoveClick = { onMoveClick(task) },
@@ -1178,6 +1189,7 @@ private fun ColumnView(
 @Composable
 private fun TaskCard(
     task: KanbanTask,
+    timeZone: String,
     accentColor: Color,
     boardUsers: List<BoardUser>,
     onMoveClick: () -> Unit,
@@ -1393,7 +1405,7 @@ private fun TaskCard(
                                 fontSize = 9.sp
                             )
                             Text(
-                                text = formatShortDate(task.dueDate),
+                                text = formatShortDate(task.dueDate, timeZone),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1436,13 +1448,33 @@ private fun priorityColor(priority: TaskPriority): Color = when (priority) {
 
 private fun priorityLabel(priority: TaskPriority): String = priority.label
 
+private fun resolveZoneId(timeZone: String?): ZoneId = try {
+    ZoneId.of(timeZone?.ifBlank { DEFAULT_TIME_ZONE } ?: DEFAULT_TIME_ZONE)
+} catch (_: Exception) {
+    ZoneId.of(DEFAULT_TIME_ZONE)
+}
+
+private fun parseDeadlineInstant(value: String): Instant? {
+    return try {
+        when {
+            value.contains('T') && (value.endsWith("Z") || value.substringAfter('T').contains('+')) -> OffsetDateTime.parse(value).toInstant()
+            value.contains('T') -> LocalDateTime.parse(value).atZone(resolveZoneId(DEFAULT_TIME_ZONE)).toInstant()
+            else -> LocalDate.parse(value, deadlineDateFormatter).atStartOfDay(resolveZoneId(DEFAULT_TIME_ZONE)).toInstant()
+        }
+    } catch (_: DateTimeParseException) {
+        null
+    }
+}
+
 // Parse ISO-8601 date string like "2026-02-19T06:00:13.247183Z"
 // Returns "19 фев 2026" for dates, "19 фев 2026, 06:00" for datetimes
-private fun formatReadableDateTime(date: String?): String {
+private fun formatReadableDateTime(date: String?, timeZone: String = DEFAULT_TIME_ZONE): String {
     if (date.isNullOrBlank()) return ""
     return try {
-        val parsed = parseDeadlineValue(date) ?: return date.take(16)
-        val calendar = deadlineCalendar(parsed)
+        val parsed = parseDeadlineInstant(date) ?: return date.take(16)
+        val calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone(resolveZoneId(timeZone))).apply {
+            timeInMillis = parsed.toEpochMilli()
+        }
         val dateText = "${calendar.get(Calendar.DAY_OF_MONTH)} ${monthName(calendar.get(Calendar.MONTH) + 1)} ${calendar.get(Calendar.YEAR)}"
         if (hasTimeComponent(date)) {
             val hour = calendar.get(Calendar.HOUR_OF_DAY).toString().padStart(2, '0')
@@ -1456,11 +1488,13 @@ private fun formatReadableDateTime(date: String?): String {
     }
 }
 
-private fun formatShortDate(date: String?): String {
+private fun formatShortDate(date: String?, timeZone: String = DEFAULT_TIME_ZONE): String {
     if (date.isNullOrBlank()) return ""
     return try {
-        val parsed = parseDeadlineValue(date) ?: return date.take(10)
-        val calendar = deadlineCalendar(parsed)
+        val parsed = parseDeadlineInstant(date) ?: return date.take(10)
+        val calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone(resolveZoneId(timeZone))).apply {
+            timeInMillis = parsed.toEpochMilli()
+        }
         val day = calendar.get(Calendar.DAY_OF_MONTH).toString().padStart(2, '0')
         val month = (calendar.get(Calendar.MONTH) + 1).toString().padStart(2, '0')
         val year = calendar.get(Calendar.YEAR).toString().takeLast(2)
@@ -1524,9 +1558,9 @@ private fun deadlineDraftStateOf(value: String?): DeadlineDraftState {
     return DeadlineDraftState(normalized)
 }
 
-private fun deadlineDisplayText(value: String?): String = when {
+private fun deadlineDisplayText(value: String?, timeZone: String = DEFAULT_TIME_ZONE): String = when {
     value.isNullOrBlank() -> "Выберите дату и время"
-    else -> formatReadableDateTime(value)
+    else -> formatReadableDateTime(value, timeZone)
 }
 
 private fun calendarFromDeadline(value: String?): Calendar {
@@ -1806,6 +1840,7 @@ private fun MoveTaskSheet(
 private fun TaskDetailScreen(
     taskId: Int,
     taskDetailState: TaskDetailState?,
+    timeZone: String,
     onLoadTask: (Int) -> Unit,
     onBack: () -> Unit,
     onClearDetail: () -> Unit,
@@ -1879,6 +1914,7 @@ private fun TaskDetailScreen(
                 TaskDetailContent(
                     task = taskDetailState.task,
                     users = taskDetailState.users,
+                    timeZone = timeZone,
                     onBack = onBack,
                     onSaveCard = onSaveCard
                 )
@@ -1892,6 +1928,7 @@ private fun TaskDetailScreen(
 private fun TaskDetailContent(
     task: KanbanTask,
     users: List<BoardUser>,
+    timeZone: String,
     onBack: () -> Unit,
     onSaveCard: (draft: KanbanTask, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
 ) {
@@ -2140,7 +2177,7 @@ private fun TaskDetailContent(
                             Text("📅", fontSize = 16.sp)
                             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(
-                                    text = deadlineDisplayText(currentDeadlineState.value),
+                                    text = deadlineDisplayText(currentDeadlineState.value, timeZone),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = if (currentDeadlineState.value.isNullOrBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
                                 )
@@ -2624,10 +2661,10 @@ private fun TaskDetailContent(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         MetaRow(label = "ID задачи", value = "#${task.id}")
                         if (!task.createdAt.isNullOrBlank()) {
-                            MetaRow(label = "Создано", value = formatReadableDateTime(task.createdAt))
+                            MetaRow(label = "Создано", value = formatReadableDateTime(task.createdAt, timeZone))
                         }
                         if (!task.updatedAt.isNullOrBlank()) {
-                            MetaRow(label = "Обновлено", value = formatReadableDateTime(task.updatedAt))
+                            MetaRow(label = "Обновлено", value = formatReadableDateTime(task.updatedAt, timeZone))
                         }
                     }
                 }
@@ -3768,6 +3805,10 @@ class KanbanViewModel : ViewModel() {
         if (token.isNotBlank()) refresh()
     }
 
+    private suspend fun loadNotificationProfileTimeZone(baseUrl: String, apiToken: String): String {
+        return repository.getNotificationProfile(baseUrl = baseUrl, apiToken = apiToken).timezone.ifBlank { DEFAULT_TIME_ZONE }
+    }
+
     fun onDomainChanged(value: String) = _session.update { it.copy(domain = value) }
     fun onUsernameChanged(value: String) = _session.update { it.copy(username = value) }
     fun onPasswordChanged(value: String) = _session.update { it.copy(password = value) }
@@ -3818,10 +3859,13 @@ class KanbanViewModel : ViewModel() {
             // Load boards and users in parallel
             val boardsDeferred = async { runCatching { repository.fetchBoards(baseUrl = s.domain, apiToken = s.token) } }
             val usersDeferred = async { runCatching { repository.fetchUsers(baseUrl = s.domain, apiToken = s.token) } }
+            val profileDeferred = async { runCatching { loadNotificationProfileTimeZone(baseUrl = s.domain, apiToken = s.token) } }
             val boardsResult = boardsDeferred.await()
             val usersResult = usersDeferred.await()
+            val profileResult = profileDeferred.await()
 
             usersResult.onSuccess { users -> _boardUsers.value = users }
+            profileResult.onSuccess { tz -> _session.update { it.copy(timeZone = tz) } }
 
             boardsResult.onSuccess { boards ->
                 val selectedId = (prev as? BoardUiState.Content)?.selectedBoardId
@@ -4096,6 +4140,7 @@ data class SessionUiState(
     val isAuthenticated: Boolean = false,
     val domain: String = "",
     val token: String = "",
+    val timeZone: String = DEFAULT_TIME_ZONE,
     val username: String = "",
     val password: String = "",
     val registeredPlayerId: String = "",
@@ -4308,6 +4353,10 @@ class KanbanRepository {
         Log.d(PUSH_DEBUG_TAG, "PATCH /notifications/profile -> $body")
     }
 
+    suspend fun getNotificationProfile(baseUrl: String, apiToken: String): NotificationProfileDto {
+        return api(baseUrl, apiToken).getNotificationProfile()
+    }
+
     suspend fun ensurePushNotificationPreferences(baseUrl: String, apiToken: String, eventTypes: List<String>) {
         val service = api(baseUrl, apiToken)
         val preferences = service.listNotificationPreferences()
@@ -4413,6 +4462,9 @@ private interface KanbanApi {
     @PATCH("notifications/profile/")
     suspend fun updateNotificationProfile(@Body request: NotificationProfileRequest): ResponseBody
 
+    @GET("notifications/profile/")
+    suspend fun getNotificationProfile(): NotificationProfileDto
+
     @GET("users/")
     suspend fun listUsers(): List<UserDto>
 
@@ -4509,6 +4561,14 @@ data class BoardUser(val id: Int, val name: String)
 
 @Serializable
 private data class NotificationProfileRequest(@SerialName("onesignal_player_id") val onesignalPlayerId: String)
+
+@Serializable
+private data class NotificationProfileDto(
+    val email: String = "",
+    @SerialName("telegram_chat_id") val telegramChatId: String = "",
+    @SerialName("onesignal_player_id") val oneSignalPlayerId: String? = null,
+    val timezone: String = DEFAULT_TIME_ZONE
+)
 
 @Serializable
 private data class NotificationPreferenceDto(

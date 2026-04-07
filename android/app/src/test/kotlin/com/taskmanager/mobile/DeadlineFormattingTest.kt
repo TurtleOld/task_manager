@@ -7,8 +7,8 @@ import org.junit.Test
 class DeadlineFormattingTest {
 
     @Test
-    fun normalizeDeadlineForSave_keepsDateTimeAndDropsFractionAndZone() {
-        assertEquals("2026-04-07T09:30:00", normalizeDeadlineForSave("2026-04-07T09:30:45.123Z"))
+    fun normalizeDeadlineForSave_keepsUtcInstantForServerPayload() {
+        assertEquals("2026-04-07T09:30:45", normalizeDeadlineForSave("2026-04-07T09:30:45.123Z"))
     }
 
     @Test
@@ -24,5 +24,15 @@ class DeadlineFormattingTest {
     @Test
     fun formatReadableDateTime_formatsNormalizedDeadline() {
         assertEquals("7 апр 2026, 09:30", formatReadableDateTime("2026-04-07T09:30:00"))
+    }
+
+    @Test
+    fun formatReadableDateTime_convertsUtcToProfileTimezone() {
+        assertEquals("7 апр 2026, 12:30", formatReadableDateTime("2026-04-07T09:30:00Z", "Europe/Moscow"))
+    }
+
+    @Test
+    fun formatShortDate_usesProfileTimezoneForDateRollover() {
+        assertEquals("08.04.26", formatShortDate("2026-04-07T22:30:00Z", "Europe/Moscow"))
     }
 }
