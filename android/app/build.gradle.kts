@@ -39,13 +39,13 @@ android {
     val keystorePassword = (project.findProperty("ANDROID_KEYSTORE_PASSWORD") as String?)
         ?: localProps.getProperty("ANDROID_KEYSTORE_PASSWORD")
         ?: System.getenv("ANDROID_KEYSTORE_PASSWORD")
-    val keyAlias = (project.findProperty("ANDROID_KEY_ALIAS") as String?)
+    val keystoreAlias = (project.findProperty("ANDROID_KEY_ALIAS") as String?)
         ?: localProps.getProperty("ANDROID_KEY_ALIAS")
         ?: System.getenv("ANDROID_KEY_ALIAS")
-    val keyPassword = (project.findProperty("ANDROID_KEY_PASSWORD") as String?)
+    val keystoreKeyPassword = (project.findProperty("ANDROID_KEY_PASSWORD") as String?)
         ?: localProps.getProperty("ANDROID_KEY_PASSWORD")
         ?: System.getenv("ANDROID_KEY_PASSWORD")
-    val releaseSigningReady = !keystoreFile.isNullOrBlank() && !keystorePassword.isNullOrBlank() && !keyAlias.isNullOrBlank() && !keyPassword.isNullOrBlank()
+    val releaseSigningReady = !keystoreFile.isNullOrBlank() && !keystorePassword.isNullOrBlank() && !keystoreAlias.isNullOrBlank() && !keystoreKeyPassword.isNullOrBlank()
 
     defaultConfig {
         applicationId = "com.taskmanager.mobile"
@@ -97,10 +97,10 @@ android {
     signingConfigs {
         create("release") {
             if (releaseSigningReady) {
-                storeFile = file(keystoreFile)
+                storeFile = file(keystoreFile!!)
                 storePassword = keystorePassword
-                keyAlias = this@android.keyAlias
-                keyPassword = this@android.keyPassword
+                keyAlias = keystoreAlias
+                keyPassword = keystoreKeyPassword
             }
         }
     }
