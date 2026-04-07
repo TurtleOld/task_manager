@@ -2,6 +2,8 @@ package com.taskmanager.mobile
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.compose.setContent
@@ -122,7 +124,13 @@ import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.concurrent.TimeUnit
+import java.util.Calendar
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 
 private val LocalActivity = androidx.compose.runtime.staticCompositionLocalOf<FragmentActivity> {
@@ -1377,25 +1385,9 @@ private fun priorityLabel(priority: TaskPriority): String = priority.label
 private fun formatReadableDateTime(date: String?): String {
     if (date.isNullOrBlank()) return ""
     return try {
-        val datePart = date.substringBefore('T')
-        val parts = datePart.split("-")
-        if (parts.size != 3) return date
-        val day = parts[2].toIntOrNull() ?: return date
-        val month = parts[1].toIntOrNull() ?: return date
-        val year = parts[0]
-        val monthName = when (month) {
-            1 -> "янв"; 2 -> "фев"; 3 -> "мар"; 4 -> "апр"
-            5 -> "май"; 6 -> "июн"; 7 -> "июл"; 8 -> "авг"
-            9 -> "сен"; 10 -> "окт"; 11 -> "ноя"; 12 -> "дек"
-            else -> parts[1]
-        }
-        if (date.contains('T')) {
-            val timePart = date.substringAfter('T').substringBefore('.')
-                .substringBefore('Z').take(5) // HH:mm
-            "$day $monthName $year, $timePart"
-        } else {
-            "$day $monthName $year"
-        }
+        val parsed = parseDeadlineValue(date) ?: return date.take(16)
+        val dateText = "${parsed.dayOfMonth} ${monthName(parsed.monthValue)} ${parsed.year}"
+        if (hasTimeComponent(date)) "$dateText, ${parsed.toLocalTime().format(timeDisplayFormatter)}" else dateText
     } catch (_: Exception) {
         date.take(16)
     }
@@ -1404,12 +1396,74 @@ private fun formatReadableDateTime(date: String?): String {
 private fun formatShortDate(date: String?): String {
     if (date.isNullOrBlank()) return ""
     return try {
-        val datePart = date.substringBefore('T')
-        val parts = datePart.split("-")
-        if (parts.size == 3) "${parts[2]}.${parts[1]}.${parts[0].takeLast(2)}"
-        else date.take(10)
+        val parsed = parseDeadlineValue(date) ?: return date.take(10)
+        "${parsed.dayOfMonth.toString().padStart(2, '0')}.${parsed.monthValue.toString().padStart(2, '0')}.${parsed.year.toString().takeLast(2)}"
     } catch (_: Exception) {
         date.take(10)
+    }
+}
+
+private val deadlineStorageFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
+private val deadlineDateFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+private val timeDisplayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+private fun monthName(month: Int): String = when (month) {
+    1 -> "янв"; 2 -> "фев"; 3 -> "мар"; 4 -> "апр"
+    5 -> "май"; 6 -> "июн"; 7 -> "июл"; 8 -> "авг"
+    9 -> "сен"; 10 -> "окт"; 11 -> "ноя"; 12 -> "дек"
+    else -> month.toString()
+}
+
+private fun parseDeadlineValue(value: String): LocalDateTime? {
+    return try {
+        when {
+            value.contains('T') && (value.endsWith("Z") || value.contains('+', startIndex = value.indexOf('T'))) -> OffsetDateTime.parse(value).toLocalDateTime()
+            value.contains('T') -> LocalDateTime.parse(value)
+            else -> LocalDate.parse(value, deadlineDateFormatter).atStartOfDay()
+        }
+    } catch (_: DateTimeParseException) {
+        null
+    }
+}
+
+private fun hasTimeComponent(value: String?): Boolean {
+    if (value.isNullOrBlank()) return false
+    return value.contains('T')
+}
+
+private fun normalizeDeadlineForSave(value: String?): String? {
+    val trimmed = value?.trim().orEmpty()
+    if (trimmed.isBlank()) return null
+    val parsed = parseDeadlineValue(trimmed) ?: return null
+    return parsed.format(deadlineStorageFormatter)
+}
+
+private data class DeadlineDraftState(
+    val value: String?
+)
+
+private fun deadlineDraftStateOf(value: String?): DeadlineDraftState {
+    val normalized = normalizeDeadlineForSave(value)
+    return DeadlineDraftState(normalized)
+}
+
+private fun deadlineDisplayText(value: String?): String = when {
+    value.isNullOrBlank() -> "Выберите дату и время"
+    else -> formatReadableDateTime(value)
+}
+
+private fun calendarFromDeadline(value: String?): Calendar {
+    val parsed = value?.let(::parseDeadlineValue)
+    return Calendar.getInstance().apply {
+        if (parsed != null) {
+            set(Calendar.YEAR, parsed.year)
+            set(Calendar.MONTH, parsed.monthValue - 1)
+            set(Calendar.DAY_OF_MONTH, parsed.dayOfMonth)
+            set(Calendar.HOUR_OF_DAY, parsed.hour)
+            set(Calendar.MINUTE, parsed.minute)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
     }
 }
 
@@ -1770,11 +1824,12 @@ private fun TaskDetailContent(
     onBack: () -> Unit,
     onSaveCard: (draft: KanbanTask, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
 ) {
+    val context = LocalContext.current
     // Editable local draft state — reset when task changes from server
     var draftTitle by remember(task.id) { mutableStateOf(task.title) }
     var draftDescription by remember(task.id) { mutableStateOf(task.description) }
     var draftPriority by remember(task.id) { mutableStateOf(task.priority) }
-    var draftDeadline by remember(task.id) { mutableStateOf(task.dueDate ?: "") }
+    var draftDeadline by remember(task.id) { mutableStateOf(normalizeDeadlineForSave(task.dueDate).orEmpty()) }
     var draftAssignee by remember(task.id) { mutableStateOf(task.assignee) }
     var draftTags by remember(task.id) { mutableStateOf(task.tags) }
     var draftCategories by remember(task.id) { mutableStateOf(task.categories) }
@@ -1783,7 +1838,7 @@ private fun TaskDetailContent(
     val hasChanges = draftTitle != task.title ||
         draftDescription != task.description ||
         draftPriority != task.priority ||
-        (draftDeadline.ifBlank { null }) != task.dueDate ||
+        normalizeDeadlineForSave(draftDeadline) != normalizeDeadlineForSave(task.dueDate) ||
         draftAssignee != task.assignee ||
         draftTags != task.tags ||
         draftCategories != task.categories ||
@@ -1958,39 +2013,89 @@ private fun TaskDetailContent(
             // ── Deadline ─────────────────────────────────────────────────────
             item {
                 DetailSection(title = "Срок выполнения") {
-                    OutlinedTextField(
-                        value = draftDeadline,
-                        onValueChange = { draftDeadline = it; saveError = null },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("ГГГГ-ММ-ДД или ГГГГ-ММ-ДДTHH:MM:SS", style = MaterialTheme.typography.bodySmall) },
-                        singleLine = true,
-                        leadingIcon = { Text("📅", fontSize = 16.sp, modifier = Modifier.padding(start = 4.dp)) },
-                        trailingIcon = {
-                            if (draftDeadline.isNotBlank()) {
+                    val currentDeadlineState = deadlineDraftStateOf(draftDeadline)
+                    val calendarSeed = remember(currentDeadlineState.value) { calendarFromDeadline(currentDeadlineState.value) }
+
+                    fun openTimePicker(baseDate: Calendar) {
+                        TimePickerDialog(
+                            context,
+                            { _, hour, minute ->
+                                baseDate.set(Calendar.HOUR_OF_DAY, hour)
+                                baseDate.set(Calendar.MINUTE, minute)
+                                baseDate.set(Calendar.SECOND, 0)
+                                baseDate.set(Calendar.MILLISECOND, 0)
+                                val next = LocalDateTime.of(
+                                    baseDate.get(Calendar.YEAR),
+                                    baseDate.get(Calendar.MONTH) + 1,
+                                    baseDate.get(Calendar.DAY_OF_MONTH),
+                                    hour,
+                                    minute,
+                                    0
+                                )
+                                draftDeadline = next.format(deadlineStorageFormatter)
+                                saveError = null
+                            },
+                            baseDate.get(Calendar.HOUR_OF_DAY),
+                            baseDate.get(Calendar.MINUTE),
+                            true
+                        ).show()
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .clickable {
+                                    val baseDate = calendarFromDeadline(currentDeadlineState.value)
+                                    DatePickerDialog(
+                                        context,
+                                        { _, year, month, dayOfMonth ->
+                                            baseDate.set(Calendar.YEAR, year)
+                                            baseDate.set(Calendar.MONTH, month)
+                                            baseDate.set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                                            openTimePicker(baseDate)
+                                        },
+                                        baseDate.get(Calendar.YEAR),
+                                        baseDate.get(Calendar.MONTH),
+                                        baseDate.get(Calendar.DAY_OF_MONTH)
+                                    ).show()
+                                }
+                                .padding(horizontal = 14.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text("📅", fontSize = 16.sp)
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    text = deadlineDisplayText(currentDeadlineState.value),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (currentDeadlineState.value.isNullOrBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (currentDeadlineState.value.isNullOrBlank()) "Откроется системный выбор даты и времени" else "Дата и время выбираются по очереди",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (currentDeadlineState.value.isNotBlank()) {
                                 TextButton(onClick = { draftDeadline = ""; saveError = null }) {
-                                    Text("✕", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Очистить")
                                 }
                             }
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = Color.Transparent,
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent
-                        ),
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    )
-                    if (draftDeadline.isNotBlank()) {
-                        val formatted = formatReadableDateTime(draftDeadline)
-                        if (formatted != draftDeadline) {
-                            Text(
-                                text = formatted,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 4.dp, start = 4.dp)
-                            )
+                        }
+
+                        if (currentDeadlineState.value.isNotBlank()) {
+                            TextButton(
+                                onClick = {
+                                    val baseDate = calendarFromDeadline(currentDeadlineState.value)
+                                    openTimePicker(baseDate)
+                                },
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text("Изменить только время")
+                            }
                         }
                     }
                 }
@@ -2501,7 +2606,7 @@ private fun TaskDetailContent(
                             draftTitle = task.title
                             draftDescription = task.description
                             draftPriority = task.priority
-                            draftDeadline = task.dueDate ?: ""
+                            draftDeadline = normalizeDeadlineForSave(task.dueDate).orEmpty()
                             draftAssignee = task.assignee
                             draftTags = task.tags
                             draftCategories = task.categories
@@ -2533,7 +2638,7 @@ private fun TaskDetailContent(
                                 title = draftTitle.trim().ifBlank { task.title },
                                 description = draftDescription,
                                 priority = draftPriority,
-                                dueDate = draftDeadline.trim().ifBlank { null },
+                                dueDate = normalizeDeadlineForSave(draftDeadline),
                                 assignee = draftAssignee,
                                 tags = draftTags,
                                 categories = draftCategories,
