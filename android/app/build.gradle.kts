@@ -80,6 +80,17 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            if (releaseSigningReady) {
+                storeFile = file(keystoreFile!!)
+                storePassword = keystorePassword
+                keyAlias = keystoreAlias
+                keyPassword = keystoreKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -90,17 +101,6 @@ android {
 
             if (releaseSigningReady) {
                 signingConfig = signingConfigs.getByName("release")
-            }
-        }
-    }
-
-    signingConfigs {
-        create("release") {
-            if (releaseSigningReady) {
-                storeFile = file(keystoreFile!!)
-                storePassword = keystorePassword
-                keyAlias = keystoreAlias
-                keyPassword = keystoreKeyPassword
             }
         }
     }
