@@ -1442,8 +1442,15 @@ private fun formatReadableDateTime(date: String?): String {
     if (date.isNullOrBlank()) return ""
     return try {
         val parsed = parseDeadlineValue(date) ?: return date.take(16)
-        val dateText = "${parsed.dayOfMonth} ${monthName(parsed.monthValue)} ${parsed.year}"
-        if (hasTimeComponent(date)) "$dateText, ${parsed.toLocalTime().format(timeDisplayFormatter)}" else dateText
+        val calendar = deadlineCalendar(parsed)
+        val dateText = "${calendar.get(Calendar.DAY_OF_MONTH)} ${monthName(calendar.get(Calendar.MONTH) + 1)} ${calendar.get(Calendar.YEAR)}"
+        if (hasTimeComponent(date)) {
+            val hour = calendar.get(Calendar.HOUR_OF_DAY).toString().padStart(2, '0')
+            val minute = calendar.get(Calendar.MINUTE).toString().padStart(2, '0')
+            "$dateText, $hour:$minute"
+        } else {
+            dateText
+        }
     } catch (_: Exception) {
         date.take(16)
     }
@@ -1453,7 +1460,11 @@ private fun formatShortDate(date: String?): String {
     if (date.isNullOrBlank()) return ""
     return try {
         val parsed = parseDeadlineValue(date) ?: return date.take(10)
-        "${parsed.dayOfMonth.toString().padStart(2, '0')}.${parsed.monthValue.toString().padStart(2, '0')}.${parsed.year.toString().takeLast(2)}"
+        val calendar = deadlineCalendar(parsed)
+        val day = calendar.get(Calendar.DAY_OF_MONTH).toString().padStart(2, '0')
+        val month = (calendar.get(Calendar.MONTH) + 1).toString().padStart(2, '0')
+        val year = calendar.get(Calendar.YEAR).toString().takeLast(2)
+        "$day.$month.$year"
     } catch (_: Exception) {
         date.take(10)
     }
@@ -1462,6 +1473,16 @@ private fun formatShortDate(date: String?): String {
 private val deadlineStorageFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
 private val deadlineDateFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 private val timeDisplayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+private fun deadlineCalendar(value: LocalDateTime): Calendar = Calendar.getInstance().apply {
+    set(Calendar.YEAR, value.year)
+    set(Calendar.MONTH, value.monthValue - 1)
+    set(Calendar.DAY_OF_MONTH, value.dayOfMonth)
+    set(Calendar.HOUR_OF_DAY, value.hour)
+    set(Calendar.MINUTE, value.minute)
+    set(Calendar.SECOND, value.second)
+    set(Calendar.MILLISECOND, 0)
+}
 
 private fun monthName(month: Int): String = when (month) {
     1 -> "янв"; 2 -> "фев"; 3 -> "мар"; 4 -> "апр"
@@ -1512,13 +1533,7 @@ private fun calendarFromDeadline(value: String?): Calendar {
     val parsed = value?.let(::parseDeadlineValue)
     return Calendar.getInstance().apply {
         if (parsed != null) {
-            set(Calendar.YEAR, parsed.year)
-            set(Calendar.MONTH, parsed.monthValue - 1)
-            set(Calendar.DAY_OF_MONTH, parsed.dayOfMonth)
-            set(Calendar.HOUR_OF_DAY, parsed.hour)
-            set(Calendar.MINUTE, parsed.minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+            timeInMillis = deadlineCalendar(parsed).timeInMillis
         }
     }
 }

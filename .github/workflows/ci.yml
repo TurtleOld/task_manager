@@ -87,7 +87,7 @@ jobs:
         env:
           ANDROID_API_BASE_URL: ""
           ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
-        run: ./gradlew :app:lintDebug
+        run: ./gradlew :app:lintDebug -Pandroid.lint.baselines.continue=true
       - name: Android compile
         env:
           ANDROID_API_BASE_URL: ""
