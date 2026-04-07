@@ -32,6 +32,7 @@ import type {
 const AUTH_TOKEN_KEY = 'auth_token'
 const AUTH_USER_KEY = 'auth_user'
 const THEME_KEY = 'theme'
+const LANGUAGE_KEY = 'interface_language'
 
 const DEFAULT_TIMEZONE = 'UTC'
 
@@ -64,6 +65,35 @@ function resolveTimeZone(value: string | null | undefined): string {
 function getTimeZoneLabel(value: string | null | undefined): string {
   const resolved = resolveTimeZone(value)
   return TIMEZONE_OPTIONS.find((item) => item.value === resolved)?.label ?? resolved
+}
+
+function getDeviceTimeZone(): string {
+  try {
+    return resolveTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone)
+  } catch {
+    return DEFAULT_TIMEZONE
+  }
+}
+
+async function ensureProfileTimeZoneInitialized(
+  profile: NotificationProfile,
+  preferredTimeZone: string
+): Promise<NotificationProfile> {
+  if (profile.timezone_configured) {
+    return { ...profile, timezone: resolveTimeZone(profile.timezone) }
+  }
+
+  const nextTimeZone = resolveTimeZone(preferredTimeZone)
+
+  try {
+    return await api.updateNotificationProfile({ timezone: nextTimeZone })
+  } catch {
+    return {
+      ...profile,
+      timezone: nextTimeZone,
+      timezone_configured: false,
+    }
+  }
 }
 
 function formatIsoForTimeZone(value: string, timeZone: string): string {
@@ -197,6 +227,10 @@ function clearAuth() {
   localStorage.removeItem(AUTH_USER_KEY)
 }
 
+function loadLanguagePreference() {
+  return localStorage.getItem(LANGUAGE_KEY) || 'ru'
+}
+
 function useAuthState() {
   const [user, setUser] = useState<AuthUser | null>(() => loadAuthUser())
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(AUTH_TOKEN_KEY))
@@ -215,7 +249,12 @@ function useAuthState() {
     setToken(null)
   }
 
-  return { user, token, login, logout }
+  const updateUser = (next: AuthUser) => {
+    storeAuth(next)
+    setUser(next)
+  }
+
+  return { user, token, login, logout, updateUser }
 }
 
 function persistTheme(isDark: boolean) {
@@ -428,7 +467,8 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   const [reminderFieldError, setReminderFieldError] = useState('')
   const [newReminderValue, setNewReminderValue] = useState(10)
   const [newReminderUnit, setNewReminderUnit] = useState<'minutes' | 'hours'>('minutes')
-  const [profileTimeZone, setProfileTimeZone] = useState(DEFAULT_TIMEZONE)
+  const deviceTimeZone = useMemo(() => getDeviceTimeZone(), [])
+  const [profileTimeZone, setProfileTimeZone] = useState(deviceTimeZone)
 
   // ---- datetime helpers ----
   // Backend stores datetimes as ISO strings. The card modal uses <input type="datetime-local" />.
@@ -439,19 +479,21 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
 
   useEffect(() => {
     let mounted = true
-    api.getNotificationProfile()
-      .then((profile) => {
+    ;(async () => {
+      try {
+        const profile = await api.getNotificationProfile()
+        const nextProfile = await ensureProfileTimeZoneInitialized(profile, deviceTimeZone)
         if (!mounted) return
-        setProfileTimeZone(resolveTimeZone(profile.timezone))
-      })
-      .catch(() => {
+        setProfileTimeZone(resolveTimeZone(nextProfile.timezone))
+      } catch {
         if (!mounted) return
-        setProfileTimeZone(DEFAULT_TIMEZONE)
-      })
+        setProfileTimeZone(deviceTimeZone)
+      }
+    })()
     return () => {
       mounted = false
     }
-  }, [])
+  }, [deviceTimeZone])
 
   useEffect(() => {
     api.listColumns(boardId).then(setColumns)
@@ -2905,7 +2947,7 @@ function RegisterPage({ user }: { user: AuthUser | null }) {
   )
 }
 
-function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void }) {
+function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogout: () => void; onUserUpdate: (user: AuthUser) => void }) {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [usersError, setUsersError] = useState('')
@@ -2929,7 +2971,14 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
   const [notificationBoards, setNotificationBoards] = useState<Board[]>([])
   const [overdueInterval, setOverdueInterval] = useState<number>(30)
   const [overdueIntervalSaving, setOverdueIntervalSaving] = useState(false)
-  const profileTimeZone = resolveTimeZone(notificationProfile?.timezone)
+  const deviceTimeZone = useMemo(() => getDeviceTimeZone(), [])
+  const [accountFullName, setAccountFullName] = useState(user.full_name || user.username)
+  const [accountEmail, setAccountEmail] = useState('')
+  const [accountLanguage, setAccountLanguage] = useState(loadLanguagePreference())
+  const [accountTimeZone, setAccountTimeZone] = useState(deviceTimeZone)
+  const [accountSaving, setAccountSaving] = useState(false)
+  const [accountMessage, setAccountMessage] = useState('')
+  const profileTimeZone = resolveTimeZone(notificationProfile?.timezone ?? deviceTimeZone)
 
   const loadUsers = async () => {
     if (!user.is_admin) return
@@ -2963,7 +3012,8 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
     const loadNotifications = async () => {
       try {
         const profile = await api.getNotificationProfile()
-        setNotificationProfile(profile)
+        const nextProfile = await ensureProfileTimeZoneInitialized(profile, deviceTimeZone)
+        setNotificationProfile(nextProfile)
         const prefs = await api.listNotificationPreferences()
         setNotificationPrefs(prefs)
         const boards = await api.listBoards()
@@ -2977,7 +3027,16 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
       }
     }
     void loadNotifications()
-  }, [])
+  }, [deviceTimeZone, user.is_admin])
+
+  useEffect(() => {
+    setAccountFullName(user.full_name || user.username)
+  }, [user.full_name, user.username])
+
+  useEffect(() => {
+    setAccountEmail(notificationProfile?.email ?? '')
+    setAccountTimeZone(resolveTimeZone(notificationProfile?.timezone ?? deviceTimeZone))
+  }, [deviceTimeZone, notificationProfile?.email, notificationProfile?.timezone])
 
   const eventCatalog: { value: NotificationEventType; label: string }[] = [
     { value: 'board.created', label: 'Создание досок' },
@@ -3051,6 +3110,32 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
       setNotificationError((e as Error).message)
     } finally {
       setNotificationSaving(false)
+    }
+  }
+
+  const saveAccountSettings = async () => {
+    if (accountSaving) return
+    setAccountSaving(true)
+    setAccountMessage('')
+    setNotificationError('')
+    try {
+      if (accountFullName.trim() && accountFullName.trim() !== (user.full_name || user.username)) {
+        const updatedUser = await api.updateCurrentUser({ full_name: accountFullName.trim() })
+        onUserUpdate({ ...user, ...updatedUser, full_name: updatedUser.full_name || user.full_name })
+      }
+
+      const updatedProfile = await api.updateNotificationProfile({
+        email: accountEmail.trim(),
+        timezone: resolveTimeZone(accountTimeZone),
+      })
+      setNotificationProfile(updatedProfile)
+
+      localStorage.setItem(LANGUAGE_KEY, accountLanguage)
+      setAccountMessage('Настройки сохранены')
+    } catch (e) {
+      setNotificationError((e as Error).message)
+    } finally {
+      setAccountSaving(false)
     }
   }
 
@@ -3192,7 +3277,8 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                     Имя
                   </span>
                   <input
-                    defaultValue={user.full_name || user.username}
+                    value={accountFullName}
+                    onChange={(event) => setAccountFullName(event.target.value)}
                     className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   />
                 </label>
@@ -3201,6 +3287,8 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                     Email
                   </span>
                   <input
+                    value={accountEmail}
+                    onChange={(event) => setAccountEmail(event.target.value)}
                     placeholder="name@company.com"
                     className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   />
@@ -3209,28 +3297,23 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                   <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                     Язык интерфейса
                   </span>
-                  <select className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
-                    <option>Русский</option>
-                    <option>English</option>
-                    <option>Deutsch</option>
+                  <select
+                    value={accountLanguage}
+                    onChange={(event) => setAccountLanguage(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  >
+                    <option value="ru">Русский</option>
+                    <option value="en">English</option>
+                    <option value="de">Deutsch</option>
                   </select>
                 </label>
                 <label className="block">
                   <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
                     Часовой пояс</span>
                   <select
-                    value={profileTimeZone}
+                    value={accountTimeZone}
                     onChange={(event) => {
-                      const value = resolveTimeZone(event.target.value)
-                      setNotificationProfile((prev) => ({
-                        email: prev?.email ?? '',
-                        telegram_chat_id: prev?.telegram_chat_id ?? '',
-                        onesignal_player_id: prev?.onesignal_player_id,
-                        timezone: value,
-                      }))
-                    }}
-                    onBlur={(event) => {
-                      void saveProfile({ timezone: resolveTimeZone(event.target.value) })
+                      setAccountTimeZone(resolveTimeZone(event.target.value))
                     }}
                     className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   >
@@ -3245,7 +3328,14 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                   </p>
                 </label>
               </div>
-              <button className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200">
+              {accountMessage ? <p className="mt-4 text-sm text-emerald-600">{accountMessage}</p> : null}
+              {notificationError ? <p className="mt-4 text-sm text-rose-600">{notificationError}</p> : null}
+              <button
+                type="button"
+                onClick={() => void saveAccountSettings()}
+                disabled={accountSaving}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200"
+              >
                 Сохранить изменения
               </button>
             </section>
@@ -3336,7 +3426,9 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                           setNotificationProfile((prev) => ({
                             email: value,
                             telegram_chat_id: prev?.telegram_chat_id ?? '',
+                            onesignal_player_id: prev?.onesignal_player_id,
                             timezone: resolveTimeZone(prev?.timezone),
+                            timezone_configured: prev?.timezone_configured ?? false,
                           }))
                           return
                         }
@@ -3375,7 +3467,9 @@ function SettingsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void
                           setNotificationProfile((prev) => ({
                             email: prev?.email ?? '',
                             telegram_chat_id: value,
+                            onesignal_player_id: prev?.onesignal_player_id,
                             timezone: resolveTimeZone(prev?.timezone),
+                            timezone_configured: prev?.timezone_configured ?? false,
                           }))
                           return
                         }
@@ -3857,7 +3951,7 @@ function ProtectedRoute({ token, children }: { token: string | null; children: R
 }
 
 export default function App() {
-  const { user, token, login, logout } = useAuthState()
+  const { user, token, login, logout, updateUser } = useAuthState()
 
   useEffect(() => {
     if (!token) return
@@ -3882,7 +3976,7 @@ export default function App() {
         path="/settings"
         element={
           <ProtectedRoute token={token}>
-            {user ? <SettingsPage user={user} onLogout={logout} /> : null}
+            {user ? <SettingsPage user={user} onLogout={logout} onUserUpdate={updateUser} /> : null}
           </ProtectedRoute>
         }
       />

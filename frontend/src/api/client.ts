@@ -3,6 +3,7 @@ import type {
   Column,
   Card,
   AuthUser,
+  UserProfile,
   RegistrationStatus,
   PermissionKey,
   UserRole,
@@ -222,6 +223,14 @@ export const api = {
   login: async (payload: { username: string; password: string }): Promise<AuthUser> => {
     const res = await fetch(`${V1}/auth/login/`, {
       method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+  updateCurrentUser: async (payload: Partial<{ full_name: string }>): Promise<UserProfile> => {
+    const res = await fetch(`${V1}/auth/me/`, {
+      method: 'PATCH',
       headers: authHeaders(),
       body: JSON.stringify(payload),
     })

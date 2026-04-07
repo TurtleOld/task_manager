@@ -57,6 +57,14 @@ export interface AuthUser {
   token: string
 }
 
+export interface UserProfile {
+  id: number
+  username: string
+  full_name: string
+  is_admin: boolean
+  role?: 'admin' | 'manager' | 'editor' | 'viewer'
+}
+
 export type UserRole = 'admin' | 'manager' | 'editor' | 'viewer'
 
 export type PermissionKey =
@@ -108,6 +116,7 @@ export interface NotificationProfile {
   telegram_chat_id: string
   onesignal_player_id?: string
   timezone: string
+  timezone_configured: boolean
 }
 
 export interface SiteSettings {
