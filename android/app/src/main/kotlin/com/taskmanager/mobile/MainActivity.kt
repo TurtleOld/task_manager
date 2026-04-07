@@ -132,6 +132,7 @@ import java.time.LocalDateTime
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
 import java.util.concurrent.TimeUnit
@@ -171,7 +172,8 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
     LaunchedEffect(Unit) {
         vm.bootstrap(
             domain = readSavedDomain(context).ifBlank { BuildConfig.API_BASE_URL },
-            token = readSavedToken(context)
+            token = readSavedToken(context),
+            timeZone = readSavedTimeZone(context)
         )
         vm.loadSecuritySettings(context)
 
@@ -867,6 +869,11 @@ private fun BoardRoute(
             }
         }
     }
+
+    LaunchedEffect(session.isAuthenticated, session.timeZone) {
+        if (!session.isAuthenticated) return@LaunchedEffect
+        saveTimeZone(context, session.timeZone)
+    }
 }
 
 @Composable
@@ -1454,24 +1461,14 @@ private fun resolveZoneId(timeZone: String?): ZoneId = try {
     ZoneId.of(DEFAULT_TIME_ZONE)
 }
 
-private fun parseDeadlineInstant(value: String): Instant? {
-    return try {
-        when {
-            value.contains('T') && (value.endsWith("Z") || value.substringAfter('T').contains('+')) -> OffsetDateTime.parse(value).toInstant()
-            value.contains('T') -> LocalDateTime.parse(value).atZone(resolveZoneId(DEFAULT_TIME_ZONE)).toInstant()
-            else -> LocalDate.parse(value, deadlineDateFormatter).atStartOfDay(resolveZoneId(DEFAULT_TIME_ZONE)).toInstant()
-        }
-    } catch (_: DateTimeParseException) {
-        null
-    }
-}
+private fun normalizeTimeZoneId(timeZone: String?): String = resolveZoneId(timeZone).id
 
 // Parse ISO-8601 date string like "2026-02-19T06:00:13.247183Z"
 // Returns "19 фев 2026" for dates, "19 фев 2026, 06:00" for datetimes
 private fun formatReadableDateTime(date: String?, timeZone: String = DEFAULT_TIME_ZONE): String {
     if (date.isNullOrBlank()) return ""
     return try {
-        val parsed = parseDeadlineInstant(date) ?: return date.take(16)
+        val parsed = parseDeadlineInstant(date, timeZone) ?: return date.take(16)
         val calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone(resolveZoneId(timeZone))).apply {
             timeInMillis = parsed.toEpochMilli()
         }
@@ -1491,7 +1488,7 @@ private fun formatReadableDateTime(date: String?, timeZone: String = DEFAULT_TIM
 private fun formatShortDate(date: String?, timeZone: String = DEFAULT_TIME_ZONE): String {
     if (date.isNullOrBlank()) return ""
     return try {
-        val parsed = parseDeadlineInstant(date) ?: return date.take(10)
+        val parsed = parseDeadlineInstant(date, timeZone) ?: return date.take(10)
         val calendar = Calendar.getInstance(java.util.TimeZone.getTimeZone(resolveZoneId(timeZone))).apply {
             timeInMillis = parsed.toEpochMilli()
         }
@@ -1506,17 +1503,6 @@ private fun formatShortDate(date: String?, timeZone: String = DEFAULT_TIME_ZONE)
 
 private val deadlineStorageFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
 private val deadlineDateFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
-private val timeDisplayFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-
-private fun deadlineCalendar(value: LocalDateTime): Calendar = Calendar.getInstance().apply {
-    set(Calendar.YEAR, value.year)
-    set(Calendar.MONTH, value.monthValue - 1)
-    set(Calendar.DAY_OF_MONTH, value.dayOfMonth)
-    set(Calendar.HOUR_OF_DAY, value.hour)
-    set(Calendar.MINUTE, value.minute)
-    set(Calendar.SECOND, value.second)
-    set(Calendar.MILLISECOND, 0)
-}
 
 private fun monthName(month: Int): String = when (month) {
     1 -> "янв"; 2 -> "фев"; 3 -> "мар"; 4 -> "апр"
@@ -1525,12 +1511,13 @@ private fun monthName(month: Int): String = when (month) {
     else -> month.toString()
 }
 
-private fun parseDeadlineValue(value: String): LocalDateTime? {
+private fun parseDeadlineInstant(value: String, timeZone: String = DEFAULT_TIME_ZONE): Instant? {
+    val zoneId = resolveZoneId(timeZone)
     return try {
         when {
-            value.contains('T') && (value.endsWith("Z") || value.substringAfter('T').contains('+')) -> OffsetDateTime.parse(value).toLocalDateTime()
-            value.contains('T') -> LocalDateTime.parse(value)
-            else -> LocalDate.parse(value, deadlineDateFormatter).atStartOfDay()
+            value.contains('T') && (value.endsWith("Z") || value.substringAfter('T').contains('+')) -> OffsetDateTime.parse(value).toInstant()
+            value.contains('T') -> LocalDateTime.parse(value).atZone(zoneId).toInstant()
+            else -> LocalDate.parse(value, deadlineDateFormatter).atStartOfDay(zoneId).toInstant()
         }
     } catch (_: DateTimeParseException) {
         null
@@ -1542,19 +1529,26 @@ private fun hasTimeComponent(value: String?): Boolean {
     return value.contains('T')
 }
 
-private fun normalizeDeadlineForSave(value: String?): String? {
+private fun normalizeDeadlineForInput(value: String?, timeZone: String = DEFAULT_TIME_ZONE): String? {
     val trimmed = value?.trim().orEmpty()
     if (trimmed.isBlank()) return null
-    val parsed = parseDeadlineValue(trimmed) ?: return null
-    return parsed.format(deadlineStorageFormatter)
+    val parsed = parseDeadlineInstant(trimmed, timeZone) ?: return null
+    return parsed.atZone(resolveZoneId(timeZone)).toLocalDateTime().format(deadlineStorageFormatter)
+}
+
+private fun normalizeDeadlineForSave(value: String?, timeZone: String = DEFAULT_TIME_ZONE): String? {
+    val trimmed = value?.trim().orEmpty()
+    if (trimmed.isBlank()) return null
+    val parsed = parseDeadlineInstant(trimmed, timeZone) ?: return null
+    return parsed.atZone(ZoneOffset.UTC).toLocalDateTime().format(deadlineStorageFormatter)
 }
 
 private data class DeadlineDraftState(
     val value: String?
 )
 
-private fun deadlineDraftStateOf(value: String?): DeadlineDraftState {
-    val normalized = normalizeDeadlineForSave(value)
+private fun deadlineDraftStateOf(value: String?, timeZone: String = DEFAULT_TIME_ZONE): DeadlineDraftState {
+    val normalized = normalizeDeadlineForInput(value, timeZone)
     return DeadlineDraftState(normalized)
 }
 
@@ -1563,11 +1557,11 @@ private fun deadlineDisplayText(value: String?, timeZone: String = DEFAULT_TIME_
     else -> formatReadableDateTime(value, timeZone)
 }
 
-private fun calendarFromDeadline(value: String?): Calendar {
-    val parsed = value?.let(::parseDeadlineValue)
-    return Calendar.getInstance().apply {
+private fun calendarFromDeadline(value: String?, timeZone: String = DEFAULT_TIME_ZONE): Calendar {
+    val parsed = value?.let { parseDeadlineInstant(it, timeZone) }
+    return Calendar.getInstance(java.util.TimeZone.getTimeZone(resolveZoneId(timeZone))).apply {
         if (parsed != null) {
-            timeInMillis = deadlineCalendar(parsed).timeInMillis
+            timeInMillis = parsed.toEpochMilli()
         }
     }
 }
@@ -1937,7 +1931,7 @@ private fun TaskDetailContent(
     var draftTitle by remember(task.id) { mutableStateOf(task.title) }
     var draftDescription by remember(task.id) { mutableStateOf(task.description) }
     var draftPriority by remember(task.id) { mutableStateOf(task.priority) }
-    var draftDeadline by remember(task.id) { mutableStateOf(normalizeDeadlineForSave(task.dueDate).orEmpty()) }
+    var draftDeadline by remember(task.id, timeZone) { mutableStateOf(normalizeDeadlineForInput(task.dueDate, timeZone).orEmpty()) }
     var draftAssignee by remember(task.id) { mutableStateOf(task.assignee) }
     var draftTags by remember(task.id) { mutableStateOf(task.tags) }
     var draftCategories by remember(task.id) { mutableStateOf(task.categories) }
@@ -1946,7 +1940,7 @@ private fun TaskDetailContent(
     val hasChanges = draftTitle != task.title ||
         draftDescription != task.description ||
         draftPriority != task.priority ||
-        normalizeDeadlineForSave(draftDeadline) != normalizeDeadlineForSave(task.dueDate) ||
+        normalizeDeadlineForSave(draftDeadline, timeZone) != normalizeDeadlineForSave(task.dueDate, timeZone) ||
         draftAssignee != task.assignee ||
         draftTags != task.tags ||
         draftCategories != task.categories ||
@@ -2121,8 +2115,7 @@ private fun TaskDetailContent(
             // ── Deadline ─────────────────────────────────────────────────────
             item {
                 DetailSection(title = "Срок выполнения") {
-                    val currentDeadlineState = deadlineDraftStateOf(draftDeadline)
-                    val calendarSeed = remember(currentDeadlineState.value) { calendarFromDeadline(currentDeadlineState.value) }
+                    val currentDeadlineState = deadlineDraftStateOf(draftDeadline, timeZone)
 
                     fun openTimePicker(baseDate: Calendar) {
                         TimePickerDialog(
@@ -2156,7 +2149,7 @@ private fun TaskDetailContent(
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                                 .clickable {
-                                    val baseDate = calendarFromDeadline(currentDeadlineState.value)
+                                    val baseDate = calendarFromDeadline(currentDeadlineState.value, timeZone)
                                     DatePickerDialog(
                                         context,
                                         { _, year, month, dayOfMonth ->
@@ -2197,7 +2190,7 @@ private fun TaskDetailContent(
                         if (!currentDeadlineState.value.isNullOrBlank()) {
                             TextButton(
                                 onClick = {
-                                    val baseDate = calendarFromDeadline(currentDeadlineState.value)
+                                    val baseDate = calendarFromDeadline(currentDeadlineState.value, timeZone)
                                     openTimePicker(baseDate)
                                 },
                                 contentPadding = PaddingValues(0.dp)
@@ -2714,7 +2707,7 @@ private fun TaskDetailContent(
                             draftTitle = task.title
                             draftDescription = task.description
                             draftPriority = task.priority
-                            draftDeadline = normalizeDeadlineForSave(task.dueDate).orEmpty()
+                            draftDeadline = normalizeDeadlineForInput(task.dueDate, timeZone).orEmpty()
                             draftAssignee = task.assignee
                             draftTags = task.tags
                             draftCategories = task.categories
@@ -2746,7 +2739,7 @@ private fun TaskDetailContent(
                                 title = draftTitle.trim().ifBlank { task.title },
                                 description = draftDescription,
                                 priority = draftPriority,
-                                dueDate = normalizeDeadlineForSave(draftDeadline),
+                                dueDate = normalizeDeadlineForSave(draftDeadline, timeZone),
                                 assignee = draftAssignee,
                                 tags = draftTags,
                                 categories = draftCategories,
@@ -3797,16 +3790,32 @@ class KanbanViewModel : ViewModel() {
         stopWebSocket()
     }
 
-    fun bootstrap(domain: String, token: String) {
+    fun bootstrap(domain: String, token: String, timeZone: String = DEFAULT_TIME_ZONE) {
         val normalizedDomain = normalizeBaseUrl(domain)
         _session.update {
-            it.copy(domain = normalizedDomain, token = token, isAuthenticated = token.isNotBlank(), isBusy = false)
+            it.copy(
+                domain = normalizedDomain,
+                token = token,
+                timeZone = normalizeTimeZoneId(timeZone),
+                isAuthenticated = token.isNotBlank(),
+                isBusy = false
+            )
         }
         if (token.isNotBlank()) refresh()
     }
 
     private suspend fun loadNotificationProfileTimeZone(baseUrl: String, apiToken: String): String {
-        return repository.getNotificationProfile(baseUrl = baseUrl, apiToken = apiToken).timezone.ifBlank { DEFAULT_TIME_ZONE }
+        val profile = repository.getNotificationProfile(baseUrl = baseUrl, apiToken = apiToken)
+        if (profile.timezoneConfigured) {
+            return normalizeTimeZoneId(profile.timezone)
+        }
+
+        val deviceTimeZone = normalizeTimeZoneId(ZoneId.systemDefault().id)
+        val updatedProfile = runCatching {
+            repository.updateNotificationProfile(baseUrl = baseUrl, apiToken = apiToken, timeZone = deviceTimeZone)
+        }.getOrNull()
+
+        return normalizeTimeZoneId(updatedProfile?.timezone ?: deviceTimeZone)
     }
 
     fun onDomainChanged(value: String) = _session.update { it.copy(domain = value) }
@@ -4346,11 +4355,17 @@ class KanbanRepository {
         return changes
     }
 
-    suspend fun updateNotificationProfile(baseUrl: String, apiToken: String, oneSignalPlayerId: String) {
+    suspend fun updateNotificationProfile(
+        baseUrl: String,
+        apiToken: String,
+        oneSignalPlayerId: String? = null,
+        timeZone: String? = null
+    ): NotificationProfileDto {
         val body = api(baseUrl, apiToken).updateNotificationProfile(
-            request = NotificationProfileRequest(onesignalPlayerId = oneSignalPlayerId)
-        ).string()
+            request = NotificationProfileRequest(onesignalPlayerId = oneSignalPlayerId, timezone = timeZone)
+        )
         Log.d(PUSH_DEBUG_TAG, "PATCH /notifications/profile -> $body")
+        return body
     }
 
     suspend fun getNotificationProfile(baseUrl: String, apiToken: String): NotificationProfileDto {
@@ -4460,7 +4475,7 @@ private interface KanbanApi {
     suspend fun deleteCard(@Path("cardId") cardId: Int): ResponseBody
 
     @PATCH("notifications/profile/")
-    suspend fun updateNotificationProfile(@Body request: NotificationProfileRequest): ResponseBody
+    suspend fun updateNotificationProfile(@Body request: NotificationProfileRequest): NotificationProfileDto
 
     @GET("notifications/profile/")
     suspend fun getNotificationProfile(): NotificationProfileDto
@@ -4560,14 +4575,18 @@ private data class UserDto(
 data class BoardUser(val id: Int, val name: String)
 
 @Serializable
-private data class NotificationProfileRequest(@SerialName("onesignal_player_id") val onesignalPlayerId: String)
+private data class NotificationProfileRequest(
+    @SerialName("onesignal_player_id") val onesignalPlayerId: String? = null,
+    val timezone: String? = null
+)
 
 @Serializable
 private data class NotificationProfileDto(
     val email: String = "",
     @SerialName("telegram_chat_id") val telegramChatId: String = "",
     @SerialName("onesignal_player_id") val oneSignalPlayerId: String? = null,
-    val timezone: String = DEFAULT_TIME_ZONE
+    val timezone: String = DEFAULT_TIME_ZONE,
+    @SerialName("timezone_configured") val timezoneConfigured: Boolean = false
 )
 
 @Serializable
@@ -4658,6 +4677,7 @@ private fun normalizeBaseUrl(value: String): String {
 private const val PREFS_NAME = "task_manager_mobile_prefs"
 private const val KEY_DOMAIN = "domain"
 private const val KEY_TOKEN = "token"
+private const val KEY_TIME_ZONE = "time_zone"
 
 private fun readSavedDomain(context: Context): String =
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_DOMAIN, "") ?: ""
@@ -4675,8 +4695,21 @@ private fun saveToken(context: Context, token: String) {
         .edit().putString(KEY_TOKEN, token).apply()
 }
 
+private fun readSavedTimeZone(context: Context): String =
+    normalizeTimeZoneId(
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_TIME_ZONE, DEFAULT_TIME_ZONE)
+    )
+
+private fun saveTimeZone(context: Context, timeZone: String) {
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .edit().putString(KEY_TIME_ZONE, normalizeTimeZoneId(timeZone)).apply()
+}
+
 private fun clearToken(context: Context) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().remove(KEY_TOKEN).apply()
+    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+        .remove(KEY_TOKEN)
+        .remove(KEY_TIME_ZONE)
+        .apply()
 }
 
 private fun currentOneSignalPlayerId(): String {
