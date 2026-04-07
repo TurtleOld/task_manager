@@ -115,6 +115,7 @@ import okhttp3.Interceptor
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.ResponseBody
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
@@ -1472,7 +1473,7 @@ private fun monthName(month: Int): String = when (month) {
 private fun parseDeadlineValue(value: String): LocalDateTime? {
     return try {
         when {
-            value.contains('T') && (value.endsWith("Z") || value.contains('+', startIndex = value.indexOf('T'))) -> OffsetDateTime.parse(value).toLocalDateTime()
+            value.contains('T') && (value.endsWith("Z") || value.substringAfter('T').contains('+')) -> OffsetDateTime.parse(value).toLocalDateTime()
             value.contains('T') -> LocalDateTime.parse(value)
             else -> LocalDate.parse(value, deadlineDateFormatter).atStartOfDay()
         }
@@ -2134,14 +2135,14 @@ private fun TaskDetailContent(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            if (currentDeadlineState.value.isNotBlank()) {
+                            if (!currentDeadlineState.value.isNullOrBlank()) {
                                 TextButton(onClick = { draftDeadline = ""; saveError = null }) {
                                     Text("Очистить")
                                 }
                             }
                         }
 
-                        if (currentDeadlineState.value.isNotBlank()) {
+                        if (!currentDeadlineState.value.isNullOrBlank()) {
                             TextButton(
                                 onClick = {
                                     val baseDate = calendarFromDeadline(currentDeadlineState.value)
@@ -4198,7 +4199,7 @@ class KanbanRepository {
         val service = api(baseUrl, apiToken)
         val updatedDto = service.patchCard(cardId = cardId, request = patch)
         val changes = buildCardChanges(oldTask, newTask)
-        runCatching {
+        runCatching<Unit> {
             service.notifyCardUpdated(
                 cardId = cardId,
                 request = NotifyCardUpdatedRequest(version = updatedDto.version, changes = changes)
@@ -4217,7 +4218,7 @@ class KanbanRepository {
         val service = api(baseUrl, apiToken)
         val updatedDto = service.patchCard(cardId = cardId, request = PatchCardRequest(checklist = newChecklist))
         val changes = buildChecklistChanges(oldChecklist, newChecklist)
-        runCatching {
+        runCatching<Unit> {
             service.notifyCardUpdated(cardId = cardId, request = NotifyCardUpdatedRequest(version = updatedDto.version, changes = changes))
         }
         return dtoToTask(updatedDto)
