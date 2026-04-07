@@ -60,3 +60,36 @@ jobs:
         run: npm run lint
       - name: Typecheck
         run: npm run typecheck
+
+  android:
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'branch'
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Restore google-services.json from secret
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "GOOGLE_SERVICES_JSON_B64 secret is not set" >&2
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICES_JSON_B64" | base64 -d > app/google-services.json
+      - name: Android lint
+        env:
+          ANDROID_API_BASE_URL: ""
+          ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
+        run: ./gradlew :app:lintDebug
+      - name: Android compile
+        env:
+          ANDROID_API_BASE_URL: ""
+          ONESIGNAL_APP_ID: ${{ secrets.ONESIGNAL_APP_ID }}
+        run: ./gradlew :app:compileDebugKotlin
