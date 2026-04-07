@@ -1,6 +1,6 @@
-SHELL := /usr/bin/zsh
 VERSION_FILE := version.txt
 VERSION := $(shell tr -d '\n' < $(VERSION_FILE))
+PYTHON ?= py -3
 
 .PHONY: uv-venv uv-sync dev migrate run lint typecheck test openapi-export version sync-version set-version release-tag
 
@@ -34,7 +34,7 @@ version:
 	@printf '%s\n' "$(VERSION)"
 
 sync-version:
-	python3 scripts/sync_version.py
+	$(PYTHON) scripts/sync_version.py
 
 set-version:
 	@test -n "$(NEW_VERSION)" || (printf '%s\n' 'NEW_VERSION is required' >&2; exit 1)
