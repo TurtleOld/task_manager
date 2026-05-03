@@ -1322,7 +1322,10 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
       g[c.column]?.push(c)
     }
     for (const k of Object.keys(g)) {
-      g[Number(k)]?.sort((a, b) => (a.position > b.position ? 1 : -1))
+      g[Number(k)]?.sort((a, b) => {
+        const createdDiff = Date.parse(b.created_at) - Date.parse(a.created_at)
+        return createdDiff || b.id - a.id
+      })
     }
     return g
   }, [filteredCards])
