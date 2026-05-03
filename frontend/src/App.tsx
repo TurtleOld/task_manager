@@ -22,9 +22,6 @@ import type {
   UserRole,
   AdminUser,
   NotificationProfile,
-  NotificationPreference,
-  NotificationChannel,
-  NotificationEventType,
   CardDeadlineReminderResponse,
   CardDeadlineReminder,
 } from './api/types'
@@ -2967,11 +2964,7 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
   const [passwordError, setPasswordError] = useState('')
   const [passwordSaving, setPasswordSaving] = useState(false)
   const [notificationProfile, setNotificationProfile] = useState<NotificationProfile | null>(null)
-  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreference[]>([])
-  const [notificationSaving, setNotificationSaving] = useState(false)
   const [notificationError, setNotificationError] = useState('')
-  const [notificationBoardFilter, setNotificationBoardFilter] = useState<'all' | number>('all')
-  const [notificationBoards, setNotificationBoards] = useState<Board[]>([])
   const [overdueInterval, setOverdueInterval] = useState<number>(30)
   const [overdueIntervalSaving, setOverdueIntervalSaving] = useState(false)
   const deviceTimeZone = useMemo(() => getDeviceTimeZone(), [])
@@ -3016,10 +3009,6 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
         const profile = await api.getNotificationProfile()
         const nextProfile = await ensureProfileTimeZoneInitialized(profile, deviceTimeZone)
         setNotificationProfile(nextProfile)
-        const prefs = await api.listNotificationPreferences()
-        setNotificationPrefs(prefs)
-        const boards = await api.listBoards()
-        setNotificationBoards(boards)
         if (user.is_admin) {
           const settings = await api.getSiteSettings()
           setOverdueInterval(settings.overdue_reminder_interval)
@@ -3039,81 +3028,6 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
     setAccountEmail(notificationProfile?.email ?? '')
     setAccountTimeZone(resolveTimeZone(notificationProfile?.timezone ?? deviceTimeZone))
   }, [deviceTimeZone, notificationProfile?.email, notificationProfile?.timezone])
-
-  const eventCatalog: { value: NotificationEventType; label: string }[] = [
-    { value: 'board.created', label: 'Создание досок' },
-    { value: 'board.updated', label: 'Редактирование досок' },
-    { value: 'board.deleted', label: 'Удаление досок' },
-    { value: 'column.created', label: 'Создание колонок' },
-    { value: 'column.updated', label: 'Редактирование колонок' },
-    { value: 'column.deleted', label: 'Удаление колонок' },
-    { value: 'card.created', label: 'Создание карточек' },
-    { value: 'card.updated', label: 'Редактирование карточек' },
-    { value: 'card.deleted', label: 'Удаление карточек' },
-    { value: 'card.moved', label: 'Перемещение карточек' },
-  ]
-
-  const channelCatalog: { value: NotificationChannel; label: string }[] = [
-    { value: 'email', label: 'Email' },
-    { value: 'telegram', label: 'Telegram' },
-  ]
-
-  const togglePreference = async (
-    channel: NotificationChannel,
-    eventType: NotificationEventType,
-    enabled: boolean
-  ) => {
-    if (notificationSaving) return
-    setNotificationSaving(true)
-    setNotificationError('')
-    try {
-      const targetBoard = notificationBoardFilter === 'all' ? null : notificationBoardFilter
-      const existing = notificationPrefs.find(
-        (pref) => pref.channel === channel && pref.event_type === eventType && pref.board === targetBoard
-      )
-      if (existing) {
-        const updated = await api.updateNotificationPreference(existing.id, { enabled })
-        setNotificationPrefs((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
-      } else {
-        const created = await api.createNotificationPreference({
-          channel,
-          event_type: eventType,
-          enabled,
-          board: targetBoard,
-        })
-        setNotificationPrefs((prev) => [...prev, created])
-      }
-    } catch (e) {
-      setNotificationError((e as Error).message)
-    } finally {
-      setNotificationSaving(false)
-    }
-  }
-
-  const getPreferenceEnabled = (
-    channel: NotificationChannel,
-    eventType: NotificationEventType
-  ): boolean => {
-    const targetBoard = notificationBoardFilter === 'all' ? null : notificationBoardFilter
-    const pref = notificationPrefs.find(
-      (item) => item.channel === channel && item.event_type === eventType && item.board === targetBoard
-    )
-    return pref ? pref.enabled : true
-  }
-
-  const saveProfile = async (payload: Partial<NotificationProfile>) => {
-    if (notificationSaving) return
-    setNotificationSaving(true)
-    setNotificationError('')
-    try {
-      const updated = await api.updateNotificationProfile(payload)
-      setNotificationProfile(updated)
-    } catch (e) {
-      setNotificationError((e as Error).message)
-    } finally {
-      setNotificationSaving(false)
-    }
-  }
 
   const saveAccountSettings = async () => {
     if (accountSaving) return
@@ -3138,20 +3052,6 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
       setNotificationError((e as Error).message)
     } finally {
       setAccountSaving(false)
-    }
-  }
-
-  const saveBoardNotificationContacts = async (boardId: number, payload: { notification_email?: string; notification_telegram_chat_id?: string }) => {
-    if (notificationSaving) return
-    setNotificationSaving(true)
-    setNotificationError('')
-    try {
-      const updated = await api.updateBoard(boardId, payload)
-      setNotificationBoards((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
-    } catch (e) {
-      setNotificationError((e as Error).message)
-    } finally {
-      setNotificationSaving(false)
     }
   }
 
@@ -3372,196 +3272,54 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
               </div>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold">Уведомления</h2>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    Каналы, уровни и типы уведомлений по событиям.
+            {user.is_admin ? (
+              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold">Уведомления</h2>
+                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                      Настройки push-напоминаний для мобильного приложения.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-600 dark:text-amber-300">
+                    Push
+                  </span>
+                </div>
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Повторяющиеся напоминания о просроченных задачах
                   </p>
-                </div>
-                <span className="rounded-full bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-600 dark:text-amber-300">
-                  Коммуникации
-                </span>
-              </div>
-              <div className="mt-4 space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                      Уровень настроек
-                    </span>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    Интервал отправки push-уведомлений о просроченных задачах всем пользователям.
+                  </p>
+                  <div className="mt-3 flex items-center gap-3">
                     <select
-                      value={notificationBoardFilter === 'all' ? 'all' : String(notificationBoardFilter)}
-                      onChange={(event) => {
-                        const value = event.target.value
-                        setNotificationBoardFilter(value === 'all' ? 'all' : Number(value))
+                      value={overdueInterval}
+                      onChange={(e) => {
+                        const val = Number(e.target.value)
+                        setOverdueInterval(val)
+                        setOverdueIntervalSaving(true)
+                        api.updateSiteSettings({ overdue_reminder_interval: val })
+                          .then((s) => setOverdueInterval(s.overdue_reminder_interval))
+                          .catch((e) => setNotificationError((e as Error).message))
+                          .finally(() => setOverdueIntervalSaving(false))
                       }}
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                      disabled={overdueIntervalSaving}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                     >
-                      <option value="all">Все доски (глобально)</option>
-                      {notificationBoards.map((board) => (
-                        <option key={board.id} value={board.id}>
-                          {board.name}
-                        </option>
-                      ))}
+                      <option value={5}>5 минут</option>
+                      <option value={10}>10 минут</option>
+                      <option value={30}>30 минут</option>
+                      <option value={60}>1 час</option>
                     </select>
-                  </label>
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
-                    Выберите доску, чтобы переопределить глобальные правила.
+                    {overdueIntervalSaving ? (
+                      <span className="text-xs text-slate-400">Сохранение…</span>
+                    ) : null}
                   </div>
+                  {notificationError ? <p className="mt-3 text-sm text-rose-600">{notificationError}</p> : null}
                 </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                      Email
-                    </span>
-                    <input
-                      value={
-                        notificationBoardFilter === 'all'
-                          ? notificationProfile?.email ?? ''
-                          : notificationBoards.find((board) => board.id === notificationBoardFilter)?.notification_email ?? ''
-                      }
-                      onChange={(event) => {
-                        const value = event.target.value
-                        if (notificationBoardFilter === 'all') {
-                          setNotificationProfile((prev) => ({
-                            email: value,
-                            telegram_chat_id: prev?.telegram_chat_id ?? '',
-                            onesignal_player_id: prev?.onesignal_player_id,
-                            timezone: resolveTimeZone(prev?.timezone),
-                            timezone_configured: prev?.timezone_configured ?? false,
-                          }))
-                          return
-                        }
-                        setNotificationBoards((prev) =>
-                          prev.map((board) =>
-                            board.id === notificationBoardFilter ? { ...board, notification_email: value } : board
-                          )
-                        )
-                      }}
-                      onBlur={(event) => {
-                        const value = event.target.value
-                        if (notificationBoardFilter === 'all') {
-                          void saveProfile({ email: value })
-                        } else {
-                          void saveBoardNotificationContacts(notificationBoardFilter, { notification_email: value })
-                        }
-                      }}
-                      placeholder="name@company.com"
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                      Telegram chat_id
-                    </span>
-                    <input
-                      value={
-                        notificationBoardFilter === 'all'
-                          ? notificationProfile?.telegram_chat_id ?? ''
-                          : notificationBoards.find((board) => board.id === notificationBoardFilter)
-                              ?.notification_telegram_chat_id ?? ''
-                      }
-                      onChange={(event) => {
-                        const value = event.target.value
-                        if (notificationBoardFilter === 'all') {
-                          setNotificationProfile((prev) => ({
-                            email: prev?.email ?? '',
-                            telegram_chat_id: value,
-                            onesignal_player_id: prev?.onesignal_player_id,
-                            timezone: resolveTimeZone(prev?.timezone),
-                            timezone_configured: prev?.timezone_configured ?? false,
-                          }))
-                          return
-                        }
-                        setNotificationBoards((prev) =>
-                          prev.map((board) =>
-                            board.id === notificationBoardFilter
-                              ? { ...board, notification_telegram_chat_id: value }
-                              : board
-                          )
-                        )
-                      }}
-                      onBlur={(event) => {
-                        const value = event.target.value
-                        if (notificationBoardFilter === 'all') {
-                          void saveProfile({ telegram_chat_id: value })
-                        } else {
-                          void saveBoardNotificationContacts(notificationBoardFilter, { notification_telegram_chat_id: value })
-                        }
-                      }}
-                      placeholder="123456789"
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                    />
-                  </label>
-                </div>
-
-                <div className="space-y-3">
-                  {eventCatalog.map((eventItem) => (
-                    <div key={eventItem.value} className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {eventItem.label}
-                      </p>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        {channelCatalog.map((channelItem) => (
-                          <label
-                            key={`${eventItem.value}-${channelItem.value}`}
-                            className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                          >
-                            {channelItem.label}
-                            <input
-                              type="checkbox"
-                              checked={getPreferenceEnabled(channelItem.value, eventItem.value)}
-                              onChange={(event) =>
-                                void togglePreference(channelItem.value, eventItem.value, event.target.checked)
-                              }
-                              className="h-4 w-4 rounded border-slate-300 text-sky-600"
-                            />
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {notificationError ? <p className="text-sm text-rose-600">{notificationError}</p> : null}
-
-                {user.is_admin ? (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      Повторяющиеся напоминания о просроченных задачах
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Интервал отправки push-уведомлений о просроченных задачах всем пользователям.
-                    </p>
-                    <div className="mt-3 flex items-center gap-3">
-                      <select
-                        value={overdueInterval}
-                        onChange={(e) => {
-                          const val = Number(e.target.value)
-                          setOverdueInterval(val)
-                          setOverdueIntervalSaving(true)
-                          api.updateSiteSettings({ overdue_reminder_interval: val })
-                            .then((s) => setOverdueInterval(s.overdue_reminder_interval))
-                            .catch(() => {})
-                            .finally(() => setOverdueIntervalSaving(false))
-                        }}
-                        disabled={overdueIntervalSaving}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                      >
-                        <option value={5}>5 минут</option>
-                        <option value={10}>10 минут</option>
-                        <option value={30}>30 минут</option>
-                        <option value={60}>1 час</option>
-                      </select>
-                      {overdueIntervalSaving ? (
-                        <span className="text-xs text-slate-400">Сохранение…</span>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </section>
+              </section>
+            ) : null}
           </div>
 
           <div className="space-y-6">
