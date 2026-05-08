@@ -10,7 +10,25 @@ import {
 } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
 import { api } from './api/client'
-import { Badge, Button, Card as SurfaceCard, Field, PageShell, TextInput } from './shared/ui'
+import {
+  Badge,
+  Button,
+  Card as SurfaceCard,
+  Checkbox,
+  Chip,
+  ChipButton,
+  EmptyState,
+  ErrorState,
+  Field,
+  IconButton,
+  Modal,
+  PageShell,
+  RadioCard,
+  Select,
+  Textarea,
+  TextInput,
+  Toast,
+} from './shared/ui'
 import { useBoardWebSocket } from './useBoardWebSocket'
 import type { BoardEvent } from './useBoardWebSocket'
 import type {
@@ -363,6 +381,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
   const [dragged, setDragged] = useState<Card | null>(null)
   const [activeTag, setActiveTag] = useState('Все')
   const [activeCategory, setActiveCategory] = useState('Все')
+  const [searchQuery, setSearchQuery] = useState('')
   const [selectedCard, setSelectedCard] = useState<Card | null>(null)
 
   type CardDraft = {
@@ -1249,9 +1268,9 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
 
   const priorityFor = (card: Card) => {
     const marker = priorityMarkerFor(card)
-    if (marker === '🔥') return { label: 'Срочно', marker: '🔥', tone: 'bg-rose-500/15 text-rose-600 dark:text-rose-300' }
-    if (marker === '🟢') return { label: 'Можно когда будет время', marker: '🟢', tone: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300' }
-    return { label: 'Важно (до конца недели)', marker: '🟡', tone: 'bg-amber-500/15 text-amber-600 dark:text-amber-300' }
+    if (marker === '🔥') return { label: 'Срочно', marker: '🔥', tone: 'danger' as const }
+    if (marker === '🟢') return { label: 'Можно когда будет время', marker: '🟢', tone: 'success' as const }
+    return { label: 'Важно (до конца недели)', marker: '🟡', tone: 'warning' as const }
   }
 
   const formatDateTime = (value: string) => {
@@ -1277,21 +1296,27 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
     return `Обновлено ${formatDateTime(value)}`
   }
 
-  const tagOptions = ['Все', ...new Set(Object.values(cardTags).flat())]
-  const categoryOptions = ['Все', ...new Set(Object.values(cardCategories).flat())]
+  const tagOptions = useMemo(() => ['Все', ...new Set(Object.values(cardTags).flat())], [cardTags])
+  const categoryOptions = useMemo(() => ['Все', ...new Set(Object.values(cardCategories).flat())], [cardCategories])
 
   const tagsFor = (card: Card) => cardTags[card.id] ?? []
   const categoriesFor = (card: Card) => cardCategories[card.id] ?? []
   const deadlineFor = (card: Card) => cardDeadlines[card.id] ?? card.deadline ?? ''
   const priorityMarkerFor = (card: Card) => cardPriorities[card.id] ?? '🟡'
 
-  const filteredCards = cards.filter((card) => {
-    const tags = tagsFor(card)
-    const categories = categoriesFor(card)
-    const matchesTag = activeTag === 'Все' || tags.includes(activeTag)
-    const matchesCategory = activeCategory === 'Все' || categories.includes(activeCategory)
-    return matchesTag && matchesCategory
-  })
+  const filteredCards = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+
+    return cards.filter((card) => {
+      const tags = cardTags[card.id] ?? []
+      const categories = cardCategories[card.id] ?? []
+      const matchesTag = activeTag === 'Все' || tags.includes(activeTag)
+      const matchesCategory = activeCategory === 'Все' || categories.includes(activeCategory)
+      const searchable = [card.title, card.description, ...tags, ...categories].join(' ').toLowerCase()
+      const matchesSearch = !query || searchable.includes(query)
+      return matchesTag && matchesCategory && matchesSearch
+    })
+  }, [activeCategory, activeTag, cardCategories, cardTags, cards, searchQuery])
 
   const grouped = useMemo(() => {
     const g: Record<number, Card[]> = {}
@@ -1310,6 +1335,9 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
 
   const allKnownTags = tagOptions.filter((t) => t !== 'Все')
   const allKnownCategories = categoryOptions.filter((c) => c !== 'Все')
+  const urgentCardsCount = cards.filter((card) => priorityMarkerFor(card) === '🔥').length
+  const datedCardsCount = cards.filter((card) => Boolean(deadlineFor(card))).length
+  const activeFilterCount = [activeTag !== 'Все', activeCategory !== 'Все', Boolean(searchQuery.trim())].filter(Boolean).length
 
   const addTagValue = (valueRaw: string) => {
     if (!selectedCardId || !draft) return
@@ -1430,171 +1458,138 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
 
   const availableIcons = ['📋', '📝', '⚡', '✅', '🧩', '🛠️', '🎯', '📦', '💡', '🔍']
   const accentClasses = [
-    'text-sky-600 dark:text-sky-400',
-    'text-amber-600 dark:text-amber-400',
-    'text-emerald-600 dark:text-emerald-400',
-    'text-rose-600 dark:text-rose-400',
-    'text-indigo-600 dark:text-indigo-400',
-    'text-teal-600 dark:text-teal-400',
+    'text-primary',
+    'text-warning',
+    'text-success',
+    'text-danger',
+    'text-secondary',
+    'text-accent',
   ]
   const accentForColumn = (index: number) => accentClasses[index % accentClasses.length]
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-12 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <header className="border-b border-slate-200 bg-white/80 px-4 py-6 backdrop-blur dark:border-slate-800 dark:bg-slate-950/80">
+    <div className="min-h-screen bg-background pb-12 text-text">
+      <header className="sticky top-0 z-sticky border-b border-border bg-surface/90 px-4 py-5 shadow-surface backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-              <Link to="/" className="hover:text-sky-600">Все доски</Link>
+            <nav className="flex items-center gap-2 text-body-sm text-text-muted" aria-label="Навигация по доскам">
+              <Link to="/" className="hover:text-primary">Все доски</Link>
               <span aria-hidden="true">/</span>
               <span>{boardName}</span>
-            </div>
-            <h1 className="mt-2 text-2xl font-semibold">{boardName}</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Перетаскивайте карточки между колонками и отслеживайте прогресс.
-            </p>
+            </nav>
+            <h1 className="mt-2 text-h1 text-text">{boardName || 'Доска'}</h1>
+            <p className="text-body-sm text-text-muted">Перетаскивайте задачи, фильтруйте поток и открывайте детали без потери контекста.</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsCreatingColumn(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
-              aria-label="Создать колонку"
-            >
-              <span aria-hidden="true">＋</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => setIsCreatingColumn(true)} variant="secondary" aria-label="Создать колонку">
+              <span aria-hidden="true">+</span>
               Новая колонка
-            </button>
-            <button
-              onClick={onLogout}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-rose-300 hover:text-rose-600 dark:border-slate-700 dark:text-slate-200"
-              aria-label="Выйти"
-            >
+            </Button>
+            <Button onClick={onLogout} variant="danger" aria-label="Выйти">
               Выйти
-            </button>
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-                aria-label="Переключить тему"
-              >
-              <span aria-hidden="true">🌓</span>
+            </Button>
+            <Button type="button" variant="secondary" onClick={toggleTheme} aria-label="Переключить тему">
               Тема
-            </button>
+            </Button>
           </div>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 pt-6">
+        <section className="grid gap-3 sm:grid-cols-3" aria-label="Сводка по доске">
+          <SurfaceCard className="p-4">
+            <p className="text-caption uppercase text-text-muted">Всего задач</p>
+            <p className="mt-1 text-h2 text-text">{cards.length}</p>
+          </SurfaceCard>
+          <SurfaceCard className="p-4">
+            <p className="text-caption uppercase text-text-muted">С дедлайном</p>
+            <p className="mt-1 text-h2 text-info">{datedCardsCount}</p>
+          </SurfaceCard>
+          <SurfaceCard className="p-4">
+            <p className="text-caption uppercase text-text-muted">Срочные</p>
+            <p className="mt-1 text-h2 text-danger">{urgentCardsCount}</p>
+          </SurfaceCard>
+        </section>
+
         {isCreatingColumn ? (
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <label className="flex-1">
-                <span className="sr-only">Название колонки</span>
-                <input
+          <SurfaceCard as="section" className="p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <Field label="Название колонки" htmlFor="new-column-name" className="flex-1">
+                <TextInput
+                  id="new-column-name"
                   value={colName}
                   onChange={(e) => setColName(e.target.value)}
                   placeholder="Введите название"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
-              </label>
-              <label className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                  Иконка
-                </span>
-                <select
-                  value={colIcon}
-                  onChange={(e) => setColIcon(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                  aria-label="Выбор иконки колонки"
-                >
+              </Field>
+              <Field label="Иконка" htmlFor="new-column-icon">
+                <Select id="new-column-icon" value={colIcon} onChange={(e) => setColIcon(e.target.value)} aria-label="Выбор иконки колонки">
                   {availableIcons.map((icon) => (
-                    <option key={icon} value={icon}>
-                      {icon}
-                    </option>
+                    <option key={icon} value={icon}>{icon}</option>
                   ))}
-                </select>
-              </label>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={onCreateColumn}
-                  className="inline-flex items-center justify-center rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500"
-                  aria-label="Добавить колонку"
-                >
-                  Добавить
-                </button>
-                <button
+                </Select>
+              </Field>
+              <div className="flex min-h-11 items-center gap-2">
+                <Button onClick={onCreateColumn} aria-label="Добавить колонку">Добавить</Button>
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => {
                     setIsCreatingColumn(false)
                     setColName('')
                   }}
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
                   aria-label="Отменить создание колонки"
                 >
                   Отмена
-                </button>
+                </Button>
               </div>
             </div>
-          </section>
+          </SurfaceCard>
         ) : null}
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <SurfaceCard as="section">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Фильтры по тегам и категориям</h3>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                Быстро находите задачи по направлениям и типам работ.
-              </p>
+              <h2 className="text-h3 text-text">Поиск и фильтры</h2>
+              <p className="mt-1 text-body-sm text-text-muted">Быстро находите задачи по названию, описанию, тегам и категориям.</p>
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              Активно: {activeTag} / {activeCategory}
-            </div>
+            <Badge variant={activeFilterCount ? 'primary' : 'neutral'}>
+              Активных фильтров: {activeFilterCount}
+            </Badge>
           </div>
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
+            <Field label="Поиск" htmlFor="board-task-search" className="lg:col-span-2">
+              <TextInput
+                id="board-task-search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Название, описание, тег или категория"
+              />
+            </Field>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Теги</p>
+              <p className="text-label uppercase text-text-muted">Теги</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {tagOptions.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => setActiveTag(tag)}
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                      activeTag === tag
-                        ? 'border-sky-400 bg-sky-500/10 text-sky-600 dark:text-sky-300'
-                        : 'border-slate-200 text-slate-500 hover:border-slate-300 dark:border-slate-700 dark:text-slate-300'
-                    }`}
-                  >
+                  <ChipButton key={tag} active={activeTag === tag} tone="primary" onClick={() => setActiveTag(tag)}>
                     {tag}
-                  </button>
+                  </ChipButton>
                 ))}
               </div>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Категории</p>
+              <p className="text-label uppercase text-text-muted">Категории</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {categoryOptions.map((category) => (
-                  <button
-                    key={category}
-                    type="button"
-                    onClick={() => setActiveCategory(category)}
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                      activeCategory === category
-                        ? 'border-emerald-400 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300'
-                        : 'border-slate-200 text-slate-500 hover:border-slate-300 dark:border-slate-700 dark:text-slate-300'
-                    }`}
-                  >
+                  <ChipButton key={category} active={activeCategory === category} tone="success" onClick={() => setActiveCategory(category)}>
                     {category}
-                  </button>
+                  </ChipButton>
                 ))}
               </div>
             </div>
           </div>
-        </section>
+        </SurfaceCard>
 
-        <section
-          className="grid gap-5 lg:grid-cols-3"
-          aria-label="Колонки канбан-доски"
-        >
+        <section className="grid gap-5 lg:grid-cols-3" aria-label="Колонки канбан-доски">
           {sortedColumns.map((col, index) => {
             const displayName = col.name?.trim() ? col.name : ''
             const displayIcon = col.icon?.trim() ? col.icon : ''
@@ -1602,7 +1597,7 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
             return (
               <div
                 key={col.id}
-                className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/80"
+                className="flex h-full flex-col rounded-panel border border-border bg-surface-elevated/80 p-4 shadow-surface backdrop-blur transition-colors duration-fast ease-standard"
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={() => handleDropOnColumn(col.id)}
                 aria-label={`Колонка ${displayName || 'Без названия'}`}
@@ -1613,34 +1608,40 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                       {displayIcon ? (
                         <span className="text-xl" aria-hidden="true">{displayIcon}</span>
                       ) : null}
-                      <h2 className={`text-lg font-semibold ${accent}`}>{displayName}</h2>
+                      <h2 className={`text-h3 ${accent}`}>{displayName}</h2>
                     </div>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                  <Badge>
                     {(grouped[col.id] || []).length} задач
-                  </span>
+                  </Badge>
                 </div>
 
                 <div className="mt-4 flex items-center gap-2">
                   <label className="flex-1">
                     <span className="sr-only">Новая карточка</span>
-                    <input
+                    <TextInput
                       placeholder="Название задачи"
                       value={newCardTitle[col.id] || ''}
                       onChange={(e) => setNewCardTitle((s) => ({ ...s, [col.id]: e.target.value }))}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                     />
                   </label>
-                  <button
+                  <IconButton
                     onClick={() => onCreateCard(col.id)}
-                    className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                    variant="primary"
                     aria-label={`Добавить карточку в ${displayName || 'колонку'}`}
                   >
                     +
-                  </button>
+                  </IconButton>
                 </div>
 
                 <ul className="mt-4 space-y-4" aria-label={`Карточки ${displayName || 'колонки'}`}>
+                  {(grouped[col.id] || []).length === 0 ? (
+                    <li>
+                      <EmptyState title="Нет задач" className="p-4 text-left">
+                        Создайте первую задачу в этой колонке.
+                      </EmptyState>
+                    </li>
+                  ) : null}
                   {(grouped[col.id] || []).map((card) => {
                     const priority = priorityFor(card)
                     const tags = tagsFor(card)
@@ -1651,82 +1652,71 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                     return (
                       <li
                         key={card.id}
-                        className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-950"
+                        className="group rounded-panel border border-border bg-surface p-4 shadow-surface transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-elevated"
                         draggable
                         onDragStart={() => setDragged(card)}
                         onDragEnd={() => setDragged(null)}
-                        onClick={() => setSelectedCard(card)}
-                        aria-label={`Открыть задачу ${card.title}`}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault()
-                            setSelectedCard(card)
-                          }
-                        }}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                              {card.title}
-                            </h3>
-                            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-                              {card.description}
-                            </p>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCard(card)}
+                          className="block w-full rounded-control text-left"
+                          aria-label={`Открыть задачу ${card.title}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h3 className="text-body-sm font-semibold text-text">
+                                {card.title}
+                              </h3>
+                              <p className="mt-2 line-clamp-3 text-caption text-text-muted">
+                                {card.description}
+                              </p>
+                            </div>
+                            <Chip tone={priority.tone} active>
+                              {priority.marker} {priority.label}
+                            </Chip>
                           </div>
-                          <span
-                            className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${priority.tone}`}
-                          >
-                            {priority.marker} {priority.label}
-                          </span>
-                        </div>
 
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                          {categories.map((category) => (
-                            <span
-                              key={category}
-                              className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                            >
-                              {category}
-                            </span>
-                          ))}
-                        </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {tags.map((tag) => (
+                              <Chip key={tag} tone="primary">
+                                {tag}
+                              </Chip>
+                            ))}
+                            {categories.map((category) => (
+                              <Chip key={category} tone="success">
+                                {category}
+                              </Chip>
+                            ))}
+                          </div>
 
-                        {deadline && (
-                          <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            {deadline ? (
-                              <span className="rounded-full border border-slate-200 px-2 py-1 dark:border-slate-700">
-                                ⏰ {formatDateTime(deadline)}
+                          {deadline && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {deadline ? (
+                                <Chip tone="warning">
+                                  ⏰ {formatDateTime(deadline)}
+                                </Chip>
+                              ) : null}
+                            </div>
+                          )}
+
+                          {assigneeName && (
+                            <div className="mt-3 flex items-center gap-1.5 text-caption text-text-muted">
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-caption font-bold text-primary">
+                                {assigneeName[0]?.toUpperCase()}
                               </span>
-                            ) : null}
-                          </div>
-                        )}
+                              <span>{assigneeName}</span>
+                            </div>
+                          )}
+                        </button>
 
-                        {assigneeName && (
-                          <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-sky-100 text-[10px] font-bold text-sky-700 dark:bg-sky-900 dark:text-sky-300">
-                              {assigneeName[0]?.toUpperCase()}
-                            </span>
-                            <span>{assigneeName}</span>
-                          </div>
-                        )}
-
-                        <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                        <div className="mt-3 flex items-center justify-between text-caption text-text-muted">
                           <span className="inline-flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
                             {formatUpdatedStatus(card.updated_at)}
                           </span>
                           <div className="flex items-center gap-1 md:hidden">
-                            <button
+                            <IconButton
                               type="button"
                               onClick={(event) => {
                                 stopCardOpen(event)
@@ -1737,12 +1727,12 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                                   stopCardKeyBubble(event)
                                 }
                               }}
-                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+                              className="min-h-8 min-w-8"
                               aria-label="Поднять карточку"
                             >
                               ↑
-                            </button>
-                            <button
+                            </IconButton>
+                            <IconButton
                               type="button"
                               onClick={(event) => {
                                 stopCardOpen(event)
@@ -1753,12 +1743,12 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                                   stopCardKeyBubble(event)
                                 }
                               }}
-                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+                              className="min-h-8 min-w-8"
                               aria-label="Опустить карточку"
                             >
                               ↓
-                            </button>
-                            <button
+                            </IconButton>
+                            <IconButton
                               type="button"
                               onClick={(event) => {
                                 stopCardOpen(event)
@@ -1769,12 +1759,12 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                                   stopCardKeyBubble(event)
                                 }
                               }}
-                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+                              className="min-h-8 min-w-8"
                               aria-label="Переместить влево"
                             >
                               ←
-                            </button>
-                            <button
+                            </IconButton>
+                            <IconButton
                               type="button"
                               onClick={(event) => {
                                 stopCardOpen(event)
@@ -1785,11 +1775,11 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                                   stopCardKeyBubble(event)
                                 }
                               }}
-                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+                              className="min-h-8 min-w-8"
                               aria-label="Переместить вправо"
                             >
                               →
-                            </button>
+                            </IconButton>
                           </div>
                         </div>
                       </li>
@@ -1803,113 +1793,89 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
       </main>
 
       {selectedCard && draft ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
-          <div className="w-full max-w-5xl rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-950">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Modal
+          open={Boolean(selectedCard && draft)}
+          onClose={() => {
+            if (!saveBusy && !deleteBusy) setSelectedCard(null)
+          }}
+          title={selectedCard.title || 'Редактирование задачи'}
+          className="max-h-[calc(100vh-2rem)] max-w-5xl overflow-y-auto"
+        >
+            <div className="flex flex-col gap-3 rounded-panel border border-border bg-background-subtle p-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                  Редактирование задачи
-                </p>
-                <h2 className="text-2xl font-semibold">{selectedCard.title}</h2>
+                <p className="text-label uppercase text-text-muted">Редактирование задачи</p>
+                <p className="text-caption text-text-muted">Сохранение, дедлайн, участники и контекст задачи в одном месте.</p>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void onSaveCard()}
-                  disabled={saveBusy || deleteBusy}
-                  className={`inline-flex items-center justify-center rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60`}
-                >
-                  {saveBusy ? 'Сохранение…' : 'Сохранить'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void deleteSelectedCard()}
-                  disabled={saveBusy || deleteBusy}
-                  className="inline-flex items-center justify-center rounded-xl border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-50 dark:border-rose-900/50 dark:text-rose-200 dark:hover:bg-rose-950"
-                >
-                  {deleteBusy ? 'Удаление…' : 'Удалить задачу'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCard(null)}
-                  disabled={saveBusy || deleteBusy}
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
-                >
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" onClick={() => void onSaveCard()} loading={saveBusy} disabled={deleteBusy}>
+                  Сохранить
+                </Button>
+                <Button type="button" variant="danger" onClick={() => void deleteSelectedCard()} loading={deleteBusy} disabled={saveBusy}>
+                  Удалить задачу
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setSelectedCard(null)} disabled={saveBusy || deleteBusy}>
                   Закрыть
-                </button>
+                </Button>
               </div>
             </div>
 
-            {modalError ? <p className="mt-3 text-sm text-rose-600">{modalError}</p> : null}
+            {modalError ? <p className="mt-3 text-body-sm text-danger" role="alert">{modalError}</p> : null}
 
             <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
               <div className="space-y-5">
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                    Заголовок
-                  </span>
-                  <input
+                <Field label="Заголовок" htmlFor="task-title">
+                  <TextInput
+                    id="task-title"
                     value={draft.title}
                     onChange={(event) => setDraft((prev) => (prev ? { ...prev, title: event.target.value } : prev))}
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                    Подробное описание
-                  </span>
-                    <textarea
-                      rows={4}
-                      value={draft.description}
-                      onChange={(event) => setDraft((prev) => (prev ? { ...prev, description: event.target.value } : prev))}
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                    />
-                </label>
-                <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-950">
+                </Field>
+                <Field label="Подробное описание" htmlFor="task-description">
+                  <Textarea
+                    id="task-description"
+                    rows={4}
+                    value={draft.description}
+                    onChange={(event) => setDraft((prev) => (prev ? { ...prev, description: event.target.value } : prev))}
+                  />
+                </Field>
+                <SurfaceCard as="section" className="p-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                        Напоминание о дедлайне
-                      </p>
-                      <h3 className="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                      <p className="text-label uppercase text-text-muted">Напоминание о дедлайне</p>
+                      <h3 className="text-body-sm font-semibold text-text">
                         {reminderDrafts.length > 0
                           ? `Напоминаний: ${reminderDrafts.filter((item) => item.enabled).length}`
                           : 'Напоминание отключено'}
                       </h3>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <label className="inline-flex items-center gap-2 text-[11px] text-slate-600 dark:text-slate-300">
-                        <input
-                          type="checkbox"
-                          checked={reminderDrafts.some((item) => item.enabled)}
-                          onChange={(event) => {
-                            const nextEnabled = event.target.checked
-                            setReminderDrafts((prev) => prev.map((item) => ({ ...item, enabled: nextEnabled })))
-                          }}
-                          className="h-4 w-4 rounded border-slate-300 text-sky-600"
-                          disabled={!(reminderData?.deadline || draft?.deadline) || reminderDrafts.length === 0}
-                        />
-                        Включено
-                      </label>
-                    </div>
+                    <Checkbox
+                      label="Включено"
+                      checked={reminderDrafts.some((item) => item.enabled)}
+                      onChange={(event) => {
+                        const nextEnabled = event.target.checked
+                        setReminderDrafts((prev) => prev.map((item) => ({ ...item, enabled: nextEnabled })))
+                      }}
+                      disabled={!(reminderData?.deadline || draft?.deadline) || reminderDrafts.length === 0}
+                      className="bg-background-subtle"
+                    />
                   </div>
 
                   {reminderLoading ? (
-                    <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">Загрузка настроек…</p>
+                    <p className="mt-2 text-caption text-text-muted">Загрузка настроек...</p>
                   ) : null}
 
                   {reminderError ? (
-                    <p className="mt-2 text-[11px] text-rose-600">{reminderError}</p>
+                    <p className="mt-2 text-caption text-danger" role="alert">{reminderError}</p>
                   ) : null}
 
                   {!reminderData?.deadline && !draft?.deadline ? (
-                    <div className="mt-2 rounded-lg border border-dashed border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
+                    <div className="mt-3 rounded-control border border-dashed border-warning/30 bg-warning/10 px-3 py-2 text-caption text-warning">
                       Установите срок выполнения, чтобы настроить напоминание.
                     </div>
                   ) : null}
 
                   {reminderDrafts.length === 0 && (reminderData?.deadline || draft?.deadline) ? (
-                    <div className="mt-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                    <div className="mt-3 rounded-control border border-dashed border-border bg-background-subtle px-3 py-2 text-caption text-text-muted">
                       Добавьте один или несколько интервалов напоминания.
                     </div>
                   ) : null}
@@ -1917,13 +1883,11 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                   {reminderDrafts.length > 0 && (reminderData?.deadline || draft?.deadline) ? (
                     <div className="mt-3 space-y-3">
                       <div className="space-y-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                          Интервалы до дедлайна
-                        </span>
+                        <span className="text-label uppercase text-text-muted">Интервалы до дедлайна</span>
                         <div className="space-y-2">
                           {reminderDrafts.map((item) => (
-                            <div key={item.id} className="flex flex-wrap items-center gap-2">
-                              <input
+                            <div key={item.id} className="flex flex-wrap items-center gap-2 rounded-control border border-border bg-background-subtle p-2">
+                              <TextInput
                                 type="number"
                                 min={1}
                                 max={item.offset_unit === 'hours' ? 168 : 1440}
@@ -1947,74 +1911,72 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                                   setReminderFieldError('')
                                   applyReminderValue(item.id, next)
                                 }}
-                                className="w-20 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                fullWidth={false}
+                                className="w-24"
                                 disabled={!item.enabled}
                               />
-                              <select
+                              <Select
                                 value={item.offset_unit}
                                 onChange={(event) => {
                                   applyReminderUnit(item.id, event.target.value as 'minutes' | 'hours')
                                   setReminderFieldError('')
                                 }}
-                                className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                fullWidth={false}
+                                className="w-28"
                                 disabled={!item.enabled}
                               >
                                 <option value="minutes">минут</option>
                                 <option value="hours">часов</option>
-                              </select>
-                              <label className="inline-flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-                                <input
-                                  type="checkbox"
-                                  checked={item.enabled}
-                                  onChange={(event) => toggleReminder(item.id, event.target.checked)}
-                                  className="h-3.5 w-3.5 rounded border-slate-300 text-sky-600"
-                                />
-                                Активно
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => removeReminderInterval(item.id)}
-                                className="text-[11px] font-semibold text-rose-600 hover:text-rose-500"
-                              >
+                              </Select>
+                              <Checkbox
+                                label="Активно"
+                                checked={item.enabled}
+                                onChange={(event) => toggleReminder(item.id, event.target.checked)}
+                                className="border-transparent bg-transparent px-2 shadow-none"
+                              />
+                              <Button type="button" variant="danger" size="sm" onClick={() => removeReminderInterval(item.id)}>
                                 Удалить
-                              </button>
+                              </Button>
                             </div>
                           ))}
                         </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <input
+                          <div className="flex flex-wrap items-center gap-2 rounded-control border border-dashed border-border bg-background-subtle p-2">
+                            <TextInput
                               type="number"
                               min={1}
                               max={newReminderUnit === 'hours' ? 168 : 1440}
                               step={1}
                               value={newReminderValue}
                               onChange={(event) => setNewReminderValue(Number(event.target.value) || 1)}
-                              className="w-20 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                              fullWidth={false}
+                              className="w-24"
                             />
-                            <select
+                            <Select
                               value={newReminderUnit}
                               onChange={(event) => setNewReminderUnit(event.target.value as 'minutes' | 'hours')}
-                              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                              fullWidth={false}
+                              className="w-28"
                             >
                               <option value="minutes">минут</option>
                               <option value="hours">часов</option>
-                            </select>
-                            <button
+                            </Select>
+                            <Button
                               type="button"
                               onClick={() => addReminderInterval(newReminderValue, newReminderUnit)}
                               disabled={!(reminderData?.deadline || draft?.deadline)}
-                              className="rounded-full border border-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 transition hover:border-sky-300 hover:text-sky-700 disabled:opacity-60 dark:border-slate-700 dark:text-slate-300"
+                              variant="secondary"
+                              size="sm"
                             >
                               Добавить интервал
-                            </button>
+                            </Button>
                           </div>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                        <div className="flex items-center gap-2 text-caption text-text-muted">
                           Изменения сохраняются вместе с общей кнопкой “Сохранить”.
                         </div>
                       </div>
 
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                        <p className="font-semibold">Канал доставки</p>
+                      <div className="rounded-control border border-border bg-background-subtle p-3 text-caption text-text-muted">
+                        <p className="font-semibold text-text">Канал доставки</p>
                         <div className="mt-2 grid gap-2">
                           {(['email', 'telegram'] as const).map((channel) => {
                             const info = reminderData?.channels?.[channel]
@@ -2025,119 +1987,88 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                             const isOnlyAvailable = availableCount === 1
                             const isAuto = reminderDrafts.every((item) => item.channel === null) && isOnlyAvailable && available
                             return (
-                              <label
+                              <RadioCard
                                 key={channel}
-                                className={`flex items-start gap-2 rounded-md border px-2.5 py-2 ${
-                                  available
-                                    ? 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950'
-                                    : 'border-rose-200 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/40'
-                                }`}
-                              >
-                                <input
-                                  type="radio"
-                                  name="reminder-channel"
-                                  value={channel}
-                                  checked={reminderDrafts.every((item) => item.channel === channel) || isAuto}
-                                  onChange={() => applyReminderChannel(channel)}
-                                  disabled={!available}
-                                  className="mt-1 h-4 w-4 text-sky-600"
-                                />
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-semibold">
-                                      {channel === 'email' ? 'Email' : 'Telegram'}
-                                    </span>
-                                    {isAuto ? (
-                                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200">
-                                        единственный доступный
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                  {!available ? (
-                                    <p className="mt-1 text-[10px] text-rose-600">{info?.reason || 'Недоступен'}</p>
-                                  ) : null}
-                                </div>
-                              </label>
+                                name="reminder-channel"
+                                value={channel}
+                                checked={reminderDrafts.every((item) => item.channel === channel) || isAuto}
+                                onChange={() => applyReminderChannel(channel)}
+                                disabled={!available}
+                                label={channel === 'email' ? 'Email' : 'Telegram'}
+                                description={!available ? info?.reason || 'Недоступен' : isAuto ? 'Единственный доступный канал' : undefined}
+                                className={!available ? 'border-danger/25 bg-danger/10' : undefined}
+                              />
                             )
                           })}
                         </div>
                         {reminderFieldError ? (
-                          <p className="mt-2 text-[10px] text-rose-600">{reminderFieldError}</p>
+                          <p className="mt-2 text-caption text-danger" role="alert">{reminderFieldError}</p>
                         ) : null}
                       </div>
 
                       {reminderDrafts.some((item) => item.status === 'invalid.past') ? (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
+                        <div className="rounded-control border border-warning/30 bg-warning/10 px-3 py-2 text-caption text-warning">
                           Время напоминания уже прошло. Скорректируйте интервал или срок выполнения.
                         </div>
                       ) : null}
                       {reminderDrafts.some((item) => item.status === 'invalid.channel') ? (
-                        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-200">
+                        <div className="rounded-control border border-danger/30 bg-danger/10 px-3 py-2 text-caption text-danger">
                           Канал доставки недоступен. Проверьте настройки уведомлений.
                         </div>
                       ) : null}
                     </div>
                   ) : null}
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
+                </SurfaceCard>
+                <SurfaceCard as="section" className="bg-background-subtle p-4 shadow-none">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-semibold">Чек-лист</h3>
+                    <h3 className="text-body-sm font-semibold text-text">Чек-лист</h3>
                     <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                      <input
+                      <TextInput
                         value={newChecklistItem}
                         onChange={(event) => setNewChecklistItem(event.target.value)}
                         placeholder="Добавить пункт"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        className="sm:w-56"
                       />
-                      <button
-                        type="button"
-                        onClick={addChecklistItem}
-                        className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white"
-                      >
+                      <Button type="button" onClick={addChecklistItem} size="sm">
                         Добавить
-                      </button>
+                      </Button>
                     </div>
                   </div>
-                  <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                  <div className="mt-3 space-y-2 text-body-sm text-text-muted">
                     {selectedChecklist.length === 0 ? (
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Пока нет пунктов чек-листа.</p>
+                      <EmptyState title="Пока нет пунктов" className="p-4">
+                        Добавьте первый пункт, чтобы отслеживать прогресс задачи.
+                      </EmptyState>
                     ) : (
                       selectedChecklist.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between gap-3">
-                          <label className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={item.done}
-                              onChange={() => toggleChecklistItem(item.id)}
-                              className="h-4 w-4 rounded border-slate-300 text-sky-600"
-                            />
-                        <span className={item.done ? 'line-through opacity-70' : ''}>{item.text}</span>
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => removeChecklistItem(item.id)}
-                            className="text-xs font-semibold text-rose-600 hover:text-rose-500"
-                          >
+                        <div key={item.id} className="flex items-center justify-between gap-3 rounded-control border border-border bg-surface px-3 py-2">
+                          <Checkbox
+                            label={<span className={item.done ? 'line-through opacity-70' : ''}>{item.text}</span>}
+                            checked={item.done}
+                            onChange={() => toggleChecklistItem(item.id)}
+                            className="flex-1 border-transparent bg-transparent px-0 py-0 shadow-none"
+                          />
+                          <Button type="button" variant="danger" size="sm" onClick={() => removeChecklistItem(item.id)}>
                             Удалить
-                          </button>
+                          </Button>
                         </div>
                       ))
                     )}
                   </div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
+                </SurfaceCard>
+                <SurfaceCard as="section" className="bg-background-subtle p-4 shadow-none">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-semibold">Вложения, ссылки, фото</h3>
+                    <h3 className="text-body-sm font-semibold text-text">Вложения, ссылки, фото</h3>
                     <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                      <select
+                      <Select
                         value={newAttachmentType}
                         onChange={(event) => setNewAttachmentType(event.target.value as 'file' | 'link' | 'photo')}
-                        className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                        className="sm:w-28"
                       >
                         <option value="file">Файл</option>
                         <option value="link">Ссылка</option>
                         <option value="photo">Фото</option>
-                      </select>
+                      </Select>
 
                       {newAttachmentType === 'file' ? (
                         <>
@@ -2152,59 +2083,59 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                             }}
                             className="hidden"
                           />
-                          <button
+                          <Button
                             type="button"
                             onClick={() => attachmentFileInputRef.current?.click()}
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            variant="secondary"
+                            size="sm"
+                            className="justify-start sm:w-56"
                           >
                             {newAttachmentFiles.length === 0
                               ? 'Файл не выбран'
                               : newAttachmentFiles.length === 1
                                 ? newAttachmentFiles[0]?.name
                                 : `Выбрано: ${newAttachmentFiles.length} файла(ов)`}
-                          </button>
+                          </Button>
                         </>
                       ) : (
                         <>
-                          <input
+                          <TextInput
                             value={newAttachmentName}
                             onChange={(event) => setNewAttachmentName(event.target.value)}
                             placeholder="Название"
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            className="sm:w-44"
                           />
-                          <input
+                          <TextInput
                             value={newAttachmentUrl}
                             onChange={(event) => setNewAttachmentUrl(event.target.value)}
                             placeholder="URL (необязательно)"
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            className="sm:w-52"
                           />
                         </>
                       )}
-                      <button
-                        type="button"
-                        onClick={addAttachment}
-                        className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white"
-                      >
+                      <Button type="button" onClick={addAttachment} size="sm">
                         Добавить
-                      </button>
+                      </Button>
                     </div>
                   </div>
-                  <div className="mt-3 grid gap-2 text-xs text-slate-600 dark:text-slate-300">
+                  <div className="mt-3 grid gap-2 text-body-sm text-text-muted">
                     {selectedAttachments.length === 0 ? (
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Вложения отсутствуют.</p>
+                      <EmptyState title="Вложения отсутствуют" className="p-4">
+                        Прикрепите файл или добавьте ссылку к задаче.
+                      </EmptyState>
                     ) : (
                       selectedAttachments.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+                        <div key={item.id} className="flex items-center justify-between gap-3 rounded-control border border-border bg-surface px-3 py-2">
                           <span className="inline-flex items-center gap-2">
                             {item.type === 'file' ? '📎' : item.type === 'photo' ? '🖼️' : '🔗'} {item.name}
                           </span>
-                          <div className="flex items-center gap-2 text-xs">
+                          <div className="flex items-center gap-2 text-caption">
                             {item.type === 'file' && item.url ? (
                               <a
                                 href={item.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="font-semibold text-sky-600 hover:text-sky-500"
+                                className="font-semibold text-primary hover:text-primary-hover"
                               >
                                 Открыть
                               </a>
@@ -2214,40 +2145,33 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                                 href={item.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="font-semibold text-sky-600 hover:text-sky-500"
+                                className="font-semibold text-primary hover:text-primary-hover"
                               >
                                 Открыть
                               </a>
                             ) : null}
-                            <button
-                              type="button"
-                              onClick={() => void removeAttachment(item)}
-                              className="text-rose-600 hover:text-rose-500"
-                            >
+                            <Button type="button" variant="danger" size="sm" onClick={() => void removeAttachment(item)}>
                               Удалить
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       ))
                     )}
                   </div>
-                </div>
+                </SurfaceCard>
               </div>
 
               <div className="space-y-5">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                      Ответственный
-                    </span>
-                    <select
+                  <Field label="Ответственный" htmlFor="task-assignee">
+                    <Select
+                      id="task-assignee"
                       value={draft.assignee ?? ''}
                       onChange={(event) => {
                         if (!selectedCardId) return
                         const next = event.target.value ? Number(event.target.value) : null
                         setDraft((prev) => (prev ? { ...prev, assignee: next } : prev))
                       }}
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                     >
                       <option value="">Не назначен</option>
                       {assignees.map((assignee) => (
@@ -2255,13 +2179,16 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                           {assignee.name}
                         </option>
                       ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                      Срок выполнения
-                    </span>
-                    <input
+                    </Select>
+                  </Field>
+                  <Field
+                    label="Срок выполнения"
+                    htmlFor="task-deadline"
+                    hint={`Выберите дату и время завершения задачи в часовом поясе ${getTimeZoneLabel(profileTimeZone)}.`}
+                    hintId="task-deadline-hint"
+                  >
+                    <TextInput
+                      id="task-deadline"
                       type="datetime-local"
                       value={draft.deadline}
                       onChange={(event) => {
@@ -2270,102 +2197,93 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                         setDraft((prev) => (prev ? { ...prev, deadline: value } : prev))
                         scheduleDeadlineSave()
                       }}
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                      aria-describedby="task-deadline-hint"
                     />
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Выберите дату и время завершения задачи в часовом поясе {getTimeZoneLabel(profileTimeZone)}.
-                    </p>
-                  </label>
+                  </Field>
                 </div>
 
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
-                  <h3 className="text-sm font-semibold">Приоритет</h3>
-                  <div className="mt-3 grid gap-2 text-sm">
+                <SurfaceCard className="bg-background-subtle p-4 shadow-none">
+                  <h3 className="text-body-sm font-semibold text-text">Приоритет</h3>
+                  <div className="mt-3 grid gap-2">
                     {[
-                      { marker: '🔥', label: 'срочно' },
-                      { marker: '🟡', label: 'важно (до конца недели)' },
-                      { marker: '🟢', label: 'можно когда будет время' },
+                      { marker: '🔥', label: 'Срочно', description: 'Нужно обработать в первую очередь' },
+                      { marker: '🟡', label: 'Важно', description: 'Желательно закрыть до конца недели' },
+                      { marker: '🟢', label: 'Можно позже', description: 'Не блокирует текущую работу' },
                     ].map((item) => (
-                      <label key={item.label} className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="priority"
-                          checked={selectedPriority === item.marker}
-                          onChange={() => {
-                            if (!selectedCardId) return
-                            setDraft((prev) => (prev ? { ...prev, priority: item.marker as '🔥' | '🟡' | '🟢' } : prev))
-                          }}
-                          className="h-4 w-4 text-sky-600"
-                        />
-                        {item.marker} {item.label}
-                      </label>
+                      <RadioCard
+                        key={item.label}
+                        name="priority"
+                        checked={selectedPriority === item.marker}
+                        onChange={() => {
+                          if (!selectedCardId) return
+                          setDraft((prev) => (prev ? { ...prev, priority: item.marker as '🔥' | '🟡' | '🟢' } : prev))
+                        }}
+                        label={`${item.marker} ${item.label}`}
+                        description={item.description}
+                      />
                     ))}
                   </div>
-                </div>
+                </SurfaceCard>
 
-                <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-950">
-                  <h3 className="text-sm font-semibold">Теги и категории</h3>
+                <SurfaceCard as="section" className="p-4">
+                  <h3 className="text-body-sm font-semibold text-text">Теги и категории</h3>
                   <div className="mt-3 grid gap-3">
-                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                      <p className="font-semibold">Доступные теги</p>
+                    <div className="rounded-control border border-dashed border-border bg-background-subtle p-3 text-caption text-text-muted">
+                      <p className="font-semibold text-text">Доступные теги</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {allKnownTags.length === 0 ? (
-                          <span className="text-slate-500 dark:text-slate-400">Пока нет тегов в этой доске.</span>
+                          <span>Пока нет тегов в этой доске.</span>
                         ) : (
                           allKnownTags
                             .filter((tag) => !selectedTags.includes(tag))
                             .filter((tag) => (newTag.trim() ? tag.toLowerCase().includes(newTag.trim().toLowerCase()) : true))
                             .map((tag) => (
-                              <button
+                              <ChipButton
                                 key={tag}
-                                type="button"
                                 onClick={() => addTagValue(tag)}
-                                className="rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold uppercase tracking-wide text-slate-600 transition hover:border-sky-300 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                                tone="primary"
                               >
                                 + {tag}
-                              </button>
+                              </ChipButton>
                             ))
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2 text-xs">
+                    <div className="flex flex-wrap gap-2">
                       {selectedTags.length === 0 ? (
-                        <span className="text-xs text-slate-500 dark:text-slate-400">Теги не добавлены.</span>
+                        <span className="text-caption text-text-muted">Теги не добавлены.</span>
                       ) : (
                         selectedTags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-300"
-                          >
+                          <Chip key={tag} tone="primary">
                             {tag}
                             <button
                               type="button"
                               onClick={() => removeTag(tag)}
-                              className="text-rose-500 hover:text-rose-400"
+                              className="text-danger hover:text-danger/80"
+                              aria-label={`Удалить тег ${tag}`}
                             >
                               ×
                             </button>
-                          </span>
+                          </Chip>
                         ))
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <input
+                      <TextInput
                         value={newTag}
                         onChange={(event) => setNewTag(event.target.value)}
                         placeholder="Новый тег"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                       />
-                      <button type="button" onClick={addTag} className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white">
+                      <Button type="button" onClick={addTag} size="sm">
                         Добавить
-                      </button>
+                      </Button>
                     </div>
 
-                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                      <p className="font-semibold">Доступные категории</p>
+                    <div className="rounded-control border border-dashed border-border bg-background-subtle p-3 text-caption text-text-muted">
+                      <p className="font-semibold text-text">Доступные категории</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {allKnownCategories.length === 0 ? (
-                          <span className="text-slate-500 dark:text-slate-400">Пока нет категорий в этой доске.</span>
+                          <span>Пока нет категорий в этой доске.</span>
                         ) : (
                           allKnownCategories
                             .filter((category) => !selectedCategories.includes(category))
@@ -2373,93 +2291,62 @@ function BoardPage({ onLogout, user }: { onLogout: () => void; user: AuthUser })
                               newCategory.trim() ? category.toLowerCase().includes(newCategory.trim().toLowerCase()) : true
                             )
                             .map((category) => (
-                              <button
+                              <ChipButton
                                 key={category}
-                                type="button"
                                 onClick={() => addCategoryValue(category)}
-                                className="rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold uppercase tracking-wide text-slate-600 transition hover:border-emerald-300 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                                tone="success"
                               >
                                 + {category}
-                              </button>
+                              </ChipButton>
                             ))
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2 text-xs">
+                    <div className="flex flex-wrap gap-2">
                       {selectedCategories.length === 0 ? (
-                        <span className="text-xs text-slate-500 dark:text-slate-400">Категории не добавлены.</span>
+                        <span className="text-caption text-text-muted">Категории не добавлены.</span>
                       ) : (
                         selectedCategories.map((category) => (
-                          <span
-                            key={category}
-                            className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 font-semibold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                          >
+                          <Chip key={category} tone="success">
                             {category}
                             <button
                               type="button"
                               onClick={() => removeCategory(category)}
-                              className="text-rose-500 hover:text-rose-400"
+                              className="text-danger hover:text-danger/80"
+                              aria-label={`Удалить категорию ${category}`}
                             >
                               ×
                             </button>
-                          </span>
+                          </Chip>
                         ))
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <input
+                      <TextInput
                         value={newCategory}
                         onChange={(event) => setNewCategory(event.target.value)}
                         placeholder="Новая категория"
-                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                       />
-                      <button type="button" onClick={addCategory} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">
+                      <Button type="button" onClick={addCategory} size="sm" variant="secondary">
                         Добавить
-                      </button>
+                      </Button>
                     </div>
                   </div>
-                </div>
+                </SurfaceCard>
 
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       ) : null}
 
       {toast ? (
-        <div className="fixed bottom-4 left-1/2 z-[60] w-[min(720px,calc(100%-2rem))] -translate-x-1/2">
-          <div
-            className={`rounded-2xl border px-4 py-3 shadow-lg backdrop-blur dark:bg-slate-950/90 ${
-              toast.tone === 'error'
-                ? 'border-rose-200 bg-white/95 text-slate-900 dark:border-rose-900/50 dark:text-slate-100'
-                : 'border-slate-200 bg-white/95 text-slate-900 dark:border-slate-800 dark:text-slate-100'
-            }`}
-            role="status"
-          >
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-medium">{toast.message}</p>
-              <div className="flex items-center gap-2">
-                {toast.retry ? (
-                  <button
-                    type="button"
-                    onClick={() => void retryToast()}
-                    disabled={toastSending}
-                    className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-                  >
-                    {toastSending ? 'Отправка…' : 'Повторить'}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => setToast(null)}
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
-                >
-                  Закрыть
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <Toast
+          tone={toast.tone === 'error' ? 'error' : 'info'}
+          onClose={() => setToast(null)}
+          action={toast.retry ? { label: 'Повторить', loading: toastSending, onClick: () => void retryToast() } : undefined}
+        >
+          {toast.message}
+        </Toast>
       ) : null}
     </div>
   )
@@ -2586,26 +2473,23 @@ function RegisterPage({ user }: { user: AuthUser | null }) {
   }, [])
 
   if (loading) {
-    return <div className="p-6 text-slate-600 dark:text-slate-300">Loading…</div>
+    return <div className="p-6 text-text-muted">Loading...</div>
   }
 
   const allow = Boolean(status?.allow_first || status?.allow_admin)
   if (!allow) {
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-12 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-        <div className="mx-auto w-full max-w-lg space-y-4">
-          <h1 className="text-2xl font-semibold">Регистрация недоступна</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Регистрация возможна только при пустой базе или через администратора.
-          </p>
-          <Link
-            to={user ? '/settings' : '/login'}
-            className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white"
-          >
-            {user ? 'Вернуться в настройки' : 'Ко входу'}
-          </Link>
-        </div>
-      </div>
+      <PageShell width="lg" padding="comfortable" spacing="sm">
+        <ErrorState
+          title="Регистрация недоступна"
+          action={{
+            label: user ? 'Вернуться в настройки' : 'Ко входу',
+            onClick: () => navigate(user ? '/settings' : '/login'),
+          }}
+        >
+          Регистрация возможна только при пустой базе или через администратора.
+        </ErrorState>
+      </PageShell>
     )
   }
 
@@ -2657,136 +2541,121 @@ function RegisterPage({ user }: { user: AuthUser | null }) {
       setSaving(false)
     }
   }
-
-
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-12 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto w-full max-w-5xl space-y-6">
-        <header className="space-y-2">
-          <p className="text-sm font-semibold uppercase tracking-widest text-sky-600 dark:text-sky-400">
-            Task Manager
-          </p>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1 className="text-3xl font-semibold">Создание пользователя</h1>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Заполните карточку доступа и назначьте права.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link
-                to={status?.allow_first ? '/login' : '/settings'}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
-              >
-                Назад
-              </Link>
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-              >
-                🌓 Тема
-              </button>
-            </div>
+    <PageShell width="xl" padding="comfortable" spacing="sm">
+      <header className="space-y-2">
+        <p className="text-label uppercase text-primary">Task Manager</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-h1 text-text">Создание пользователя</h1>
+            <p className="text-body-sm text-text-muted">Заполните карточку доступа и назначьте права.</p>
           </div>
-        </header>
+          <div className="flex items-center gap-2">
+            <Link
+              to={status?.allow_first ? '/login' : '/settings'}
+              className="inline-flex min-h-11 items-center gap-2 rounded-control border border-border bg-surface px-4 py-2 text-button text-text shadow-surface transition-colors duration-fast ease-standard hover:border-border-strong hover:bg-surface-hover"
+            >
+              Назад
+            </Link>
+            <Button type="button" variant="secondary" onClick={toggleTheme}>
+              Тема
+            </Button>
+          </div>
+        </div>
+      </header>
 
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <form
-            onSubmit={onSubmit}
-            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-          >
+      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <SurfaceCard as="form" onSubmit={onSubmit}>
             <div className="space-y-6">
               <section className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">Данные учетной записи</h2>
-                  <span className="rounded-full bg-sky-500/10 px-2 py-1 text-xs font-semibold text-sky-600 dark:text-sky-300">
-                    Аккаунт
-                  </span>
+                  <h2 className="text-h3 text-text">Данные учетной записи</h2>
+                  <Badge variant="primary">Аккаунт</Badge>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                      Имя и фамилия
-                    </span>
-                    <input
+                  <Field
+                    label="Имя и фамилия"
+                    htmlFor="register-full-name"
+                    error={formErrors.fullName}
+                    errorId="register-full-name-error"
+                  >
+                    <TextInput
+                      id="register-full-name"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                      autoComplete="name"
+                      invalid={Boolean(formErrors.fullName)}
+                      aria-describedby={formErrors.fullName ? 'register-full-name-error' : undefined}
                     />
-                    {formErrors.fullName ? (
-                      <p className="mt-1 text-xs text-rose-600">{formErrors.fullName}</p>
-                    ) : null}
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                      Логин
-                    </span>
-                    <input
+                  </Field>
+                  <Field
+                    label="Логин"
+                    htmlFor="register-username"
+                    error={formErrors.username}
+                    errorId="register-username-error"
+                  >
+                    <TextInput
+                      id="register-username"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                      autoComplete="username"
+                      invalid={Boolean(formErrors.username)}
+                      aria-describedby={formErrors.username ? 'register-username-error' : undefined}
                     />
-                    {formErrors.username ? (
-                      <p className="mt-1 text-xs text-rose-600">{formErrors.username}</p>
-                    ) : null}
-                  </label>
-                  <label className="block sm:col-span-2">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                      Пароль
-                    </span>
-                    <input
+                  </Field>
+                  <Field
+                    className="sm:col-span-2"
+                    label="Пароль"
+                    htmlFor="register-password"
+                    error={formErrors.password}
+                    errorId="register-password-error"
+                  >
+                    <TextInput
+                      id="register-password"
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                      autoComplete="new-password"
+                      invalid={Boolean(formErrors.password)}
+                      aria-describedby={formErrors.password ? 'register-password-error' : undefined}
                     />
-                    {formErrors.password ? (
-                      <p className="mt-1 text-xs text-rose-600">{formErrors.password}</p>
-                    ) : null}
-                  </label>
+                  </Field>
                 </div>
               </section>
 
               <section className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">Роли и доступ</h2>
-                  <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
-                    Безопасность
-                  </span>
+                  <h2 className="text-h3 text-text">Роли и доступ</h2>
+                  <Badge variant="success">Безопасность</Badge>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                      Роль
-                    </span>
-                    <select
+                  <Field label="Роль" htmlFor="register-role" error={formErrors.role} errorId="register-role-error">
+                    <Select
+                      id="register-role"
                       value={role}
                       onChange={(e) => setRole(e.target.value as UserRole)}
-                      className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                      invalid={Boolean(formErrors.role)}
+                      aria-describedby={formErrors.role ? 'register-role-error' : undefined}
                     >
                       <option value="admin">Администратор</option>
                       <option value="manager">Менеджер</option>
                       <option value="editor">Редактор</option>
                       <option value="viewer">Наблюдатель</option>
-                    </select>
-                    {formErrors.role ? (
-                      <p className="mt-1 text-xs text-rose-600">{formErrors.role}</p>
-                    ) : null}
-                  </label>
-                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                    <p className="font-semibold">Подсказка</p>
+                    </Select>
+                  </Field>
+                  <div className="rounded-control border border-dashed border-border bg-background-subtle p-3 text-caption text-text-muted">
+                    <p className="font-semibold text-text">Подсказка</p>
                     <p className="mt-1">
                       Роль задает базовый набор прав. При необходимости включите ручную настройку.
                     </p>
                   </div>
                 </div>
-                <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                <label className="flex items-center gap-2 text-body-sm text-text-muted">
                   <input
                     type="checkbox"
                     checked={useCustomPermissions}
                     onChange={(event) => setUseCustomPermissions(event.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-sky-600"
+                    className="h-4 w-4 rounded border-border text-primary"
                   />
                   Настроить права вручную
                 </label>
@@ -2797,7 +2666,7 @@ function RegisterPage({ user }: { user: AuthUser | null }) {
                       return (
                         <label
                           key={permission.key}
-                          className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-950"
+                          className="flex items-start gap-3 rounded-control border border-border bg-surface px-3 py-3 text-body-sm shadow-surface"
                         >
                           <input
                             type="checkbox"
@@ -2809,111 +2678,95 @@ function RegisterPage({ user }: { user: AuthUser | null }) {
                                   : current.filter((item) => item !== permission.key)
                               )
                             }}
-                            className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600"
+                            className="mt-1 h-4 w-4 rounded border-border text-primary"
                           />
                           <span>
-                            <span className="font-semibold text-slate-900 dark:text-slate-100">
-                              {permission.label}
-                            </span>
-                            <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
-                              {permission.desc}
-                            </span>
+                            <span className="font-semibold text-text">{permission.label}</span>
+                            <span className="mt-1 block text-caption text-text-muted">{permission.desc}</span>
                           </span>
                         </label>
                       )
                     })}
                     {formErrors.permissions ? (
-                      <p className="text-xs text-rose-600 sm:col-span-2">{formErrors.permissions}</p>
+                      <p className="text-caption text-danger sm:col-span-2">{formErrors.permissions}</p>
                     ) : null}
                   </div>
                 ) : null}
               </section>
 
-              {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-              {successMessage ? <p className="text-sm text-emerald-600">{successMessage}</p> : null}
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500 disabled:opacity-60"
-              >
+              {error ? <p className="text-body-sm text-danger" role="alert">{error}</p> : null}
+              {successMessage ? <p className="text-body-sm text-success">{successMessage}</p> : null}
+              <Button type="submit" loading={saving} fullWidth>
                 Создать пользователя
-              </button>
+              </Button>
             </div>
-          </form>
+        </SurfaceCard>
 
           <aside className="space-y-6">
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <h3 className="text-lg font-semibold">Дизайн раздела настроек</h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            <SurfaceCard as="section" className="p-5">
+              <h3 className="text-h3 text-text">Дизайн раздела настроек</h3>
+              <p className="mt-2 text-body-sm text-text-muted">
                 Раздел построен по принципу карточек: каждый блок отвечает за конкретную зону управления.
               </p>
-              <ul className="mt-4 space-y-3 text-sm text-slate-600 dark:text-slate-300">
+              <ul className="mt-4 space-y-3 text-body-sm text-text-muted">
                 <li className="flex items-start gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-sky-500" aria-hidden="true" />
+                  <span className="mt-1 h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
                   Аккаунт: профиль, контактные данные, язык.
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+                  <span className="mt-1 h-2 w-2 rounded-full bg-success" aria-hidden="true" />
                   Безопасность: роли, пароли, активные сессии.
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-amber-500" aria-hidden="true" />
+                  <span className="mt-1 h-2 w-2 rounded-full bg-warning" aria-hidden="true" />
                   Уведомления: каналы, расписания, критичность.
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-indigo-500" aria-hidden="true" />
+                  <span className="mt-1 h-2 w-2 rounded-full bg-secondary" aria-hidden="true" />
                   Предпочтения: тема, формат дат, плотность интерфейса.
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="mt-1 h-2 w-2 rounded-full bg-teal-500" aria-hidden="true" />
+                  <span className="mt-1 h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
                   Доступность: контраст, размер шрифта, озвучка.
                 </li>
               </ul>
-            </section>
+            </SurfaceCard>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <h3 className="text-lg font-semibold">Статус создания</h3>
-              <div className="mt-3 space-y-3 text-sm text-slate-600 dark:text-slate-400">
+            <SurfaceCard as="section" className="p-5">
+              <h3 className="text-h3 text-text">Статус создания</h3>
+              <div className="mt-3 space-y-3 text-body-sm text-text-muted">
                 <p>Перед созданием пользователя система попросит подтвердить действие.</p>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+                <div className="rounded-control border border-border bg-background-subtle p-3 text-caption text-text-muted">
                   {confirmOpen
                     ? 'Подтверждение ожидает вашего решения.'
                     : 'Подтверждение не запрашивалось.'}
                 </div>
               </div>
-            </section>
+            </SurfaceCard>
           </aside>
         </div>
-      </div>
 
-      {confirmOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900">
-            <h3 className="text-lg font-semibold">Подтвердите создание</h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Создать пользователя <span className="font-semibold">{fullName || username}</span> с ролью{' '}
-              <span className="font-semibold">{role}</span>?
-            </p>
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={(event) => onSubmit(event as unknown as React.FormEvent)}
-                className="inline-flex items-center justify-center rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500"
-              >
-                Подтвердить
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
+      <Modal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Подтвердите создание"
+        footer={(
+          <>
+            <Button type="button" variant="secondary" onClick={() => setConfirmOpen(false)}>
+              Отмена
+            </Button>
+            <Button type="button" loading={saving} onClick={(event) => onSubmit(event as unknown as React.FormEvent)}>
+              Подтвердить
+            </Button>
+          </>
+        )}
+      >
+        <p className="text-body-sm text-text-muted">
+          Создать пользователя <span className="font-semibold text-text">{fullName || username}</span> с ролью{' '}
+          <span className="font-semibold text-text">{role}</span>?
+        </p>
+      </Modal>
+    </PageShell>
   )
 }
 
@@ -3090,18 +2943,15 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-12 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto w-full max-w-6xl space-y-6">
+    <PageShell width="2xl" padding="comfortable" spacing="sm">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold">Настройки</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Управление учетной записью и доступом.
-            </p>
+            <h1 className="text-h1 text-text">Настройки</h1>
+            <p className="text-body-sm text-text-muted">Управление учетной записью и доступом.</p>
           </div>
           <Link
             to="/"
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
+            className="inline-flex min-h-11 items-center gap-2 rounded-control border border-border bg-surface px-4 py-2 text-button text-text shadow-surface transition-colors duration-fast ease-standard hover:border-border-strong hover:bg-surface-hover"
           >
             Назад к доскам
           </Link>
@@ -3109,120 +2959,103 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <SurfaceCard as="section">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Пользователь</p>
-                  <p className="text-lg font-semibold">
+                  <p className="text-body-sm text-text-muted">Пользователь</p>
+                  <p className="text-h3 text-text">
                     {user.full_name || user.username}{' '}
                     {user.is_admin ? (
-                      <span className="ml-2 rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
-                        Администратор
-                      </span>
+                      <Badge variant="success" className="ml-2">Администратор</Badge>
                     ) : null}
                   </p>
                 </div>
-                <button
-                  onClick={onLogout}
-                  className="inline-flex items-center gap-2 rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 shadow-sm transition hover:border-rose-300"
-                >
+                <Button onClick={onLogout} variant="danger">
                   Выйти
-                </button>
+                </Button>
               </div>
-            </section>
+            </SurfaceCard>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <SurfaceCard as="section">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold">Аккаунт</h2>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    Личные данные, рабочий профиль, язык интерфейса.
-                  </p>
+                  <h2 className="text-h3 text-text">Аккаунт</h2>
+                  <p className="mt-1 text-body-sm text-text-muted">Личные данные, рабочий профиль, язык интерфейса.</p>
                 </div>
-                <span className="rounded-full bg-sky-500/10 px-2 py-1 text-xs font-semibold text-sky-600 dark:text-sky-300">
-                  Профиль
-                </span>
+                <Badge variant="primary">Профиль</Badge>
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                    Имя
-                  </span>
-                  <input
+                <Field label="Имя" htmlFor="account-full-name">
+                  <TextInput
+                    id="account-full-name"
                     value={accountFullName}
                     onChange={(event) => setAccountFullName(event.target.value)}
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                    autoComplete="name"
                   />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                    Email
-                  </span>
-                  <input
+                </Field>
+                <Field label="Email" htmlFor="account-email">
+                  <TextInput
+                    id="account-email"
+                    type="email"
                     value={accountEmail}
                     onChange={(event) => setAccountEmail(event.target.value)}
                     placeholder="name@company.com"
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                    autoComplete="email"
                   />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                    Язык интерфейса
-                  </span>
-                  <select
+                </Field>
+                <Field label="Язык интерфейса" htmlFor="account-language">
+                  <Select
+                    id="account-language"
                     value={accountLanguage}
                     onChange={(event) => setAccountLanguage(event.target.value)}
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   >
                     <option value="ru">Русский</option>
                     <option value="en">English</option>
                     <option value="de">Deutsch</option>
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                    Часовой пояс</span>
-                  <select
+                  </Select>
+                </Field>
+                <Field
+                  label="Часовой пояс"
+                  htmlFor="account-timezone"
+                  hint="Этот часовой пояс используется для отображения дат и времени в веб и мобильном приложении."
+                  hintId="account-timezone-hint"
+                >
+                  <Select
+                    id="account-timezone"
                     value={accountTimeZone}
                     onChange={(event) => {
                       setAccountTimeZone(resolveTimeZone(event.target.value))
                     }}
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                    aria-describedby="account-timezone-hint"
                   >
                     {TIMEZONE_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
                     ))}
-                  </select>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    Этот часовой пояс используется для отображения дат и времени в веб и мобильном приложении.
-                  </p>
-                </label>
+                  </Select>
+                </Field>
               </div>
-              {accountMessage ? <p className="mt-4 text-sm text-emerald-600">{accountMessage}</p> : null}
-              {notificationError ? <p className="mt-4 text-sm text-rose-600">{notificationError}</p> : null}
-              <button
+              {accountMessage ? <p className="mt-4 text-body-sm text-success">{accountMessage}</p> : null}
+              {notificationError ? <p className="mt-4 text-body-sm text-danger" role="alert">{notificationError}</p> : null}
+              <Button
                 type="button"
                 onClick={() => void saveAccountSettings()}
-                disabled={accountSaving}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200"
+                loading={accountSaving}
+                variant="secondary"
+                className="mt-4"
               >
                 Сохранить изменения
-              </button>
-            </section>
+              </Button>
+            </SurfaceCard>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <SurfaceCard as="section">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold">Безопасность</h2>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    Пароли, сессии, контроль доступа и 2FA.
-                  </p>
+                  <h2 className="text-h3 text-text">Безопасность</h2>
+                  <p className="mt-1 text-body-sm text-text-muted">Пароли, сессии, контроль доступа и 2FA.</p>
                 </div>
-                <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
-                  Доступ
-                </span>
+                <Badge variant="success">Доступ</Badge>
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
@@ -3240,30 +3073,28 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
                   </button>
                 </div>
               </div>
-            </section>
+            </SurfaceCard>
 
             {user.is_admin ? (
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <SurfaceCard as="section">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold">Уведомления</h2>
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    <h2 className="text-h3 text-text">Уведомления</h2>
+                    <p className="mt-1 text-body-sm text-text-muted">
                       Настройки push-напоминаний для мобильного приложения.
                     </p>
                   </div>
-                  <span className="rounded-full bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-600 dark:text-amber-300">
-                    Push
-                  </span>
+                  <Badge variant="warning">Push</Badge>
                 </div>
-                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <div className="mt-4 rounded-control border border-border bg-background-subtle p-4">
+                  <p className="text-body-sm font-semibold text-text">
                     Повторяющиеся напоминания о просроченных задачах
                   </p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 text-caption text-text-muted">
                     Интервал отправки push-уведомлений о просроченных задачах всем пользователям.
                   </p>
                   <div className="mt-3 flex items-center gap-3">
-                    <select
+                    <Select
                       value={overdueInterval}
                       onChange={(e) => {
                         const val = Number(e.target.value)
@@ -3275,34 +3106,33 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
                           .finally(() => setOverdueIntervalSaving(false))
                       }}
                       disabled={overdueIntervalSaving}
-                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                      className="max-w-40"
                     >
                       <option value={5}>5 минут</option>
                       <option value={10}>10 минут</option>
                       <option value={30}>30 минут</option>
                       <option value={60}>1 час</option>
-                    </select>
+                    </Select>
                     {overdueIntervalSaving ? (
-                      <span className="text-xs text-slate-400">Сохранение…</span>
+                      <span className="text-caption text-text-muted">Сохранение...</span>
                     ) : null}
                   </div>
-                  {notificationError ? <p className="mt-3 text-sm text-rose-600">{notificationError}</p> : null}
+                  {notificationError ? <p className="mt-3 text-body-sm text-danger" role="alert">{notificationError}</p> : null}
                 </div>
-              </section>
+              </SurfaceCard>
             ) : null}
           </div>
 
           <div className="space-y-6">
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <SurfaceCard as="section">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold">Персональные предпочтения</h2>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  <h2 className="text-h3 text-text">Персональные предпочтения</h2>
+                  <p className="mt-1 text-body-sm text-text-muted">
                     Внешний вид и плотность интерфейса.
                   </p>
                 </div>
-                <span className="rounded-full bg-indigo-500/10 px-2 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300">
-                  UI</span>
+                <Badge variant="info">UI</Badge>
               </div>
               <div className="mt-4 grid gap-4">
                 <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
@@ -3324,18 +3154,17 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
                   </select>
                 </label>
               </div>
-            </section>
+            </SurfaceCard>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <SurfaceCard as="section">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold">Доступность</h2>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  <h2 className="text-h3 text-text">Доступность</h2>
+                  <p className="mt-1 text-body-sm text-text-muted">
                     Контраст, размер шрифта и ассистивные функции.
                   </p>
                 </div>
-                <span className="rounded-full bg-teal-500/10 px-2 py-1 text-xs font-semibold text-teal-600 dark:text-teal-300">
-                  A11y</span>
+                <Badge variant="info">A11y</Badge>
               </div>
               <div className="mt-4 space-y-4">
                 <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
@@ -3360,20 +3189,20 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
                   <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-sky-600" />
                 </label>
               </div>
-            </section>
+            </SurfaceCard>
 
             {user.is_admin ? (
-              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <SurfaceCard as="section">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold">Пользователи</h2>
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    <h2 className="text-h3 text-text">Пользователи</h2>
+                    <p className="mt-1 text-body-sm text-text-muted">
                       Управляйте пользователями, ролями и доступами.
                     </p>
                   </div>
                   <Link
                     to="/register"
-                    className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-control bg-primary px-4 py-2 text-button text-text-inverse shadow-surface transition-colors duration-fast ease-standard hover:bg-primary-hover"
                   >
                     Создать пользователя
                   </Link>
@@ -3381,19 +3210,20 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
 
                 <div className="mt-6 grid gap-4 lg:grid-cols-[0.8fr_1.2fr] xl:grid-cols-[0.7fr_1.3fr]">
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center justify-between text-body-sm text-text-muted">
                       <span>Список пользователей</span>
-                      <button
+                      <Button
                         type="button"
                         onClick={loadUsers}
-                        className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                        variant="secondary"
+                        size="sm"
                       >
                         Обновить
-                      </button>
+                      </Button>
                     </div>
                     <div className="space-y-2">
                       {loadingUsers ? (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Загрузка…</p>
+                        <p className="text-body-sm text-text-muted">Загрузка...</p>
                       ) : null}
                       {users.map((item) => (
                         <div
@@ -3423,10 +3253,12 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
                         </div>
                       ))}
                       {!loadingUsers && users.length === 0 ? (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Пользователи не найдены.</p>
+                        <EmptyState title="Пользователи не найдены" className="p-4">
+                          Создайте первого пользователя для управления доступом.
+                        </EmptyState>
                       ) : null}
                     </div>
-                    {usersError ? <p className="text-sm text-rose-600">{usersError}</p> : null}
+                    {usersError ? <p className="text-body-sm text-danger" role="alert">{usersError}</p> : null}
                   </div>
 
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
@@ -3442,22 +3274,19 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
                             </h3>
                           </div>
                           {selectedUser.is_admin ? (
-                            <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
-                              Админ
-                            </span>
+                            <Badge variant="success">Админ</Badge>
                           ) : null}
                         </div>
                         <p className="text-sm text-slate-600 dark:text-slate-400">
                           Откройте полный профиль, чтобы управлять ролью и правами пользователя.
                         </p>
                         <div className="flex flex-wrap items-center gap-2">
-                          <button
+                          <Button
                             type="button"
                             onClick={() => setProfileOpen(true)}
-                            className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500"
                           >
                             Открыть профиль
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ) : (
@@ -3465,11 +3294,10 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
                     )}
                   </div>
                 </div>
-              </section>
+              </SurfaceCard>
             ) : null}
           </div>
         </div>
-      </div>
 
       {passwordOpen && selectedUser ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
@@ -3668,7 +3496,7 @@ function SettingsPage({ user, onLogout, onUserUpdate }: { user: AuthUser; onLogo
           </div>
         </div>
       ) : null}
-    </div>
+    </PageShell>
   )
 }
 
