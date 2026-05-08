@@ -10,6 +10,7 @@ import {
 } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
 import { api } from './api/client'
+import { Badge, Button, Card as SurfaceCard, Field, PageShell, TextInput } from './shared/ui'
 import { useBoardWebSocket } from './useBoardWebSocket'
 import type { BoardEvent } from './useBoardWebSocket'
 import type {
@@ -286,86 +287,66 @@ function BoardsPage({ user, onLogout }: { user: AuthUser; onLogout: () => void }
     setBoards((prev) => [...prev, b])
     setName('')
   }
-  if (loading) return <div className="p-6 text-slate-600 dark:text-slate-300">Loading…</div>
+  if (loading) return <div className="p-6 text-text-muted">Loading...</div>
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto w-full max-w-5xl space-y-8">
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-semibold uppercase tracking-widest text-sky-600 dark:text-sky-400">
-              Task Manager
-            </p>
-            <h1 className="text-3xl font-semibold">Доски</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
-              Создавайте доски и управляйте задачами в одном месте.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
-              API online
-            </span>
-            <Link
-              to="/settings"
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 transition hover:border-slate-300 hover:text-slate-700 dark:border-slate-800 dark:text-slate-300"
-            >
-              {user.full_name || user.username}
-            </Link>
-            <button
-              onClick={onLogout}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-500 transition hover:border-rose-300 hover:text-rose-600 dark:border-slate-800 dark:text-slate-300"
-            >
-              Выйти
-            </button>
-          </div>
-        </header>
+    <PageShell width="xl">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-label uppercase text-primary">Task Manager</p>
+          <h1 className="text-h1 text-text">Доски</h1>
+          <p className="text-body-sm text-text-muted">Создавайте доски и управляйте задачами в одном месте.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="success">
+            <span className="h-2 w-2 rounded-full bg-success" aria-hidden="true" />
+            API online
+          </Badge>
+          <Link
+            to="/settings"
+            className="inline-flex min-h-8 items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-caption text-text-muted transition-colors duration-fast ease-standard hover:border-border-strong hover:text-text"
+          >
+            {user.full_name || user.username}
+          </Link>
+          <Button onClick={onLogout} variant="danger" size="sm" shape="pill">
+            Выйти
+          </Button>
+        </div>
+      </header>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <label className="flex-1">
-              <span className="sr-only">Название новой доски</span>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Название новой доски"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 shadow-inner dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            <button
-              onClick={onCreate}
-              className="inline-flex items-center justify-center rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500"
-              aria-label="Создать доску"
-            >
-              Создать
-            </button>
-          </div>
-        </section>
+      <SurfaceCard as="section">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <label className="flex-1">
+            <span className="sr-only">Название новой доски</span>
+            <TextInput
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Название новой доски"
+            />
+          </label>
+          <Button onClick={onCreate} aria-label="Создать доску">
+            Создать
+          </Button>
+        </div>
+      </SurfaceCard>
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {boards.map((b) => (
-            <Link
-              key={b.id}
-              to={`/boards/${b.id}`}
-              className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-slate-900 group-hover:text-sky-600 dark:text-slate-100">
-                    {b.name}
-                  </h2>
-                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                    Перейти к задачам и статусам.
-                  </p>
-                </div>
-                <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-                  #{b.id}
-                </span>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {boards.map((b) => (
+          <Link
+            key={b.id}
+            to={`/boards/${b.id}`}
+            className="group rounded-panel border border-border bg-surface p-5 shadow-surface transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-elevated"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-h3 text-text group-hover:text-primary">{b.name}</h2>
+                <p className="mt-2 text-body-sm text-text-muted">Перейти к задачам и статусам.</p>
               </div>
-            </Link>
-          ))}
-        </section>
-      </div>
-    </div>
+              <Badge>#{b.id}</Badge>
+            </div>
+          </Link>
+        ))}
+      </section>
+    </PageShell>
   )
 }
 
@@ -2528,66 +2509,55 @@ function LoginPage({ onLogin, token }: { onLogin: (user: AuthUser) => void; toke
     }
   }
 
+  const loginErrorId = error ? 'login-error' : undefined
+
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-12 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <div className="mx-auto w-full max-w-md space-y-6">
-        <header className="space-y-2 text-center">
-          <p className="text-sm font-semibold uppercase tracking-widest text-sky-600 dark:text-sky-400">
-            Task Manager
-          </p>
-          <h1 className="text-3xl font-semibold">Вход</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Войдите, чтобы увидеть ваши доски.
-          </p>
-        </header>
+    <PageShell width="md" padding="comfortable" spacing="sm">
+      <header className="space-y-2 text-center">
+        <p className="text-label uppercase text-primary">Task Manager</p>
+        <h1 className="text-h1 text-text">Вход</h1>
+        <p className="text-body-sm text-text-muted">Войдите, чтобы увидеть ваши доски.</p>
+      </header>
 
-        <form
-          onSubmit={onSubmit}
-          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-        >
-          <div className="space-y-4">
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                Логин
-              </span>
-              <input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                Пароль
-              </span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            {error ? <p className="text-sm text-rose-600">{error}</p> : null}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500 disabled:opacity-60"
-            >
-              Войти
-            </button>
-          </div>
-        </form>
+      <SurfaceCard as="form" onSubmit={onSubmit}>
+        <div className="space-y-4">
+          <Field label="Логин" htmlFor="login-username">
+            <TextInput
+              id="login-username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+              aria-describedby={loginErrorId}
+              invalid={Boolean(error)}
+            />
+          </Field>
+          <Field label="Пароль" htmlFor="login-password">
+            <TextInput
+              id="login-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              aria-describedby={loginErrorId}
+              invalid={Boolean(error)}
+            />
+          </Field>
+          {error ? <p id="login-error" className="text-body-sm text-danger">{error}</p> : null}
+          <Button type="submit" loading={loading} fullWidth>
+            Войти
+          </Button>
+        </div>
+      </SurfaceCard>
 
-        {!checkingRegistration && registrationStatus?.allow_first ? (
-          <div className="text-center text-sm text-slate-500 dark:text-slate-400">
-            Первый вход?{' '}
-            <Link to="/register" className="font-semibold text-sky-600 hover:text-sky-500">
-              Зарегистрироваться
-            </Link>
-          </div>
-        ) : null}
-      </div>
-    </div>
+      {!checkingRegistration && registrationStatus?.allow_first ? (
+        <div className="text-center text-body-sm text-text-muted">
+          Первый вход?{' '}
+          <Link to="/register" className="font-semibold text-primary hover:text-primary-hover">
+            Зарегистрироваться
+          </Link>
+        </div>
+      ) : null}
+    </PageShell>
   )
 }
 
