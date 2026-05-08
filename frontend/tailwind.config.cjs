@@ -1,11 +1,80 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  // В Tailwind v4 при использовании `@config` важно, чтобы CSS-файлы, где есть `@apply`,
-  // тоже попадали в источники сканирования.
+  // Single Tailwind source of truth. In Tailwind v4 with `@config`, CSS files that use
+  // `@apply` must be included in content scanning too.
   content: ['./index.html', './src/**/*.{ts,tsx,css}'],
   darkMode: 'class',
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        background: 'rgb(var(--color-background) / <alpha-value>)',
+        'background-subtle': 'rgb(var(--color-background-subtle) / <alpha-value>)',
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        'surface-elevated': 'rgb(var(--color-surface-elevated) / <alpha-value>)',
+        'surface-hover': 'rgb(var(--color-surface-hover) / <alpha-value>)',
+        primary: 'rgb(var(--color-primary) / <alpha-value>)',
+        'primary-hover': 'rgb(var(--color-primary-hover) / <alpha-value>)',
+        'primary-active': 'rgb(var(--color-primary-active) / <alpha-value>)',
+        secondary: 'rgb(var(--color-secondary) / <alpha-value>)',
+        accent: 'rgb(var(--color-accent) / <alpha-value>)',
+        text: 'rgb(var(--color-text) / <alpha-value>)',
+        'text-muted': 'rgb(var(--color-text-muted) / <alpha-value>)',
+        'text-inverse': 'rgb(var(--color-text-inverse) / <alpha-value>)',
+        border: 'rgb(var(--color-border) / <alpha-value>)',
+        'border-strong': 'rgb(var(--color-border-strong) / <alpha-value>)',
+        success: 'rgb(var(--color-success) / <alpha-value>)',
+        warning: 'rgb(var(--color-warning) / <alpha-value>)',
+        danger: 'rgb(var(--color-danger) / <alpha-value>)',
+        info: 'rgb(var(--color-info) / <alpha-value>)',
+        'focus-ring': 'rgb(var(--color-focus-ring) / <alpha-value>)',
+        'disabled-bg': 'rgb(var(--color-disabled-bg) / <alpha-value>)',
+        'disabled-text': 'rgb(var(--color-disabled-text) / <alpha-value>)',
+      },
+      fontFamily: {
+        sans: ['Inter', 'SF Pro Text', 'Segoe UI', 'Roboto', 'system-ui', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      },
+      fontSize: {
+        display: ['2.5rem', { lineHeight: '3rem', fontWeight: '700', letterSpacing: '-0.03em' }],
+        h1: ['2rem', { lineHeight: '2.5rem', fontWeight: '700', letterSpacing: '-0.02em' }],
+        h2: ['1.5rem', { lineHeight: '2rem', fontWeight: '650', letterSpacing: '-0.01em' }],
+        h3: ['1.25rem', { lineHeight: '1.75rem', fontWeight: '650', letterSpacing: '-0.01em' }],
+        body: ['1rem', { lineHeight: '1.5rem', fontWeight: '400' }],
+        'body-sm': ['0.875rem', { lineHeight: '1.25rem', fontWeight: '400' }],
+        caption: ['0.75rem', { lineHeight: '1rem', fontWeight: '500', letterSpacing: '0.01em' }],
+        button: ['0.875rem', { lineHeight: '1.25rem', fontWeight: '600' }],
+        label: ['0.8125rem', { lineHeight: '1.125rem', fontWeight: '600', letterSpacing: '0.01em' }],
+      },
+      borderRadius: {
+        control: 'var(--radius-sm)',
+        panel: 'var(--radius-md)',
+        overlay: 'var(--radius-lg)',
+        spacious: 'var(--radius-xl)',
+      },
+      boxShadow: {
+        surface: 'var(--shadow-surface)',
+        elevated: 'var(--shadow-elevated)',
+        overlay: 'var(--shadow-overlay)',
+      },
+      transitionDuration: {
+        fast: 'var(--motion-duration-fast)',
+        normal: 'var(--motion-duration-normal)',
+        slow: 'var(--motion-duration-slow)',
+      },
+      transitionTimingFunction: {
+        standard: 'var(--motion-easing-standard)',
+        entrance: 'var(--motion-easing-entrance)',
+        exit: 'var(--motion-easing-exit)',
+      },
+      zIndex: {
+        base: '0',
+        dropdown: '20',
+        sticky: '30',
+        overlay: '40',
+        modal: '50',
+        toast: '60',
+      },
+    },
   },
   plugins: [],
 }
