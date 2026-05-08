@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { cn } from '../lib/cn'
 
-type PageShellWidth = 'sm' | 'md' | 'lg' | 'xl' | 'full'
+type PageShellWidth = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
 type PageShellSpacing = 'none' | 'sm' | 'md'
 type PageShellPadding = 'none' | 'default' | 'comfortable'
 
@@ -10,6 +10,7 @@ const widthClasses: Record<PageShellWidth, string> = {
   md: 'max-w-md',
   lg: 'max-w-3xl',
   xl: 'max-w-5xl',
+  '2xl': 'max-w-6xl',
   full: 'max-w-none',
 }
 
