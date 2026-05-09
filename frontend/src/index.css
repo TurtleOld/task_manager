@@ -52,11 +52,11 @@
   }
 
   :root.dark {
-    --color-background: 8 13 24;
-    --color-background-subtle: 14 22 36;
-    --color-surface: 17 24 39;
-    --color-surface-elevated: 23 33 52;
-    --color-surface-hover: 28 39 61;
+    --color-background: 16 23 37;
+    --color-background-subtle: 22 31 48;
+    --color-surface: 28 39 58;
+    --color-surface-elevated: 34 47 69;
+    --color-surface-hover: 40 55 80;
     --color-primary: 96 165 250;
     --color-primary-hover: 125 177 250;
     --color-primary-active: 59 130 246;
@@ -64,26 +64,26 @@
     --color-accent: 45 212 191;
     --color-text: 241 245 249;
     --color-text-muted: 148 163 184;
-    --color-text-inverse: 8 13 24;
-    --color-border: 34 47 69;
-    --color-border-strong: 51 65 85;
+    --color-text-inverse: 15 23 42;
+    --color-border: 54 72 98;
+    --color-border-strong: 74 94 124;
     --color-success: 74 222 128;
     --color-warning: 251 191 36;
     --color-danger: 248 113 113;
     --color-info: 56 189 248;
     --color-focus-ring: 147 197 253;
-    --color-disabled-bg: 29 39 55;
-    --color-disabled-text: 100 116 139;
+    --color-disabled-bg: 40 53 74;
+    --color-disabled-text: 120 136 160;
 
-    --gradient-page: radial-gradient(circle at top left, rgb(59 130 246 / 0.16), transparent 24%),
-      radial-gradient(circle at top right, rgb(99 102 241 / 0.12), transparent 20%),
-      linear-gradient(180deg, rgb(9 14 26) 0%, rgb(8 13 24) 45%, rgb(12 19 31) 100%);
-    --gradient-surface: linear-gradient(180deg, rgb(19 28 45 / 0.96), rgb(16 23 38 / 0.98));
+    --gradient-page: radial-gradient(circle at top left, rgb(59 130 246 / 0.14), transparent 26%),
+      radial-gradient(circle at top right, rgb(99 102 241 / 0.10), transparent 22%),
+      linear-gradient(180deg, rgb(24 34 53) 0%, rgb(18 27 43) 45%, rgb(22 31 48) 100%);
+    --gradient-surface: linear-gradient(180deg, rgb(31 43 64 / 0.96), rgb(25 36 55 / 0.98));
     --gradient-primary: linear-gradient(135deg, rgb(59 130 246), rgb(129 140 248));
 
-    --shadow-surface: 0 1px 2px rgb(0 0 0 / 0.20), 0 14px 30px rgb(0 0 0 / 0.22);
-    --shadow-elevated: 0 20px 46px rgb(0 0 0 / 0.34), 0 10px 24px rgb(37 99 235 / 0.10);
-    --shadow-overlay: 0 32px 72px rgb(0 0 0 / 0.48), 0 16px 32px rgb(0 0 0 / 0.20);
+    --shadow-surface: 0 1px 2px rgb(0 0 0 / 0.14), 0 12px 26px rgb(0 0 0 / 0.16);
+    --shadow-elevated: 0 18px 40px rgb(0 0 0 / 0.24), 0 10px 22px rgb(37 99 235 / 0.08);
+    --shadow-overlay: 0 28px 60px rgb(0 0 0 / 0.34), 0 14px 28px rgb(0 0 0 / 0.16);
 
     color-scheme: dark;
   }
