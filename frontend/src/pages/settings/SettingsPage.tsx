@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LANGUAGE_KEY, loadLanguagePreference } from '../../app/auth'
+import { applyAppFontSize, DEFAULT_FONT_SIZE_PX, loadAppFontSize, MAX_FONT_SIZE_PX, MIN_FONT_SIZE_PX } from '../../app/preferences'
 import { api } from '../../api/client'
 import type { AdminUser, AuthUser, NotificationProfile, PermissionKey, UserRole } from '../../api/types'
 import { rolePresets, permissionCatalog } from '../../shared/lib/permissions'
@@ -40,6 +41,7 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
   const [accountTimeZone, setAccountTimeZone] = useState(deviceTimeZone)
   const [accountSaving, setAccountSaving] = useState(false)
   const [accountMessage, setAccountMessage] = useState('')
+  const [fontSizePx, setFontSizePx] = useState(() => loadAppFontSize())
 
   const loadUsers = async () => {
     if (!user.is_admin) return
@@ -94,6 +96,10 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
     setAccountEmail(notificationProfile?.email ?? '')
     setAccountTimeZone(resolveTimeZone(notificationProfile?.timezone ?? deviceTimeZone))
   }, [deviceTimeZone, notificationProfile?.email, notificationProfile?.timezone])
+
+  useEffect(() => {
+    setFontSizePx(loadAppFontSize())
+  }, [])
 
   const saveAccountSettings = async () => {
     if (accountSaving) return
@@ -391,8 +397,18 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
               </label>
               <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface">
                 <span className="text-label uppercase text-text-muted">Размер шрифта</span>
-                <input type="range" min={12} max={20} defaultValue={14} className="mt-3 w-full" />
-                <div className="mt-2 text-caption text-text-muted">14 px</div>
+                <input
+                  type="range"
+                  min={MIN_FONT_SIZE_PX}
+                  max={MAX_FONT_SIZE_PX}
+                  value={fontSizePx}
+                  onChange={(event) => {
+                    const next = applyAppFontSize(Number(event.target.value) || DEFAULT_FONT_SIZE_PX)
+                    setFontSizePx(next)
+                  }}
+                  className="mt-3 w-full"
+                />
+                <div className="mt-2 text-caption text-text-muted">{fontSizePx} px</div>
               </div>
               <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface">
                 Озвучивание событий

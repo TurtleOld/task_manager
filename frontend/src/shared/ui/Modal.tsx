@@ -96,7 +96,7 @@ export function Modal({ children, className, footer, labelledBy, onClose, open, 
         className={cn('w-full max-w-lg rounded-overlay border border-border/80 bg-[image:var(--gradient-surface)] p-6 shadow-overlay backdrop-blur', className)}
       >
         <div className="flex items-start justify-between gap-4">
-          <h2 id={titleId} className="text-h3 text-text">{title}</h2>
+          <h2 id={titleId} className="min-w-0 flex-1 break-words text-h3 text-text">{title}</h2>
           <Button type="button" variant="ghost" size="sm" onClick={onClose} aria-label="Закрыть окно">
             x
           </Button>

@@ -2,6 +2,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
+import { applyAppFontSize, loadAppFontSize } from './app/preferences'
 import App from './App'
 import './index.css'
 
@@ -13,6 +14,7 @@ try {
   const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches
   const shouldBeDark = saved === 'dark' || (!saved && prefersDark)
   document.documentElement.classList.toggle('dark', !!shouldBeDark)
+  applyAppFontSize(loadAppFontSize())
 } catch {
   // ignore: localStorage can be unavailable in private mode / blocked
 }
@@ -41,4 +43,3 @@ root.render(
     </BrowserRouter>
   </React.StrictMode>
 )
-

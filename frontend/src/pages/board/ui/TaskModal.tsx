@@ -162,22 +162,22 @@ export function TaskModal({
     >
       <div className="space-y-6">
         <section className="rounded-[1.4rem] border border-primary/15 bg-[image:var(--gradient-surface)] p-5 shadow-elevated">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-3">
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-4">
+            <div className="min-w-0 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="primary">Task workspace</Badge>
                 <Badge variant="neutral">#{selectedCard.id}</Badge>
                 {selectedCard.board ? <Badge variant="info">Board {selectedCard.board}</Badge> : null}
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-label uppercase text-text-muted">Редактирование задачи</p>
-                <h3 className="mt-2 text-h2 text-text">{selectedCard.title || 'Без названия'}</h3>
+                <h3 className="mt-2 break-words text-h2 text-text">{selectedCard.title || 'Без названия'}</h3>
                 <p className="mt-2 max-w-2xl text-body-sm text-text-muted">
                   Управляйте содержанием, сроками, приоритетом, вложениями и уведомлениями в одном месте.
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 lg:max-w-[14rem] lg:justify-end">
               <Button type="button" onClick={onSave} loading={saveBusy} disabled={deleteBusy}>
                 Сохранить
               </Button>

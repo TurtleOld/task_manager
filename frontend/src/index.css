@@ -3,6 +3,7 @@
 
 @layer base {
   :root {
+    --app-font-size: 15px;
     --color-background: 243 246 251;
     --color-background-subtle: 233 239 247;
     --color-surface: 255 255 255;
@@ -89,6 +90,7 @@
   }
 
   html {
+    font-size: var(--app-font-size);
     scrollbar-color: rgb(var(--color-border-strong)) rgb(var(--color-background));
   }
 
