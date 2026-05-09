@@ -160,7 +160,7 @@ export function TaskModal({
         if (!saveBusy && !deleteBusy) onClose()
       }}
       title={selectedCard.title || 'Редактирование задачи'}
-      className="max-h-[calc(100vh-2rem)] max-w-6xl overflow-y-auto"
+      className="max-h-[calc(100vh-2rem)] max-w-7xl overflow-y-auto"
     >
       <div className="space-y-6">
         <section className="rounded-panel border border-primary/15 bg-[image:var(--gradient-surface)] p-6 shadow-elevated">
@@ -197,7 +197,7 @@ export function TaskModal({
           ) : null}
         </section>
 
-        <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid w-full gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
           <div className="space-y-5">
             <SurfaceCard as="section" className="space-y-4">
               <Field label="Заголовок" htmlFor="task-title">
@@ -475,7 +475,7 @@ export function TaskModal({
                 </div>
                 <h3 className="mt-3 text-h3 text-text">Параметры задачи</h3>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
                 <Field label="Ответственный" htmlFor="task-assignee">
                   <Select
                     id="task-assignee"

@@ -30,8 +30,6 @@ export function BoardsPage({ user, onLogout }: BoardsPageProps) {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="primary">Task Manager</Badge>
-              <Badge variant="info">Boards workspace</Badge>
-              <Badge variant="neutral">{boards.length} boards</Badge>
             </div>
             <div>
               <h1 className="text-h1 text-text">Доски</h1>
