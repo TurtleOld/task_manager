@@ -1,25 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
 import { api } from '../../api/client'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { toggleTheme } from '../../app/theme'
-import {
-  Badge,
-  Button,
-  Card as SurfaceCard,
-  Checkbox,
-  Chip,
-  ChipButton,
-  EmptyState,
-  Field,
-  IconButton,
-  Modal,
-  RadioCard,
-  Select,
-  Textarea,
-  TextInput,
-  Toast,
-} from '../../shared/ui'
+import { Button, Card as SurfaceCard, Field, Select, TextInput, Toast } from '../../shared/ui'
 import {
   ensureProfileTimeZoneInitialized,
   formatIsoForTimeZone,
@@ -31,6 +14,11 @@ import {
 import { useBoardWebSocket } from '../../useBoardWebSocket'
 import type { BoardEvent } from '../../useBoardWebSocket'
 import type { AuthUser, Card, CardDeadlineReminder, CardDeadlineReminderResponse, Column } from '../../api/types'
+import type { AssigneeOption, BoardCardDraft } from './types'
+import { BoardColumn } from './ui/BoardColumn'
+import { BoardFilters } from './ui/BoardFilters'
+import { BoardHeader } from './ui/BoardHeader'
+import { TaskModal } from './ui/TaskModal'
 
 interface BoardPageProps {
   onLogout: () => void
@@ -38,8 +26,7 @@ interface BoardPageProps {
 }
 
 export function BoardPage({ onLogout, user }: BoardPageProps) {
-  const { id } = useParams()
-  const boardId = Number(id)
+  const boardId = Number(window.location.pathname.split('/').at(-1))
   const [columns, setColumns] = useState<Column[]>([])
   const [cards, setCards] = useState<Card[]>([])
   const [boardName, setBoardName] = useState('')
@@ -53,28 +40,8 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCard, setSelectedCard] = useState<Card | null>(null)
 
-  type CardDraft = {
-    title: string
-    description: string
-    assignee: number | null
-    deadline: string
-    priority: '🔥' | '🟡' | '🟢'
-    tags: string[]
-    categories: string[]
-    checklist: { id: string; text: string; done: boolean }[]
-    attachments: {
-      id: string
-      name: string
-      type: 'file' | 'link' | 'photo'
-      url?: string
-      mimeType?: string
-      size?: number
-      createdAt?: string
-    }[]
-  }
-
-  const [draft, setDraft] = useState<CardDraft | null>(null)
-  const draftBaseRef = useRef<CardDraft | null>(null)
+  const [draft, setDraft] = useState<BoardCardDraft | null>(null)
+  const draftBaseRef = useRef<BoardCardDraft | null>(null)
   const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([])
   const [pendingDeleteAttachmentIds, setPendingDeleteAttachmentIds] = useState<string[]>([])
 
@@ -93,24 +60,11 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
           | { type: 'deleted'; card_id: number; version: number; board?: number; column?: number; card_title?: string }
       }
   >(null)
-  const [assignees, setAssignees] = useState<{ id: number; name: string }[]>([])
+  const [assignees, setAssignees] = useState<AssigneeOption[]>([])
   const [cardTags, setCardTags] = useState<Record<number, string[]>>({})
   const [cardCategories, setCardCategories] = useState<Record<number, string[]>>({})
   const [cardChecklist, setCardChecklist] = useState<Record<number, { id: string; text: string; done: boolean }[]>>({})
-  const [cardAttachments, setCardAttachments] = useState<
-    Record<
-      number,
-      {
-        id: string
-        name: string
-        type: 'file' | 'link' | 'photo'
-        url?: string
-        mimeType?: string
-        size?: number
-        createdAt?: string
-      }[]
-    >
-  >({})
+  const [cardAttachments, setCardAttachments] = useState<Record<number, Card['attachments']>>({})
   const [cardAssignees, setCardAssignees] = useState<Record<number, number | undefined>>({})
   const [cardDeadlines, setCardDeadlines] = useState<Record<number, string>>({})
   const [cardPriorities, setCardPriorities] = useState<Record<number, '🔥' | '🟡' | '🟢'>>({})
@@ -177,18 +131,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
         return next
       })
       setCardAttachments(() => {
-        const next: Record<
-          number,
-          {
-            id: string
-            name: string
-            type: 'file' | 'link' | 'photo'
-            url?: string
-            mimeType?: string
-            size?: number
-            createdAt?: string
-          }[]
-        > = {}
+        const next: Record<number, Card['attachments']> = {}
         for (const card of loaded) next[card.id] = card.attachments ?? []
         return next
       })
@@ -293,7 +236,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
     }
 
     const id = selectedCard.id
-    const base: CardDraft = {
+    const base: BoardCardDraft = {
       title: selectedCard.title || '',
       description: selectedCard.description || '',
       assignee: (cardAssignees[id] ?? selectedCard.assignee) ?? null,
@@ -302,15 +245,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
       tags: (cardTags[id] ?? selectedCard.tags ?? []) as string[],
       categories: (cardCategories[id] ?? selectedCard.categories ?? []) as string[],
       checklist: (cardChecklist[id] ?? selectedCard.checklist ?? []) as { id: string; text: string; done: boolean }[],
-      attachments: (cardAttachments[id] ?? selectedCard.attachments ?? []) as {
-        id: string
-        name: string
-        type: 'file' | 'link' | 'photo'
-        url?: string
-        mimeType?: string
-        size?: number
-        createdAt?: string
-      }[],
+      attachments: (cardAttachments[id] ?? selectedCard.attachments ?? []) as Card['attachments'],
     }
     setDraft(base)
     draftBaseRef.current = base
@@ -354,15 +289,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
       tags: string[]
       categories: string[]
       checklist: { id: string; text: string; done: boolean }[]
-      attachments: {
-        id: string
-        name: string
-        type: 'file' | 'link' | 'photo'
-        url?: string
-        mimeType?: string
-        size?: number
-        createdAt?: string
-      }[]
+      attachments: Card['attachments']
     }>
   ) => {
     if (!selectedCardId) return
@@ -393,7 +320,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
     return `за ${reminder.offset_value} ${unit}`
   }
 
-  const buildCardUpdateChanges = (base: CardDraft, next: CardDraft) => {
+  const buildCardUpdateChanges = (base: BoardCardDraft, next: BoardCardDraft) => {
     const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
     const changes: string[] = []
     const changesMeta: Record<string, unknown> = {}
@@ -605,15 +532,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
       tags: string[]
       categories: string[]
       checklist: { id: string; text: string; done: boolean }[]
-      attachments: {
-        id: string
-        name: string
-        type: 'file' | 'link' | 'photo'
-        url?: string
-        mimeType?: string
-        size?: number
-        createdAt?: string
-      }[]
+      attachments: Card['attachments']
     }> = {}
 
     const nextTitle = draft.title.trim()
@@ -734,9 +653,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
     setReminderError('')
     setReminderFieldError('')
     try {
-      const availableCount = reminderData?.channels
-        ? Object.values(reminderData.channels).filter((c) => c.available).length
-        : 0
+      const availableCount = reminderData?.channels ? Object.values(reminderData.channels).filter((c) => c.available).length : 0
       const invalidChannel = reminderDrafts.some((item) => item.enabled && !item.channel && availableCount !== 1)
       if (invalidChannel) {
         setReminderFieldError('Выберите доступный канал доставки')
@@ -965,6 +882,10 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
   const categoriesFor = (card: Card) => cardCategories[card.id] ?? []
   const deadlineFor = (card: Card) => cardDeadlines[card.id] ?? card.deadline ?? ''
   const priorityMarkerFor = (card: Card) => cardPriorities[card.id] ?? '🟡'
+  const assigneeNameFor = (card: Card) => {
+    const assigneeId = cardAssignees[card.id] ?? card.assignee
+    return assigneeId != null ? (assignees.find((u) => u.id === assigneeId)?.name ?? null) : null
+  }
 
   const filteredCards = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
@@ -1117,35 +1038,16 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
   const sortedColumns = [...columns].sort((a, b) => (a.position > b.position ? 1 : -1))
   const availableIcons = ['📋', '📝', '⚡', '✅', '🧩', '🛠️', '🎯', '📦', '💡', '🔍']
   const accentClasses = ['text-primary', 'text-warning', 'text-success', 'text-danger', 'text-secondary', 'text-accent']
-  const accentForColumn = (index: number) => accentClasses[index % accentClasses.length]
+  const accentForColumn = (index: number) => accentClasses[index % accentClasses.length] ?? 'text-primary'
 
   return (
     <div className="min-h-screen bg-background pb-12 text-text">
-      <header className="sticky top-0 z-sticky border-b border-border bg-surface/90 px-4 py-5 shadow-surface backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <nav className="flex items-center gap-2 text-body-sm text-text-muted" aria-label="Навигация по доскам">
-              <Link to="/" className="hover:text-primary">Все доски</Link>
-              <span aria-hidden="true">/</span>
-              <span>{boardName}</span>
-            </nav>
-            <h1 className="mt-2 text-h1 text-text">{boardName || 'Доска'}</h1>
-            <p className="text-body-sm text-text-muted">Перетаскивайте задачи, фильтруйте поток и открывайте детали без потери контекста.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={() => setIsCreatingColumn(true)} variant="secondary" aria-label="Создать колонку">
-              <span aria-hidden="true">+</span>
-              Новая колонка
-            </Button>
-            <Button onClick={onLogout} variant="danger" aria-label="Выйти">
-              Выйти
-            </Button>
-            <Button type="button" variant="secondary" onClick={toggleTheme} aria-label="Переключить тему">
-              Тема
-            </Button>
-          </div>
-        </div>
-      </header>
+      <BoardHeader
+        boardName={boardName}
+        onCreateColumn={() => setIsCreatingColumn(true)}
+        onLogout={onLogout}
+        onToggleTheme={toggleTheme}
+      />
 
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 pt-6">
         <section className="grid gap-3 sm:grid-cols-3" aria-label="Сводка по доске">
@@ -1194,553 +1096,113 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
           </SurfaceCard>
         ) : null}
 
-        <SurfaceCard as="section">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h2 className="text-h3 text-text">Поиск и фильтры</h2>
-              <p className="mt-1 text-body-sm text-text-muted">Быстро находите задачи по названию, описанию, тегам и категориям.</p>
-            </div>
-            <Badge variant={activeFilterCount ? 'primary' : 'neutral'}>Активных фильтров: {activeFilterCount}</Badge>
-          </div>
-          <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
-            <Field label="Поиск" htmlFor="board-task-search" className="lg:col-span-2">
-              <TextInput
-                id="board-task-search"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Название, описание, тег или категория"
-              />
-            </Field>
-            <div>
-              <p className="text-label uppercase text-text-muted">Теги</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {tagOptions.map((tag) => (
-                  <ChipButton key={tag} active={activeTag === tag} tone="primary" onClick={() => setActiveTag(tag)}>{tag}</ChipButton>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="text-label uppercase text-text-muted">Категории</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {categoryOptions.map((category) => (
-                  <ChipButton key={category} active={activeCategory === category} tone="success" onClick={() => setActiveCategory(category)}>{category}</ChipButton>
-                ))}
-              </div>
-            </div>
-          </div>
-        </SurfaceCard>
+        <BoardFilters
+          activeFilterCount={activeFilterCount}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          tagOptions={tagOptions}
+          activeTag={activeTag}
+          onActiveTagChange={setActiveTag}
+          categoryOptions={categoryOptions}
+          activeCategory={activeCategory}
+          onActiveCategoryChange={setActiveCategory}
+        />
 
         <section className="grid gap-5 lg:grid-cols-3" aria-label="Колонки канбан-доски">
-          {sortedColumns.map((col, index) => {
-            const displayName = col.name?.trim() ? col.name : ''
-            const displayIcon = col.icon?.trim() ? col.icon : ''
-            const accent = accentForColumn(index)
-            return (
-              <div
-                key={col.id}
-                className="flex h-full flex-col rounded-panel border border-border bg-surface-elevated/80 p-4 shadow-surface backdrop-blur transition-colors duration-fast ease-standard"
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={() => handleDropOnColumn(col.id)}
-                aria-label={`Колонка ${displayName || 'Без названия'}`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      {displayIcon ? <span className="text-xl" aria-hidden="true">{displayIcon}</span> : null}
-                      <h2 className={`text-h3 ${accent}`}>{displayName}</h2>
-                    </div>
-                  </div>
-                  <Badge>{(grouped[col.id] || []).length} задач</Badge>
-                </div>
-
-                <div className="mt-4 flex items-center gap-2">
-                  <label className="flex-1">
-                    <span className="sr-only">Новая карточка</span>
-                    <TextInput
-                      placeholder="Название задачи"
-                      value={newCardTitle[col.id] || ''}
-                      onChange={(e) => setNewCardTitle((s) => ({ ...s, [col.id]: e.target.value }))}
-                    />
-                  </label>
-                  <IconButton onClick={() => onCreateCard(col.id)} variant="primary" aria-label={`Добавить карточку в ${displayName || 'колонку'}`}>+</IconButton>
-                </div>
-
-                <ul className="mt-4 space-y-4" aria-label={`Карточки ${displayName || 'колонки'}`}>
-                  {(grouped[col.id] || []).length === 0 ? (
-                    <li>
-                      <EmptyState title="Нет задач" className="p-4 text-left">Создайте первую задачу в этой колонке.</EmptyState>
-                    </li>
-                  ) : null}
-                  {(grouped[col.id] || []).map((card) => {
-                    const priority = priorityFor(card)
-                    const tags = tagsFor(card)
-                    const categories = categoriesFor(card)
-                    const deadline = deadlineFor(card)
-                    const assigneeId = cardAssignees[card.id] ?? card.assignee
-                    const assigneeName = assigneeId != null ? (assignees.find((u) => u.id === assigneeId)?.name ?? null) : null
-                    return (
-                      <li
-                        key={card.id}
-                        className="group rounded-panel border border-border bg-surface p-4 shadow-surface transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-elevated"
-                        draggable
-                        onDragStart={() => setDragged(card)}
-                        onDragEnd={() => setDragged(null)}
-                      >
-                        <button type="button" onClick={() => setSelectedCard(card)} className="block w-full rounded-control text-left" aria-label={`Открыть задачу ${card.title}`}>
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <h3 className="text-body-sm font-semibold text-text">{card.title}</h3>
-                              <p className="mt-2 line-clamp-3 text-caption text-text-muted">{card.description}</p>
-                            </div>
-                            <Chip tone={priority.tone} active>{priority.marker} {priority.label}</Chip>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {tags.map((tag) => <Chip key={tag} tone="primary">{tag}</Chip>)}
-                            {categories.map((category) => <Chip key={category} tone="success">{category}</Chip>)}
-                          </div>
-
-                          {deadline && <div className="mt-3 flex flex-wrap gap-2"><Chip tone="warning">⏰ {formatDateTime(deadline)}</Chip></div>}
-
-                          {assigneeName && (
-                            <div className="mt-3 flex items-center gap-1.5 text-caption text-text-muted">
-                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-caption font-bold text-primary">
-                                {assigneeName[0]?.toUpperCase()}
-                              </span>
-                              <span>{assigneeName}</span>
-                            </div>
-                          )}
-                        </button>
-
-                        <div className="mt-3 flex items-center justify-between text-caption text-text-muted">
-                          <span className="inline-flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-success" aria-hidden="true" />
-                            {formatUpdatedStatus(card.updated_at)}
-                          </span>
-                          <div className="flex items-center gap-1 md:hidden">
-                            <IconButton
-                              type="button"
-                              onClick={(event) => { stopCardOpen(event); void move(card, 'up') }}
-                              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') stopCardKeyBubble(event) }}
-                              className="min-h-8 min-w-8"
-                              aria-label="Поднять карточку"
-                            >↑</IconButton>
-                            <IconButton
-                              type="button"
-                              onClick={(event) => { stopCardOpen(event); void move(card, 'down') }}
-                              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') stopCardKeyBubble(event) }}
-                              className="min-h-8 min-w-8"
-                              aria-label="Опустить карточку"
-                            >↓</IconButton>
-                            <IconButton
-                              type="button"
-                              onClick={(event) => { stopCardOpen(event); void move(card, 'left') }}
-                              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') stopCardKeyBubble(event) }}
-                              className="min-h-8 min-w-8"
-                              aria-label="Переместить влево"
-                            >←</IconButton>
-                            <IconButton
-                              type="button"
-                              onClick={(event) => { stopCardOpen(event); void move(card, 'right') }}
-                              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') stopCardKeyBubble(event) }}
-                              className="min-h-8 min-w-8"
-                              aria-label="Переместить вправо"
-                            >→</IconButton>
-                          </div>
-                        </div>
-                      </li>
-                    )
-                  })}
-                </ul>
-              </div>
-            )
-          })}
+          {sortedColumns.map((col, index) => (
+            <BoardColumn
+              key={col.id}
+              column={col}
+              accentClass={accentForColumn(index)}
+              cards={grouped[col.id] || []}
+              newCardTitle={newCardTitle[col.id] || ''}
+              onNewCardTitleChange={(value) => setNewCardTitle((s) => ({ ...s, [col.id]: value }))}
+              onCreateCard={() => onCreateCard(col.id)}
+              onDrop={() => handleDropOnColumn(col.id)}
+              onCardOpen={setSelectedCard}
+              onDragStart={setDragged}
+              onDragEnd={() => setDragged(null)}
+              priorityFor={priorityFor}
+              tagsFor={tagsFor}
+              categoriesFor={categoriesFor}
+              deadlineFor={deadlineFor}
+              assigneeNameFor={assigneeNameFor}
+              formatDateTime={formatDateTime}
+              formatUpdatedStatus={formatUpdatedStatus}
+              move={move}
+              stopCardOpen={stopCardOpen}
+              stopCardKeyBubble={stopCardKeyBubble}
+            />
+          ))}
         </section>
       </main>
 
       {selectedCard && draft ? (
-        <Modal
-          open={Boolean(selectedCard && draft)}
-          onClose={() => { if (!saveBusy && !deleteBusy) setSelectedCard(null) }}
-          title={selectedCard.title || 'Редактирование задачи'}
-          className="max-h-[calc(100vh-2rem)] max-w-5xl overflow-y-auto"
-        >
-          <div className="flex flex-col gap-3 rounded-panel border border-border bg-background-subtle p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-label uppercase text-text-muted">Редактирование задачи</p>
-              <p className="text-caption text-text-muted">Сохранение, дедлайн, участники и контекст задачи в одном месте.</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" onClick={() => void onSaveCard()} loading={saveBusy} disabled={deleteBusy}>Сохранить</Button>
-              <Button type="button" variant="danger" onClick={() => void deleteSelectedCard()} loading={deleteBusy} disabled={saveBusy}>Удалить задачу</Button>
-              <Button type="button" variant="secondary" onClick={() => setSelectedCard(null)} disabled={saveBusy || deleteBusy}>Закрыть</Button>
-            </div>
-          </div>
-
-          {modalError ? <p className="mt-3 text-body-sm text-danger" role="alert">{modalError}</p> : null}
-
-          <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="space-y-5">
-              <Field label="Заголовок" htmlFor="task-title">
-                <TextInput id="task-title" value={draft.title} onChange={(event) => setDraft((prev) => (prev ? { ...prev, title: event.target.value } : prev))} />
-              </Field>
-              <Field label="Подробное описание" htmlFor="task-description">
-                <Textarea id="task-description" rows={4} value={draft.description} onChange={(event) => setDraft((prev) => (prev ? { ...prev, description: event.target.value } : prev))} />
-              </Field>
-              <SurfaceCard as="section" className="p-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-label uppercase text-text-muted">Напоминание о дедлайне</p>
-                    <h3 className="text-body-sm font-semibold text-text">
-                      {reminderDrafts.length > 0 ? `Напоминаний: ${reminderDrafts.filter((item) => item.enabled).length}` : 'Напоминание отключено'}
-                    </h3>
-                  </div>
-                  <Checkbox
-                    label="Включено"
-                    checked={reminderDrafts.some((item) => item.enabled)}
-                    onChange={(event) => {
-                      const nextEnabled = event.target.checked
-                      setReminderDrafts((prev) => prev.map((item) => ({ ...item, enabled: nextEnabled })))
-                    }}
-                    disabled={!(reminderData?.deadline || draft?.deadline) || reminderDrafts.length === 0}
-                    className="bg-background-subtle"
-                  />
-                </div>
-
-                {reminderLoading ? <p className="mt-2 text-caption text-text-muted">Загрузка настроек...</p> : null}
-                {reminderError ? <p className="mt-2 text-caption text-danger" role="alert">{reminderError}</p> : null}
-                {!reminderData?.deadline && !draft?.deadline ? (
-                  <div className="mt-3 rounded-control border border-dashed border-warning/30 bg-warning/10 px-3 py-2 text-caption text-warning">
-                    Установите срок выполнения, чтобы настроить напоминание.
-                  </div>
-                ) : null}
-                {reminderDrafts.length === 0 && (reminderData?.deadline || draft?.deadline) ? (
-                  <div className="mt-3 rounded-control border border-dashed border-border bg-background-subtle px-3 py-2 text-caption text-text-muted">
-                    Добавьте один или несколько интервалов напоминания.
-                  </div>
-                ) : null}
-
-                {reminderDrafts.length > 0 && (reminderData?.deadline || draft?.deadline) ? (
-                  <div className="mt-3 space-y-3">
-                    <div className="space-y-2">
-                      <span className="text-label uppercase text-text-muted">Интервалы до дедлайна</span>
-                      <div className="space-y-2">
-                        {reminderDrafts.map((item) => (
-                          <div key={item.id} className="flex flex-wrap items-center gap-2 rounded-control border border-border bg-background-subtle p-2">
-                            <TextInput
-                              type="number"
-                              min={1}
-                              max={item.offset_unit === 'hours' ? 168 : 1440}
-                              step={1}
-                              value={item.offset_value}
-                              onChange={(event) => {
-                                const raw = event.target.value
-                                const next = Number(raw)
-                                if (!Number.isFinite(next) || !Number.isInteger(next)) { setReminderFieldError('Введите целое положительное число'); return }
-                                if (next <= 0) { setReminderFieldError('Значение должно быть больше нуля'); return }
-                                if (next > (item.offset_unit === 'hours' ? 168 : 1440)) { setReminderFieldError('Слишком большое значение'); return }
-                                setReminderFieldError('')
-                                applyReminderValue(item.id, next)
-                              }}
-                              fullWidth={false}
-                              className="w-24"
-                              disabled={!item.enabled}
-                            />
-                            <Select
-                              value={item.offset_unit}
-                              onChange={(event) => {
-                                applyReminderUnit(item.id, event.target.value as 'minutes' | 'hours')
-                                setReminderFieldError('')
-                              }}
-                              fullWidth={false}
-                              className="w-28"
-                              disabled={!item.enabled}
-                            >
-                              <option value="minutes">минут</option>
-                              <option value="hours">часов</option>
-                            </Select>
-                            <Checkbox label="Активно" checked={item.enabled} onChange={(event) => toggleReminder(item.id, event.target.checked)} className="border-transparent bg-transparent px-2 shadow-none" />
-                            <Button type="button" variant="danger" size="sm" onClick={() => removeReminderInterval(item.id)}>Удалить</Button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2 rounded-control border border-dashed border-border bg-background-subtle p-2">
-                        <TextInput
-                          type="number"
-                          min={1}
-                          max={newReminderUnit === 'hours' ? 168 : 1440}
-                          step={1}
-                          value={newReminderValue}
-                          onChange={(event) => setNewReminderValue(Number(event.target.value) || 1)}
-                          fullWidth={false}
-                          className="w-24"
-                        />
-                        <Select value={newReminderUnit} onChange={(event) => setNewReminderUnit(event.target.value as 'minutes' | 'hours')} fullWidth={false} className="w-28">
-                          <option value="minutes">минут</option>
-                          <option value="hours">часов</option>
-                        </Select>
-                        <Button type="button" onClick={() => addReminderInterval(newReminderValue, newReminderUnit)} disabled={!(reminderData?.deadline || draft?.deadline)} variant="secondary" size="sm">
-                          Добавить интервал
-                        </Button>
-                      </div>
-                      <div className="flex items-center gap-2 text-caption text-text-muted">Изменения сохраняются вместе с общей кнопкой “Сохранить”.</div>
-                    </div>
-
-                    <div className="rounded-control border border-border bg-background-subtle p-3 text-caption text-text-muted">
-                      <p className="font-semibold text-text">Канал доставки</p>
-                      <div className="mt-2 grid gap-2">
-                        {(['email', 'telegram'] as const).map((channel) => {
-                          const info = reminderData?.channels?.[channel]
-                          const available = info?.available ?? false
-                          const availableCount = reminderData?.channels ? Object.values(reminderData.channels).filter((c) => c.available).length : 0
-                          const isOnlyAvailable = availableCount === 1
-                          const isAuto = reminderDrafts.every((item) => item.channel === null) && isOnlyAvailable && available
-                          return (
-                            <RadioCard
-                              key={channel}
-                              name="reminder-channel"
-                              value={channel}
-                              checked={reminderDrafts.every((item) => item.channel === channel) || isAuto}
-                              onChange={() => applyReminderChannel(channel)}
-                              disabled={!available}
-                              label={channel === 'email' ? 'Email' : 'Telegram'}
-                              description={!available ? info?.reason || 'Недоступен' : isAuto ? 'Единственный доступный канал' : undefined}
-                              className={!available ? 'border-danger/25 bg-danger/10' : undefined}
-                            />
-                          )
-                        })}
-                      </div>
-                      {reminderFieldError ? <p className="mt-2 text-caption text-danger" role="alert">{reminderFieldError}</p> : null}
-                    </div>
-
-                    {reminderDrafts.some((item) => item.status === 'invalid.past') ? (
-                      <div className="rounded-control border border-warning/30 bg-warning/10 px-3 py-2 text-caption text-warning">
-                        Время напоминания уже прошло. Скорректируйте интервал или срок выполнения.
-                      </div>
-                    ) : null}
-                    {reminderDrafts.some((item) => item.status === 'invalid.channel') ? (
-                      <div className="rounded-control border border-danger/30 bg-danger/10 px-3 py-2 text-caption text-danger">
-                        Канал доставки недоступен. Проверьте настройки уведомлений.
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </SurfaceCard>
-
-              <SurfaceCard as="section" className="bg-background-subtle p-4 shadow-none">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <h3 className="text-body-sm font-semibold text-text">Чек-лист</h3>
-                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                    <TextInput value={newChecklistItem} onChange={(event) => setNewChecklistItem(event.target.value)} placeholder="Добавить пункт" className="sm:w-56" />
-                    <Button type="button" onClick={addChecklistItem} size="sm">Добавить</Button>
-                  </div>
-                </div>
-                <div className="mt-3 space-y-2 text-body-sm text-text-muted">
-                  {selectedChecklist.length === 0 ? (
-                    <EmptyState title="Пока нет пунктов" className="p-4">Добавьте первый пункт, чтобы отслеживать прогресс задачи.</EmptyState>
-                  ) : (
-                    selectedChecklist.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between gap-3 rounded-control border border-border bg-surface px-3 py-2">
-                        <Checkbox
-                          label={<span className={item.done ? 'line-through opacity-70' : ''}>{item.text}</span>}
-                          checked={item.done}
-                          onChange={() => toggleChecklistItem(item.id)}
-                          className="flex-1 border-transparent bg-transparent px-0 py-0 shadow-none"
-                        />
-                        <Button type="button" variant="danger" size="sm" onClick={() => removeChecklistItem(item.id)}>Удалить</Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </SurfaceCard>
-
-              <SurfaceCard as="section" className="bg-background-subtle p-4 shadow-none">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <h3 className="text-body-sm font-semibold text-text">Вложения, ссылки, фото</h3>
-                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-                    <Select value={newAttachmentType} onChange={(event) => setNewAttachmentType(event.target.value as 'file' | 'link' | 'photo')} className="sm:w-28">
-                      <option value="file">Файл</option>
-                      <option value="link">Ссылка</option>
-                      <option value="photo">Фото</option>
-                    </Select>
-
-                    {newAttachmentType === 'file' ? (
-                      <>
-                        <input
-                          key={attachmentFileInputKey}
-                          ref={attachmentFileInputRef}
-                          type="file"
-                          multiple
-                          onChange={(event) => {
-                            const list = event.target.files ? Array.from(event.target.files) : []
-                            setNewAttachmentFiles(list)
-                          }}
-                          className="hidden"
-                        />
-                        <Button type="button" onClick={() => attachmentFileInputRef.current?.click()} variant="secondary" size="sm" className="justify-start sm:w-56">
-                          {newAttachmentFiles.length === 0
-                            ? 'Файл не выбран'
-                            : newAttachmentFiles.length === 1
-                              ? newAttachmentFiles[0]?.name
-                              : `Выбрано: ${newAttachmentFiles.length} файла(ов)`}
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <TextInput value={newAttachmentName} onChange={(event) => setNewAttachmentName(event.target.value)} placeholder="Название" className="sm:w-44" />
-                        <TextInput value={newAttachmentUrl} onChange={(event) => setNewAttachmentUrl(event.target.value)} placeholder="URL (необязательно)" className="sm:w-52" />
-                      </>
-                    )}
-                    <Button type="button" onClick={addAttachment} size="sm">Добавить</Button>
-                  </div>
-                </div>
-                <div className="mt-3 grid gap-2 text-body-sm text-text-muted">
-                  {selectedAttachments.length === 0 ? (
-                    <EmptyState title="Вложения отсутствуют" className="p-4">Прикрепите файл или добавьте ссылку к задаче.</EmptyState>
-                  ) : (
-                    selectedAttachments.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between gap-3 rounded-control border border-border bg-surface px-3 py-2">
-                        <span className="inline-flex items-center gap-2">{item.type === 'file' ? '📎' : item.type === 'photo' ? '🖼️' : '🔗'} {item.name}</span>
-                        <div className="flex items-center gap-2 text-caption">
-                          {item.url ? (
-                            <a href={item.url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:text-primary-hover">Открыть</a>
-                          ) : null}
-                          <Button type="button" variant="danger" size="sm" onClick={() => void removeAttachment(item)}>Удалить</Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </SurfaceCard>
-            </div>
-
-            <div className="space-y-5">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Ответственный" htmlFor="task-assignee">
-                  <Select
-                    id="task-assignee"
-                    value={draft.assignee ?? ''}
-                    onChange={(event) => {
-                      if (!selectedCardId) return
-                      const next = event.target.value ? Number(event.target.value) : null
-                      setDraft((prev) => (prev ? { ...prev, assignee: next } : prev))
-                    }}
-                  >
-                    <option value="">Не назначен</option>
-                    {assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}</option>)}
-                  </Select>
-                </Field>
-                <Field
-                  label="Срок выполнения"
-                  htmlFor="task-deadline"
-                  hint={`Выберите дату и время завершения задачи в часовом поясе ${getTimeZoneLabel(profileTimeZone)}.`}
-                  hintId="task-deadline-hint"
-                >
-                  <TextInput
-                    id="task-deadline"
-                    type="datetime-local"
-                    value={draft.deadline}
-                    onChange={(event) => {
-                      if (!selectedCardId) return
-                      const value = event.target.value
-                      setDraft((prev) => (prev ? { ...prev, deadline: value } : prev))
-                      scheduleDeadlineSave()
-                    }}
-                    aria-describedby="task-deadline-hint"
-                  />
-                </Field>
-              </div>
-
-              <SurfaceCard className="bg-background-subtle p-4 shadow-none">
-                <h3 className="text-body-sm font-semibold text-text">Приоритет</h3>
-                <div className="mt-3 grid gap-2">
-                  {[
-                    { marker: '🔥', label: 'Срочно', description: 'Нужно обработать в первую очередь' },
-                    { marker: '🟡', label: 'Важно', description: 'Желательно закрыть до конца недели' },
-                    { marker: '🟢', label: 'Можно позже', description: 'Не блокирует текущую работу' },
-                  ].map((item) => (
-                    <RadioCard
-                      key={item.label}
-                      name="priority"
-                      checked={selectedPriority === item.marker}
-                      onChange={() => {
-                        if (!selectedCardId) return
-                        setDraft((prev) => (prev ? { ...prev, priority: item.marker as '🔥' | '🟡' | '🟢' } : prev))
-                      }}
-                      label={`${item.marker} ${item.label}`}
-                      description={item.description}
-                    />
-                  ))}
-                </div>
-              </SurfaceCard>
-
-              <SurfaceCard as="section" className="p-4">
-                <h3 className="text-body-sm font-semibold text-text">Теги и категории</h3>
-                <div className="mt-3 grid gap-3">
-                  <div className="rounded-control border border-dashed border-border bg-background-subtle p-3 text-caption text-text-muted">
-                    <p className="font-semibold text-text">Доступные теги</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {allKnownTags.length === 0 ? (
-                        <span>Пока нет тегов в этой доске.</span>
-                      ) : (
-                        allKnownTags
-                          .filter((tag) => !selectedTags.includes(tag))
-                          .filter((tag) => (newTag.trim() ? tag.toLowerCase().includes(newTag.trim().toLowerCase()) : true))
-                          .map((tag) => <ChipButton key={tag} onClick={() => addTagValue(tag)} tone="primary">+ {tag}</ChipButton>)
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTags.length === 0 ? (
-                      <span className="text-caption text-text-muted">Теги не добавлены.</span>
-                    ) : (
-                      selectedTags.map((tag) => (
-                        <Chip key={tag} tone="primary">
-                          {tag}
-                          <button type="button" onClick={() => removeTag(tag)} className="text-danger hover:text-danger/80" aria-label={`Удалить тег ${tag}`}>×</button>
-                        </Chip>
-                      ))
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <TextInput value={newTag} onChange={(event) => setNewTag(event.target.value)} placeholder="Новый тег" />
-                    <Button type="button" onClick={addTag} size="sm">Добавить</Button>
-                  </div>
-
-                  <div className="rounded-control border border-dashed border-border bg-background-subtle p-3 text-caption text-text-muted">
-                    <p className="font-semibold text-text">Доступные категории</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {allKnownCategories.length === 0 ? (
-                        <span>Пока нет категорий в этой доске.</span>
-                      ) : (
-                        allKnownCategories
-                          .filter((category) => !selectedCategories.includes(category))
-                          .filter((category) => (newCategory.trim() ? category.toLowerCase().includes(newCategory.trim().toLowerCase()) : true))
-                          .map((category) => <ChipButton key={category} onClick={() => addCategoryValue(category)} tone="success">+ {category}</ChipButton>)
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedCategories.length === 0 ? (
-                      <span className="text-caption text-text-muted">Категории не добавлены.</span>
-                    ) : (
-                      selectedCategories.map((category) => (
-                        <Chip key={category} tone="success">
-                          {category}
-                          <button type="button" onClick={() => removeCategory(category)} className="text-danger hover:text-danger/80" aria-label={`Удалить категорию ${category}`}>×</button>
-                        </Chip>
-                      ))
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <TextInput value={newCategory} onChange={(event) => setNewCategory(event.target.value)} placeholder="Новая категория" />
-                    <Button type="button" onClick={addCategory} size="sm" variant="secondary">Добавить</Button>
-                  </div>
-                </div>
-              </SurfaceCard>
-            </div>
-          </div>
-        </Modal>
+        <TaskModal
+          selectedCard={selectedCard}
+          draft={draft}
+          saveBusy={saveBusy}
+          deleteBusy={deleteBusy}
+          modalError={modalError}
+          onClose={() => setSelectedCard(null)}
+          onSave={() => void onSaveCard()}
+          onDelete={() => void deleteSelectedCard()}
+          setDraft={setDraft}
+          reminderDrafts={reminderDrafts}
+          reminderData={reminderData}
+          reminderLoading={reminderLoading}
+          reminderError={reminderError}
+          reminderFieldError={reminderFieldError}
+          newReminderValue={newReminderValue}
+          setNewReminderValue={setNewReminderValue}
+          newReminderUnit={newReminderUnit}
+          setNewReminderUnit={setNewReminderUnit}
+          applyReminderValue={applyReminderValue}
+          applyReminderUnit={applyReminderUnit}
+          applyReminderChannel={applyReminderChannel}
+          toggleReminder={toggleReminder}
+          addReminderInterval={addReminderInterval}
+          removeReminderInterval={removeReminderInterval}
+          selectedChecklist={selectedChecklist}
+          newChecklistItem={newChecklistItem}
+          setNewChecklistItem={setNewChecklistItem}
+          addChecklistItem={addChecklistItem}
+          toggleChecklistItem={toggleChecklistItem}
+          removeChecklistItem={removeChecklistItem}
+          selectedAttachments={selectedAttachments}
+          newAttachmentType={newAttachmentType}
+          setNewAttachmentType={setNewAttachmentType}
+          attachmentFileInputKey={attachmentFileInputKey}
+          attachmentFileInputRef={attachmentFileInputRef}
+          setNewAttachmentFiles={setNewAttachmentFiles}
+          newAttachmentFiles={newAttachmentFiles}
+          newAttachmentName={newAttachmentName}
+          setNewAttachmentName={setNewAttachmentName}
+          newAttachmentUrl={newAttachmentUrl}
+          setNewAttachmentUrl={setNewAttachmentUrl}
+          addAttachment={addAttachment}
+          removeAttachment={removeAttachment}
+          assignees={assignees}
+          selectedCardId={selectedCardId}
+          profileTimeZone={profileTimeZone}
+          getTimeZoneLabel={getTimeZoneLabel}
+          scheduleDeadlineSave={scheduleDeadlineSave}
+          selectedPriority={selectedPriority}
+          allKnownTags={allKnownTags}
+          selectedTags={selectedTags}
+          newTag={newTag}
+          setNewTag={setNewTag}
+          addTagValue={addTagValue}
+          removeTag={removeTag}
+          addTag={addTag}
+          allKnownCategories={allKnownCategories}
+          selectedCategories={selectedCategories}
+          newCategory={newCategory}
+          setNewCategory={setNewCategory}
+          addCategoryValue={addCategoryValue}
+          removeCategory={removeCategory}
+          addCategory={addCategory}
+        />
       ) : null}
 
       {toast ? (
