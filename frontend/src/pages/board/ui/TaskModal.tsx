@@ -171,13 +171,13 @@ export function TaskModal({
               </div>
               <div className="min-w-0">
                 <p className="text-label uppercase text-text-muted">Редактирование задачи</p>
-                <h3 className="mt-2 break-words text-h2 text-text">{selectedCard.title || 'Без названия'}</h3>
-                <p className="mt-2 max-w-2xl text-body-sm text-text-muted">
+                <h3 className="mt-2 break-words text-h3 text-text sm:text-h2">{selectedCard.title || 'Без названия'}</h3>
+                <p className="mt-2 max-w-2xl text-caption text-text-muted sm:text-body-sm">
                   Управляйте содержанием, сроками, приоритетом, вложениями и уведомлениями в одном месте.
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 lg:max-w-[14rem] lg:justify-end">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1 lg:max-w-[14rem] lg:justify-end">
               <Button type="button" onClick={onSave} loading={saveBusy} disabled={deleteBusy}>
                 Сохранить
               </Button>

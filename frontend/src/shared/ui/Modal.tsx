@@ -93,7 +93,11 @@ export function Modal({ children, className, footer, labelledBy, onClose, open, 
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={cn('w-full max-w-lg rounded-overlay border border-border/80 bg-[image:var(--gradient-surface)] p-6 shadow-overlay backdrop-blur', className)}
+        className={cn(
+          'w-full rounded-overlay border border-border/80 bg-[image:var(--gradient-surface)] p-6 shadow-overlay backdrop-blur',
+          className?.includes('max-w-') ? null : 'max-w-lg',
+          className,
+        )}
       >
         <div className="flex items-start justify-between gap-4">
           <h2 id={titleId} className="min-w-0 flex-1 break-words text-h3 text-text">{title}</h2>
