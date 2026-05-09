@@ -14,7 +14,7 @@ type EmptyStateProps = {
 
 export function EmptyState({ action, children, className, title }: EmptyStateProps) {
   return (
-    <div className={cn('rounded-panel border border-dashed border-border bg-surface p-6 text-center', className)}>
+    <div className={cn('rounded-[1.15rem] border border-dashed border-border bg-background-subtle/55 p-6 text-center backdrop-blur', className)}>
       <h2 className="text-h3 text-text">{title}</h2>
       {children ? <div className="mt-2 text-body-sm text-text-muted">{children}</div> : null}
       {action ? (

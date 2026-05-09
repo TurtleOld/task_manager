@@ -37,7 +37,7 @@ type PageShellProps = {
 
 export function PageShell({ children, className, contentClassName, padding = 'default', spacing = 'md', width = 'xl' }: PageShellProps) {
   return (
-    <div className={cn('min-h-screen bg-background px-4 text-text sm:px-6', paddingClasses[padding], className)}>
+    <div className={cn('min-h-screen bg-background/80 px-4 text-text sm:px-6', paddingClasses[padding], className)}>
       <div className={cn('mx-auto w-full', widthClasses[width], spacingClasses[spacing], contentClassName)}>{children}</div>
     </div>
   )
