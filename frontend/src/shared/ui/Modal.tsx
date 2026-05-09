@@ -86,14 +86,14 @@ export function Modal({ children, className, footer, labelledBy, onClose, open, 
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-slate-950/60 p-4">
+    <div className="fixed inset-0 z-modal flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={cn('w-full max-w-lg rounded-overlay border border-border bg-surface p-6 shadow-overlay', className)}
+        className={cn('w-full max-w-lg rounded-overlay border border-border/80 bg-[image:var(--gradient-surface)] p-6 shadow-overlay backdrop-blur', className)}
       >
         <div className="flex items-start justify-between gap-4">
           <h2 id={titleId} className="text-h3 text-text">{title}</h2>

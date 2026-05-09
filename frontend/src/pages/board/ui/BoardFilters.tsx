@@ -24,7 +24,7 @@ export function BoardFilters({
   onActiveCategoryChange,
 }: BoardFiltersProps) {
   return (
-    <SurfaceCard as="section">
+    <SurfaceCard as="section" className="overflow-hidden border-primary/10">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-h3 text-text">Поиск и фильтры</h2>
@@ -32,16 +32,16 @@ export function BoardFilters({
         </div>
         <Badge variant={activeFilterCount ? 'primary' : 'neutral'}>Активных фильтров: {activeFilterCount}</Badge>
       </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr]">
+      <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1fr]">
         <Field label="Поиск" htmlFor="board-task-search" className="lg:col-span-2">
           <TextInput
             id="board-task-search"
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
-            placeholder="Название, описание, тег или категория"
+            placeholder="Найдите задачу по названию, описанию, тегу или категории"
           />
         </Field>
-        <div>
+        <div className="rounded-panel border border-border/70 bg-background-subtle/55 p-4">
           <p className="text-label uppercase text-text-muted">Теги</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {tagOptions.map((tag) => (
@@ -51,7 +51,7 @@ export function BoardFilters({
             ))}
           </div>
         </div>
-        <div>
+        <div className="rounded-panel border border-border/70 bg-background-subtle/55 p-4">
           <p className="text-label uppercase text-text-muted">Категории</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {categoryOptions.map((category) => (

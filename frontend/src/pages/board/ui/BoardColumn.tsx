@@ -57,22 +57,22 @@ export function BoardColumn({
 
   return (
     <div
-      className="flex h-full flex-col rounded-panel border border-border bg-surface-elevated/80 p-4 shadow-surface backdrop-blur transition-colors duration-fast ease-standard"
+      className="flex h-full flex-col rounded-[1.4rem] border border-border/80 bg-[image:var(--gradient-surface)] p-4 shadow-surface backdrop-blur transition duration-fast ease-standard hover:border-border-strong"
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
       aria-label={`Колонка ${displayName || 'Без названия'}`}
     >
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            {displayIcon ? <span className="text-xl" aria-hidden="true">{displayIcon}</span> : null}
+          <div className="flex items-center gap-3">
+            {displayIcon ? <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-background-subtle text-xl shadow-surface" aria-hidden="true">{displayIcon}</span> : null}
             <h2 className={`text-h3 ${accentClass}`}>{displayName}</h2>
           </div>
         </div>
         <Badge>{cards.length} задач</Badge>
       </div>
 
-      <div className="mt-4 flex items-center gap-2">
+      <div className="mt-5 flex items-center gap-2 rounded-panel border border-border/70 bg-background-subtle/60 p-2">
         <label className="flex-1">
           <span className="sr-only">Новая карточка</span>
           <TextInput placeholder="Название задачи" value={newCardTitle} onChange={(e) => onNewCardTitleChange(e.target.value)} />
@@ -96,7 +96,7 @@ export function BoardColumn({
           return (
             <li
               key={card.id}
-              className="group rounded-panel border border-border bg-surface p-4 shadow-surface transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-elevated"
+              className="group rounded-[1.15rem] border border-border/75 bg-surface/90 p-4 shadow-surface backdrop-blur transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated"
               draggable
               onDragStart={() => onDragStart(card)}
               onDragEnd={onDragEnd}
@@ -119,7 +119,7 @@ export function BoardColumn({
 
                 {assigneeName ? (
                   <div className="mt-3 flex items-center gap-1.5 text-caption text-text-muted">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-caption font-bold text-primary">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/12 text-caption font-bold text-primary">
                       {assigneeName[0]?.toUpperCase()}
                     </span>
                     <span>{assigneeName}</span>
@@ -133,34 +133,10 @@ export function BoardColumn({
                   {formatUpdatedStatus(card.updated_at)}
                 </span>
                 <div className="flex items-center gap-1 md:hidden">
-                  <IconButton
-                    type="button"
-                    onClick={(event) => { stopCardOpen(event); void move(card, 'up') }}
-                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') stopCardKeyBubble(event) }}
-                    className="min-h-8 min-w-8"
-                    aria-label="Поднять карточку"
-                  >↑</IconButton>
-                  <IconButton
-                    type="button"
-                    onClick={(event) => { stopCardOpen(event); void move(card, 'down') }}
-                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') stopCardKeyBubble(event) }}
-                    className="min-h-8 min-w-8"
-                    aria-label="Опустить карточку"
-                  >↓</IconButton>
-                  <IconButton
-                    type="button"
-                    onClick={(event) => { stopCardOpen(event); void move(card, 'left') }}
-                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') stopCardKeyBubble(event) }}
-                    className="min-h-8 min-w-8"
-                    aria-label="Переместить влево"
-                  >←</IconButton>
-                  <IconButton
-                    type="button"
-                    onClick={(event) => { stopCardOpen(event); void move(card, 'right') }}
-                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') stopCardKeyBubble(event) }}
-                    className="min-h-8 min-w-8"
-                    aria-label="Переместить вправо"
-                  >→</IconButton>
+                  <IconButton type="button" onClick={(event) => { stopCardOpen(event); void move(card, 'up') }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') stopCardKeyBubble(event) }} className="min-h-8 min-w-8" aria-label="Поднять карточку">↑</IconButton>
+                  <IconButton type="button" onClick={(event) => { stopCardOpen(event); void move(card, 'down') }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') stopCardKeyBubble(event) }} className="min-h-8 min-w-8" aria-label="Опустить карточку">↓</IconButton>
+                  <IconButton type="button" onClick={(event) => { stopCardOpen(event); void move(card, 'left') }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') stopCardKeyBubble(event) }} className="min-h-8 min-w-8" aria-label="Переместить влево">←</IconButton>
+                  <IconButton type="button" onClick={(event) => { stopCardOpen(event); void move(card, 'right') }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') stopCardKeyBubble(event) }} className="min-h-8 min-w-8" aria-label="Переместить вправо">→</IconButton>
                 </div>
               </div>
             </li>

@@ -4,9 +4,9 @@ import { cn } from '../lib/cn'
 type CardVariant = 'default' | 'elevated' | 'interactive'
 
 const cardVariants: Record<CardVariant, string> = {
-  default: 'border-border bg-surface shadow-surface',
-  elevated: 'border-border bg-surface-elevated shadow-elevated',
-  interactive: 'border-border bg-surface shadow-surface transition duration-fast ease-standard hover:border-primary/60 hover:shadow-elevated',
+  default: 'border-border/90 bg-[image:var(--gradient-surface)] shadow-surface backdrop-blur',
+  elevated: 'border-border/80 bg-surface-elevated shadow-elevated backdrop-blur',
+  interactive: 'border-border/90 bg-[image:var(--gradient-surface)] shadow-surface backdrop-blur transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-elevated',
 }
 
 type CardProps = HTMLAttributes<HTMLElement> & {
@@ -15,10 +15,5 @@ type CardProps = HTMLAttributes<HTMLElement> & {
 }
 
 export function Card({ as: Component = 'div', className, variant = 'default', ...props }: CardProps) {
-  return (
-    <Component
-      className={cn('rounded-panel border p-6', cardVariants[variant], className)}
-      {...props}
-    />
-  )
+  return <Component className={cn('rounded-panel border p-6', cardVariants[variant], className)} {...props} />
 }

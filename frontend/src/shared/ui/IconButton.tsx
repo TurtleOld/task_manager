@@ -5,9 +5,9 @@ import { cn } from '../lib/cn'
 type IconButtonVariant = 'neutral' | 'primary' | 'danger'
 
 const iconButtonVariants: Record<IconButtonVariant, string> = {
-  neutral: 'border-border bg-surface text-text-muted hover:border-border-strong hover:bg-surface-hover hover:text-text',
-  primary: 'border-primary/25 bg-primary/10 text-primary hover:bg-primary/15',
-  danger: 'border-danger/25 bg-danger/10 text-danger hover:bg-danger/15',
+  neutral: 'border-border bg-surface/90 text-text-muted shadow-surface backdrop-blur hover:border-border-strong hover:bg-surface-hover hover:text-text',
+  primary: 'border-primary/25 bg-primary/10 text-primary shadow-surface hover:bg-primary/15',
+  danger: 'border-danger/25 bg-danger/10 text-danger shadow-surface hover:bg-danger/15',
 }
 
 type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -23,7 +23,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       ref={ref}
       type={type}
       className={cn(
-        'inline-flex min-h-10 min-w-10 items-center justify-center rounded-control border text-button transition-colors duration-fast ease-standard disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text',
+        'inline-flex min-h-10 min-w-10 items-center justify-center rounded-control border text-button transition duration-fast ease-standard disabled:cursor-not-allowed disabled:bg-disabled-bg disabled:text-disabled-text',
         iconButtonVariants[variant],
         className
       )}

@@ -17,10 +17,10 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       disabled={disabled}
       aria-invalid={invalid || undefined}
       className={cn(
-        'min-h-11 rounded-control border bg-surface px-3 py-2 text-body-sm text-text shadow-inner transition-colors duration-fast ease-standard',
+        'min-h-11 rounded-control border border-border/90 bg-surface/90 px-3.5 py-2.5 text-body-sm text-text shadow-surface backdrop-blur transition duration-fast ease-standard',
         'placeholder:text-text-muted disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text',
         fullWidth && 'w-full',
-        invalid ? 'border-danger' : 'border-border hover:border-border-strong',
+        invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50',
         className
       )}
       {...props}

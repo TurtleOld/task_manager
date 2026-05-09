@@ -15,9 +15,9 @@ export const RadioCard = forwardRef<HTMLInputElement, RadioCardProps>(function R
   return (
     <label
       className={cn(
-        'flex items-start gap-3 rounded-control border px-3 py-2 text-body-sm transition-colors duration-fast ease-standard',
-        checked ? 'border-primary/50 bg-primary/10 text-text' : 'border-border bg-surface text-text',
-        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-primary/40 hover:bg-surface-hover',
+        'flex items-start gap-3 rounded-control border px-3.5 py-3 text-body-sm backdrop-blur transition duration-fast ease-standard',
+        checked ? 'border-primary/35 bg-primary/10 text-text shadow-surface' : 'border-border bg-surface/90 text-text',
+        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-primary/30 hover:bg-surface-hover',
         className
       )}
     >
