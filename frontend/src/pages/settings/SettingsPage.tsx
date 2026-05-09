@@ -5,7 +5,7 @@ import { api } from '../../api/client'
 import type { AdminUser, AuthUser, NotificationProfile, PermissionKey, UserRole } from '../../api/types'
 import { rolePresets, permissionCatalog } from '../../shared/lib/permissions'
 import { TIMEZONE_OPTIONS, ensureProfileTimeZoneInitialized, getDeviceTimeZone, resolveTimeZone } from '../../shared/lib/timezone'
-import { Badge, Button, Card as SurfaceCard, EmptyState, Field, PageShell, Select, TextInput } from '../../shared/ui'
+import { Badge, Button, Card as SurfaceCard, EmptyState, Field, Modal, PageShell, Select, TextInput } from '../../shared/ui'
 
 interface SettingsPageProps {
   user: AuthUser
@@ -185,64 +185,74 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
     }
   }
 
+  const userCountLabel = user.is_admin ? `${users.length || 0} пользователей` : 'Личный профиль'
+
   return (
-    <PageShell width="2xl" padding="comfortable" spacing="sm">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-h1 text-text">Настройки</h1>
-          <p className="text-body-sm text-text-muted">Управление учетной записью и доступом.</p>
+    <PageShell width="2xl" padding="comfortable" spacing="md">
+      <header className="rounded-[1.6rem] border border-border/80 bg-[image:var(--gradient-surface)] px-6 py-6 shadow-elevated backdrop-blur">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="primary">Settings</Badge>
+              <Badge variant="neutral">{user.is_admin ? 'Admin workspace' : 'Personal workspace'}</Badge>
+              <Badge variant="info">{userCountLabel}</Badge>
+            </div>
+            <div>
+              <h1 className="text-h1 text-text">Настройки</h1>
+              <p className="mt-2 max-w-3xl text-body-sm text-text-muted">
+                Управляйте профилем, уведомлениями, пользовательскими настройками и доступом из единого административного центра.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/"
+              className="inline-flex min-h-11 items-center gap-2 rounded-control border border-border bg-surface/90 px-4 py-2 text-button text-text shadow-surface backdrop-blur transition duration-fast ease-standard hover:border-border-strong hover:bg-surface-hover"
+            >
+              Назад к доскам
+            </Link>
+            <Button onClick={onLogout} variant="danger">Выйти</Button>
+          </div>
         </div>
-        <Link
-          to="/"
-          className="inline-flex min-h-11 items-center gap-2 rounded-control border border-border bg-surface px-4 py-2 text-button text-text shadow-surface transition-colors duration-fast ease-standard hover:border-border-strong hover:bg-surface-hover"
-        >
-          Назад к доскам
-        </Link>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-6">
-          <SurfaceCard as="section">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-body-sm text-text-muted">Пользователь</p>
-                <p className="text-h3 text-text">
-                  {user.full_name || user.username}{' '}
-                  {user.is_admin ? <Badge variant="success" className="ml-2">Администратор</Badge> : null}
-                </p>
-              </div>
-              <Button onClick={onLogout} variant="danger">
-                Выйти
-              </Button>
-            </div>
-          </SurfaceCard>
+      <section className="grid gap-4 md:grid-cols-3">
+        <SurfaceCard className="p-5">
+          <p className="text-caption uppercase text-text-muted">Профиль</p>
+          <h2 className="mt-2 text-h3 text-text">{user.full_name || user.username}</h2>
+          <p className="mt-1 text-body-sm text-text-muted">{user.username}</p>
+        </SurfaceCard>
+        <SurfaceCard className="p-5">
+          <p className="text-caption uppercase text-text-muted">Часовой пояс</p>
+          <h2 className="mt-2 text-h3 text-text">{accountTimeZone}</h2>
+          <p className="mt-1 text-body-sm text-text-muted">Используется в web и mobile интерфейсах</p>
+        </SurfaceCard>
+        <SurfaceCard className="p-5">
+          <p className="text-caption uppercase text-text-muted">Роль</p>
+          <h2 className="mt-2 text-h3 text-text">{user.is_admin ? 'Администратор' : 'Участник'}</h2>
+          <p className="mt-1 text-body-sm text-text-muted">{user.is_admin ? 'Расширенные права управления системой' : 'Личные настройки и уведомления'}</p>
+        </SurfaceCard>
+      </section>
 
-          <SurfaceCard as="section">
+      <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+        <div className="space-y-6">
+          <SurfaceCard as="section" className="space-y-5">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-h3 text-text">Аккаунт</h2>
-                <p className="mt-1 text-body-sm text-text-muted">Личные данные, рабочий профиль, язык интерфейса.</p>
+                <div className="flex items-center gap-2">
+                  <Badge variant="primary">Profile</Badge>
+                  <Badge variant="neutral">Account settings</Badge>
+                </div>
+                <h2 className="mt-3 text-h3 text-text">Аккаунт</h2>
+                <p className="mt-1 text-body-sm text-text-muted">Личные данные, язык интерфейса и рабочий часовой пояс.</p>
               </div>
-              <Badge variant="primary">Профиль</Badge>
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Имя" htmlFor="account-full-name">
-                <TextInput
-                  id="account-full-name"
-                  value={accountFullName}
-                  onChange={(event) => setAccountFullName(event.target.value)}
-                  autoComplete="name"
-                />
+                <TextInput id="account-full-name" value={accountFullName} onChange={(event) => setAccountFullName(event.target.value)} autoComplete="name" />
               </Field>
               <Field label="Email" htmlFor="account-email">
-                <TextInput
-                  id="account-email"
-                  type="email"
-                  value={accountEmail}
-                  onChange={(event) => setAccountEmail(event.target.value)}
-                  placeholder="name@company.com"
-                  autoComplete="email"
-                />
+                <TextInput id="account-email" type="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} placeholder="name@company.com" autoComplete="email" />
               </Field>
               <Field label="Язык интерфейса" htmlFor="account-language">
                 <Select id="account-language" value={accountLanguage} onChange={(event) => setAccountLanguage(event.target.value)}>
@@ -251,82 +261,63 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
                   <option value="de">Deutsch</option>
                 </Select>
               </Field>
-              <Field
-                label="Часовой пояс"
-                htmlFor="account-timezone"
-                hint="Этот часовой пояс используется для отображения дат и времени в веб и мобильном приложении."
-                hintId="account-timezone-hint"
-              >
-                <Select
-                  id="account-timezone"
-                  value={accountTimeZone}
-                  onChange={(event) => {
-                    setAccountTimeZone(resolveTimeZone(event.target.value))
-                  }}
-                  aria-describedby="account-timezone-hint"
-                >
-                  {TIMEZONE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
+              <Field label="Часовой пояс" htmlFor="account-timezone" hint="Используется для отображения дат, сроков и уведомлений." hintId="account-timezone-hint">
+                <Select id="account-timezone" value={accountTimeZone} onChange={(event) => setAccountTimeZone(resolveTimeZone(event.target.value))} aria-describedby="account-timezone-hint">
+                  {TIMEZONE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </Select>
               </Field>
             </div>
-            {accountMessage ? <p className="mt-4 text-body-sm text-success">{accountMessage}</p> : null}
-            {notificationError ? <p className="mt-4 text-body-sm text-danger" role="alert">{notificationError}</p> : null}
-            <Button
-              type="button"
-              onClick={() => void saveAccountSettings()}
-              loading={accountSaving}
-              variant="secondary"
-              className="mt-4"
-            >
-              Сохранить изменения
-            </Button>
+            {accountMessage ? <p className="text-body-sm text-success">{accountMessage}</p> : null}
+            {notificationError ? <p className="text-body-sm text-danger" role="alert">{notificationError}</p> : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" onClick={() => void saveAccountSettings()} loading={accountSaving}>Сохранить изменения</Button>
+              <Button type="button" variant="secondary" onClick={() => setAccountFullName(user.full_name || user.username)}>Сбросить имя</Button>
+            </div>
           </SurfaceCard>
 
-          <SurfaceCard as="section">
+          <SurfaceCard as="section" className="space-y-5">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-h3 text-text">Безопасность</h2>
-                <p className="mt-1 text-body-sm text-text-muted">Пароли, сессии, контроль доступа и 2FA.</p>
+                <div className="flex items-center gap-2">
+                  <Badge variant="success">Security</Badge>
+                  <Badge variant="neutral">Access hygiene</Badge>
+                </div>
+                <h2 className="mt-3 text-h3 text-text">Безопасность</h2>
+                <p className="mt-1 text-body-sm text-text-muted">Следите за сессиями, паролем и общим состоянием доступа.</p>
               </div>
-              <Badge variant="success">Доступ</Badge>
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                <p className="font-semibold text-slate-900 dark:text-slate-100">Активные сессии</p>
-                <p className="mt-1">Последний вход: 10 минут назад</p>
-                <button className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                  Завершить все сеансы
-                </button>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface">
+                <p className="text-caption uppercase text-text-muted">Активные сессии</p>
+                <h3 className="mt-2 text-body font-semibold text-text">Последний вход: 10 минут назад</h3>
+                <p className="mt-1 text-body-sm text-text-muted">Завершайте все сеансы при подозрительной активности.</p>
+                <Button type="button" variant="secondary" size="sm" className="mt-4">Завершить все сеансы</Button>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
-                <p className="font-semibold text-slate-900 dark:text-slate-100">Пароль</p>
-                <p className="mt-1">Обновляйте пароль раз в 90 дней.</p>
-                <button className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                  Сменить пароль
-                </button>
+              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface">
+                <p className="text-caption uppercase text-text-muted">Пароль</p>
+                <h3 className="mt-2 text-body font-semibold text-text">Регулярное обновление</h3>
+                <p className="mt-1 text-body-sm text-text-muted">Рекомендуется менять пароль не реже одного раза в 90 дней.</p>
+                <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={() => setPasswordOpen(true)}>Сменить пароль</Button>
               </div>
             </div>
           </SurfaceCard>
 
           {user.is_admin ? (
-            <SurfaceCard as="section">
+            <SurfaceCard as="section" className="space-y-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-h3 text-text">Уведомления</h2>
-                  <p className="mt-1 text-body-sm text-text-muted">Настройки push-напоминаний для мобильного приложения.</p>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="warning">Push</Badge>
+                    <Badge variant="neutral">System reminders</Badge>
+                  </div>
+                  <h2 className="mt-3 text-h3 text-text">Уведомления</h2>
+                  <p className="mt-1 text-body-sm text-text-muted">Глобальные параметры push-напоминаний для мобильного приложения.</p>
                 </div>
-                <Badge variant="warning">Push</Badge>
               </div>
-              <div className="mt-4 rounded-control border border-border bg-background-subtle p-4">
+              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface">
                 <p className="text-body-sm font-semibold text-text">Повторяющиеся напоминания о просроченных задачах</p>
-                <p className="mt-1 text-caption text-text-muted">
-                  Интервал отправки push-уведомлений о просроченных задачах всем пользователям.
-                </p>
-                <div className="mt-3 flex items-center gap-3">
+                <p className="mt-1 text-caption text-text-muted">Интервал отправки push-уведомлений о просроченных задачах всем пользователям.</p>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
                   <Select
                     value={overdueInterval}
                     onChange={(e) => {
@@ -339,7 +330,7 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
                         .finally(() => setOverdueIntervalSaving(false))
                     }}
                     disabled={overdueIntervalSaving}
-                    className="max-w-40"
+                    className="max-w-44"
                   >
                     <option value={5}>5 минут</option>
                     <option value={10}>10 минут</option>
@@ -355,143 +346,134 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
         </div>
 
         <div className="space-y-6">
-          <SurfaceCard as="section">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-h3 text-text">Персональные предпочтения</h2>
-                <p className="mt-1 text-body-sm text-text-muted">Внешний вид и плотность интерфейса.</p>
+          <SurfaceCard as="section" className="space-y-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <Badge variant="info">Preferences</Badge>
+                <Badge variant="neutral">Display</Badge>
               </div>
-              <Badge variant="info">UI</Badge>
+              <h2 className="mt-3 text-h3 text-text">Персональные предпочтения</h2>
+              <p className="mt-1 text-body-sm text-text-muted">Внешний вид, подсказки и базовые параметры отображения.</p>
             </div>
-            <div className="mt-4 grid gap-4">
-              <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+            <div className="grid gap-4">
+              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface">
                 Компактный режим
-                <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-sky-600" />
+                <input type="checkbox" className="h-4 w-4 rounded border-border text-primary" />
               </label>
-              <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface">
                 Показывать быстрые подсказки
-                <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300 text-sky-600" />
+                <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-border text-primary" />
               </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Формат дат</span>
-                <select className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100">
+              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface">
+                <span className="text-label uppercase text-text-muted">Формат дат</span>
+                <select className="mt-3 w-full rounded-control border border-border/90 bg-surface/90 px-3.5 py-2.5 text-body-sm text-text shadow-surface backdrop-blur">
                   <option>ДД.ММ.ГГГГ</option>
                   <option>ММ/ДД/ГГГГ</option>
                   <option>ГГГГ-ММ-ДД</option>
                 </select>
-              </label>
+              </div>
             </div>
           </SurfaceCard>
 
-          <SurfaceCard as="section">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-h3 text-text">Доступность</h2>
-                <p className="mt-1 text-body-sm text-text-muted">Контраст, размер шрифта и ассистивные функции.</p>
+          <SurfaceCard as="section" className="space-y-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <Badge variant="info">A11y</Badge>
+                <Badge variant="neutral">Comfort</Badge>
               </div>
-              <Badge variant="info">A11y</Badge>
+              <h2 className="mt-3 text-h3 text-text">Доступность</h2>
+              <p className="mt-1 text-body-sm text-text-muted">Контраст, размер шрифта и вспомогательные функции интерфейса.</p>
             </div>
-            <div className="mt-4 space-y-4">
-              <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+            <div className="space-y-4">
+              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface">
                 Повышенный контраст
-                <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-sky-600" />
+                <input type="checkbox" className="h-4 w-4 rounded border-border text-primary" />
               </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Размер шрифта</span>
-                <input type="range" min={12} max={20} defaultValue={14} className="mt-2 w-full" />
-                <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">14 px</div>
-              </label>
-              <label className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface">
+                <span className="text-label uppercase text-text-muted">Размер шрифта</span>
+                <input type="range" min={12} max={20} defaultValue={14} className="mt-3 w-full" />
+                <div className="mt-2 text-caption text-text-muted">14 px</div>
+              </div>
+              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface">
                 Озвучивание событий
-                <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-sky-600" />
+                <input type="checkbox" className="h-4 w-4 rounded border-border text-primary" />
               </label>
             </div>
           </SurfaceCard>
 
           {user.is_admin ? (
-            <SurfaceCard as="section">
-              <div className="flex items-center justify-between">
+            <SurfaceCard as="section" className="space-y-5">
+              <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-h3 text-text">Пользователи</h2>
-                  <p className="mt-1 text-body-sm text-text-muted">Управляйте пользователями, ролями и доступами.</p>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="primary">Users</Badge>
+                    <Badge variant="neutral">Access control</Badge>
+                  </div>
+                  <h2 className="mt-3 text-h3 text-text">Пользователи</h2>
+                  <p className="mt-1 text-body-sm text-text-muted">Управляйте ролями, профилями и правами доступа команды.</p>
                 </div>
-                <Link
-                  to="/register"
-                  className="inline-flex min-h-11 items-center gap-2 rounded-control bg-primary px-4 py-2 text-button text-text-inverse shadow-surface transition-colors duration-fast ease-standard hover:bg-primary-hover"
-                >
+                <Link to="/register" className="inline-flex min-h-11 items-center gap-2 rounded-control bg-[image:var(--gradient-primary)] px-4 py-2 text-button text-text-inverse shadow-elevated transition duration-fast ease-standard hover:brightness-[1.03]">
                   Создать пользователя
                 </Link>
               </div>
 
-              <div className="mt-6 grid gap-4 lg:grid-cols-[0.8fr_1.2fr] xl:grid-cols-[0.7fr_1.3fr]">
+              <div className="grid gap-4 lg:grid-cols-[0.82fr_1.18fr]">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-body-sm text-text-muted">
                     <span>Список пользователей</span>
-                    <Button type="button" onClick={loadUsers} variant="secondary" size="sm">
-                      Обновить
-                    </Button>
+                    <Button type="button" onClick={loadUsers} variant="secondary" size="sm">Обновить</Button>
                   </div>
                   <div className="space-y-2">
                     {loadingUsers ? <p className="text-body-sm text-text-muted">Загрузка...</p> : null}
                     {users.map((item) => (
-                      <div
+                      <button
                         key={item.id}
-                        className={`w-full rounded-xl border px-3 py-3 text-left text-sm ${
+                        type="button"
+                        onClick={() => selectUser(item)}
+                        className={`w-full rounded-[1.15rem] border px-4 py-4 text-left shadow-surface transition duration-fast ease-standard ${
                           selectedUser?.id === item.id
-                            ? 'border-sky-500 bg-sky-50 text-slate-900 dark:border-sky-400 dark:bg-slate-900'
-                            : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300'
+                            ? 'border-primary/35 bg-primary/10 text-text'
+                            : 'border-border/75 bg-surface/90 text-text hover:border-border-strong'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                               <span className="truncate font-semibold">{item.full_name || item.username}</span>
-                              <span className="ml-2 shrink-0 text-xs text-slate-400">#{item.id}</span>
+                              <span className="shrink-0 text-caption text-text-muted">#{item.id}</span>
                             </div>
-                            <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{item.username}</div>
+                            <div className="mt-1 text-caption text-text-muted">{item.username}</div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => selectUser(item)}
-                            className="shrink-0 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
-                          >
-                            Выбрать
-                          </button>
+                          {item.is_admin ? <Badge variant="success">Admin</Badge> : null}
                         </div>
-                      </div>
+                      </button>
                     ))}
                     {!loadingUsers && users.length === 0 ? (
-                      <EmptyState title="Пользователи не найдены" className="p-4">
-                        Создайте первого пользователя для управления доступом.
-                      </EmptyState>
+                      <EmptyState title="Пользователи не найдены" className="p-4">Создайте первого пользователя для управления доступом.</EmptyState>
                     ) : null}
                   </div>
                   {usersError ? <p className="text-body-sm text-danger" role="alert">{usersError}</p> : null}
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
+                <div className="rounded-[1.25rem] border border-border/75 bg-background-subtle/55 p-5 shadow-surface">
                   {selectedUser ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-xs uppercase tracking-widest text-slate-500 dark:text-slate-400">Профиль пользователя</p>
-                          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                            {selectedUser.full_name || selectedUser.username}
-                          </h3>
+                          <p className="text-label uppercase text-text-muted">Профиль пользователя</p>
+                          <h3 className="mt-2 text-h3 text-text">{selectedUser.full_name || selectedUser.username}</h3>
+                          <p className="mt-1 text-body-sm text-text-muted">{selectedUser.username}</p>
                         </div>
-                        {selectedUser.is_admin ? <Badge variant="success">Админ</Badge> : null}
+                        {selectedUser.is_admin ? <Badge variant="success">Админ</Badge> : <Badge variant="neutral">Участник</Badge>}
                       </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Откройте полный профиль, чтобы управлять ролью и правами пользователя.
-                      </p>
+                      <p className="text-body-sm text-text-muted">Откройте полный профиль, чтобы управлять ролью, правами и паролем пользователя.</p>
                       <div className="flex flex-wrap items-center gap-2">
-                        <Button type="button" onClick={() => setProfileOpen(true)}>
-                          Открыть профиль
-                        </Button>
+                        <Button type="button" onClick={() => setProfileOpen(true)}>Открыть профиль</Button>
+                        <Button type="button" variant="secondary" onClick={() => setPasswordOpen(true)}>Сменить пароль</Button>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Выберите пользователя.</p>
+                    <EmptyState title="Пользователь не выбран" className="p-4 text-left">Выберите пользователя в списке слева для просмотра и редактирования профиля.</EmptyState>
                   )}
                 </div>
               </div>
@@ -500,98 +482,59 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
         </div>
       </div>
 
-      {passwordOpen && selectedUser ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900">
-            <h3 className="text-lg font-semibold">Сменить пароль</h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Новый пароль для <span className="font-semibold">{selectedUser.username}</span>
-            </p>
-            <label className="mt-4 block">
-              <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Новый пароль</span>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            {passwordError ? <p className="mt-2 text-sm text-rose-600">{passwordError}</p> : null}
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setPasswordOpen(false)}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                disabled={passwordSaving}
-                onClick={onChangePassword}
-                className="inline-flex items-center justify-center rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500 disabled:opacity-60"
-              >
-                Сохранить пароль
-              </button>
-            </div>
+      <Modal
+        open={passwordOpen && Boolean(selectedUser)}
+        onClose={() => setPasswordOpen(false)}
+        title="Сменить пароль"
+        className="max-w-md"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setPasswordOpen(false)}>Отмена</Button>
+            <Button type="button" onClick={() => void onChangePassword()} loading={passwordSaving}>Сохранить пароль</Button>
+          </>
+        }
+      >
+        {selectedUser ? (
+          <div className="space-y-4">
+            <p className="text-body-sm text-text-muted">Новый пароль для <span className="font-semibold text-text">{selectedUser.username}</span></p>
+            <Field label="Новый пароль" htmlFor="user-password" error={passwordError} errorId="user-password-error">
+              <TextInput id="user-password" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} invalid={Boolean(passwordError)} aria-describedby={passwordError ? 'user-password-error' : undefined} />
+            </Field>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </Modal>
 
-      {profileOpen && selectedUser ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-          <div className="w-full max-w-5xl rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-widest text-slate-500 dark:text-slate-400">Профиль пользователя</p>
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  {selectedUser.full_name || selectedUser.username}
-                </h3>
-              </div>
-              <div className="flex items-center gap-2">
-                {selectedUser.is_admin ? (
-                  <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
-                    Админ
-                  </span>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => setProfileOpen(false)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
-                >
-                  Закрыть
-                </button>
-              </div>
+      <Modal
+        open={profileOpen && Boolean(selectedUser)}
+        onClose={() => setProfileOpen(false)}
+        title={selectedUser ? `Профиль: ${selectedUser.full_name || selectedUser.username}` : 'Профиль пользователя'}
+        className="max-w-5xl"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setProfileOpen(false)}>Закрыть</Button>
+            <Button type="button" variant="secondary" onClick={() => setPasswordOpen(true)}>Сменить пароль</Button>
+            <Button type="button" onClick={() => void onSaveUser()} loading={savingUser}>Сохранить</Button>
+          </>
+        }
+      >
+        {selectedUser ? (
+          <div className="space-y-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Имя" htmlFor="edit-full-name" error={editErrors.fullName} errorId="edit-full-name-error">
+                <TextInput id="edit-full-name" value={editFullName} onChange={(event) => setEditFullName(event.target.value)} invalid={Boolean(editErrors.fullName)} aria-describedby={editErrors.fullName ? 'edit-full-name-error' : undefined} />
+              </Field>
+              <Field label="Роль" htmlFor="edit-role" error={editErrors.role} errorId="edit-role-error">
+                <Select id="edit-role" value={editRole} onChange={(event) => setEditRole(event.target.value as UserRole)} invalid={Boolean(editErrors.role)} aria-describedby={editErrors.role ? 'edit-role-error' : undefined}>
+                  <option value="admin">Администратор</option>
+                  <option value="manager">Менеджер</option>
+                  <option value="editor">Редактор</option>
+                  <option value="viewer">Наблюдатель</option>
+                </Select>
+              </Field>
             </div>
 
-            <div className="mt-6 space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Имя</span>
-                  <input
-                    value={editFullName}
-                    onChange={(event) => setEditFullName(event.target.value)}
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                  {editErrors.fullName ? <p className="mt-1 text-xs text-rose-600">{editErrors.fullName}</p> : null}
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Роль</span>
-                  <select
-                    value={editRole}
-                    onChange={(event) => setEditRole(event.target.value as UserRole)}
-                    className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  >
-                    <option value="admin">Администратор</option>
-                    <option value="manager">Менеджер</option>
-                    <option value="editor">Редактор</option>
-                    <option value="viewer">Наблюдатель</option>
-                  </select>
-                  {editErrors.role ? <p className="mt-1 text-xs text-rose-600">{editErrors.role}</p> : null}
-                </label>
-              </div>
-
-              <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <div className="rounded-panel border border-border/75 bg-background-subtle/55 p-4">
+              <label className="flex items-center gap-2 text-body-sm text-text">
                 <input
                   type="checkbox"
                   checked={useCustomPermissions}
@@ -602,87 +545,52 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
                       setEditPermissions(rolePresets[editRole])
                     }
                   }}
-                  className="h-4 w-4 rounded border-slate-300 text-sky-600"
+                  className="h-4 w-4 rounded border-border text-primary"
                 />
                 Редактировать права вручную
               </label>
-
-              {useCustomPermissions ? (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 xl:gap-5">
-                  {permissionCatalog.map((permission) => {
-                    const checked = editPermissions.includes(permission.key)
-                    return (
-                      <label
-                        key={permission.key}
-                        className={`flex h-full w-full items-start gap-3 rounded-2xl border px-4 py-4 text-sm shadow-sm transition ${
-                          checked
-                            ? 'border-sky-500/70 bg-sky-50 ring-1 ring-sky-200 dark:border-sky-400/60 dark:bg-slate-900 dark:ring-sky-500/20'
-                            : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md dark:border-slate-700 dark:bg-slate-950 dark:hover:border-slate-500/70'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(event) => {
-                            setEditPermissions((current) =>
-                              event.target.checked
-                                ? [...current, permission.key]
-                                : current.filter((item) => item !== permission.key)
-                            )
-                          }}
-                          className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600"
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="block wrap-break-word text-[13px] font-semibold leading-snug text-slate-900 dark:text-slate-100">
-                            {permission.label}
-                          </span>
-                          <span className="mt-1 block break-words text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                            {permission.desc}
-                          </span>
-                        </span>
-                      </label>
-                    )
-                  })}
-                  {editErrors.permissions ? (
-                    <p className="text-xs text-rose-600 md:col-span-2 xl:col-span-3">{editErrors.permissions}</p>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-                  Права соответствуют выбранной роли. Для кастомизации включите ручной режим.
-                </div>
-              )}
-
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={onSaveUser}
-                    disabled={savingUser}
-                    className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500 disabled:opacity-60"
-                  >
-                    Сохранить
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPasswordOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
-                  >
-                    Сменить пароль
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setProfileOpen(false)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
-                >
-                  Закрыть
-                </button>
-              </div>
             </div>
+
+            {useCustomPermissions ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {permissionCatalog.map((permission) => {
+                  const checked = editPermissions.includes(permission.key)
+                  return (
+                    <label
+                      key={permission.key}
+                      className={`flex h-full w-full items-start gap-3 rounded-[1.15rem] border px-4 py-4 text-body-sm shadow-surface transition duration-fast ease-standard ${
+                        checked
+                          ? 'border-primary/35 bg-primary/10 text-text'
+                          : 'border-border/75 bg-surface/90 text-text hover:border-border-strong'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => {
+                          setEditPermissions((current) =>
+                            event.target.checked ? [...current, permission.key] : current.filter((item) => item !== permission.key)
+                          )
+                        }}
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-border text-primary"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold text-text">{permission.label}</span>
+                        <span className="mt-1 block text-caption text-text-muted">{permission.desc}</span>
+                      </span>
+                    </label>
+                  )
+                })}
+                {editErrors.permissions ? <p className="text-body-sm text-danger md:col-span-2 xl:col-span-3">{editErrors.permissions}</p> : null}
+              </div>
+            ) : (
+              <div className="rounded-panel border border-dashed border-border bg-background-subtle/55 px-4 py-3 text-caption text-text-muted">
+                Права соответствуют выбранной роли. Для кастомизации включите ручной режим.
+              </div>
+            )}
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </Modal>
     </PageShell>
   )
 }
