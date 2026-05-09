@@ -119,6 +119,31 @@
     @apply bg-primary/20 text-text;
   }
 
+  @keyframes modal-overlay-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes modal-content-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .animate-modal-overlay {
+    animation: modal-overlay-in var(--motion-duration-normal) var(--motion-easing-entrance) both;
+  }
+
+  .animate-modal-content {
+    animation: modal-content-in var(--motion-duration-slow) var(--motion-easing-entrance) both;
+    transform-origin: center;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

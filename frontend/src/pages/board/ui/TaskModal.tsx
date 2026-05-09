@@ -19,6 +19,7 @@ import type { AssigneeOption, BoardAttachment, BoardCardDraft, BoardChecklistIte
 
 interface TaskModalProps {
   selectedCard: Card
+  boardName: string
   draft: BoardCardDraft
   saveBusy: boolean
   deleteBusy: boolean
@@ -85,6 +86,7 @@ interface TaskModalProps {
 
 export function TaskModal({
   selectedCard,
+  boardName,
   draft,
   saveBusy,
   deleteBusy,
@@ -161,13 +163,12 @@ export function TaskModal({
       className="max-h-[calc(100vh-2rem)] max-w-6xl overflow-y-auto"
     >
       <div className="space-y-6">
-        <section className="rounded-[1.4rem] border border-primary/15 bg-[image:var(--gradient-surface)] p-5 shadow-elevated">
+        <section className="rounded-panel border border-primary/15 bg-[image:var(--gradient-surface)] p-6 shadow-elevated">
           <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-4">
             <div className="min-w-0 space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="primary">Task workspace</Badge>
                 <Badge variant="neutral">#{selectedCard.id}</Badge>
-                {selectedCard.board ? <Badge variant="info">Board {selectedCard.board}</Badge> : null}
+                {boardName ? <Badge variant="info">{boardName}</Badge> : null}
               </div>
               <div className="min-w-0">
                 <p className="text-label uppercase text-text-muted">Редактирование задачи</p>

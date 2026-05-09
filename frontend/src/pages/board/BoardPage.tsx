@@ -442,6 +442,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
       {taskModal.selectedCard && taskModal.draft ? (
         <TaskModal
           selectedCard={taskModal.selectedCard}
+          boardName={boardName}
           draft={taskModal.draft}
           saveBusy={taskModal.saveBusy}
           deleteBusy={taskModal.deleteBusy}
