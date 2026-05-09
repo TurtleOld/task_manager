@@ -54,11 +54,11 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: docker compose push backend celery frontend
 
-      - name: Tag and push moving tags (main, latest)
-        if: github.ref == 'refs/heads/main'
+      - name: Tag and push release aliases
         env:
           IMAGE_REGISTRY: ghcr.io/turtleold/task_manager
           SHA_TAG: ${{ github.sha }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           for img in backend celery frontend; do
@@ -66,8 +66,8 @@ jobs:
               echo "Skip $img: image $IMAGE_REGISTRY/$img:$SHA_TAG not found"
               continue
             fi
-            docker tag "$IMAGE_REGISTRY/$img:$SHA_TAG" "$IMAGE_REGISTRY/$img:main"
-            docker push "$IMAGE_REGISTRY/$img:main"
+            docker tag "$IMAGE_REGISTRY/$img:$SHA_TAG" "$IMAGE_REGISTRY/$img:$RELEASE_TAG"
+            docker push "$IMAGE_REGISTRY/$img:$RELEASE_TAG"
             docker tag "$IMAGE_REGISTRY/$img:$SHA_TAG" "$IMAGE_REGISTRY/$img:latest"
             docker push "$IMAGE_REGISTRY/$img:latest"
           done
