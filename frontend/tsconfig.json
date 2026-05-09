@@ -12,8 +12,7 @@
     "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "forceConsistentCasingInFileNames": true,
-    "types": ["vite/client"]
+    "forceConsistentCasingInFileNames": true
   },
   "include": ["src"]
 }

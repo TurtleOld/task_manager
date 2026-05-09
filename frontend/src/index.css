@@ -10,16 +10,85 @@
 
 @layer base {
   :root {
-    /* Для корректной отрисовки встроенных элементов (scrollbar, формы и т.п.) */
+    --color-background: 246 248 251;
+    --color-background-subtle: 238 242 247;
+    --color-surface: 255 255 255;
+    --color-surface-elevated: 252 253 254;
+    --color-surface-hover: 248 250 252;
+    --color-primary: 37 99 235;
+    --color-primary-hover: 29 78 216;
+    --color-primary-active: 30 64 175;
+    --color-secondary: 79 70 229;
+    --color-accent: 14 165 164;
+    --color-text: 16 24 40;
+    --color-text-muted: 102 112 133;
+    --color-text-inverse: 255 255 255;
+    --color-border: 217 225 234;
+    --color-border-strong: 196 207 219;
+    --color-success: 22 163 74;
+    --color-warning: 217 119 6;
+    --color-danger: 220 38 38;
+    --color-info: 2 132 199;
+    --color-focus-ring: 59 130 246;
+    --color-disabled-bg: 229 234 241;
+    --color-disabled-text: 145 158 171;
+
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+
+    --shadow-surface: 0 1px 2px rgb(16 24 40 / 0.06), 0 1px 3px rgb(16 24 40 / 0.08);
+    --shadow-elevated: 0 8px 24px rgb(16 24 40 / 0.10);
+    --shadow-overlay: 0 24px 48px rgb(16 24 40 / 0.18);
+
+    --motion-duration-fast: 140ms;
+    --motion-duration-normal: 180ms;
+    --motion-duration-slow: 220ms;
+    --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+    --motion-easing-entrance: cubic-bezier(0, 0, 0.2, 1);
+    --motion-easing-exit: cubic-bezier(0.4, 0, 1, 1);
+
     color-scheme: light;
   }
 
   :root.dark {
+    --color-background: 11 18 32;
+    --color-background-subtle: 17 24 39;
+    --color-surface: 17 24 39;
+    --color-surface-elevated: 23 32 51;
+    --color-surface-hover: 30 41 59;
+    --color-primary: 96 165 250;
+    --color-primary-hover: 59 130 246;
+    --color-primary-active: 37 99 235;
+    --color-secondary: 129 140 248;
+    --color-accent: 45 212 191;
+    --color-text: 243 246 251;
+    --color-text-muted: 152 162 179;
+    --color-text-inverse: 11 18 32;
+    --color-border: 36 48 65;
+    --color-border-strong: 50 65 85;
+    --color-success: 74 222 128;
+    --color-warning: 251 191 36;
+    --color-danger: 248 113 113;
+    --color-info: 56 189 248;
+    --color-focus-ring: 147 197 253;
+    --color-disabled-bg: 31 41 55;
+    --color-disabled-text: 100 116 139;
+
+    --shadow-surface: 0 1px 2px rgb(0 0 0 / 0.25), 0 1px 3px rgb(0 0 0 / 0.30);
+    --shadow-elevated: 0 8px 24px rgb(0 0 0 / 0.32);
+    --shadow-overlay: 0 24px 48px rgb(0 0 0 / 0.42);
+
     color-scheme: dark;
   }
 
+  html {
+    scrollbar-color: rgb(var(--color-border-strong)) rgb(var(--color-background));
+  }
+
   body {
-    @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+    @apply bg-background font-sans text-text antialiased;
   }
 
   #root {
@@ -27,6 +96,21 @@
   }
 
   * {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 dark:focus-visible:ring-offset-slate-950;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  ::selection {
+    @apply bg-primary/20 text-text;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
