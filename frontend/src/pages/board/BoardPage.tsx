@@ -1,20 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../api/client'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { toggleTheme } from '../../app/theme'
+import { getTimeZoneLabel } from '../../shared/lib/timezone'
 import { Button, Card as SurfaceCard, Field, Select, TextInput, Toast } from '../../shared/ui'
-import {
-  ensureProfileTimeZoneInitialized,
-  formatIsoForTimeZone,
-  getDeviceTimeZone,
-  getTimeZoneLabel,
-  resolveTimeZone,
-  zonedDateTimeLocalToIso,
-} from '../../shared/lib/timezone'
 import { useBoardWebSocket } from '../../useBoardWebSocket'
 import type { BoardEvent } from '../../useBoardWebSocket'
-import type { AuthUser, Card, CardDeadlineReminder, CardDeadlineReminderResponse, Column } from '../../api/types'
-import type { AssigneeOption, BoardCardDraft } from './types'
+import type { AuthUser, Card, Column } from '../../api/types'
+import type { AssigneeOption } from './types'
+import { useBoardTaskModal } from './hooks/useBoardTaskModal'
 import { BoardColumn } from './ui/BoardColumn'
 import { BoardFilters } from './ui/BoardFilters'
 import { BoardHeader } from './ui/BoardHeader'
@@ -38,28 +32,6 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
   const [activeTag, setActiveTag] = useState('Все')
   const [activeCategory, setActiveCategory] = useState('Все')
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCard, setSelectedCard] = useState<Card | null>(null)
-
-  const [draft, setDraft] = useState<BoardCardDraft | null>(null)
-  const draftBaseRef = useRef<BoardCardDraft | null>(null)
-  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([])
-  const [pendingDeleteAttachmentIds, setPendingDeleteAttachmentIds] = useState<string[]>([])
-
-  const [saveBusy, setSaveBusy] = useState(false)
-  const saveBusyRef = useRef(false)
-  const [deleteBusy, setDeleteBusy] = useState(false)
-  const [modalError, setModalError] = useState('')
-
-  const [toast, setToast] = useState<
-    | null
-    | {
-        tone: 'error' | 'info'
-        message: string
-        retry?:
-          | { type: 'updated'; cardId: number; version: number }
-          | { type: 'deleted'; card_id: number; version: number; board?: number; column?: number; card_title?: string }
-      }
-  >(null)
   const [assignees, setAssignees] = useState<AssigneeOption[]>([])
   const [cardTags, setCardTags] = useState<Record<number, string[]>>({})
   const [cardCategories, setCardCategories] = useState<Record<number, string[]>>({})
@@ -68,48 +40,6 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
   const [cardAssignees, setCardAssignees] = useState<Record<number, number | undefined>>({})
   const [cardDeadlines, setCardDeadlines] = useState<Record<number, string>>({})
   const [cardPriorities, setCardPriorities] = useState<Record<number, '🔥' | '🟡' | '🟢'>>({})
-  const [newTag, setNewTag] = useState('')
-  const [newCategory, setNewCategory] = useState('')
-  const [newChecklistItem, setNewChecklistItem] = useState('')
-  const [newAttachmentName, setNewAttachmentName] = useState('')
-  const [newAttachmentType, setNewAttachmentType] = useState<'file' | 'link' | 'photo'>('file')
-  const [newAttachmentUrl, setNewAttachmentUrl] = useState('')
-  const [newAttachmentFiles, setNewAttachmentFiles] = useState<File[]>([])
-  const [attachmentFileInputKey, setAttachmentFileInputKey] = useState(0)
-  const attachmentFileInputRef = useRef<HTMLInputElement | null>(null)
-  const deadlineSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const [reminderData, setReminderData] = useState<CardDeadlineReminderResponse | null>(null)
-  const [reminderDrafts, setReminderDrafts] = useState<CardDeadlineReminder[]>([])
-  const [reminderLoading, setReminderLoading] = useState(false)
-  const [reminderSaving, setReminderSaving] = useState(false)
-  const [reminderError, setReminderError] = useState('')
-  const [reminderFieldError, setReminderFieldError] = useState('')
-  const [newReminderValue, setNewReminderValue] = useState(10)
-  const [newReminderUnit, setNewReminderUnit] = useState<'minutes' | 'hours'>('minutes')
-  const deviceTimeZone = useMemo(() => getDeviceTimeZone(), [])
-  const [profileTimeZone, setProfileTimeZone] = useState(deviceTimeZone)
-
-  const isoToDatetimeLocal = (value: string) => formatIsoForTimeZone(value, profileTimeZone)
-  const datetimeLocalToIso = (value: string) => zonedDateTimeLocalToIso(value, profileTimeZone)
-
-  useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      try {
-        const profile = await api.getNotificationProfile()
-        const nextProfile = await ensureProfileTimeZoneInitialized(profile, deviceTimeZone)
-        if (!mounted) return
-        setProfileTimeZone(resolveTimeZone(nextProfile.timezone))
-      } catch {
-        if (!mounted) return
-        setProfileTimeZone(deviceTimeZone)
-      }
-    })()
-    return () => {
-      mounted = false
-    }
-  }, [deviceTimeZone])
 
   useEffect(() => {
     api.listColumns(boardId).then(setColumns)
@@ -150,10 +80,10 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
         }
         return next
       })
-      setCardDeadlines((prev) => {
-        const next = { ...prev }
+      setCardDeadlines(() => {
+        const next: Record<number, string> = {}
         for (const card of loaded) {
-          if (card.deadline) next[card.id] = isoToDatetimeLocal(card.deadline)
+          if (card.deadline) next[card.id] = card.deadline
         }
         return next
       })
@@ -189,10 +119,8 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
         })
       } else if (event.type === 'card.updated' || event.type === 'card.moved') {
         setCards((prev) => prev.map((c) => (c.id === event.card.id ? event.card : c)))
-        setSelectedCard((prev) => (prev?.id === event.card.id ? event.card : prev))
       } else if (event.type === 'card.deleted') {
         setCards((prev) => prev.filter((c) => c.id !== event.card_id))
-        setSelectedCard((prev) => (prev?.id === event.card_id ? null : prev))
       } else if (event.type === 'column.created') {
         setColumns((prev) => {
           if (prev.some((col) => col.id === event.column.id)) return prev
@@ -208,534 +136,103 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
     },
   })
 
-  useEffect(() => {
-    setNewTag('')
-    setNewCategory('')
-    setNewChecklistItem('')
-    setNewAttachmentName('')
-    setNewAttachmentUrl('')
-    setNewAttachmentType('file')
-    setNewAttachmentFiles([])
-    setAttachmentFileInputKey((k) => k + 1)
-    setPendingUploadFiles([])
-    setPendingDeleteAttachmentIds([])
-    setModalError('')
-    setSaveBusy(false)
-    saveBusyRef.current = false
-    setDeleteBusy(false)
-    setReminderData(null)
-    setReminderDrafts([])
-    setReminderLoading(false)
-    setReminderSaving(false)
-    setReminderError('')
-    setReminderFieldError('')
-    if (!selectedCard) {
-      setDraft(null)
-      draftBaseRef.current = null
-      return
+  const tagOptions = useMemo(() => ['Все', ...new Set(Object.values(cardTags).flat())], [cardTags])
+  const categoryOptions = useMemo(() => ['Все', ...new Set(Object.values(cardCategories).flat())], [cardCategories])
+  const allKnownTags = tagOptions.filter((t) => t !== 'Все')
+  const allKnownCategories = categoryOptions.filter((c) => c !== 'Все')
+
+  const taskModal = useBoardTaskModal({
+    cards,
+    setCards,
+    assignees,
+    allKnownTags,
+    allKnownCategories,
+    cardTags,
+    setCardTags,
+    cardCategories,
+    setCardCategories,
+    cardChecklist,
+    setCardChecklist,
+    cardAttachments,
+    setCardAttachments,
+    cardAssignees,
+    setCardAssignees,
+    cardDeadlines,
+    setCardDeadlines,
+    cardPriorities,
+    setCardPriorities,
+  })
+
+  const tagsFor = (card: Card) => cardTags[card.id] ?? []
+  const categoriesFor = (card: Card) => cardCategories[card.id] ?? []
+  const deadlineFor = (card: Card) => cardDeadlines[card.id] ?? card.deadline ?? ''
+  const priorityMarkerFor = (card: Card) => cardPriorities[card.id] ?? '🟡'
+  const assigneeNameFor = (card: Card) => {
+    const assigneeId = cardAssignees[card.id] ?? card.assignee
+    return assigneeId != null ? (assignees.find((u) => u.id === assigneeId)?.name ?? null) : null
+  }
+
+  const filteredCards = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+    return cards.filter((card) => {
+      const tags = cardTags[card.id] ?? []
+      const categories = cardCategories[card.id] ?? []
+      const matchesTag = activeTag === 'Все' || tags.includes(activeTag)
+      const matchesCategory = activeCategory === 'Все' || categories.includes(activeCategory)
+      const searchable = [card.title, card.description, ...tags, ...categories].join(' ').toLowerCase()
+      const matchesSearch = !query || searchable.includes(query)
+      return matchesTag && matchesCategory && matchesSearch
+    })
+  }, [activeCategory, activeTag, cardCategories, cardTags, cards, searchQuery])
+
+  const grouped = useMemo(() => {
+    const g: Record<number, Card[]> = {}
+    for (const c of filteredCards) {
+      g[c.column] = g[c.column] ?? []
+      g[c.column]?.push(c)
     }
-
-    const id = selectedCard.id
-    const base: BoardCardDraft = {
-      title: selectedCard.title || '',
-      description: selectedCard.description || '',
-      assignee: (cardAssignees[id] ?? selectedCard.assignee) ?? null,
-      deadline: cardDeadlines[id] ?? (selectedCard.deadline ? isoToDatetimeLocal(selectedCard.deadline) : ''),
-      priority: (cardPriorities[id] ?? selectedCard.priority ?? '🟡') as '🔥' | '🟡' | '🟢',
-      tags: (cardTags[id] ?? selectedCard.tags ?? []) as string[],
-      categories: (cardCategories[id] ?? selectedCard.categories ?? []) as string[],
-      checklist: (cardChecklist[id] ?? selectedCard.checklist ?? []) as { id: string; text: string; done: boolean }[],
-      attachments: (cardAttachments[id] ?? selectedCard.attachments ?? []) as Card['attachments'],
-    }
-    setDraft(base)
-    draftBaseRef.current = base
-  }, [selectedCard?.id])
-
-  const selectedCardId = selectedCard?.id ?? null
-  const selectedCardIsPending = selectedCardId != null && selectedCardId < 0
-  const selectedTags = draft?.tags ?? []
-  const selectedCategories = draft?.categories ?? []
-  const selectedChecklist = draft?.checklist ?? []
-  const selectedAttachments = draft?.attachments ?? []
-  const selectedPriority = draft?.priority ?? ''
-
-  useEffect(() => {
-    if (!selectedCardId || selectedCardIsPending) return
-    setReminderLoading(true)
-    setReminderError('')
-    api
-      .getCardDeadlineReminder(selectedCardId)
-      .then((data) => {
-        setReminderData(data)
-        setReminderDrafts(data.reminders ?? [])
+    for (const k of Object.keys(g)) {
+      g[Number(k)]?.sort((a, b) => {
+        const createdDiff = Date.parse(b.created_at) - Date.parse(a.created_at)
+        return createdDiff || b.id - a.id
       })
-      .catch((e) => setReminderError((e as Error).message))
-      .finally(() => setReminderLoading(false))
-  }, [selectedCardId, selectedCardIsPending])
+    }
+    return g
+  }, [filteredCards])
 
-  const applyCardUpdate = (updated: Card) => {
-    setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
-    setSelectedCard((prev) => (prev?.id === updated.id ? updated : prev))
+  const priorityFor = (card: Card) => {
+    const marker = priorityMarkerFor(card)
+    if (marker === '🔥') return { label: 'Срочно', marker: '🔥', tone: 'danger' as const }
+    if (marker === '🟢') return { label: 'Можно когда будет время', marker: '🟢', tone: 'success' as const }
+    return { label: 'Важно (до конца недели)', marker: '🟡', tone: 'warning' as const }
   }
 
-  const persistSelectedCard = async (
-    patch: Partial<{
-      column: number
-      title: string
-      description: string
-      assignee: number | null
-      deadline: string | null
-      priority: string
-      tags: string[]
-      categories: string[]
-      checklist: { id: string; text: string; done: boolean }[]
-      attachments: Card['attachments']
-    }>
-  ) => {
-    if (!selectedCardId) return
-    const updated = await api.updateCard(selectedCardId, patch)
-    applyCardUpdate(updated)
-    if (patch.tags) setCardTags((prev) => ({ ...prev, [updated.id]: updated.tags ?? [] }))
-    if (patch.categories) setCardCategories((prev) => ({ ...prev, [updated.id]: updated.categories ?? [] }))
-    if (patch.checklist) setCardChecklist((prev) => ({ ...prev, [updated.id]: updated.checklist ?? [] }))
-    if (patch.attachments) setCardAttachments((prev) => ({ ...prev, [updated.id]: updated.attachments ?? [] }))
-    if (patch.assignee !== undefined) {
-      setCardAssignees((prev) => ({ ...prev, [updated.id]: updated.assignee ?? undefined }))
-    }
-    if (patch.deadline !== undefined) {
-      setCardDeadlines((prev) => ({ ...prev, [updated.id]: updated.deadline ? isoToDatetimeLocal(updated.deadline) : '' }))
-    }
-    if (patch.priority) {
-      setCardPriorities((prev) => ({ ...prev, [updated.id]: updated.priority ?? '🟡' }))
-    }
-    return updated
+  const formatDateTime = (value: string) => {
+    if (!value) return ''
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return value
+    return parsed.toLocaleString('ru-RU', {
+      timeZone: taskModal.profileTimeZone,
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
   }
 
-  const formatReminder = (reminder: CardDeadlineReminder) => {
-    if (reminder.offset_unit === 'hours') {
-      const unit = reminder.offset_value === 1 ? 'час' : reminder.offset_value < 5 ? 'часа' : 'часов'
-      return `за ${reminder.offset_value} ${unit}`
-    }
-    const unit = reminder.offset_value === 1 ? 'минуту' : reminder.offset_value < 5 ? 'минуты' : 'минут'
-    return `за ${reminder.offset_value} ${unit}`
+  const formatUpdatedStatus = (value: string) => {
+    if (!value) return 'Обновлено недавно'
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return 'Обновлено недавно'
+    const diffMs = Date.now() - parsed.getTime()
+    if (diffMs < 60_000) return 'Обновлено недавно'
+    return `Обновлено ${formatDateTime(value)}`
   }
 
-  const buildCardUpdateChanges = (base: BoardCardDraft, next: BoardCardDraft) => {
-    const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
-    const changes: string[] = []
-    const changesMeta: Record<string, unknown> = {}
-
-    const nextTitle = next.title.trim()
-    if (nextTitle && nextTitle !== base.title) {
-      changes.push(`Заголовок: “${nextTitle}”`)
-      changesMeta.title = nextTitle
-    }
-
-    const nextDescription = next.description.trim()
-    if (nextDescription !== base.description.trim()) {
-      if (nextDescription) {
-        changes.push(`Описание: ${nextDescription}`)
-        changesMeta.description = nextDescription
-      } else {
-        changes.push('Описание удалено')
-        changesMeta.description = ''
-      }
-    }
-
-    if (next.assignee !== base.assignee) {
-      if (next.assignee != null) {
-        const assigneeName = assignees.find((item) => item.id === next.assignee)?.name
-        changes.push(`Исполнитель: ${assigneeName || `#${next.assignee}`}`)
-        changesMeta.assignee = assigneeName || next.assignee
-      } else {
-        changes.push('Исполнитель удален')
-        changesMeta.assignee = null
-      }
-    }
-
-    if (next.deadline !== base.deadline) {
-      if (next.deadline) {
-        changes.push(`Срок: ${formatDateTime(next.deadline)}`)
-        changesMeta.deadline = next.deadline
-      } else {
-        changes.push('Срок удален')
-        changesMeta.deadline = null
-      }
-    }
-
-    if (next.priority !== base.priority) {
-      changes.push(`Приоритет: ${next.priority}`)
-      changesMeta.priority = next.priority
-    }
-
-    if (!sameJson(next.tags, base.tags)) {
-      if (next.tags.length > 0) {
-        changes.push(`Теги: ${next.tags.join(', ')}`)
-        changesMeta.tags = next.tags
-      } else {
-        changes.push('Теги удалены')
-        changesMeta.tags = []
-      }
-    }
-
-    if (!sameJson(next.categories, base.categories)) {
-      if (next.categories.length > 0) {
-        changes.push(`Категории: ${next.categories.join(', ')}`)
-        changesMeta.categories = next.categories
-      } else {
-        changes.push('Категории удалены')
-        changesMeta.categories = []
-      }
-    }
-
-    if (!sameJson(next.checklist, base.checklist)) {
-      const baseMap = new Map(base.checklist.map((item) => [item.id, item]))
-      const nextMap = new Map(next.checklist.map((item) => [item.id, item]))
-      const added = next.checklist.filter((item) => !baseMap.has(item.id))
-      const removed = base.checklist.filter((item) => !nextMap.has(item.id))
-      if (added.length > 0) {
-        changes.push(`Чек-лист добавлено: ${added.map((item) => item.text).join(', ')}`)
-        changesMeta.checklist_added = added
-      }
-      if (removed.length > 0) {
-        changes.push(`Чек-лист удалено: ${removed.map((item) => item.text).join(', ')}`)
-        changesMeta.checklist_removed = removed
-      }
-      if (added.length === 0 && removed.length === 0) {
-        changes.push('Чек-лист обновлен')
-        changesMeta.checklist_updated = true
-      }
-    }
-
-    if (!sameJson(next.attachments, base.attachments)) {
-      if (next.attachments.length > 0) {
-        changes.push(`Вложения: ${next.attachments.length}`)
-        changesMeta.attachments = next.attachments
-      } else {
-        changes.push('Вложения удалены')
-        changesMeta.attachments = []
-      }
-    }
-
-    return { changes, changesMeta }
-  }
-
-  const scheduleDeadlineSave = () => {
-    if (deadlineSaveTimeoutRef.current) {
-      clearTimeout(deadlineSaveTimeoutRef.current)
-      deadlineSaveTimeoutRef.current = null
-    }
-  }
-
-  const deleteSelectedCard = async () => {
-    const cardId = selectedCard?.id
-    if (!cardId) return
-    if (deleteBusy || saveBusy) return
-    const title = selectedCard?.title || 'задачу'
-    if (!window.confirm(`Удалить ${title}?`)) return
-
-    const meta = {
-      card_id: cardId,
-      version: selectedCard?.version ?? 0,
-      board: selectedCard?.board,
-      column: selectedCard?.column,
-      card_title: selectedCard?.title,
-    }
-
-    setDeleteBusy(true)
-    setModalError('')
-    try {
-      await api.deleteCard(cardId)
-      setCards((prev) => prev.filter((c) => c.id !== cardId))
-      setSelectedCard(null)
-
-      setCardTags((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-      setCardCategories((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-      setCardChecklist((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-      setCardAttachments((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-      setCardAssignees((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-      setCardDeadlines((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-      setCardPriorities((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-
-      try {
-        await api.notifyCardDeleted(meta)
-      } catch {
-        setToast({
-          tone: 'error',
-          message: 'Задача удалена, но уведомление отправить не удалось.',
-          retry: { type: 'deleted', ...meta },
-        })
-      }
-    } catch (e) {
-      setModalError((e as Error).message)
-    } finally {
-      setDeleteBusy(false)
-    }
-  }
-
-  useEffect(() => {
-    return () => {
-      if (deadlineSaveTimeoutRef.current) {
-        clearTimeout(deadlineSaveTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  const onSaveCard = async () => {
-    if (!selectedCardId || !selectedCard || !draft || !draftBaseRef.current) return
-    if (saveBusyRef.current) return
-    saveBusyRef.current = true
-    setSaveBusy(true)
-    setModalError('')
-
-    if (deadlineSaveTimeoutRef.current) {
-      clearTimeout(deadlineSaveTimeoutRef.current)
-      deadlineSaveTimeoutRef.current = null
-    }
-
-    const base = draftBaseRef.current
-    const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
-    const patch: Partial<{
-      title: string
-      description: string
-      assignee: number | null
-      deadline: string | null
-      priority: string
-      tags: string[]
-      categories: string[]
-      checklist: { id: string; text: string; done: boolean }[]
-      attachments: Card['attachments']
-    }> = {}
-
-    const nextTitle = draft.title.trim()
-    if (!nextTitle) {
-      setModalError('Заголовок не может быть пустым')
-      setSaveBusy(false)
-      saveBusyRef.current = false
-      return
-    }
-
-    if (nextTitle !== base.title) patch.title = nextTitle
-    if (draft.description !== base.description) patch.description = draft.description
-    if (draft.assignee !== base.assignee) patch.assignee = draft.assignee
-    if (draft.deadline !== base.deadline) patch.deadline = draft.deadline ? datetimeLocalToIso(draft.deadline) : null
-    if (draft.priority !== base.priority) patch.priority = draft.priority
-    if (!sameJson(draft.tags, base.tags)) patch.tags = draft.tags
-    if (!sameJson(draft.categories, base.categories)) patch.categories = draft.categories
-    if (!sameJson(draft.checklist, base.checklist)) patch.checklist = draft.checklist
-    if (!sameJson(draft.attachments, base.attachments)) patch.attachments = draft.attachments
-
-    const hasPatch = Object.keys(patch).length > 0
-    const hasAttachmentOps = pendingUploadFiles.length > 0 || pendingDeleteAttachmentIds.length > 0
-    const reminderChanged = reminderData
-      ? JSON.stringify(reminderDrafts) !== JSON.stringify(reminderData.reminders)
-      : reminderDrafts.length > 0
-
-    if (!hasPatch && !hasAttachmentOps && !reminderChanged) {
-      setSelectedCard(null)
-      setSaveBusy(false)
-      saveBusyRef.current = false
-      return
-    }
-
-    try {
-      let updated: Card | undefined
-
-      if (hasPatch) {
-        updated = await persistSelectedCard(patch)
-      }
-
-      if (reminderChanged) {
-        const reminderOk = await saveReminder()
-        if (!reminderOk) {
-          setSaveBusy(false)
-          saveBusyRef.current = false
-          return
-        }
-      }
-
-      if (pendingUploadFiles.length > 0) {
-        const uploaded = await api.uploadCardAttachments(selectedCardId, pendingUploadFiles)
-        updated = uploaded
-        applyCardUpdate(uploaded)
-        setCardAttachments((prev) => ({ ...prev, [uploaded.id]: uploaded.attachments ?? [] }))
-        setPendingUploadFiles([])
-      }
-
-      for (const attachmentId of pendingDeleteAttachmentIds) {
-        const deleted = await api.deleteCardAttachment(selectedCardId, attachmentId)
-        updated = deleted
-        applyCardUpdate(deleted)
-        setCardAttachments((prev) => ({ ...prev, [deleted.id]: deleted.attachments ?? [] }))
-      }
-      setPendingDeleteAttachmentIds([])
-
-      const finalCard = updated ?? selectedCard
-      setSelectedCard(null)
-
-      try {
-        const { changes, changesMeta } = buildCardUpdateChanges(base, {
-          ...draft,
-          title: draft.title.trim(),
-          description: draft.description,
-          deadline: draft.deadline,
-          tags: draft.tags,
-          categories: draft.categories,
-          checklist: draft.checklist,
-          attachments: draft.attachments,
-        })
-
-        if (reminderChanged) {
-          const enabled = reminderDrafts.filter((item) => item.enabled)
-          if (enabled.length > 0) {
-            const reminderTexts = enabled.map((item) => formatReminder(item))
-            changes.push(`Напоминания: ${reminderTexts.join(', ')}`)
-            changesMeta.reminders = reminderTexts
-          } else {
-            changes.push('Напоминания отключены')
-            changesMeta.reminders = []
-          }
-        }
-
-        await api.notifyCardUpdated(finalCard.id, {
-          version: finalCard.version,
-          description: draft.description.trim() || undefined,
-          changes,
-          changes_meta: changesMeta,
-        })
-      } catch {
-        setToast({
-          tone: 'error',
-          message: 'Изменения сохранены, но уведомление отправить не удалось.',
-          retry: { type: 'updated', cardId: finalCard.id, version: finalCard.version },
-        })
-      }
-    } catch (e) {
-      setModalError((e as Error).message)
-    } finally {
-      setSaveBusy(false)
-      saveBusyRef.current = false
-    }
-  }
-
-  const saveReminder = async () => {
-    if (!selectedCardId) return false
-    if (reminderSaving) return false
-    setReminderSaving(true)
-    setReminderError('')
-    setReminderFieldError('')
-    try {
-      const availableCount = reminderData?.channels ? Object.values(reminderData.channels).filter((c) => c.available).length : 0
-      const invalidChannel = reminderDrafts.some((item) => item.enabled && !item.channel && availableCount !== 1)
-      if (invalidChannel) {
-        setReminderFieldError('Выберите доступный канал доставки')
-        setReminderSaving(false)
-        return false
-      }
-      const updated = await api.saveCardDeadlineReminder(selectedCardId, {
-        reminders: reminderDrafts.map((item) => ({
-          enabled: item.enabled,
-          offset_value: item.offset_value,
-          offset_unit: item.offset_unit,
-          channel: item.channel,
-        })),
-      })
-      setReminderData((prev) => (prev ? { ...prev, reminders: updated } : prev))
-      setReminderDrafts(updated)
-      return true
-    } catch (e) {
-      setReminderError((e as Error).message)
-      return false
-    } finally {
-      setReminderSaving(false)
-    }
-  }
-
-  const applyReminderValue = (id: number, value: number) => {
-    setReminderDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, offset_value: value } : item)))
-  }
-
-  const applyReminderUnit = (id: number, unit: 'minutes' | 'hours') => {
-    setReminderDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, offset_unit: unit } : item)))
-  }
-
-  const applyReminderChannel = (channel: 'email' | 'telegram' | null) => {
-    setReminderDrafts((prev) => prev.map((item) => ({ ...item, channel })))
-  }
-
-  const toggleReminder = (id: number, enabled: boolean) => {
-    setReminderDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, enabled } : item)))
-  }
-
-  const addReminderInterval = (value: number, unit: 'minutes' | 'hours') => {
-    const nextId = Math.max(0, ...reminderDrafts.map((item) => item.id)) + 1
-    setReminderDrafts((prev) => [
-      ...prev,
-      {
-        id: nextId,
-        order: prev.length + 1,
-        enabled: true,
-        offset_value: value,
-        offset_unit: unit,
-        channel: prev[0]?.channel ?? null,
-        scheduled_at: null,
-        status: 'disabled',
-        last_error: '',
-        sent_at: null,
-      },
-    ])
-  }
-
-  const removeReminderInterval = (id: number) => {
-    setReminderDrafts((prev) => prev.filter((item) => item.id !== id))
-  }
-
-  const [toastSending, setToastSending] = useState(false)
-
-  const retryToast = async () => {
-    if (!toast?.retry || toastSending) return
-    setToastSending(true)
-    try {
-      if (toast.retry.type === 'updated') {
-        await api.notifyCardUpdated(toast.retry.cardId, { version: toast.retry.version })
-      } else {
-        await api.notifyCardDeleted(toast.retry)
-      }
-      setToast(null)
-    } catch {
-      // keep toast as-is
-    } finally {
-      setToastSending(false)
-    }
-  }
+  const urgentCardsCount = cards.filter((card) => priorityMarkerFor(card) === '🔥').length
+  const datedCardsCount = cards.filter((card) => Boolean(deadlineFor(card))).length
+  const activeFilterCount = [activeTag !== 'Все', activeCategory !== 'Все', Boolean(searchQuery.trim())].filter(Boolean).length
 
   const onCreateColumn = async () => {
     if (!colName.trim()) return
@@ -769,7 +266,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
       version: 1,
     }
     setCards((prev) => [...prev, placeholder])
-    setSelectedCard(placeholder)
+    taskModal.setSelectedCard(placeholder)
     setNewCardTitle((s) => ({ ...s, [columnId]: '' }))
 
     try {
@@ -779,7 +276,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
         if (withoutTemp.some((c) => c.id === card.id)) return withoutTemp
         return [...withoutTemp, card]
       })
-      setSelectedCard((prev) => (prev?.id === tempId ? card : prev))
+      taskModal.setSelectedCard((prev) => (prev?.id === tempId ? card : prev))
     } catch {
       setCards((prev) => prev.filter((c) => c.id !== tempId))
     }
@@ -836,6 +333,18 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
     }
   }
 
+  const handleDropOnColumn = async (columnId: number) => {
+    if (!dragged || dragged.column === columnId) return
+    const cardId = dragged.id
+    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, column: columnId } : c)))
+    try {
+      const updated = await api.moveCard(cardId, { to_column: columnId })
+      setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+    } catch {
+      setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, column: dragged.column } : c)))
+    }
+  }
+
   const stopCardOpen = (event: { preventDefault: () => void; stopPropagation: () => void }) => {
     event.preventDefault()
     event.stopPropagation()
@@ -845,196 +354,6 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
     event.stopPropagation()
   }
 
-  const priorityFor = (card: Card) => {
-    const marker = priorityMarkerFor(card)
-    if (marker === '🔥') return { label: 'Срочно', marker: '🔥', tone: 'danger' as const }
-    if (marker === '🟢') return { label: 'Можно когда будет время', marker: '🟢', tone: 'success' as const }
-    return { label: 'Важно (до конца недели)', marker: '🟡', tone: 'warning' as const }
-  }
-
-  const formatDateTime = (value: string) => {
-    if (!value) return ''
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return value
-    return parsed.toLocaleString('ru-RU', {
-      timeZone: profileTimeZone,
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
-
-  const formatUpdatedStatus = (value: string) => {
-    if (!value) return 'Обновлено недавно'
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return 'Обновлено недавно'
-    const diffMs = Date.now() - parsed.getTime()
-    if (diffMs < 60_000) return 'Обновлено недавно'
-    return `Обновлено ${formatDateTime(value)}`
-  }
-
-  const tagOptions = useMemo(() => ['Все', ...new Set(Object.values(cardTags).flat())], [cardTags])
-  const categoryOptions = useMemo(() => ['Все', ...new Set(Object.values(cardCategories).flat())], [cardCategories])
-
-  const tagsFor = (card: Card) => cardTags[card.id] ?? []
-  const categoriesFor = (card: Card) => cardCategories[card.id] ?? []
-  const deadlineFor = (card: Card) => cardDeadlines[card.id] ?? card.deadline ?? ''
-  const priorityMarkerFor = (card: Card) => cardPriorities[card.id] ?? '🟡'
-  const assigneeNameFor = (card: Card) => {
-    const assigneeId = cardAssignees[card.id] ?? card.assignee
-    return assigneeId != null ? (assignees.find((u) => u.id === assigneeId)?.name ?? null) : null
-  }
-
-  const filteredCards = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
-
-    return cards.filter((card) => {
-      const tags = cardTags[card.id] ?? []
-      const categories = cardCategories[card.id] ?? []
-      const matchesTag = activeTag === 'Все' || tags.includes(activeTag)
-      const matchesCategory = activeCategory === 'Все' || categories.includes(activeCategory)
-      const searchable = [card.title, card.description, ...tags, ...categories].join(' ').toLowerCase()
-      const matchesSearch = !query || searchable.includes(query)
-      return matchesTag && matchesCategory && matchesSearch
-    })
-  }, [activeCategory, activeTag, cardCategories, cardTags, cards, searchQuery])
-
-  const grouped = useMemo(() => {
-    const g: Record<number, Card[]> = {}
-    for (const c of filteredCards) {
-      g[c.column] = g[c.column] ?? []
-      g[c.column]?.push(c)
-    }
-    for (const k of Object.keys(g)) {
-      g[Number(k)]?.sort((a, b) => {
-        const createdDiff = Date.parse(b.created_at) - Date.parse(a.created_at)
-        return createdDiff || b.id - a.id
-      })
-    }
-    return g
-  }, [filteredCards])
-
-  const allKnownTags = tagOptions.filter((t) => t !== 'Все')
-  const allKnownCategories = categoryOptions.filter((c) => c !== 'Все')
-  const urgentCardsCount = cards.filter((card) => priorityMarkerFor(card) === '🔥').length
-  const datedCardsCount = cards.filter((card) => Boolean(deadlineFor(card))).length
-  const activeFilterCount = [activeTag !== 'Все', activeCategory !== 'Все', Boolean(searchQuery.trim())].filter(Boolean).length
-
-  const addTagValue = (valueRaw: string) => {
-    if (!selectedCardId || !draft) return
-    const value = valueRaw.trim()
-    if (!value) return
-    const next = Array.from(new Set([...(draft.tags ?? []), value]))
-    setDraft((prev) => (prev ? { ...prev, tags: next } : prev))
-  }
-
-  const addCategoryValue = (valueRaw: string) => {
-    if (!selectedCardId || !draft) return
-    const value = valueRaw.trim()
-    if (!value) return
-    const next = Array.from(new Set([...(draft.categories ?? []), value]))
-    setDraft((prev) => (prev ? { ...prev, categories: next } : prev))
-  }
-
-  const addTag = () => {
-    if (!selectedCardId) return
-    addTagValue(newTag)
-    setNewTag('')
-  }
-
-  const removeTag = (tag: string) => {
-    if (!selectedCardId || !draft) return
-    const next = (draft.tags ?? []).filter((item) => item !== tag)
-    setDraft((prev) => (prev ? { ...prev, tags: next } : prev))
-  }
-
-  const addCategory = () => {
-    if (!selectedCardId) return
-    addCategoryValue(newCategory)
-    setNewCategory('')
-  }
-
-  const removeCategory = (category: string) => {
-    if (!selectedCardId || !draft) return
-    const next = (draft.categories ?? []).filter((item) => item !== category)
-    setDraft((prev) => (prev ? { ...prev, categories: next } : prev))
-  }
-
-  const addChecklistItem = () => {
-    if (!selectedCardId || !draft) return
-    const value = newChecklistItem.trim()
-    if (!value) return
-    const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, text: value, done: false }
-    const next = [...(draft.checklist ?? []), item]
-    setDraft((prev) => (prev ? { ...prev, checklist: next } : prev))
-    setNewChecklistItem('')
-  }
-
-  const toggleChecklistItem = (itemId: string) => {
-    if (!selectedCardId || !draft) return
-    const next = (draft.checklist ?? []).map((item) => (item.id === itemId ? { ...item, done: !item.done } : item))
-    setDraft((prev) => (prev ? { ...prev, checklist: next } : prev))
-  }
-
-  const removeChecklistItem = (itemId: string) => {
-    if (!selectedCardId || !draft) return
-    const next = (draft.checklist ?? []).filter((item) => item.id !== itemId)
-    setDraft((prev) => (prev ? { ...prev, checklist: next } : prev))
-  }
-
-  const addAttachment = async () => {
-    if (!selectedCardId || !draft) return
-
-    if (newAttachmentType === 'file') {
-      if (newAttachmentFiles.length === 0) return
-      setPendingUploadFiles((prev) => [...prev, ...newAttachmentFiles])
-      setNewAttachmentFiles([])
-      setAttachmentFileInputKey((k) => k + 1)
-      return
-    }
-
-    const name = newAttachmentName.trim()
-    if (!name) return
-    const attachment = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      name,
-      type: newAttachmentType,
-      url: newAttachmentUrl.trim() || undefined,
-    }
-    const next = [...(draft.attachments ?? []), attachment]
-    setDraft((prev) => (prev ? { ...prev, attachments: next } : prev))
-    setNewAttachmentName('')
-    setNewAttachmentUrl('')
-  }
-
-  const removeAttachment = async (item: { id: string; type: 'file' | 'link' | 'photo' }) => {
-    if (!selectedCardId || !draft) return
-
-    if (item.type === 'file') {
-      setPendingDeleteAttachmentIds((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]))
-      setDraft((prev) => (prev ? { ...prev, attachments: (prev.attachments ?? []).filter((x) => x.id !== item.id) } : prev))
-      return
-    }
-
-    setDraft((prev) => (prev ? { ...prev, attachments: (prev.attachments ?? []).filter((x) => x.id !== item.id) } : prev))
-  }
-
-  const handleDropOnColumn = async (columnId: number) => {
-    if (!dragged || dragged.column === columnId) return
-    const cardId = dragged.id
-
-    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, column: columnId } : c)))
-
-    try {
-      const updated = await api.moveCard(cardId, { to_column: columnId })
-      setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
-    } catch {
-      setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, column: dragged.column } : c)))
-    }
-  }
-
   const sortedColumns = [...columns].sort((a, b) => (a.position > b.position ? 1 : -1))
   const availableIcons = ['📋', '📝', '⚡', '✅', '🧩', '🛠️', '🎯', '📦', '💡', '🔍']
   const accentClasses = ['text-primary', 'text-warning', 'text-success', 'text-danger', 'text-secondary', 'text-accent']
@@ -1042,12 +361,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
 
   return (
     <div className="min-h-screen bg-background pb-12 text-text">
-      <BoardHeader
-        boardName={boardName}
-        onCreateColumn={() => setIsCreatingColumn(true)}
-        onLogout={onLogout}
-        onToggleTheme={toggleTheme}
-      />
+      <BoardHeader boardName={boardName} onCreateColumn={() => setIsCreatingColumn(true)} onLogout={onLogout} onToggleTheme={toggleTheme} />
 
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 pt-6">
         <section className="grid gap-3 sm:grid-cols-3" aria-label="Сводка по доске">
@@ -1073,24 +387,12 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
               </Field>
               <Field label="Иконка" htmlFor="new-column-icon">
                 <Select id="new-column-icon" value={colIcon} onChange={(e) => setColIcon(e.target.value)} aria-label="Выбор иконки колонки">
-                  {availableIcons.map((icon) => (
-                    <option key={icon} value={icon}>{icon}</option>
-                  ))}
+                  {availableIcons.map((icon) => <option key={icon} value={icon}>{icon}</option>)}
                 </Select>
               </Field>
               <div className="flex min-h-11 items-center gap-2">
                 <Button onClick={onCreateColumn} aria-label="Добавить колонку">Добавить</Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    setIsCreatingColumn(false)
-                    setColName('')
-                  }}
-                  aria-label="Отменить создание колонки"
-                >
-                  Отмена
-                </Button>
+                <Button type="button" variant="secondary" onClick={() => { setIsCreatingColumn(false); setColName('') }} aria-label="Отменить создание колонки">Отмена</Button>
               </div>
             </div>
           </SurfaceCard>
@@ -1119,7 +421,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
               onNewCardTitleChange={(value) => setNewCardTitle((s) => ({ ...s, [col.id]: value }))}
               onCreateCard={() => onCreateCard(col.id)}
               onDrop={() => handleDropOnColumn(col.id)}
-              onCardOpen={setSelectedCard}
+              onCardOpen={taskModal.setSelectedCard}
               onDragStart={setDragged}
               onDragEnd={() => setDragged(null)}
               priorityFor={priorityFor}
@@ -1137,81 +439,81 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
         </section>
       </main>
 
-      {selectedCard && draft ? (
+      {taskModal.selectedCard && taskModal.draft ? (
         <TaskModal
-          selectedCard={selectedCard}
-          draft={draft}
-          saveBusy={saveBusy}
-          deleteBusy={deleteBusy}
-          modalError={modalError}
-          onClose={() => setSelectedCard(null)}
-          onSave={() => void onSaveCard()}
-          onDelete={() => void deleteSelectedCard()}
-          setDraft={setDraft}
-          reminderDrafts={reminderDrafts}
-          reminderData={reminderData}
-          reminderLoading={reminderLoading}
-          reminderError={reminderError}
-          reminderFieldError={reminderFieldError}
-          newReminderValue={newReminderValue}
-          setNewReminderValue={setNewReminderValue}
-          newReminderUnit={newReminderUnit}
-          setNewReminderUnit={setNewReminderUnit}
-          applyReminderValue={applyReminderValue}
-          applyReminderUnit={applyReminderUnit}
-          applyReminderChannel={applyReminderChannel}
-          toggleReminder={toggleReminder}
-          addReminderInterval={addReminderInterval}
-          removeReminderInterval={removeReminderInterval}
-          selectedChecklist={selectedChecklist}
-          newChecklistItem={newChecklistItem}
-          setNewChecklistItem={setNewChecklistItem}
-          addChecklistItem={addChecklistItem}
-          toggleChecklistItem={toggleChecklistItem}
-          removeChecklistItem={removeChecklistItem}
-          selectedAttachments={selectedAttachments}
-          newAttachmentType={newAttachmentType}
-          setNewAttachmentType={setNewAttachmentType}
-          attachmentFileInputKey={attachmentFileInputKey}
-          attachmentFileInputRef={attachmentFileInputRef}
-          setNewAttachmentFiles={setNewAttachmentFiles}
-          newAttachmentFiles={newAttachmentFiles}
-          newAttachmentName={newAttachmentName}
-          setNewAttachmentName={setNewAttachmentName}
-          newAttachmentUrl={newAttachmentUrl}
-          setNewAttachmentUrl={setNewAttachmentUrl}
-          addAttachment={addAttachment}
-          removeAttachment={removeAttachment}
+          selectedCard={taskModal.selectedCard}
+          draft={taskModal.draft}
+          saveBusy={taskModal.saveBusy}
+          deleteBusy={taskModal.deleteBusy}
+          modalError={taskModal.modalError}
+          onClose={() => taskModal.setSelectedCard(null)}
+          onSave={() => void taskModal.onSaveCard()}
+          onDelete={() => void taskModal.deleteSelectedCard()}
+          setDraft={taskModal.setDraft}
+          reminderDrafts={taskModal.reminderDrafts}
+          reminderData={taskModal.reminderData}
+          reminderLoading={taskModal.reminderLoading}
+          reminderError={taskModal.reminderError}
+          reminderFieldError={taskModal.reminderFieldError}
+          newReminderValue={taskModal.newReminderValue}
+          setNewReminderValue={taskModal.setNewReminderValue}
+          newReminderUnit={taskModal.newReminderUnit}
+          setNewReminderUnit={taskModal.setNewReminderUnit}
+          applyReminderValue={taskModal.applyReminderValue}
+          applyReminderUnit={taskModal.applyReminderUnit}
+          applyReminderChannel={taskModal.applyReminderChannel}
+          toggleReminder={taskModal.toggleReminder}
+          addReminderInterval={taskModal.addReminderInterval}
+          removeReminderInterval={taskModal.removeReminderInterval}
+          selectedChecklist={taskModal.selectedChecklist}
+          newChecklistItem={taskModal.newChecklistItem}
+          setNewChecklistItem={taskModal.setNewChecklistItem}
+          addChecklistItem={taskModal.addChecklistItem}
+          toggleChecklistItem={taskModal.toggleChecklistItem}
+          removeChecklistItem={taskModal.removeChecklistItem}
+          selectedAttachments={taskModal.selectedAttachments}
+          newAttachmentType={taskModal.newAttachmentType}
+          setNewAttachmentType={taskModal.setNewAttachmentType}
+          attachmentFileInputKey={taskModal.attachmentFileInputKey}
+          attachmentFileInputRef={taskModal.attachmentFileInputRef}
+          setNewAttachmentFiles={taskModal.setNewAttachmentFiles}
+          newAttachmentFiles={taskModal.newAttachmentFiles}
+          newAttachmentName={taskModal.newAttachmentName}
+          setNewAttachmentName={taskModal.setNewAttachmentName}
+          newAttachmentUrl={taskModal.newAttachmentUrl}
+          setNewAttachmentUrl={taskModal.setNewAttachmentUrl}
+          addAttachment={taskModal.addAttachment}
+          removeAttachment={taskModal.removeAttachment}
           assignees={assignees}
-          selectedCardId={selectedCardId}
-          profileTimeZone={profileTimeZone}
+          selectedCardId={taskModal.selectedCardId}
+          profileTimeZone={taskModal.profileTimeZone}
           getTimeZoneLabel={getTimeZoneLabel}
-          scheduleDeadlineSave={scheduleDeadlineSave}
-          selectedPriority={selectedPriority}
+          scheduleDeadlineSave={taskModal.scheduleDeadlineSave}
+          selectedPriority={taskModal.selectedPriority}
           allKnownTags={allKnownTags}
-          selectedTags={selectedTags}
-          newTag={newTag}
-          setNewTag={setNewTag}
-          addTagValue={addTagValue}
-          removeTag={removeTag}
-          addTag={addTag}
+          selectedTags={taskModal.selectedTags}
+          newTag={taskModal.newTag}
+          setNewTag={taskModal.setNewTag}
+          addTagValue={taskModal.addTagValue}
+          removeTag={taskModal.removeTag}
+          addTag={taskModal.addTag}
           allKnownCategories={allKnownCategories}
-          selectedCategories={selectedCategories}
-          newCategory={newCategory}
-          setNewCategory={setNewCategory}
-          addCategoryValue={addCategoryValue}
-          removeCategory={removeCategory}
-          addCategory={addCategory}
+          selectedCategories={taskModal.selectedCategories}
+          newCategory={taskModal.newCategory}
+          setNewCategory={taskModal.setNewCategory}
+          addCategoryValue={taskModal.addCategoryValue}
+          removeCategory={taskModal.removeCategory}
+          addCategory={taskModal.addCategory}
         />
       ) : null}
 
-      {toast ? (
+      {taskModal.toast ? (
         <Toast
-          tone={toast.tone === 'error' ? 'error' : 'info'}
-          onClose={() => setToast(null)}
-          action={toast.retry ? { label: 'Повторить', loading: toastSending, onClick: () => void retryToast() } : undefined}
+          tone={taskModal.toast.tone === 'error' ? 'error' : 'info'}
+          onClose={() => taskModal.setToast(null)}
+          action={taskModal.toast.retry ? { label: 'Повторить', loading: taskModal.toastSending, onClick: () => void taskModal.retryToast() } : undefined}
         >
-          {toast.message}
+          {taskModal.toast.message}
         </Toast>
       ) : null}
     </div>
