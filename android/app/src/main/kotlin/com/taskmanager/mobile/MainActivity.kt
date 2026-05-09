@@ -3725,7 +3725,7 @@ class KanbanViewModel : ViewModel() {
                         board.copy(columns = board.columns.map { col ->
                             if (col.id == task.columnId) {
                                 val tasks = col.tasks.filter { it.id != task.id } + task
-                                col.copy(tasks = tasks.sortedBy { it.position })
+                                col.copy(tasks = sortTasksNewestFirst(tasks))
                             } else {
                                 col.copy(tasks = col.tasks.filter { it.id != task.id })
                             }
@@ -3916,11 +3916,12 @@ class KanbanViewModel : ViewModel() {
                 columnId = columnId,
                 dueDate = null,
                 priority = TaskPriority.Medium,
-                position = Float.MAX_VALUE // place at end
+                position = Float.MAX_VALUE,
+                createdAt = currentIsoTimestamp()
             )
             val updatedBoards = current.boards.map { board ->
                 board.copy(columns = board.columns.map { col ->
-                    if (col.id == columnId) col.copy(tasks = col.tasks + placeholder)
+                    if (col.id == columnId) col.copy(tasks = sortTasksNewestFirst(col.tasks + placeholder))
                     else col
                 })
             }
@@ -3940,9 +3941,9 @@ class KanbanViewModel : ViewModel() {
                     board.copy(columns = board.columns.map { col ->
                         if (col.id == columnId) {
                             col.copy(
-                                tasks = col.tasks.map { task ->
+                                tasks = sortTasksNewestFirst(col.tasks.map { task ->
                                     if (task.id == tempId) createdTask else task
-                                }.sortedBy { it.position }
+                                })
                             )
                         } else {
                             col
@@ -3977,7 +3978,7 @@ class KanbanViewModel : ViewModel() {
                 val updatedBoards = current.boards.map { board ->
                     board.copy(columns = board.columns.map { col ->
                         when (col.id) {
-                            toColumnId -> col.copy(tasks = (col.tasks.filter { it.id != taskId } + relocated).sortedBy { it.position })
+                            toColumnId -> col.copy(tasks = sortTasksNewestFirst(col.tasks.filter { it.id != taskId } + relocated))
                             else -> col.copy(tasks = col.tasks.filter { it.id != taskId })
                         }
                     })
@@ -4207,7 +4208,7 @@ class KanbanRepository {
         val cards = service.getCards()
 
         val tasksByColumn = cards.groupBy { it.column }.mapValues { (_, items) ->
-            items.map { dtoToTask(it) }.sortedBy { it.position }
+            sortTasksNewestFirst(items.map { dtoToTask(it) })
         }
 
         val columnsByBoard = columns.groupBy { it.board }.mapValues { (_, items) ->
@@ -4658,6 +4659,13 @@ enum class TaskPriority(val apiValue: String, val label: String, val emoji: Stri
 private fun JsonElement?.asPosition(): Float {
     val primitive = this as? JsonPrimitive ?: return 0f
     return primitive.content.toFloatOrNull() ?: 0f
+}
+
+private fun sortTasksNewestFirst(tasks: List<KanbanTask>): List<KanbanTask> =
+    tasks.sortedWith(compareByDescending<KanbanTask> { it.createdAt.orEmpty() }.thenByDescending { it.id })
+
+private fun currentIsoTimestamp(): String {
+    return Instant.now().toString()
 }
 
 private fun normalizeBaseUrl(value: String): String {

@@ -1,5 +1,10 @@
 VERSION_FILE := version.txt
+
+ifeq ($(OS),Windows_NT)
 PYTHON ?= py -3
+else
+PYTHON ?= python3
+endif
 
 .PHONY: uv-venv uv-sync dev migrate run lint typecheck test openapi-export version sync-version set-version release-tag
 
