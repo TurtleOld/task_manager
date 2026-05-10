@@ -73,7 +73,7 @@ export const api = {
   },
   updateBoard: async (
     id: number,
-    payload: Partial<{ name: string; notification_email: string; notification_telegram_chat_id: string }>
+    payload: Partial<{ name: string }>
   ): Promise<Board> => {
     const res = await fetch(`${V1}/boards/${id}/`, {
       method: 'PATCH',

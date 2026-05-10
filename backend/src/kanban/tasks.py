@@ -415,15 +415,6 @@ def send_notification_event(self, event_id: int) -> None:
     users = User.objects.all().order_by("id")
     profiles = {p.user_id: p for p in NotificationProfile.objects.filter(user__in=users)}
 
-    board = event.board if event.board_id else None
-    board_override = False
-    board_email = ""
-    board_telegram = ""
-    if board:
-        board_email = (board.notification_email or "").strip()
-        board_telegram = (board.notification_telegram_chat_id or "").strip()
-        board_override = bool(board_email or board_telegram)
-
     subject = Truncator(_event_title(event)).chars(120)
     body = _event_body(event)
 
@@ -442,7 +433,7 @@ def send_notification_event(self, event_id: int) -> None:
                 continue
 
             if channel_value == NotificationChannel.EMAIL:
-                target_email = board_email if board_override else profile.email
+                target_email = profile.email
                 if not target_email:
                     continue
                 delivery = NotificationDelivery.objects.create(
@@ -462,7 +453,7 @@ def send_notification_event(self, event_id: int) -> None:
                     continue
 
             if channel_value == NotificationChannel.TELEGRAM:
-                target_chat = board_telegram if board_override else profile.telegram_chat_id
+                target_chat = profile.telegram_chat_id
                 if not target_chat:
                     continue
                 delivery = NotificationDelivery.objects.create(

@@ -41,7 +41,7 @@ export function useUpdateBoard() {
       payload,
     }: {
       id: number
-      payload: Partial<{ name: string; notification_email: string; notification_telegram_chat_id: string }>
+      payload: Partial<{ name: string }>
     }) => api.updateBoard(id, payload),
     onSuccess: (board) => {
       qc.setQueryData<Board[]>(queryKeys.boards(), (prev) =>
