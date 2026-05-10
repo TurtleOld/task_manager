@@ -1,5 +1,5 @@
 import type { HTMLAttributes } from 'react'
-import { cn } from '../lib/cn'
+import { cn } from '@/lib/utils'
 
 type BadgeVariant = 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
@@ -19,7 +19,11 @@ type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
 export function Badge({ className, variant = 'neutral', ...props }: BadgeProps) {
   return (
     <span
-      className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption backdrop-blur', badgeVariants[variant], className)}
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption backdrop-blur',
+        badgeVariants[variant],
+        className,
+      )}
       {...props}
     />
   )

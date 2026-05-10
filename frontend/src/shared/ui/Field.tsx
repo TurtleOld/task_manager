@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { cn } from '../lib/cn'
+import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 
 type FieldProps = {
   children: ReactNode
@@ -12,15 +13,35 @@ type FieldProps = {
   htmlFor?: string
 }
 
-export function Field({ children, className, error, errorId, hint, hintId, htmlFor, label }: FieldProps) {
+export function Field({
+  children,
+  className,
+  error,
+  errorId,
+  hint,
+  hintId,
+  htmlFor,
+  label,
+}: FieldProps) {
   return (
     <div className={cn('space-y-2', className)}>
-      <label htmlFor={htmlFor} className="block text-label uppercase tracking-[0.08em] text-text-muted">
+      <Label
+        htmlFor={htmlFor}
+        className="block text-label uppercase tracking-[0.08em] text-text-muted"
+      >
         {label}
-      </label>
+      </Label>
       {children}
-      {hint ? <p id={hintId} className="text-caption text-text-muted">{hint}</p> : null}
-      {error ? <p id={errorId} className="text-body-sm text-danger">{error}</p> : null}
+      {hint ? (
+        <p id={hintId} className="text-caption text-text-muted">
+          {hint}
+        </p>
+      ) : null}
+      {error ? (
+        <p id={errorId} className="text-body-sm text-danger">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }

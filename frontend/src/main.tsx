@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
 import { applyAppFontSize, loadAppFontSize } from './app/preferences'
 import App from './App'
+import { Toaster } from '@/components/ui/sonner'
 import './index.css'
 
 // Инициализация темы должна происходить ДО render(), чтобы избежать "мигания"
@@ -40,6 +41,7 @@ root.render(
   <React.StrictMode>
     <BrowserRouter>
       <App />
+      <Toaster />
     </BrowserRouter>
   </React.StrictMode>
 )

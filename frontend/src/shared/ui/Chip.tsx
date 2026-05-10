@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react'
-import { cn } from '../lib/cn'
+import { cn } from '@/lib/utils'
 
 type ChipTone = 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
