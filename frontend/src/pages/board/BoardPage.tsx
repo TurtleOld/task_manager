@@ -22,7 +22,7 @@ import { useColumns, useCreateColumn, useMoveColumn } from '../../api/queries/co
 import { useCards, useCreateCard, useMoveCard } from '../../api/queries/cards'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { getTimeZoneLabel } from '../../shared/lib/timezone'
-import { Button, Card as SurfaceCard, Field, Select, Skeleton, TextInput } from '../../shared/ui'
+import { Button, Card as SurfaceCard, Field, Select, Skeleton, TextInput } from '@/components/ui'
 import { useBoardWebSocket } from '../../useBoardWebSocket'
 import type { BoardEvent } from '../../useBoardWebSocket'
 import type { AuthUser, Card, Column } from '../../api/types'

@@ -1,4 +1,4 @@
-import { Badge, Button, Card as SurfaceCard, EmptyState, Select, TextInput } from '../../../../../shared/ui'
+import { Badge, Button, Card as SurfaceCard, EmptyState, Select, TextInput } from '@/components/ui'
 import type { AttachmentsSectionProps } from '../TaskModal.types'
 
 export function AttachmentsSection({

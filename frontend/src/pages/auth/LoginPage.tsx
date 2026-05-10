@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { AuthUser, RegistrationStatus } from '../../api/types'
-import { Badge, Button, Card as SurfaceCard, Field, PageShell, TextInput } from '../../shared/ui'
+import { Badge, Button, Card as SurfaceCard, Field, PageShell, TextInput } from '@/components/ui'
 
 interface LoginPageProps {
   onLogin: (user: AuthUser) => void

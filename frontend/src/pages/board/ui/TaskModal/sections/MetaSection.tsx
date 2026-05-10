@@ -1,4 +1,4 @@
-import { Badge, Card as SurfaceCard, Field, Select, TextInput } from '../../../../../shared/ui'
+import { Badge, Card as SurfaceCard, Field, Select, TextInput } from '@/components/ui'
 import type { MetaSectionProps } from '../TaskModal.types'
 
 export function MetaSection({ draft, setDraft, assignees, selectedCardId, profileTimeZone, getTimeZoneLabel, scheduleDeadlineSave }: MetaSectionProps) {

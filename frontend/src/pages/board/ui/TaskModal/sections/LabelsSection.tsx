@@ -1,4 +1,4 @@
-import { Badge, Button, Card as SurfaceCard, Chip, ChipButton, TextInput } from '../../../../../shared/ui'
+import { Badge, Button, Card as SurfaceCard, Chip, ChipButton, TextInput } from '@/components/ui'
 import type { LabelsSectionProps } from '../TaskModal.types'
 
 export function LabelsSection({ allKnownLabels, selectedLabels, newLabel, setNewLabel, addLabelValue, removeLabel, addLabel }: LabelsSectionProps) {

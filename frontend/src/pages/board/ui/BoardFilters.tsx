@@ -1,4 +1,4 @@
-import { Badge, Card as SurfaceCard, ChipButton, Field, TextInput } from '../../../shared/ui'
+import { Badge, Card as SurfaceCard, ChipButton, Field, TextInput } from '@/components/ui'
 import type { BoardLabel } from '../types'
 
 interface BoardFiltersProps {

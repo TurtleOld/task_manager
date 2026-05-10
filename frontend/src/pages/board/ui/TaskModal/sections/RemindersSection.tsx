@@ -1,7 +1,7 @@
 import { Label as RadixLabel } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { cn } from '@/lib/utils'
-import { Badge, Button, Card as SurfaceCard, Checkbox, Select, Skeleton, TextInput } from '../../../../../shared/ui'
+import { Badge, Button, Card as SurfaceCard, Checkbox, Select, Skeleton, TextInput } from '@/components/ui'
 import type { RemindersSectionProps } from '../TaskModal.types'
 
 export function RemindersSection({

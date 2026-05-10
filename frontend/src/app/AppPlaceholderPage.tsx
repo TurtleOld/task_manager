@@ -1,4 +1,4 @@
-import { Badge, Card as SurfaceCard, PageShell } from '../shared/ui'
+import { Badge, Card as SurfaceCard, PageShell } from '@/components/ui'
 
 interface AppPlaceholderPageProps {
   title: string

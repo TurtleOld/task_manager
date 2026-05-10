@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useBoards, useCreateBoard } from '../../api/queries/boards'
-import { Badge, Button, Card as SurfaceCard, EmptyState, PageShell, Skeleton, TextInput } from '../../shared/ui'
+import { Badge, Button, Card as SurfaceCard, EmptyState, PageShell, Skeleton, TextInput } from '@/components/ui'
 
 export function BoardsPage() {
   const { data: boards = [], isLoading } = useBoards()

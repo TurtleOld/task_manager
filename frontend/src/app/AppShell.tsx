@@ -5,7 +5,7 @@ import { Bell, CalendarDays, ChevronLeft, Inbox, LayoutDashboard, Menu, Search, 
 import { useBoards } from '../api/queries/boards'
 import type { AuthUser } from '../api/types'
 import { toggleTheme } from './theme'
-import { Button, Skeleton } from '../shared/ui'
+import { Button, Skeleton } from '@/components/ui'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 

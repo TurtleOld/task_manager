@@ -1,7 +1,7 @@
 import { CSS } from '@dnd-kit/utilities'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { cn } from '@/lib/utils'
-import { Badge, Chip, EmptyState, IconButton, TextInput } from '../../../shared/ui'
+import { Badge, Chip, EmptyState, IconButton, TextInput } from '@/components/ui'
 import type { Card, Column } from '../../../api/types'
 import type { BoardLabel } from '../types'
 

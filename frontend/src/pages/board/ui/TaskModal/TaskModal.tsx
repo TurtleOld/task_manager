@@ -1,4 +1,4 @@
-import { Badge, Button, Modal } from '../../../../shared/ui'
+import { Badge, Button, Modal } from '@/components/ui'
 import type { TaskModalProps } from './TaskModal.types'
 import { MainSection } from './sections/MainSection'
 import { RemindersSection } from './sections/RemindersSection'

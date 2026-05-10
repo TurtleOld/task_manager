@@ -1,4 +1,4 @@
-import { Card as SurfaceCard, Field, TextInput, Textarea } from '../../../../../shared/ui'
+import { Card as SurfaceCard, Field, TextInput, Textarea } from '@/components/ui'
 import type { MainSectionProps } from '../TaskModal.types'
 
 export function MainSection({ draft, setDraft }: MainSectionProps) {

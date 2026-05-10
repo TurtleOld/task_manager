@@ -1,4 +1,4 @@
-import { Badge, Button, Card as SurfaceCard, Checkbox, EmptyState, TextInput } from '../../../../../shared/ui'
+import { Badge, Button, Card as SurfaceCard, Checkbox, EmptyState, TextInput } from '@/components/ui'
 import type { ChecklistSectionProps } from '../TaskModal.types'
 
 export function ChecklistSection({

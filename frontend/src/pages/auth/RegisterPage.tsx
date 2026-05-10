@@ -4,7 +4,7 @@ import { toggleTheme } from '../../app/theme'
 import { api } from '../../api/client'
 import type { AuthUser, RegistrationStatus, UserRole } from '../../api/types'
 import { roleLabels } from '../../shared/lib/permissions'
-import { Badge, Button, Card as SurfaceCard, ErrorState, Field, Modal, PageShell, Select, Skeleton, TextInput } from '../../shared/ui'
+import { Badge, Button, Card as SurfaceCard, ErrorState, Field, Modal, PageShell, Select, Skeleton, TextInput } from '@/components/ui'
 
 interface RegisterPageProps {
   user: AuthUser | null

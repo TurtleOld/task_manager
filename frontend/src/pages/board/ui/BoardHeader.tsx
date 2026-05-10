@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Badge, Button } from '../../../shared/ui'
+import { Badge, Button } from '@/components/ui'
 
 interface BoardHeaderProps {
   boardName: string

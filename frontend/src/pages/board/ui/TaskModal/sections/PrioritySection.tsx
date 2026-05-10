@@ -1,7 +1,7 @@
 import { Label as RadixLabel } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { cn } from '@/lib/utils'
-import { Badge, Card as SurfaceCard } from '../../../../../shared/ui'
+import { Badge, Card as SurfaceCard } from '@/components/ui'
 import type { BoardPriority } from '../../../types'
 import { priorityToLabel, priorityToMarker } from '../../../lib/priority'
 import type { PrioritySectionProps } from '../TaskModal.types'
