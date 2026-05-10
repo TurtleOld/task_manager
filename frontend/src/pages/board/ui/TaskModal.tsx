@@ -1,4 +1,7 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Label as RadixLabel } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 import {
   Badge,
   Button,
@@ -9,7 +12,6 @@ import {
   EmptyState,
   Field,
   Modal,
-  RadioCard,
   Select,
   TextInput,
   Textarea,
@@ -319,28 +321,52 @@ export function TaskModal({
 
                   <div className="rounded-panel border border-border/70 bg-background-subtle/55 p-4 text-caption text-text-muted">
                     <p className="font-semibold text-text">Канал доставки</p>
-                    <div className="mt-3 grid gap-2">
+                    <RadioGroup
+                      className="mt-3 grid gap-2"
+                      value={
+                        (() => {
+                          const availableCount = reminderData?.channels ? Object.values(reminderData.channels).filter((c) => c.available).length : 0
+                          const isOnlyAvailable = availableCount === 1
+                          const autoChannel = isOnlyAvailable ? (['email', 'telegram'] as const).find((c) => reminderData?.channels?.[c]?.available) : undefined
+                          if (reminderDrafts.every((item) => item.channel === 'email') || (reminderDrafts.every((item) => item.channel === null) && autoChannel === 'email')) return 'email'
+                          if (reminderDrafts.every((item) => item.channel === 'telegram') || (reminderDrafts.every((item) => item.channel === null) && autoChannel === 'telegram')) return 'telegram'
+                          return undefined
+                        })()
+                      }
+                      onValueChange={(v) => applyReminderChannel(v as 'email' | 'telegram')}
+                    >
                       {(['email', 'telegram'] as const).map((channel) => {
                         const info = reminderData?.channels?.[channel]
                         const available = info?.available ?? false
                         const availableCount = reminderData?.channels ? Object.values(reminderData.channels).filter((c) => c.available).length : 0
                         const isOnlyAvailable = availableCount === 1
                         const isAuto = reminderDrafts.every((item) => item.channel === null) && isOnlyAvailable && available
+                        const checked = reminderDrafts.every((item) => item.channel === channel) || isAuto
+                        const description = !available ? info?.reason || 'Недоступен' : isAuto ? 'Единственный доступный канал' : undefined
                         return (
-                          <RadioCard
+                          <RadixLabel
                             key={channel}
-                            name="reminder-channel"
-                            value={channel}
-                            checked={reminderDrafts.every((item) => item.channel === channel) || isAuto}
-                            onChange={() => applyReminderChannel(channel)}
-                            disabled={!available}
-                            label={channel === 'email' ? 'Email' : 'Telegram'}
-                            description={!available ? info?.reason || 'Недоступен' : isAuto ? 'Единственный доступный канал' : undefined}
-                            className={!available ? 'border-danger/25 bg-danger/10' : undefined}
-                          />
+                            htmlFor={`reminder-channel-${channel}`}
+                            className={cn(
+                              'flex cursor-pointer items-start gap-3 rounded-control border px-3.5 py-3 text-body-sm backdrop-blur transition duration-fast ease-standard',
+                              checked ? 'border-primary/35 bg-primary/10 text-text shadow-surface' : 'border-border bg-surface/90 text-text',
+                              !available ? 'cursor-not-allowed border-danger/25 bg-danger/10 opacity-60' : 'hover:border-primary/30 hover:bg-surface-hover',
+                            )}
+                          >
+                            <RadioGroupItem
+                              id={`reminder-channel-${channel}`}
+                              value={channel}
+                              disabled={!available}
+                              className="mt-0.5"
+                            />
+                            <span>
+                              <span className="block font-semibold">{channel === 'email' ? 'Email' : 'Telegram'}</span>
+                              {description ? <span className="mt-1 block text-caption text-text-muted">{description}</span> : null}
+                            </span>
+                          </RadixLabel>
                         )
                       })}
-                    </div>
+                    </RadioGroup>
                     {reminderFieldError ? <p className="mt-3 text-caption text-danger" role="alert">{reminderFieldError}</p> : null}
                   </div>
 
@@ -509,25 +535,38 @@ export function TaskModal({
                 </div>
                 <h3 className="mt-3 text-h3 text-text">Приоритет</h3>
               </div>
-              <div className="grid gap-2">
+              <RadioGroup
+                className="grid gap-2"
+                value={selectedPriority === '' ? undefined : String(selectedPriority)}
+                onValueChange={(v) => {
+                  if (!selectedCardId) return
+                  setDraft((prev) => (prev ? { ...prev, priority: Number(v) as BoardPriority } : prev))
+                }}
+              >
                 {[
                   { value: 3 as BoardPriority, marker: '🔥', label: 'Срочно', description: 'Нужно обработать в первую очередь' },
                   { value: 2 as BoardPriority, marker: '🟡', label: 'Важно', description: 'Желательно закрыть до конца недели' },
                   { value: 1 as BoardPriority, marker: '🟢', label: 'Можно позже', description: 'Не блокирует текущую работу' },
-                ].map((item) => (
-                  <RadioCard
-                    key={item.label}
-                    name="priority"
-                    checked={selectedPriority === item.value}
-                    onChange={() => {
-                      if (!selectedCardId) return
-                      setDraft((prev) => (prev ? { ...prev, priority: item.value } : prev))
-                    }}
-                    label={`${item.marker} ${item.label}`}
-                    description={item.description}
-                  />
-                ))}
-              </div>
+                ].map((item) => {
+                  const checked = selectedPriority === item.value
+                  return (
+                    <RadixLabel
+                      key={item.label}
+                      htmlFor={`priority-${item.value}`}
+                      className={cn(
+                        'flex cursor-pointer items-start gap-3 rounded-control border px-3.5 py-3 text-body-sm backdrop-blur transition duration-fast ease-standard',
+                        checked ? 'border-primary/35 bg-primary/10 text-text shadow-surface' : 'border-border bg-surface/90 text-text hover:border-primary/30 hover:bg-surface-hover',
+                      )}
+                    >
+                      <RadioGroupItem id={`priority-${item.value}`} value={String(item.value)} className="mt-0.5" />
+                      <span>
+                        <span className="block font-semibold">{item.marker} {item.label}</span>
+                        <span className="mt-1 block text-caption text-text-muted">{item.description}</span>
+                      </span>
+                    </RadixLabel>
+                  )
+                })}
+              </RadioGroup>
             </SurfaceCard>
 
             <SurfaceCard as="section" className="space-y-4">

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { api } from '../../../api/client'
 import {
   useDeleteCard,
@@ -36,16 +37,6 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [modalError, setModalError] = useState('')
 
-  const [toast, setToast] = useState<
-    | null
-    | {
-        tone: 'error' | 'info'
-        message: string
-        retry?:
-          | { type: 'updated'; cardId: number; version: number }
-          | { type: 'deleted'; card_id: number; version: number; board?: number; column?: number; card_title?: string }
-      }
-  >(null)
 
   const [newLabel, setNewLabel] = useState('')
   const [newChecklistItem, setNewChecklistItem] = useState('')
@@ -319,10 +310,11 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       try {
         await api.notifyCardDeleted(meta)
       } catch {
-        setToast({
-          tone: 'error',
-          message: 'Задача удалена, но уведомление отправить не удалось.',
-          retry: { type: 'deleted', ...meta },
+        toast.error('Задача удалена, но уведомление отправить не удалось.', {
+          action: {
+            label: 'Повторить',
+            onClick: () => void api.notifyCardDeleted(meta).catch(() => null),
+          },
         })
       }
     } catch (e) {
@@ -495,10 +487,13 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
           changes_meta: changesMeta,
         })
       } catch {
-        setToast({
-          tone: 'error',
-          message: 'Изменения сохранены, но уведомление отправить не удалось.',
-          retry: { type: 'updated', cardId: finalCard.id, version: finalCard.version },
+        const cardId = finalCard.id
+        const version = finalCard.version
+        toast.error('Изменения сохранены, но уведомление отправить не удалось.', {
+          action: {
+            label: 'Повторить',
+            onClick: () => void api.notifyCardUpdated(cardId, { version }).catch(() => null),
+          },
         })
       }
     } catch (e) {
@@ -546,24 +541,6 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
 
   const removeReminderInterval = (id: number) => {
     setReminderDrafts((prev) => prev.filter((item) => item.id !== id))
-  }
-
-  const [toastSending, setToastSending] = useState(false)
-  const retryToast = async () => {
-    if (!toast?.retry || toastSending) return
-    setToastSending(true)
-    try {
-      if (toast.retry.type === 'updated') {
-        await api.notifyCardUpdated(toast.retry.cardId, { version: toast.retry.version })
-      } else {
-        await api.notifyCardDeleted(toast.retry)
-      }
-      setToast(null)
-    } catch {
-      // keep toast as-is
-    } finally {
-      setToastSending(false)
-    }
   }
 
   const addLabelValue = (input: string | BoardLabel) => {
@@ -707,9 +684,5 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     addLabel,
     onSaveCard,
     deleteSelectedCard,
-    toast,
-    setToast,
-    toastSending,
-    retryToast,
   }
 }

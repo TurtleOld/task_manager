@@ -8,7 +8,7 @@ import { useCards, useCreateCard, useMoveCard } from '../../api/queries/cards'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { toggleTheme } from '../../app/theme'
 import { getTimeZoneLabel } from '../../shared/lib/timezone'
-import { Button, Card as SurfaceCard, Field, Select, TextInput, Toast } from '../../shared/ui'
+import { Button, Card as SurfaceCard, Field, Select, TextInput } from '../../shared/ui'
 import { useBoardWebSocket } from '../../useBoardWebSocket'
 import type { BoardEvent } from '../../useBoardWebSocket'
 import type { AuthUser, Card, Column } from '../../api/types'
@@ -466,15 +466,6 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
         />
       ) : null}
 
-      {taskModal.toast ? (
-        <Toast
-          tone={taskModal.toast.tone === 'error' ? 'error' : 'info'}
-          onClose={() => taskModal.setToast(null)}
-          action={taskModal.toast.retry ? { label: 'Повторить', loading: taskModal.toastSending, onClick: () => void taskModal.retryToast() } : undefined}
-        >
-          {taskModal.toast.message}
-        </Toast>
-      ) : null}
     </div>
   )
 }
