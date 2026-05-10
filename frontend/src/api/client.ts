@@ -96,6 +96,17 @@ export const api = {
     })
     return json(res)
   },
+  moveColumn: async (
+    id: number,
+    payload: Partial<{ before_id: number; after_id: number }>
+  ): Promise<Column> => {
+    const res = await fetch(`${V1}/columns/${id}/move/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
 
   // Cards
   listCardsByBoard: async (boardId: number): Promise<Card[]> => {

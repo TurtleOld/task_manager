@@ -23,3 +23,33 @@ export function useCreateColumn(boardId: number) {
     },
   })
 }
+
+type MoveColumnContext = { previous: Column[] | undefined }
+
+export function useMoveColumn(boardId: number) {
+  const qc = useQueryClient()
+  return useMutation<
+    Column,
+    Error,
+    { id: number; payload: Parameters<typeof api.moveColumn>[1]; optimistic?: (columns: Column[]) => Column[] },
+    MoveColumnContext
+  >({
+    mutationFn: ({ id, payload }) => api.moveColumn(id, payload),
+    onMutate: async ({ optimistic }) => {
+      await qc.cancelQueries({ queryKey: queryKeys.columns(boardId) })
+      const previous = qc.getQueryData<Column[]>(queryKeys.columns(boardId))
+      if (optimistic && previous) {
+        qc.setQueryData<Column[]>(queryKeys.columns(boardId), optimistic(previous))
+      }
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(queryKeys.columns(boardId), ctx.previous)
+    },
+    onSuccess: (updated) => {
+      qc.setQueryData<Column[]>(queryKeys.columns(boardId), (prev) =>
+        prev?.map((column) => (column.id === updated.id ? updated : column)),
+      )
+    },
+  })
+}

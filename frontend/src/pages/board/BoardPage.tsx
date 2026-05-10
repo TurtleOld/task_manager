@@ -2,10 +2,23 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  closestCorners,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
+import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { api } from '../../api/client'
 import { queryKeys } from '../../api/queries/keys'
 import { useBoards } from '../../api/queries/boards'
-import { useColumns, useCreateColumn } from '../../api/queries/columns'
+import { useColumns, useCreateColumn, useMoveColumn } from '../../api/queries/columns'
 import { useCards, useCreateCard, useMoveCard } from '../../api/queries/cards'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { getTimeZoneLabel } from '../../shared/lib/timezone'
@@ -22,7 +35,7 @@ import {
   priorityToMarker,
   priorityToTone,
 } from './lib/priority'
-import { BoardColumn } from './ui/BoardColumn'
+import { BoardColumn, BoardTaskCard } from './ui/BoardColumn'
 import { BoardFilters } from './ui/BoardFilters'
 import { BoardHeader } from './ui/BoardHeader'
 import { TaskModal } from './ui/TaskModal'
@@ -50,16 +63,22 @@ export function BoardPage({ user }: BoardPageProps) {
 
   const createCardMutation = useCreateCard(boardId)
   const createColumnMutation = useCreateColumn(boardId)
+  const moveColumnMutation = useMoveColumn(boardId)
   const moveCardMutation = useMoveCard(boardId)
 
   const [colName, setColName] = useState('')
   const [colIcon, setColIcon] = useState('📋')
   const [isCreatingColumn, setIsCreatingColumn] = useState(false)
   const [newCardTitle, setNewCardTitle] = useState<Record<number, string>>({})
-  const [dragged, setDragged] = useState<Card | null>(null)
+  const [activeDragCardId, setActiveDragCardId] = useState<number | null>(null)
   const [activeLabel, setActiveLabel] = useState('Все')
   const [searchQuery, setSearchQuery] = useState('')
   const [assignees, setAssignees] = useState<AssigneeOption[]>([])
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   useEffect(() => {
     if (user?.is_admin) {
@@ -183,10 +202,7 @@ export function BoardPage({ user }: BoardPageProps) {
       g[c.column]?.push(c)
     }
     for (const k of Object.keys(g)) {
-      g[Number(k)]?.sort((a, b) => {
-        const createdDiff = Date.parse(b.created_at) - Date.parse(a.created_at)
-        return createdDiff || b.id - a.id
-      })
+      g[Number(k)]?.sort((a, b) => Number(a.position) - Number(b.position) || a.id - b.id)
     }
     return g
   }, [filteredCards])
@@ -336,21 +352,136 @@ export function BoardPage({ user }: BoardPageProps) {
     }
   }
 
-  const handleDropOnColumn = async (columnId: number) => {
-    if (!dragged || dragged.column === columnId) return
-    const cardId = dragged.id
-    const fromColumn = dragged.column
+  const parseDndId = (id: string | number) => {
+    const value = String(id)
+    const [type, rawId] = value.split('-')
+    const numericId = Number(rawId)
+    return Number.isFinite(numericId) ? { type, id: numericId } : null
+  }
+
+  const positionAfterDrop = (items: Card[], targetColumnId: number, beforeId?: number, afterId?: number) => {
+    if (beforeId != null) {
+      const before = items.find((item) => item.id === beforeId)
+      return String(Number(before?.position ?? 0) + 1)
+    }
+    if (afterId != null) {
+      const after = items.find((item) => item.id === afterId)
+      return String(Number(after?.position ?? 0) - 1)
+    }
+    const last = items
+      .filter((item) => item.column === targetColumnId)
+      .sort((a, b) => Number(b.position) - Number(a.position))[0]
+    return String(Number(last?.position ?? 0) + 1)
+  }
+
+  const positionAfterColumnDrop = (items: Column[], beforeId?: number, afterId?: number) => {
+    if (beforeId != null) {
+      const before = items.find((item) => item.id === beforeId)
+      return String(Number(before?.position ?? 0) + 1)
+    }
+    if (afterId != null) {
+      const after = items.find((item) => item.id === afterId)
+      return String(Number(after?.position ?? 0) - 1)
+    }
+    const last = [...items].sort((a, b) => Number(b.position) - Number(a.position))[0]
+    return String(Number(last?.position ?? 0) + 1)
+  }
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const parsed = parseDndId(event.active.id)
+    if (parsed?.type === 'card') setActiveDragCardId(parsed.id)
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActiveDragCardId(null)
+    const active = parseDndId(event.active.id)
+    const over = event.over ? parseDndId(event.over.id) : null
+    if (!active || !over) return
+
+    if (active.type === 'column') {
+      const activeColumn = columns.find((column) => column.id === active.id)
+      const overColumnId = over.type === 'column'
+        ? over.id
+        : over.type === 'card'
+          ? cards.find((card) => card.id === over.id)?.column
+          : undefined
+      const overColumn = columns.find((column) => column.id === overColumnId)
+      if (!activeColumn || !overColumn || activeColumn.id === overColumn.id) return
+
+      const oldIndex = sortedColumns.findIndex((column) => column.id === activeColumn.id)
+      const newIndex = sortedColumns.findIndex((column) => column.id === overColumn.id)
+      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return
+      const before_id = newIndex > oldIndex ? overColumn.id : undefined
+      const after_id = newIndex < oldIndex ? overColumn.id : undefined
+
+      try {
+        await moveColumnMutation.mutateAsync({
+          id: activeColumn.id,
+          payload: {
+            ...(before_id != null ? { before_id } : {}),
+            ...(after_id != null ? { after_id } : {}),
+          },
+          optimistic: (items) => items.map((item) => (
+            item.id === activeColumn.id
+              ? { ...item, position: positionAfterColumnDrop(items, before_id, after_id) }
+              : item
+          )),
+        })
+      } catch {
+        // rollback handled by useMoveColumn onError.
+      }
+      return
+    }
+
+    if (active.type !== 'card') return
+
+    const activeCard = cards.find((card) => card.id === active.id)
+    if (!activeCard || activeCard.id < 0) return
+
+    const overCard = over.type === 'card' ? cards.find((card) => card.id === over.id) : null
+    const targetColumnId = over.type === 'column' ? over.id : overCard?.column
+    if (!targetColumnId) return
+
+    let before_id: number | undefined
+    let after_id: number | undefined
+
+    if (overCard && overCard.id !== activeCard.id) {
+      if (targetColumnId === activeCard.column) {
+        const colCards = grouped[activeCard.column] || []
+        const oldIndex = colCards.findIndex((card) => card.id === activeCard.id)
+        const newIndex = colCards.findIndex((card) => card.id === overCard.id)
+        if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return
+        if (newIndex > oldIndex) before_id = overCard.id
+        else after_id = overCard.id
+      } else {
+        after_id = overCard.id
+      }
+    }
+
+    if (!overCard && targetColumnId === activeCard.column) return
+
+    const payload = {
+      ...(targetColumnId !== activeCard.column ? { to_column: targetColumnId } : {}),
+      ...(before_id != null ? { before_id } : {}),
+      ...(after_id != null ? { after_id } : {}),
+    }
+
     try {
       await moveCardMutation.mutateAsync({
-        id: cardId,
-        payload: { to_column: columnId },
-        optimistic: (cs) => cs.map((c) => (c.id === cardId ? { ...c, column: columnId } : c)),
+        id: activeCard.id,
+        payload,
+        optimistic: (items) => items.map((item) => (
+          item.id === activeCard.id
+            ? { ...item, column: targetColumnId, position: positionAfterDrop(items, targetColumnId, before_id, after_id) }
+            : item
+        )),
       })
     } catch {
-      // rollback handled by onError; nothing else to do.
-      void fromColumn
+      // rollback handled by useMoveCard onError.
     }
   }
+
+  const handleDragCancel = () => setActiveDragCardId(null)
 
   const stopCardOpen = (event: { preventDefault: () => void; stopPropagation: () => void }) => {
     event.preventDefault()
@@ -384,6 +515,7 @@ export function BoardPage({ user }: BoardPageProps) {
   }
 
   const sortedColumns = [...columns].sort((a, b) => (a.position > b.position ? 1 : -1))
+  const activeDragCard = activeDragCardId != null ? cards.find((card) => card.id === activeDragCardId) ?? null : null
   const availableIcons = ['📋', '📝', '⚡', '✅', '🧩', '🛠️', '🎯', '📦', '💡', '🔍']
   const accentClasses = ['text-primary', 'text-warning', 'text-success', 'text-danger', 'text-secondary', 'text-accent']
   const accentForColumn = (index: number) => accentClasses[index % accentClasses.length] ?? 'text-primary'
@@ -436,32 +568,47 @@ export function BoardPage({ user }: BoardPageProps) {
           onActiveLabelChange={setActiveLabel}
         />
 
-        <section className="grid gap-5 lg:grid-cols-3" aria-label="Колонки канбан-доски">
-          {sortedColumns.map((col, index) => (
-            <BoardColumn
-              key={col.id}
-              column={col}
-              accentClass={accentForColumn(index)}
-              cards={grouped[col.id] || []}
-              newCardTitle={newCardTitle[col.id] || ''}
-              onNewCardTitleChange={(value) => setNewCardTitle((s) => ({ ...s, [col.id]: value }))}
-              onCreateCard={() => onCreateCard(col.id)}
-              onDrop={() => handleDropOnColumn(col.id)}
-              onCardOpen={openTaskModal}
-              onDragStart={setDragged}
-              onDragEnd={() => setDragged(null)}
-              priorityFor={priorityFor}
-              labelsFor={labelsFor}
-              deadlineFor={deadlineFor}
-              assigneeNameFor={assigneeNameFor}
-              formatDateTime={formatDateTime}
-              formatUpdatedStatus={formatUpdatedStatus}
-              move={move}
-              stopCardOpen={stopCardOpen}
-              stopCardKeyBubble={stopCardKeyBubble}
-            />
-          ))}
-        </section>
+        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
+          <SortableContext items={sortedColumns.map((column) => `column-${column.id}`)} strategy={rectSortingStrategy}>
+            <section className="grid gap-5 lg:grid-cols-3" aria-label="Колонки канбан-доски">
+              {sortedColumns.map((col, index) => (
+                <BoardColumn
+                  key={col.id}
+                  column={col}
+                  accentClass={accentForColumn(index)}
+                  cards={grouped[col.id] || []}
+                  newCardTitle={newCardTitle[col.id] || ''}
+                  onNewCardTitleChange={(value) => setNewCardTitle((s) => ({ ...s, [col.id]: value }))}
+                  onCreateCard={() => onCreateCard(col.id)}
+                  onCardOpen={openTaskModal}
+                  priorityFor={priorityFor}
+                  labelsFor={labelsFor}
+                  deadlineFor={deadlineFor}
+                  assigneeNameFor={assigneeNameFor}
+                  formatDateTime={formatDateTime}
+                  formatUpdatedStatus={formatUpdatedStatus}
+                  move={move}
+                  stopCardOpen={stopCardOpen}
+                  stopCardKeyBubble={stopCardKeyBubble}
+                />
+              ))}
+            </section>
+          </SortableContext>
+          <DragOverlay>
+            {activeDragCard ? (
+              <BoardTaskCard
+                card={activeDragCard}
+                priorityFor={priorityFor}
+                labelsFor={labelsFor}
+                deadlineFor={deadlineFor}
+                assigneeNameFor={assigneeNameFor}
+                formatDateTime={formatDateTime}
+                formatUpdatedStatus={formatUpdatedStatus}
+                overlay
+              />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </main>
 
       {taskModal.selectedCard && taskModal.draft ? (
