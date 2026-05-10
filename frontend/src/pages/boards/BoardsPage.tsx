@@ -1,15 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useBoards, useCreateBoard } from '../../api/queries/boards'
-import type { AuthUser } from '../../api/types'
 import { Badge, Button, Card as SurfaceCard, EmptyState, PageShell, Skeleton, TextInput } from '../../shared/ui'
 
-interface BoardsPageProps {
-  user: AuthUser
-  onLogout: () => void
-}
-
-export function BoardsPage({ user, onLogout }: BoardsPageProps) {
+export function BoardsPage() {
   const { data: boards = [], isLoading } = useBoards()
   const createBoardMutation = useCreateBoard()
   const [name, setName] = useState('')
@@ -35,16 +29,10 @@ export function BoardsPage({ user, onLogout }: BoardsPageProps) {
               <p className="mt-2 max-w-3xl text-body-sm text-text-muted">Создавайте рабочие пространства, группируйте задачи по потокам и переходите к управлению в один клик.</p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="success">
-              <span className="h-2 w-2 rounded-full bg-success" aria-hidden="true" />
-              API online
-            </Badge>
-            <Link to="/settings" className="inline-flex min-h-10 items-center gap-2 rounded-full border border-border bg-surface/90 px-4 py-2 text-caption text-text-muted shadow-surface backdrop-blur transition duration-fast ease-standard hover:border-border-strong hover:text-text">
-              {user.full_name || user.username}
-            </Link>
-            <Button onClick={onLogout} variant="danger" size="sm" shape="pill">Выйти</Button>
-          </div>
+          <Badge variant="success">
+            <span className="h-2 w-2 rounded-full bg-success" aria-hidden="true" />
+            API online
+          </Badge>
         </div>
       </header>
 
@@ -132,11 +120,7 @@ function BoardsPageSkeleton() {
               <Skeleton className="h-4 w-2/3 max-w-xl" />
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Skeleton className="h-10 w-28 rounded-full" />
-            <Skeleton className="h-10 w-36 rounded-full" />
-            <Skeleton className="h-9 w-20 rounded-full" />
-          </div>
+          <Skeleton className="h-6 w-28 rounded-full" />
         </div>
       </header>
 

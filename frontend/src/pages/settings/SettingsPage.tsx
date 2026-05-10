@@ -10,11 +10,10 @@ import { Badge, Button, Card as SurfaceCard, EmptyState, Field, Modal, PageShell
 
 interface SettingsPageProps {
   user: AuthUser
-  onLogout: () => void
   onUserUpdate: (user: AuthUser) => void
 }
 
-export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps) {
+export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [usersError, setUsersError] = useState('')
@@ -207,7 +206,6 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
             >
               Назад к доскам
             </Link>
-            <Button onClick={onLogout} variant="danger">Выйти</Button>
           </div>
         </div>
       </header>

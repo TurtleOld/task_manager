@@ -6,7 +6,6 @@ import { useBoards } from '../../api/queries/boards'
 import { useColumns, useCreateColumn } from '../../api/queries/columns'
 import { useCards, useCreateCard, useMoveCard } from '../../api/queries/cards'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
-import { toggleTheme } from '../../app/theme'
 import { getTimeZoneLabel } from '../../shared/lib/timezone'
 import { Button, Card as SurfaceCard, Field, Select, Skeleton, TextInput } from '../../shared/ui'
 import { useBoardWebSocket } from '../../useBoardWebSocket'
@@ -27,11 +26,10 @@ import { BoardHeader } from './ui/BoardHeader'
 import { TaskModal } from './ui/TaskModal'
 
 interface BoardPageProps {
-  onLogout: () => void
   user: AuthUser
 }
 
-export function BoardPage({ onLogout, user }: BoardPageProps) {
+export function BoardPage({ user }: BoardPageProps) {
   const boardId = Number(window.location.pathname.split('/').at(-1))
   const queryClient = useQueryClient()
 
@@ -333,7 +331,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
 
   return (
     <div className="min-h-screen bg-background pb-12 text-text">
-      <BoardHeader boardName={boardName} onCreateColumn={() => setIsCreatingColumn(true)} onLogout={onLogout} onToggleTheme={toggleTheme} />
+      <BoardHeader boardName={boardName} onCreateColumn={() => setIsCreatingColumn(true)} />
 
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 pt-6">
         <section className="grid gap-3 sm:grid-cols-3" aria-label="Сводка по доске">

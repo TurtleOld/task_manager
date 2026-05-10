@@ -4,13 +4,11 @@ import { Badge, Button } from '../../../shared/ui'
 interface BoardHeaderProps {
   boardName: string
   onCreateColumn: () => void
-  onLogout: () => void
-  onToggleTheme: () => void
 }
 
-export function BoardHeader({ boardName, onCreateColumn, onLogout, onToggleTheme }: BoardHeaderProps) {
+export function BoardHeader({ boardName, onCreateColumn }: BoardHeaderProps) {
   return (
-    <header className="sticky top-0 z-sticky border-b border-border/80 bg-background/72 px-4 py-5 backdrop-blur-xl">
+    <header className="border-b border-border/80 bg-background/72 px-4 py-5 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-3">
           <nav className="flex items-center gap-2 text-body-sm text-text-muted" aria-label="Навигация по доскам">
@@ -31,12 +29,6 @@ export function BoardHeader({ boardName, onCreateColumn, onLogout, onToggleTheme
           <Button onClick={onCreateColumn} variant="secondary" aria-label="Создать колонку">
             <span aria-hidden="true">+</span>
             Новая колонка
-          </Button>
-          <Button onClick={onLogout} variant="danger" aria-label="Выйти">
-            Выйти
-          </Button>
-          <Button type="button" variant="secondary" onClick={onToggleTheme} aria-label="Переключить тему">
-            Тема
           </Button>
         </div>
       </div>

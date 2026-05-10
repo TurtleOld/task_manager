@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
+import { AppPlaceholderPage } from './app/AppPlaceholderPage'
+import { AppShell } from './app/AppShell'
 import { ProtectedRoute } from './app/ProtectedRoute'
 import { registerOneSignalPlayerId } from './app/auth'
 import { LoginPage } from './pages/auth/LoginPage'
@@ -33,29 +35,20 @@ export default function App() {
       <Route path="/login" element={<LoginPage onLogin={login} token={token} />} />
       <Route path="/register" element={<RegisterPage user={user} />} />
       <Route
-        path="/settings"
         element={
           <ProtectedRoute token={token}>
-            {user ? <SettingsPage user={user} onLogout={logout} onUserUpdate={updateUser} /> : null}
+            {user ? <AppShell user={user} onLogout={logout} /> : null}
           </ProtectedRoute>
         }
-      />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute token={token}>
-            {user ? <BoardsPage user={user} onLogout={logout} /> : null}
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/boards/:id"
-        element={
-          <ProtectedRoute token={token}>
-            {user ? <BoardPage onLogout={logout} user={user} /> : null}
-          </ProtectedRoute>
-        }
-      />
+      >
+        <Route path="/" element={<BoardsPage />} />
+        <Route path="/settings" element={user ? <SettingsPage user={user} onUserUpdate={updateUser} /> : null} />
+        <Route path="/boards/:id" element={user ? <BoardPage user={user} /> : null} />
+        <Route path="/today" element={<AppPlaceholderPage taskId="T-202" title="Мой день" description="Агрегированный список задач на сегодня появится на следующей фазе ценности для семьи." />} />
+        <Route path="/calendar" element={<AppPlaceholderPage taskId="T-203" title="Календарь" description="Календарный вид задач с дедлайнами будет реализован отдельной задачей плана." />} />
+        <Route path="/inbox" element={<AppPlaceholderPage taskId="T-204" title="Inbox" description="Быстрый сбор неразобранных задач будет добавлен после каркаса приложения." />} />
+        <Route path="/archive" element={<AppPlaceholderPage taskId="T-205" title="Архив" description="Архив задач и колонок появится вместе с soft-delete моделью." />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
