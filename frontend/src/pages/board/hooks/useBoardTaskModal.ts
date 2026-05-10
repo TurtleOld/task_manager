@@ -9,6 +9,7 @@ import {
 import type { Card, CardDeadlineReminder, CardDeadlineReminderResponse } from '../../../api/types'
 import { ensureProfileTimeZoneInitialized, formatIsoForTimeZone, getDeviceTimeZone, resolveTimeZone, zonedDateTimeLocalToIso } from '../../../shared/lib/timezone'
 import type { AssigneeOption, BoardCardDraft, BoardPriority } from '../types'
+import { priorityToMarker } from '../lib/priority'
 
 interface UseBoardTaskModalOptions {
   boardId: number
@@ -121,7 +122,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       description: selectedCard.description || '',
       assignee: selectedCard.assignee ?? null,
       deadline: selectedCard.deadline ? isoToDatetimeLocal(selectedCard.deadline) : '',
-      priority: (selectedCard.priority ?? '🟡') as '🔥' | '🟡' | '🟢',
+      priority: (selectedCard.priority ?? 2) as BoardPriority,
       tags: selectedCard.tags ?? [],
       categories: selectedCard.categories ?? [],
       checklist: selectedCard.checklist ?? [],
@@ -164,7 +165,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       description: string
       assignee: number | null
       deadline: string | null
-      priority: string
+      priority: BoardPriority
       tags: string[]
       categories: string[]
       checklist: { id: string; text: string; done: boolean }[]
@@ -244,7 +245,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     }
 
     if (next.priority !== base.priority) {
-      changes.push(`Приоритет: ${next.priority}`)
+      changes.push(`Приоритет: ${priorityToMarker(next.priority)}`)
       changesMeta.priority = next.priority
     }
 
@@ -404,7 +405,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       description: string
       assignee: number | null
       deadline: string | null
-      priority: string
+      priority: BoardPriority
       tags: string[]
       categories: string[]
       checklist: { id: string; text: string; done: boolean }[]

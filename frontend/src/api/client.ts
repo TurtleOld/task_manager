@@ -123,7 +123,7 @@ export const api = {
       description: string
       assignee: number | null
       deadline: string | null
-      priority: string
+      priority: 0 | 1 | 2 | 3
       tags: string[]
       categories: string[]
       checklist: { id: string; text: string; done: boolean }[]

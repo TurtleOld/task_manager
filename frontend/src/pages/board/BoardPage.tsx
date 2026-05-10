@@ -14,6 +14,13 @@ import type { BoardEvent } from '../../useBoardWebSocket'
 import type { AuthUser, Card, Column } from '../../api/types'
 import type { AssigneeOption } from './types'
 import { useBoardTaskModal } from './hooks/useBoardTaskModal'
+import {
+  PRIORITY_HIGH,
+  PRIORITY_NORMAL,
+  priorityToLabel,
+  priorityToMarker,
+  priorityToTone,
+} from './lib/priority'
 import { BoardColumn } from './ui/BoardColumn'
 import { BoardFilters } from './ui/BoardFilters'
 import { BoardHeader } from './ui/BoardHeader'
@@ -125,7 +132,6 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
   const tagsFor = (card: Card) => card.tags ?? []
   const categoriesFor = (card: Card) => card.categories ?? []
   const deadlineFor = (card: Card) => card.deadline ?? ''
-  const priorityMarkerFor = (card: Card) => card.priority ?? '🟡'
   const assigneeNameFor = (card: Card) => {
     const assigneeId = card.assignee
     return assigneeId != null ? (assignees.find((u) => u.id === assigneeId)?.name ?? null) : null
@@ -159,12 +165,11 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
     return g
   }, [filteredCards])
 
-  const priorityFor = (card: Card) => {
-    const marker = priorityMarkerFor(card)
-    if (marker === '🔥') return { label: 'Срочно', marker: '🔥', tone: 'danger' as const }
-    if (marker === '🟢') return { label: 'Можно когда будет время', marker: '🟢', tone: 'success' as const }
-    return { label: 'Важно (до конца недели)', marker: '🟡', tone: 'warning' as const }
-  }
+  const priorityFor = (card: Card) => ({
+    label: priorityToLabel(card.priority),
+    marker: priorityToMarker(card.priority),
+    tone: priorityToTone(card.priority),
+  })
 
   const formatDateTime = (value: string) => {
     if (!value) return ''
@@ -189,7 +194,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
     return `Обновлено ${formatDateTime(value)}`
   }
 
-  const urgentCardsCount = cards.filter((card) => priorityMarkerFor(card) === '🔥').length
+  const urgentCardsCount = cards.filter((card) => card.priority === PRIORITY_HIGH).length
   const datedCardsCount = cards.filter((card) => Boolean(deadlineFor(card))).length
   const activeFilterCount = [activeTag !== 'Все', activeCategory !== 'Все', Boolean(searchQuery.trim())].filter(Boolean).length
 
@@ -213,7 +218,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
       title,
       description: '',
       deadline: null,
-      priority: '🟡',
+      priority: PRIORITY_NORMAL,
       tags: [],
       categories: [],
       checklist: [],

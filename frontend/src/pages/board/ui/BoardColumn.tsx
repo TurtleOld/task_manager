@@ -4,7 +4,7 @@ import type { Card, Column } from '../../../api/types'
 interface PriorityView {
   label: string
   marker: string
-  tone: 'danger' | 'success' | 'warning'
+  tone: 'danger' | 'success' | 'warning' | 'neutral'
 }
 
 interface BoardColumnProps {

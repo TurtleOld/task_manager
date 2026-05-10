@@ -75,6 +75,13 @@ class Category(TimestampedModel):
         return self.name
 
 
+class CardPriority(models.IntegerChoices):
+    NONE = 0, "Без приоритета"
+    LOW = 1, "Можно позже"
+    NORMAL = 2, "Важно"
+    HIGH = 3, "Срочно"
+
+
 class Card(TimestampedModel):
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="cards")
     column = models.ForeignKey(Column, on_delete=models.CASCADE, related_name="cards")
@@ -88,7 +95,10 @@ class Card(TimestampedModel):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     deadline = models.DateTimeField(null=True, blank=True)
-    priority = models.CharField(max_length=10, blank=True, default="🟡")
+    priority = models.IntegerField(
+        choices=CardPriority.choices,
+        default=CardPriority.NORMAL,
+    )
     tags = models.ManyToManyField(Tag, blank=True, related_name="cards")
     categories = models.ManyToManyField(Category, blank=True, related_name="cards")
     checklist = models.JSONField(default=list, blank=True)

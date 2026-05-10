@@ -33,7 +33,7 @@ def test_create_card_full(api_client: APIClient, column: Column) -> None:
             "column": column.id,
             "title": "Full task",
             "description": "Details here",
-            "priority": "🔥",
+            "priority": 3,
             "tags": ["bug", "urgent"],
             "categories": ["backend"],
         },
@@ -41,7 +41,8 @@ def test_create_card_full(api_client: APIClient, column: Column) -> None:
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["priority"] == "🔥"
+    assert data["priority"] == 3
+    assert data["priority_label"] == "Срочно"
     assert "bug" in data["tags"]
     assert "backend" in data["categories"]
 
@@ -173,11 +174,11 @@ def test_patch_card_title(api_client: APIClient, card: Card) -> None:
 def test_patch_card_priority(api_client: APIClient, card: Card) -> None:
     resp = api_client.patch(
         f"/api/v1/cards/{card.id}/",
-        data={"priority": "🟢"},
+        data={"priority": 1},
         format="json",
     )
     assert resp.status_code == 200
-    assert resp.json()["priority"] == "🟢"
+    assert resp.json()["priority"] == 1
 
 
 @pytest.mark.django_db()

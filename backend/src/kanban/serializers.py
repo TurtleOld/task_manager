@@ -124,6 +124,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
     categories = NameRelatedField(
         many=True, slug_field="name", queryset=Category.objects.all(), required=False
     )
+    priority_label = serializers.CharField(source="get_priority_display", read_only=True)
 
     class Meta:
         model = Card
@@ -136,6 +137,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "description",
             "deadline",
             "priority",
+            "priority_label",
             "tags",
             "categories",
             "checklist",
@@ -145,7 +147,14 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "updated_at",
             "version",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "version", "board"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "updated_at",
+            "version",
+            "board",
+            "priority_label",
+        ]
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         column: Column | None = attrs.get("column")

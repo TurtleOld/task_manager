@@ -16,6 +16,7 @@ import {
 } from '../../../shared/ui'
 import type { Card, CardDeadlineReminder, CardDeadlineReminderResponse } from '../../../api/types'
 import type { AssigneeOption, BoardAttachment, BoardCardDraft, BoardChecklistItem, BoardPriority } from '../types'
+import { priorityToLabel, priorityToMarker } from '../lib/priority'
 
 interface TaskModalProps {
   selectedCard: Card
@@ -516,23 +517,25 @@ export function TaskModal({
               <div>
                 <div className="flex items-center gap-2">
                   <Badge variant="warning">Priority</Badge>
-                  <Badge variant="neutral">{selectedPriority || 'Не выбран'}</Badge>
+                  <Badge variant="neutral">
+                    {selectedPriority === '' ? 'Не выбран' : `${priorityToMarker(selectedPriority)} ${priorityToLabel(selectedPriority)}`}
+                  </Badge>
                 </div>
                 <h3 className="mt-3 text-h3 text-text">Приоритет</h3>
               </div>
               <div className="grid gap-2">
                 {[
-                  { marker: '🔥', label: 'Срочно', description: 'Нужно обработать в первую очередь' },
-                  { marker: '🟡', label: 'Важно', description: 'Желательно закрыть до конца недели' },
-                  { marker: '🟢', label: 'Можно позже', description: 'Не блокирует текущую работу' },
+                  { value: 3 as BoardPriority, marker: '🔥', label: 'Срочно', description: 'Нужно обработать в первую очередь' },
+                  { value: 2 as BoardPriority, marker: '🟡', label: 'Важно', description: 'Желательно закрыть до конца недели' },
+                  { value: 1 as BoardPriority, marker: '🟢', label: 'Можно позже', description: 'Не блокирует текущую работу' },
                 ].map((item) => (
                   <RadioCard
                     key={item.label}
                     name="priority"
-                    checked={selectedPriority === item.marker}
+                    checked={selectedPriority === item.value}
                     onChange={() => {
                       if (!selectedCardId) return
-                      setDraft((prev) => (prev ? { ...prev, priority: item.marker as BoardPriority } : prev))
+                      setDraft((prev) => (prev ? { ...prev, priority: item.value } : prev))
                     }}
                     label={`${item.marker} ${item.label}`}
                     description={item.description}
