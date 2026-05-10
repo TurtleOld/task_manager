@@ -78,7 +78,7 @@ def test_create_card_broadcasts(api_client: APIClient, column: Column) -> None:
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
-    with patch("kanban.views.broadcast_board_event", side_effect=fake_broadcast):
+    with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
         api_client.post(
             "/api/v1/cards/",
             data={"column": column.id, "title": "WS Task"},
@@ -98,7 +98,7 @@ def test_update_card_broadcasts(api_client: APIClient, card: Card) -> None:
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
-    with patch("kanban.views.broadcast_board_event", side_effect=fake_broadcast):
+    with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
         api_client.patch(
             f"/api/v1/cards/{card.id}/",
             data={"title": "Updated"},
@@ -117,7 +117,7 @@ def test_delete_card_broadcasts(api_client: APIClient, card: Card) -> None:
 
     card_id = card.id
 
-    with patch("kanban.views.broadcast_board_event", side_effect=fake_broadcast):
+    with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
         api_client.delete(f"/api/v1/cards/{card_id}/")
 
     assert any(
@@ -137,7 +137,7 @@ def test_move_card_broadcasts(api_client: APIClient) -> None:
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
-    with patch("kanban.views.broadcast_board_event", side_effect=fake_broadcast):
+    with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
         api_client.post(
             f"/api/v1/cards/{card.id}/move/",
             data={"to_column": col2.id},
@@ -154,7 +154,7 @@ def test_create_column_broadcasts(api_client: APIClient, board: Board) -> None:
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
-    with patch("kanban.views.broadcast_board_event", side_effect=fake_broadcast):
+    with patch("kanban.views.columns.broadcast_board_event", side_effect=fake_broadcast):
         api_client.post(
             "/api/v1/columns/",
             data={"board": board.id, "name": "Sprint"},
@@ -172,7 +172,7 @@ def test_delete_column_broadcasts(api_client: APIClient, column: Column) -> None
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
     col_id = column.id
-    with patch("kanban.views.broadcast_board_event", side_effect=fake_broadcast):
+    with patch("kanban.views.columns.broadcast_board_event", side_effect=fake_broadcast):
         api_client.delete(f"/api/v1/columns/{col_id}/")
 
     assert any(
@@ -187,7 +187,7 @@ def test_update_board_broadcasts(api_client: APIClient, board: Board) -> None:
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
-    with patch("kanban.views.broadcast_board_event", side_effect=fake_broadcast):
+    with patch("kanban.views.boards.broadcast_board_event", side_effect=fake_broadcast):
         api_client.patch(
             f"/api/v1/boards/{board.id}/",
             data={"name": "Renamed"},
