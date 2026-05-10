@@ -4,7 +4,7 @@ import { toggleTheme } from '../../app/theme'
 import { api } from '../../api/client'
 import type { AuthUser, RegistrationStatus, UserRole } from '../../api/types'
 import { roleLabels } from '../../shared/lib/permissions'
-import { Badge, Button, Card as SurfaceCard, ErrorState, Field, Modal, PageShell, Select, TextInput } from '../../shared/ui'
+import { Badge, Button, Card as SurfaceCard, ErrorState, Field, Modal, PageShell, Select, Skeleton, TextInput } from '../../shared/ui'
 
 interface RegisterPageProps {
   user: AuthUser | null
@@ -29,7 +29,7 @@ export function RegisterPage({ user }: RegisterPageProps) {
   }, [])
 
   if (loading) {
-    return <div className="p-6 text-text-muted">Loading...</div>
+    return <RegisterPageSkeleton />
   }
 
   const allow = Boolean(status?.allow_first || status?.allow_admin)
@@ -192,6 +192,33 @@ export function RegisterPage({ user }: RegisterPageProps) {
       >
         <p className="text-body-sm text-text-muted">Создать пользователя <span className="font-semibold text-text">{fullName || username}</span> с ролью <span className="font-semibold text-text">{roleLabels[role]}</span>?</p>
       </Modal>
+    </PageShell>
+  )
+}
+
+function RegisterPageSkeleton() {
+  return (
+    <PageShell width="lg" padding="comfortable" spacing="sm" aria-busy="true" aria-label="Загрузка регистрации">
+      <div className="rounded-[1.6rem] border border-border/80 bg-[image:var(--gradient-surface)] px-6 py-6 shadow-elevated backdrop-blur">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <Skeleton className="h-6 w-28 rounded-full" />
+          <Skeleton className="h-10 w-24 rounded-control" />
+        </div>
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-72 max-w-full" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
+      </div>
+      <SurfaceCard as="section" className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Skeleton className="h-20 rounded-control" />
+          <Skeleton className="h-20 rounded-control" />
+          <Skeleton className="h-20 rounded-control" />
+          <Skeleton className="h-20 rounded-control" />
+        </div>
+        <Skeleton className="h-11 w-full rounded-control" />
+      </SurfaceCard>
     </PageShell>
   )
 }

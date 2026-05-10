@@ -6,7 +6,7 @@ import { api } from '../../api/client'
 import type { AdminUser, AuthUser, NotificationProfile, UserRole } from '../../api/types'
 import { roleLabels } from '../../shared/lib/permissions'
 import { TIMEZONE_OPTIONS, ensureProfileTimeZoneInitialized, getDeviceTimeZone, resolveTimeZone } from '../../shared/lib/timezone'
-import { Badge, Button, Card as SurfaceCard, EmptyState, Field, Modal, PageShell, Select, TextInput } from '../../shared/ui'
+import { Badge, Button, Card as SurfaceCard, EmptyState, Field, Modal, PageShell, Select, Skeleton, TextInput } from '../../shared/ui'
 
 interface SettingsPageProps {
   user: AuthUser
@@ -430,7 +430,7 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
                     <Button type="button" onClick={loadUsers} variant="secondary" size="sm">Обновить</Button>
                   </div>
                   <div className="space-y-2">
-                    {loadingUsers ? <p className="text-body-sm text-text-muted">Загрузка...</p> : null}
+                    {loadingUsers ? <UsersListSkeleton /> : null}
                     {users.map((item) => (
                       <button
                         key={item.id}
@@ -544,5 +544,26 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
         ) : null}
       </Modal>
     </PageShell>
+  )
+}
+
+function UsersListSkeleton() {
+  return (
+    <div className="space-y-2" aria-busy="true" aria-label="Загрузка пользователей">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} className="rounded-[1.15rem] border border-border/75 bg-surface/90 px-4 py-4 shadow-surface">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Skeleton className="h-5 w-36 max-w-full" />
+                <Skeleton className="h-4 w-10" />
+              </div>
+              <Skeleton className="h-4 w-28" />
+            </div>
+            <Skeleton className="h-6 w-16 rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }

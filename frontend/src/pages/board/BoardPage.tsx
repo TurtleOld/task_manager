@@ -8,7 +8,7 @@ import { useCards, useCreateCard, useMoveCard } from '../../api/queries/cards'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { toggleTheme } from '../../app/theme'
 import { getTimeZoneLabel } from '../../shared/lib/timezone'
-import { Button, Card as SurfaceCard, Field, Select, TextInput } from '../../shared/ui'
+import { Button, Card as SurfaceCard, Field, Select, Skeleton, TextInput } from '../../shared/ui'
 import { useBoardWebSocket } from '../../useBoardWebSocket'
 import type { BoardEvent } from '../../useBoardWebSocket'
 import type { AuthUser, Card, Column } from '../../api/types'
@@ -35,9 +35,10 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
   const boardId = Number(window.location.pathname.split('/').at(-1))
   const queryClient = useQueryClient()
 
-  const { data: cards = [] } = useCards(boardId)
-  const { data: columns = [] } = useColumns(boardId)
-  const { data: boards = [] } = useBoards()
+  const { data: cards = [], isLoading: cardsLoading } = useCards(boardId)
+  const { data: columns = [], isLoading: columnsLoading } = useColumns(boardId)
+  const { data: boards = [], isLoading: boardsLoading } = useBoards()
+  const isBoardLoading = cardsLoading || columnsLoading || boardsLoading
   const boardName = useMemo(
     () => boards.find((b) => b.id === boardId)?.name ?? '',
     [boards, boardId],
@@ -159,6 +160,8 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
     }
     return g
   }, [filteredCards])
+
+  if (isBoardLoading) return <BoardPageSkeleton />
 
   const priorityFor = (card: Card) => ({
     label: priorityToLabel(card.priority),
@@ -466,6 +469,98 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
         />
       ) : null}
 
+    </div>
+  )
+}
+
+function BoardPageSkeleton() {
+  return (
+    <div className="min-h-screen bg-background pb-12 text-text" aria-busy="true" aria-label="Загрузка доски">
+      <header className="sticky top-0 z-sticky border-b border-border/80 bg-background/72 px-4 py-5 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-3" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Skeleton className="h-6 w-24 rounded-full" />
+                <Skeleton className="h-6 w-28 rounded-full" />
+              </div>
+              <Skeleton className="h-10 w-56 max-w-full" />
+              <Skeleton className="h-4 w-96 max-w-full" />
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Skeleton className="h-10 w-36 rounded-control" />
+            <Skeleton className="h-10 w-20 rounded-control" />
+            <Skeleton className="h-10 w-20 rounded-control" />
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 pt-6">
+        <section className="grid gap-3 sm:grid-cols-3" aria-label="Загрузка сводки по доске">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <SurfaceCard key={index} className="p-4">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="mt-3 h-9 w-16" />
+            </SurfaceCard>
+          ))}
+        </section>
+
+        <SurfaceCard as="section" className="space-y-4 p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <Skeleton className="h-11 min-w-64 flex-1 rounded-control" />
+            <Skeleton className="h-11 w-44 rounded-control" />
+            <Skeleton className="h-11 w-32 rounded-control" />
+          </div>
+        </SurfaceCard>
+
+        <section className="grid gap-5 lg:grid-cols-3" aria-label="Загрузка колонок канбан-доски">
+          {Array.from({ length: 3 }).map((_, columnIndex) => (
+            <div key={columnIndex} className="flex h-full flex-col rounded-[1.4rem] border border-border/80 bg-[image:var(--gradient-surface)] p-4 shadow-surface backdrop-blur">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 rounded-2xl" />
+                  <Skeleton className="h-7 w-28" />
+                </div>
+                <Skeleton className="h-6 w-20 rounded-full" />
+              </div>
+
+              <div className="mt-5 flex items-center gap-2 rounded-panel border border-border/70 bg-background-subtle/60 p-2">
+                <Skeleton className="h-11 flex-1 rounded-control" />
+                <Skeleton className="h-11 w-11 rounded-control" />
+              </div>
+
+              <div className="mt-4 space-y-4">
+                {Array.from({ length: 3 }).map((_, cardIndex) => (
+                  <div key={cardIndex} className="rounded-[1.15rem] border border-border/75 bg-surface/90 p-4 shadow-surface">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-5 w-4/5" />
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-2/3" />
+                      </div>
+                      <Skeleton className="h-7 w-20 rounded-full" />
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <Skeleton className="h-6 w-16 rounded-full" />
+                      <Skeleton className="h-6 w-20 rounded-full" />
+                    </div>
+                    <div className="mt-3 flex items-center justify-between">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-8 w-24 rounded-control" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      </main>
     </div>
   )
 }

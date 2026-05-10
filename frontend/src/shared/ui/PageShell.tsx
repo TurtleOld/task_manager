@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 type PageShellWidth = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
@@ -26,18 +26,17 @@ const paddingClasses: Record<PageShellPadding, string> = {
   comfortable: 'py-12',
 }
 
-type PageShellProps = {
+type PageShellProps = HTMLAttributes<HTMLDivElement> & {
   children: ReactNode
-  className?: string
   contentClassName?: string
   padding?: PageShellPadding
   spacing?: PageShellSpacing
   width?: PageShellWidth
 }
 
-export function PageShell({ children, className, contentClassName, padding = 'default', spacing = 'md', width = 'xl' }: PageShellProps) {
+export function PageShell({ children, className, contentClassName, padding = 'default', spacing = 'md', width = 'xl', ...props }: PageShellProps) {
   return (
-    <div className={cn('min-h-screen bg-background/80 px-4 text-text sm:px-6', paddingClasses[padding], className)}>
+    <div className={cn('min-h-screen bg-background/80 px-4 text-text sm:px-6', paddingClasses[padding], className)} {...props}>
       <div className={cn('mx-auto w-full', widthClasses[width], spacingClasses[spacing], contentClassName)}>{children}</div>
     </div>
   )

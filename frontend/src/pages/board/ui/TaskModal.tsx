@@ -13,6 +13,7 @@ import {
   Field,
   Modal,
   Select,
+  Skeleton,
   TextInput,
   Textarea,
 } from '../../../shared/ui'
@@ -233,7 +234,7 @@ export function TaskModal({
                 />
               </div>
 
-              {reminderLoading ? <p className="text-caption text-text-muted">Загрузка настроек...</p> : null}
+              {reminderLoading ? <ReminderSettingsSkeleton /> : null}
               {reminderError ? <p className="text-caption text-danger" role="alert">{reminderError}</p> : null}
               {!hasDeadline ? (
                 <div className="rounded-panel border border-dashed border-warning/35 bg-warning/10 px-4 py-3 text-caption text-warning">
@@ -632,5 +633,21 @@ export function TaskModal({
         </div>
       </div>
     </Modal>
+  )
+}
+
+function ReminderSettingsSkeleton() {
+  return (
+    <div className="space-y-3" aria-busy="true" aria-label="Загрузка настроек напоминаний">
+      <Skeleton className="h-4 w-44" />
+      <div className="rounded-panel border border-border/70 bg-background-subtle/55 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Skeleton className="h-10 w-24 rounded-control" />
+          <Skeleton className="h-10 w-28 rounded-control" />
+          <Skeleton className="h-10 w-36 rounded-control" />
+          <Skeleton className="h-9 w-20 rounded-control" />
+        </div>
+      </div>
+    </div>
   )
 }
