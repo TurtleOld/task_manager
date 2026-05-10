@@ -2,7 +2,10 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { applyAppFontSize, loadAppFontSize } from './app/preferences'
+import { queryClient } from './app/queryClient'
 import App from './App'
 import { Toaster } from '@/components/ui/sonner'
 import './index.css'
@@ -39,9 +42,12 @@ const container = document.getElementById('root')!
 const root = createRoot(container)
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-      <Toaster />
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <App />
+        <Toaster />
+      </BrowserRouter>
+      {import.meta.env.DEV ? <ReactQueryDevtools buttonPosition="bottom-left" /> : null}
+    </QueryClientProvider>
   </React.StrictMode>
 )

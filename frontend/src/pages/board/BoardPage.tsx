@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
+import { queryKeys } from '../../api/queries/keys'
+import { useBoards } from '../../api/queries/boards'
+import { useColumns, useCreateColumn } from '../../api/queries/columns'
+import { useCards, useCreateCard, useMoveCard } from '../../api/queries/cards'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { toggleTheme } from '../../app/theme'
 import { getTimeZoneLabel } from '../../shared/lib/timezone'
@@ -21,9 +26,20 @@ interface BoardPageProps {
 
 export function BoardPage({ onLogout, user }: BoardPageProps) {
   const boardId = Number(window.location.pathname.split('/').at(-1))
-  const [columns, setColumns] = useState<Column[]>([])
-  const [cards, setCards] = useState<Card[]>([])
-  const [boardName, setBoardName] = useState('')
+  const queryClient = useQueryClient()
+
+  const { data: cards = [] } = useCards(boardId)
+  const { data: columns = [] } = useColumns(boardId)
+  const { data: boards = [] } = useBoards()
+  const boardName = useMemo(
+    () => boards.find((b) => b.id === boardId)?.name ?? '',
+    [boards, boardId],
+  )
+
+  const createCardMutation = useCreateCard(boardId)
+  const createColumnMutation = useCreateColumn(boardId)
+  const moveCardMutation = useMoveCard(boardId)
+
   const [colName, setColName] = useState('')
   const [colIcon, setColIcon] = useState('📋')
   const [isCreatingColumn, setIsCreatingColumn] = useState(false)
@@ -33,66 +49,6 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
   const [activeCategory, setActiveCategory] = useState('Все')
   const [searchQuery, setSearchQuery] = useState('')
   const [assignees, setAssignees] = useState<AssigneeOption[]>([])
-  const [cardTags, setCardTags] = useState<Record<number, string[]>>({})
-  const [cardCategories, setCardCategories] = useState<Record<number, string[]>>({})
-  const [cardChecklist, setCardChecklist] = useState<Record<number, { id: string; text: string; done: boolean }[]>>({})
-  const [cardAttachments, setCardAttachments] = useState<Record<number, Card['attachments']>>({})
-  const [cardAssignees, setCardAssignees] = useState<Record<number, number | undefined>>({})
-  const [cardDeadlines, setCardDeadlines] = useState<Record<number, string>>({})
-  const [cardPriorities, setCardPriorities] = useState<Record<number, '🔥' | '🟡' | '🟢'>>({})
-
-  useEffect(() => {
-    api.listColumns(boardId).then(setColumns)
-    api.listCardsByBoard(boardId).then((loaded) => {
-      setCards(loaded)
-      setCardTags(() => {
-        const next: Record<number, string[]> = {}
-        for (const card of loaded) next[card.id] = card.tags ?? []
-        return next
-      })
-      setCardCategories(() => {
-        const next: Record<number, string[]> = {}
-        for (const card of loaded) next[card.id] = card.categories ?? []
-        return next
-      })
-      setCardChecklist(() => {
-        const next: Record<number, { id: string; text: string; done: boolean }[]> = {}
-        for (const card of loaded) next[card.id] = card.checklist ?? []
-        return next
-      })
-      setCardAttachments(() => {
-        const next: Record<number, Card['attachments']> = {}
-        for (const card of loaded) next[card.id] = card.attachments ?? []
-        return next
-      })
-      setCardAssignees(() => {
-        const next: Record<number, number | undefined> = {}
-        for (const card of loaded) {
-          if (card.assignee != null) next[card.id] = card.assignee
-        }
-        return next
-      })
-      setCardPriorities(() => {
-        const next: Record<number, '🔥' | '🟡' | '🟢'> = {}
-        for (const card of loaded) {
-          const marker = (card.priority as '🔥' | '🟡' | '🟢' | undefined) ?? '🟡'
-          next[card.id] = marker
-        }
-        return next
-      })
-      setCardDeadlines(() => {
-        const next: Record<number, string> = {}
-        for (const card of loaded) {
-          if (card.deadline) next[card.id] = card.deadline
-        }
-        return next
-      })
-    })
-    api.listBoards().then((boards) => {
-      const current = boards.find((b) => b.id === boardId)
-      setBoardName(current?.name ?? '')
-    })
-  }, [boardId])
 
   useEffect(() => {
     if (user?.is_admin) {
@@ -113,77 +69,80 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
     token: wsToken,
     onEvent: (event: BoardEvent) => {
       if (event.type === 'card.created') {
-        setCards((prev) => {
+        queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) => {
+          if (!prev) return [event.card]
           if (prev.some((c) => c.id === event.card.id)) return prev
           return [...prev, event.card]
         })
       } else if (event.type === 'card.updated' || event.type === 'card.moved') {
-        setCards((prev) => prev.map((c) => (c.id === event.card.id ? event.card : c)))
+        queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
+          prev?.map((c) => (c.id === event.card.id ? event.card : c)),
+        )
       } else if (event.type === 'card.deleted') {
-        setCards((prev) => prev.filter((c) => c.id !== event.card_id))
+        queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
+          prev?.filter((c) => c.id !== event.card_id),
+        )
       } else if (event.type === 'column.created') {
-        setColumns((prev) => {
+        queryClient.setQueryData<Column[]>(queryKeys.columns(boardId), (prev) => {
+          if (!prev) return [event.column]
           if (prev.some((col) => col.id === event.column.id)) return prev
           return [...prev, event.column]
         })
       } else if (event.type === 'column.updated') {
-        setColumns((prev) => prev.map((col) => (col.id === event.column.id ? event.column : col)))
+        queryClient.setQueryData<Column[]>(queryKeys.columns(boardId), (prev) =>
+          prev?.map((col) => (col.id === event.column.id ? event.column : col)),
+        )
       } else if (event.type === 'column.deleted') {
-        setColumns((prev) => prev.filter((col) => col.id !== event.column_id))
+        queryClient.setQueryData<Column[]>(queryKeys.columns(boardId), (prev) =>
+          prev?.filter((col) => col.id !== event.column_id),
+        )
       } else if (event.type === 'board.updated') {
-        setBoardName(event.board.name)
+        queryClient.setQueryData(queryKeys.boards(), (prev: typeof boards | undefined) =>
+          prev?.map((b) => (b.id === event.board.id ? event.board : b)),
+        )
       }
     },
   })
 
-  const tagOptions = useMemo(() => ['Все', ...new Set(Object.values(cardTags).flat())], [cardTags])
-  const categoryOptions = useMemo(() => ['Все', ...new Set(Object.values(cardCategories).flat())], [cardCategories])
+  const tagOptions = useMemo(
+    () => ['Все', ...new Set(cards.flatMap((c) => c.tags ?? []))],
+    [cards],
+  )
+  const categoryOptions = useMemo(
+    () => ['Все', ...new Set(cards.flatMap((c) => c.categories ?? []))],
+    [cards],
+  )
   const allKnownTags = tagOptions.filter((t) => t !== 'Все')
   const allKnownCategories = categoryOptions.filter((c) => c !== 'Все')
 
   const taskModal = useBoardTaskModal({
-    cards,
-    setCards,
+    boardId,
     assignees,
     allKnownTags,
     allKnownCategories,
-    cardTags,
-    setCardTags,
-    cardCategories,
-    setCardCategories,
-    cardChecklist,
-    setCardChecklist,
-    cardAttachments,
-    setCardAttachments,
-    cardAssignees,
-    setCardAssignees,
-    cardDeadlines,
-    setCardDeadlines,
-    cardPriorities,
-    setCardPriorities,
   })
 
-  const tagsFor = (card: Card) => cardTags[card.id] ?? []
-  const categoriesFor = (card: Card) => cardCategories[card.id] ?? []
-  const deadlineFor = (card: Card) => cardDeadlines[card.id] ?? card.deadline ?? ''
-  const priorityMarkerFor = (card: Card) => cardPriorities[card.id] ?? '🟡'
+  const tagsFor = (card: Card) => card.tags ?? []
+  const categoriesFor = (card: Card) => card.categories ?? []
+  const deadlineFor = (card: Card) => card.deadline ?? ''
+  const priorityMarkerFor = (card: Card) => card.priority ?? '🟡'
   const assigneeNameFor = (card: Card) => {
-    const assigneeId = cardAssignees[card.id] ?? card.assignee
+    const assigneeId = card.assignee
     return assigneeId != null ? (assignees.find((u) => u.id === assigneeId)?.name ?? null) : null
   }
 
   const filteredCards = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     return cards.filter((card) => {
-      const tags = cardTags[card.id] ?? []
-      const categories = cardCategories[card.id] ?? []
+      const tags = card.tags ?? []
+      const categories = card.categories ?? []
       const matchesTag = activeTag === 'Все' || tags.includes(activeTag)
       const matchesCategory = activeCategory === 'Все' || categories.includes(activeCategory)
       const searchable = [card.title, card.description, ...tags, ...categories].join(' ').toLowerCase()
       const matchesSearch = !query || searchable.includes(query)
       return matchesTag && matchesCategory && matchesSearch
     })
-  }, [activeCategory, activeTag, cardCategories, cardTags, cards, searchQuery])
+  }, [activeCategory, activeTag, cards, searchQuery])
 
   const grouped = useMemo(() => {
     const g: Record<number, Card[]> = {}
@@ -236,8 +195,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
 
   const onCreateColumn = async () => {
     if (!colName.trim()) return
-    const c = await api.createColumn(boardId, colName.trim(), colIcon)
-    setColumns((prev) => [...prev, c])
+    await createColumnMutation.mutateAsync({ name: colName.trim(), icon: colIcon })
     setColName('')
     setIsCreatingColumn(false)
   }
@@ -265,25 +223,30 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
       updated_at: new Date().toISOString(),
       version: 1,
     }
-    setCards((prev) => [...prev, placeholder])
+    queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
+      prev ? [...prev, placeholder] : [placeholder],
+    )
     taskModal.setSelectedCard(placeholder)
     setNewCardTitle((s) => ({ ...s, [columnId]: '' }))
 
     try {
-      const card = await api.createCard(columnId, title)
-      setCards((prev) => {
+      const card = await createCardMutation.mutateAsync({ column: columnId, title })
+      // Replace the placeholder with the persisted card.
+      queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) => {
+        if (!prev) return [card]
         const withoutTemp = prev.filter((c) => c.id !== tempId)
         if (withoutTemp.some((c) => c.id === card.id)) return withoutTemp
         return [...withoutTemp, card]
       })
       taskModal.setSelectedCard((prev) => (prev?.id === tempId ? card : prev))
     } catch {
-      setCards((prev) => prev.filter((c) => c.id !== tempId))
+      queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
+        prev?.filter((c) => c.id !== tempId),
+      )
     }
   }
 
   const move = async (card: Card, dir: 'up' | 'down' | 'left' | 'right') => {
-    const originalCard = card
     if (dir === 'up' || dir === 'down') {
       const colCards = [...(grouped[card.column] || [])]
       const idx = colCards.findIndex((c) => c.id === card.id)
@@ -300,21 +263,23 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
 
       const swapIdx = dir === 'up' ? idx - 1 : idx + 1
       const swapCard = colCards[swapIdx]
-      if (swapCard) {
-        setCards((prev) =>
-          prev.map((c) => {
-            if (c.id === card.id) return { ...c, position: swapCard.position }
-            if (c.id === swapCard.id) return { ...c, position: card.position }
-            return c
-          })
-        )
-      }
+      const optimistic = swapCard
+        ? (cs: Card[]) =>
+            cs.map((c) => {
+              if (c.id === card.id) return { ...c, position: swapCard.position }
+              if (c.id === swapCard.id) return { ...c, position: card.position }
+              return c
+            })
+        : undefined
 
       try {
-        const updated = await api.moveCard(card.id, { before_id, after_id })
-        setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+        await moveCardMutation.mutateAsync({
+          id: card.id,
+          payload: { before_id, after_id },
+          optimistic,
+        })
       } catch {
-        setCards((prev) => prev.map((c) => (c.id === originalCard.id ? originalCard : c)))
+        // useMoveCard rolls back via onError context.
       }
     } else {
       const order = [...columns].sort((a, b) => (a.position > b.position ? 1 : -1))
@@ -322,13 +287,14 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
       const target = dir === 'left' ? order[curIdx - 1] : order[curIdx + 1]
       if (!target) return
 
-      setCards((prev) => prev.map((c) => (c.id === card.id ? { ...c, column: target.id } : c)))
-
       try {
-        const updated = await api.moveCard(card.id, { to_column: target.id })
-        setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+        await moveCardMutation.mutateAsync({
+          id: card.id,
+          payload: { to_column: target.id },
+          optimistic: (cs) => cs.map((c) => (c.id === card.id ? { ...c, column: target.id } : c)),
+        })
       } catch {
-        setCards((prev) => prev.map((c) => (c.id === originalCard.id ? originalCard : c)))
+        // rolled back
       }
     }
   }
@@ -336,12 +302,16 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
   const handleDropOnColumn = async (columnId: number) => {
     if (!dragged || dragged.column === columnId) return
     const cardId = dragged.id
-    setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, column: columnId } : c)))
+    const fromColumn = dragged.column
     try {
-      const updated = await api.moveCard(cardId, { to_column: columnId })
-      setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
+      await moveCardMutation.mutateAsync({
+        id: cardId,
+        payload: { to_column: columnId },
+        optimistic: (cs) => cs.map((c) => (c.id === cardId ? { ...c, column: columnId } : c)),
+      })
     } catch {
-      setCards((prev) => prev.map((c) => (c.id === cardId ? { ...c, column: dragged.column } : c)))
+      // rollback handled by onError; nothing else to do.
+      void fromColumn
     }
   }
 

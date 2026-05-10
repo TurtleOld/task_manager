@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from '../../api/client'
+import { useBoards, useCreateBoard } from '../../api/queries/boards'
 import type { AuthUser } from '../../api/types'
 import { Badge, Button, Card as SurfaceCard, EmptyState, PageShell, TextInput } from '../../shared/ui'
-import { useBoards } from '../../shared/hooks/useBoards'
 
 interface BoardsPageProps {
   user: AuthUser
@@ -11,17 +10,17 @@ interface BoardsPageProps {
 }
 
 export function BoardsPage({ user, onLogout }: BoardsPageProps) {
-  const { boards, setBoards, loading } = useBoards()
+  const { data: boards = [], isLoading } = useBoards()
+  const createBoardMutation = useCreateBoard()
   const [name, setName] = useState('')
 
   const onCreate = async () => {
     if (!name.trim()) return
-    const board = await api.createBoard(name.trim())
-    setBoards((prev) => [...prev, board])
+    await createBoardMutation.mutateAsync(name.trim())
     setName('')
   }
 
-  if (loading) return <div className="p-6 text-text-muted">Loading...</div>
+  if (isLoading) return <div className="p-6 text-text-muted">Loading...</div>
 
   return (
     <PageShell width="2xl" spacing="md">

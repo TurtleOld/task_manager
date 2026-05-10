@@ -1,55 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../../api/client'
+import {
+  useDeleteCard,
+  useDeleteCardAttachment,
+  useUpdateCard,
+  useUploadCardAttachments,
+} from '../../../api/queries/cards'
 import type { Card, CardDeadlineReminder, CardDeadlineReminderResponse } from '../../../api/types'
 import { ensureProfileTimeZoneInitialized, formatIsoForTimeZone, getDeviceTimeZone, resolveTimeZone, zonedDateTimeLocalToIso } from '../../../shared/lib/timezone'
 import type { AssigneeOption, BoardCardDraft, BoardPriority } from '../types'
 
-interface BoardCardMaps {
-  cardTags: Record<number, string[]>
-  setCardTags: React.Dispatch<React.SetStateAction<Record<number, string[]>>>
-  cardCategories: Record<number, string[]>
-  setCardCategories: React.Dispatch<React.SetStateAction<Record<number, string[]>>>
-  cardChecklist: Record<number, { id: string; text: string; done: boolean }[]>
-  setCardChecklist: React.Dispatch<React.SetStateAction<Record<number, { id: string; text: string; done: boolean }[]>>>
-  cardAttachments: Record<number, Card['attachments']>
-  setCardAttachments: React.Dispatch<React.SetStateAction<Record<number, Card['attachments']>>>
-  cardAssignees: Record<number, number | undefined>
-  setCardAssignees: React.Dispatch<React.SetStateAction<Record<number, number | undefined>>>
-  cardDeadlines: Record<number, string>
-  setCardDeadlines: React.Dispatch<React.SetStateAction<Record<number, string>>>
-  cardPriorities: Record<number, '🔥' | '🟡' | '🟢'>
-  setCardPriorities: React.Dispatch<React.SetStateAction<Record<number, '🔥' | '🟡' | '🟢'>>>
-}
-
-interface UseBoardTaskModalOptions extends BoardCardMaps {
-  cards: Card[]
-  setCards: React.Dispatch<React.SetStateAction<Card[]>>
+interface UseBoardTaskModalOptions {
+  boardId: number
   assignees: AssigneeOption[]
   allKnownTags: string[]
   allKnownCategories: string[]
 }
 
 export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
-  const {
-    setCards,
-    assignees,
-    allKnownTags,
-    allKnownCategories,
-    cardTags,
-    setCardTags,
-    cardCategories,
-    setCardCategories,
-    cardChecklist,
-    setCardChecklist,
-    cardAttachments,
-    setCardAttachments,
-    cardAssignees,
-    setCardAssignees,
-    cardDeadlines,
-    setCardDeadlines,
-    cardPriorities,
-    setCardPriorities,
-  } = options
+  const { boardId, assignees, allKnownTags, allKnownCategories } = options
+  const updateCardMutation = useUpdateCard(boardId)
+  const deleteCardMutation = useDeleteCard(boardId)
+  const uploadAttachmentsMutation = useUploadCardAttachments(boardId)
+  const deleteAttachmentMutation = useDeleteCardAttachment(boardId)
 
   const [selectedCard, setSelectedCard] = useState<Card | null>(null)
   const [draft, setDraft] = useState<BoardCardDraft | null>(null)
@@ -143,17 +116,16 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       return
     }
 
-    const id = selectedCard.id
     const base: BoardCardDraft = {
       title: selectedCard.title || '',
       description: selectedCard.description || '',
-      assignee: (cardAssignees[id] ?? selectedCard.assignee) ?? null,
-      deadline: cardDeadlines[id] ?? (selectedCard.deadline ? isoToDatetimeLocal(selectedCard.deadline) : ''),
-      priority: (cardPriorities[id] ?? selectedCard.priority ?? '🟡') as '🔥' | '🟡' | '🟢',
-      tags: (cardTags[id] ?? selectedCard.tags ?? []) as string[],
-      categories: (cardCategories[id] ?? selectedCard.categories ?? []) as string[],
-      checklist: (cardChecklist[id] ?? selectedCard.checklist ?? []) as { id: string; text: string; done: boolean }[],
-      attachments: (cardAttachments[id] ?? selectedCard.attachments ?? []) as Card['attachments'],
+      assignee: selectedCard.assignee ?? null,
+      deadline: selectedCard.deadline ? isoToDatetimeLocal(selectedCard.deadline) : '',
+      priority: (selectedCard.priority ?? '🟡') as '🔥' | '🟡' | '🟢',
+      tags: selectedCard.tags ?? [],
+      categories: selectedCard.categories ?? [],
+      checklist: selectedCard.checklist ?? [],
+      attachments: selectedCard.attachments ?? [],
     }
     setDraft(base)
     draftBaseRef.current = base
@@ -182,7 +154,6 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
   }, [selectedCardId, selectedCardIsPending])
 
   const applyCardUpdate = (updated: Card) => {
-    setCards((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
     setSelectedCard((prev) => (prev?.id === updated.id ? updated : prev))
   }
 
@@ -201,21 +172,8 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     }>
   ) => {
     if (!selectedCardId) return
-    const updated = await api.updateCard(selectedCardId, patch)
+    const updated = await updateCardMutation.mutateAsync({ id: selectedCardId, payload: patch })
     applyCardUpdate(updated)
-    if (patch.tags) setCardTags((prev) => ({ ...prev, [updated.id]: updated.tags ?? [] }))
-    if (patch.categories) setCardCategories((prev) => ({ ...prev, [updated.id]: updated.categories ?? [] }))
-    if (patch.checklist) setCardChecklist((prev) => ({ ...prev, [updated.id]: updated.checklist ?? [] }))
-    if (patch.attachments) setCardAttachments((prev) => ({ ...prev, [updated.id]: updated.attachments ?? [] }))
-    if (patch.assignee !== undefined) {
-      setCardAssignees((prev) => ({ ...prev, [updated.id]: updated.assignee ?? undefined }))
-    }
-    if (patch.deadline !== undefined) {
-      setCardDeadlines((prev) => ({ ...prev, [updated.id]: updated.deadline ? isoToDatetimeLocal(updated.deadline) : '' }))
-    }
-    if (patch.priority) {
-      setCardPriorities((prev) => ({ ...prev, [updated.id]: updated.priority ?? '🟡' }))
-    }
     return updated
   }
 
@@ -367,45 +325,8 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     setDeleteBusy(true)
     setModalError('')
     try {
-      await api.deleteCard(cardId)
-      setCards((prev) => prev.filter((c) => c.id !== cardId))
+      await deleteCardMutation.mutateAsync(cardId)
       setSelectedCard(null)
-
-      setCardTags((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-      setCardCategories((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-      setCardChecklist((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-      setCardAttachments((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-      setCardAssignees((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-      setCardDeadlines((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
-      setCardPriorities((prev) => {
-        const next = { ...prev }
-        delete next[cardId]
-        return next
-      })
 
       try {
         await api.notifyCardDeleted(meta)
@@ -536,18 +457,22 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       }
 
       if (pendingUploadFiles.length > 0) {
-        const uploaded = await api.uploadCardAttachments(selectedCardId, pendingUploadFiles)
+        const uploaded = await uploadAttachmentsMutation.mutateAsync({
+          id: selectedCardId,
+          files: pendingUploadFiles,
+        })
         updated = uploaded
         applyCardUpdate(uploaded)
-        setCardAttachments((prev) => ({ ...prev, [uploaded.id]: uploaded.attachments ?? [] }))
         setPendingUploadFiles([])
       }
 
       for (const attachmentId of pendingDeleteAttachmentIds) {
-        const deleted = await api.deleteCardAttachment(selectedCardId, attachmentId)
+        const deleted = await deleteAttachmentMutation.mutateAsync({
+          id: selectedCardId,
+          attachmentId,
+        })
         updated = deleted
         applyCardUpdate(deleted)
-        setCardAttachments((prev) => ({ ...prev, [deleted.id]: deleted.attachments ?? [] }))
       }
       setPendingDeleteAttachmentIds([])
 

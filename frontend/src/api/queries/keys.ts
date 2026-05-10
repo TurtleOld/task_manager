@@ -1,0 +1,10 @@
+export const queryKeys = {
+  boards: () => ['boards'] as const,
+  columns: (boardId: number) => ['columns', boardId] as const,
+  cards: (boardId: number) => ['cards', boardId] as const,
+  card: (cardId: number) => ['card', cardId] as const,
+  cardDeadlineReminder: (cardId: number) =>
+    ['cardDeadlineReminder', cardId] as const,
+  users: () => ['users'] as const,
+  notificationProfile: () => ['notificationProfile'] as const,
+}
