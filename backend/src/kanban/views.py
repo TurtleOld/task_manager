@@ -637,14 +637,14 @@ class RegisterView(APIView):
             user.save(update_fields=["is_staff", "is_superuser"])
 
         token, _ = Token.objects.get_or_create(user=user)
-        role = "admin" if user.is_superuser else ("manager" if user.is_staff else "viewer")
+        is_owner = user.is_staff or user.is_superuser
         return Response(
             {
                 "id": user.id,
                 "username": user.username,
                 "full_name": user.first_name,
-                "is_admin": user.is_staff or user.is_superuser,
-                "role": role,
+                "is_admin": is_owner,
+                "role": "owner" if is_owner else "member",
                 "token": token.key,
             },
             status=201,
@@ -667,12 +667,14 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
         token, _ = Token.objects.get_or_create(user=user)
+        is_owner = user.is_staff or user.is_superuser
         return Response(
             {
                 "id": user.id,
                 "username": user.username,
                 "full_name": user.first_name,
-                "is_admin": user.is_staff or user.is_superuser,
+                "is_admin": is_owner,
+                "role": "owner" if is_owner else "member",
                 "token": token.key,
             }
         )

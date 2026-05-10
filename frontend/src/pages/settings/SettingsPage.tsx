@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { LANGUAGE_KEY, loadLanguagePreference } from '../../app/auth'
 import { applyAppFontSize, DEFAULT_FONT_SIZE_PX, loadAppFontSize, MAX_FONT_SIZE_PX, MIN_FONT_SIZE_PX } from '../../app/preferences'
 import { api } from '../../api/client'
-import type { AdminUser, AuthUser, NotificationProfile, PermissionKey, UserRole } from '../../api/types'
-import { rolePresets, permissionCatalog } from '../../shared/lib/permissions'
+import type { AdminUser, AuthUser, NotificationProfile, UserRole } from '../../api/types'
+import { roleLabels } from '../../shared/lib/permissions'
 import { TIMEZONE_OPTIONS, ensureProfileTimeZoneInitialized, getDeviceTimeZone, resolveTimeZone } from '../../shared/lib/timezone'
 import { Badge, Button, Card as SurfaceCard, EmptyState, Field, Modal, PageShell, Select, TextInput } from '../../shared/ui'
 
@@ -19,9 +19,7 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [usersError, setUsersError] = useState('')
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
-  const [editRole, setEditRole] = useState<UserRole>('viewer')
-  const [editPermissions, setEditPermissions] = useState<PermissionKey[]>([])
-  const [useCustomPermissions, setUseCustomPermissions] = useState(false)
+  const [editRole, setEditRole] = useState<UserRole>('member')
   const [editFullName, setEditFullName] = useState('')
   const [savingUser, setSavingUser] = useState(false)
   const [editErrors, setEditErrors] = useState<Record<string, string>>({})
@@ -54,7 +52,6 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
         const first = data[0]!
         setSelectedUser(first)
         setEditRole(first.role)
-        setEditPermissions(first.permissions)
         setEditFullName(first.full_name)
       }
     } catch (e) {
@@ -130,9 +127,7 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
   const selectUser = (next: AdminUser) => {
     setSelectedUser(next)
     setEditRole(next.role)
-    setEditPermissions(next.permissions)
     setEditFullName(next.full_name)
-    setUseCustomPermissions(false)
     setEditErrors({})
     setPasswordOpen(false)
     setProfileOpen(false)
@@ -145,9 +140,6 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
     const nextErrors: Record<string, string> = {}
     if (!editFullName.trim()) nextErrors.fullName = 'Введите имя'
     if (!editRole) nextErrors.role = 'Выберите роль'
-    if (useCustomPermissions && editPermissions.length === 0) {
-      nextErrors.permissions = 'Выберите хотя бы одно право'
-    }
     setEditErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
@@ -157,13 +149,11 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
       const payload = {
         full_name: editFullName.trim(),
         role: editRole,
-        permissions: useCustomPermissions ? editPermissions : rolePresets[editRole],
       }
       const updated = await api.updateUser(selectedUser.id, payload)
       setUsers((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
       setSelectedUser(updated)
       setEditRole(updated.role)
-      setEditPermissions(updated.permissions)
     } catch (e) {
       setUsersError((e as Error).message)
     } finally {
@@ -541,69 +531,15 @@ export function SettingsPage({ user, onLogout, onUserUpdate }: SettingsPageProps
               </Field>
               <Field label="Роль" htmlFor="edit-role" error={editErrors.role} errorId="edit-role-error">
                 <Select id="edit-role" value={editRole} onChange={(event) => setEditRole(event.target.value as UserRole)} invalid={Boolean(editErrors.role)} aria-describedby={editErrors.role ? 'edit-role-error' : undefined}>
-                  <option value="admin">Администратор</option>
-                  <option value="manager">Менеджер</option>
-                  <option value="editor">Редактор</option>
-                  <option value="viewer">Наблюдатель</option>
+                  <option value="owner">{roleLabels.owner}</option>
+                  <option value="member">{roleLabels.member}</option>
                 </Select>
               </Field>
             </div>
 
-            <div className="rounded-panel border border-border/75 bg-background-subtle/55 p-4">
-              <label className="flex items-center gap-2 text-body-sm text-text">
-                <input
-                  type="checkbox"
-                  checked={useCustomPermissions}
-                  onChange={(event) => {
-                    const checked = event.target.checked
-                    setUseCustomPermissions(checked)
-                    if (!checked) {
-                      setEditPermissions(rolePresets[editRole])
-                    }
-                  }}
-                  className="h-4 w-4 rounded border-border text-primary"
-                />
-                Редактировать права вручную
-              </label>
+            <div className="rounded-panel border border-dashed border-border bg-background-subtle/55 px-4 py-3 text-caption text-text-muted">
+              Владелец имеет полный доступ. Участник видит и редактирует доски, но не может менять роли и удалять рабочее пространство.
             </div>
-
-            {useCustomPermissions ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {permissionCatalog.map((permission) => {
-                  const checked = editPermissions.includes(permission.key)
-                  return (
-                    <label
-                      key={permission.key}
-                      className={`flex h-full w-full items-start gap-3 rounded-[1.15rem] border px-4 py-4 text-body-sm shadow-surface transition duration-fast ease-standard ${
-                        checked
-                          ? 'border-primary/35 bg-primary/10 text-text'
-                          : 'border-border/75 bg-surface/90 text-text hover:border-border-strong'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(event) => {
-                          setEditPermissions((current) =>
-                            event.target.checked ? [...current, permission.key] : current.filter((item) => item !== permission.key)
-                          )
-                        }}
-                        className="mt-1 h-4 w-4 shrink-0 rounded border-border text-primary"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block font-semibold text-text">{permission.label}</span>
-                        <span className="mt-1 block text-caption text-text-muted">{permission.desc}</span>
-                      </span>
-                    </label>
-                  )
-                })}
-                {editErrors.permissions ? <p className="text-body-sm text-danger md:col-span-2 xl:col-span-3">{editErrors.permissions}</p> : null}
-              </div>
-            ) : (
-              <div className="rounded-panel border border-dashed border-border bg-background-subtle/55 px-4 py-3 text-caption text-text-muted">
-                Права соответствуют выбранной роли. Для кастомизации включите ручной режим.
-              </div>
-            )}
           </div>
         ) : null}
       </Modal>

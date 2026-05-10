@@ -5,7 +5,6 @@ import type {
   AuthUser,
   UserProfile,
   RegistrationStatus,
-  PermissionKey,
   UserRole,
   AdminUser,
   NotificationProfile,
@@ -210,7 +209,6 @@ export const api = {
     password: string
     full_name?: string
     role?: UserRole
-    permissions?: PermissionKey[]
   }): Promise<AuthUser> => {
     const res = await fetch(`${V1}/auth/register/`, {
       method: 'POST',
@@ -242,7 +240,7 @@ export const api = {
   },
   updateUser: async (
     id: number,
-    payload: Partial<{ full_name: string; role: UserRole; permissions: PermissionKey[] }>
+    payload: Partial<{ full_name: string; role: UserRole }>
   ): Promise<AdminUser> => {
     const res = await fetch(`${V1}/users/${id}/`, {
       method: 'PATCH',

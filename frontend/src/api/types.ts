@@ -53,7 +53,7 @@ export interface AuthUser {
   username: string
   full_name: string
   is_admin: boolean
-  role?: 'admin' | 'manager' | 'editor' | 'viewer'
+  role?: UserRole
   token: string
 }
 
@@ -62,10 +62,10 @@ export interface UserProfile {
   username: string
   full_name: string
   is_admin: boolean
-  role?: 'admin' | 'manager' | 'editor' | 'viewer'
+  role?: UserRole
 }
 
-export type UserRole = 'admin' | 'manager' | 'editor' | 'viewer'
+export type UserRole = 'owner' | 'member'
 
 export type PermissionKey =
   | 'boards:view'

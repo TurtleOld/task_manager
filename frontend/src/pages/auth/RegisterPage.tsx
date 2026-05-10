@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { toggleTheme } from '../../app/theme'
 import { api } from '../../api/client'
-import type { AuthUser, PermissionKey, RegistrationStatus, UserRole } from '../../api/types'
-import { permissionCatalog } from '../../shared/lib/permissions'
+import type { AuthUser, RegistrationStatus, UserRole } from '../../api/types'
+import { roleLabels } from '../../shared/lib/permissions'
 import { Badge, Button, Card as SurfaceCard, ErrorState, Field, Modal, PageShell, Select, TextInput } from '../../shared/ui'
 
 interface RegisterPageProps {
@@ -17,9 +17,7 @@ export function RegisterPage({ user }: RegisterPageProps) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
-  const [role, setRole] = useState<UserRole>('viewer')
-  const [permissions, setPermissions] = useState<PermissionKey[]>([])
-  const [useCustomPermissions, setUseCustomPermissions] = useState(false)
+  const [role, setRole] = useState<UserRole>('member')
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [saving, setSaving] = useState(false)
@@ -56,7 +54,6 @@ export function RegisterPage({ user }: RegisterPageProps) {
     if (!trimmedUsername || trimmedUsername.length < 3) nextErrors.username = 'Минимум 3 символа'
     if (!password || password.length < 8) nextErrors.password = 'Минимум 8 символов'
     if (!role) nextErrors.role = 'Выберите роль'
-    if (useCustomPermissions && permissions.length === 0) nextErrors.permissions = 'Выберите хотя бы одно право'
     setFormErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
     if (!confirmOpen) {
@@ -65,15 +62,13 @@ export function RegisterPage({ user }: RegisterPageProps) {
     }
     setSaving(true)
     try {
-      await api.register({ username: trimmedUsername, password, full_name: trimmedName, role, permissions: useCustomPermissions ? permissions : undefined })
+      await api.register({ username: trimmedUsername, password, full_name: trimmedName, role })
       setConfirmOpen(false)
       setSuccessMessage('Пользователь успешно создан. Можно добавить следующего.')
       setUsername('')
       setPassword('')
       setFullName('')
-      setRole('viewer')
-      setPermissions([])
-      setUseCustomPermissions(false)
+      setRole('member')
       if (status?.allow_first) navigate('/login', { replace: true })
       else navigate('/settings', { replace: true })
     } catch (e) {
@@ -142,43 +137,15 @@ export function RegisterPage({ user }: RegisterPageProps) {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Роль" htmlFor="register-role" error={formErrors.role} errorId="register-role-error">
                 <Select id="register-role" value={role} onChange={(e) => setRole(e.target.value as UserRole)} invalid={Boolean(formErrors.role)} aria-describedby={formErrors.role ? 'register-role-error' : undefined}>
-                  <option value="admin">Администратор</option>
-                  <option value="manager">Менеджер</option>
-                  <option value="editor">Редактор</option>
-                  <option value="viewer">Наблюдатель</option>
+                  <option value="owner">{roleLabels.owner}</option>
+                  <option value="member">{roleLabels.member}</option>
                 </Select>
               </Field>
               <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 text-caption text-text-muted shadow-surface">
                 <p className="font-semibold text-text">Подсказка</p>
-                <p className="mt-1">Роль задает базовый набор прав. При необходимости включите ручную настройку.</p>
+                <p className="mt-1">Владелец имеет полный доступ. Участник видит и редактирует доски, но не может менять роли и удалять рабочее пространство.</p>
               </div>
             </div>
-            <label className="flex items-center gap-2 text-body-sm text-text-muted">
-              <input type="checkbox" checked={useCustomPermissions} onChange={(event) => setUseCustomPermissions(event.target.checked)} className="h-4 w-4 rounded border-border text-primary" />
-              Настроить права вручную
-            </label>
-            {useCustomPermissions ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {permissionCatalog.map((permission) => {
-                  const checked = permissions.includes(permission.key)
-                  return (
-                    <label key={permission.key} className={`flex items-start gap-3 rounded-[1.15rem] border px-4 py-4 text-body-sm shadow-surface transition duration-fast ease-standard ${checked ? 'border-primary/35 bg-primary/10 text-text' : 'border-border/75 bg-surface/90 text-text hover:border-border-strong'}`}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(event) => setPermissions((current) => event.target.checked ? [...current, permission.key] : current.filter((item) => item !== permission.key))}
-                        className="mt-1 h-4 w-4 rounded border-border text-primary"
-                      />
-                      <span>
-                        <span className="font-semibold text-text">{permission.label}</span>
-                        <span className="mt-1 block text-caption text-text-muted">{permission.desc}</span>
-                      </span>
-                    </label>
-                  )
-                })}
-                {formErrors.permissions ? <p className="text-caption text-danger sm:col-span-2">{formErrors.permissions}</p> : null}
-              </div>
-            ) : null}
           </section>
 
           {error ? <p className="rounded-panel border border-danger/25 bg-danger/10 px-4 py-3 text-body-sm text-danger" role="alert">{error}</p> : null}
@@ -223,7 +190,7 @@ export function RegisterPage({ user }: RegisterPageProps) {
         title="Подтвердите создание"
         footer={<><Button type="button" variant="secondary" onClick={() => setConfirmOpen(false)}>Отмена</Button><Button type="button" loading={saving} onClick={(event) => onSubmit(event as unknown as React.FormEvent)}>Подтвердить</Button></>}
       >
-        <p className="text-body-sm text-text-muted">Создать пользователя <span className="font-semibold text-text">{fullName || username}</span> с ролью <span className="font-semibold text-text">{role}</span>?</p>
+        <p className="text-body-sm text-text-muted">Создать пользователя <span className="font-semibold text-text">{fullName || username}</span> с ролью <span className="font-semibold text-text">{roleLabels[role]}</span>?</p>
       </Modal>
     </PageShell>
   )

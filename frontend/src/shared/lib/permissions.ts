@@ -1,5 +1,7 @@
 import type { PermissionKey, UserRole } from '../../api/types'
 
+// permissionCatalog stays as-is for the deprecated "advanced mode" exposed
+// in admin tooling — the field is still readable on the API per plan §3.4.
 export const permissionCatalog: { key: PermissionKey; label: string; desc: string }[] = [
   { key: 'boards:view', label: 'Просмотр досок', desc: 'Доступ к списку и содержимому досок' },
   { key: 'boards:add', label: 'Создание досок', desc: 'Создавать новые доски' },
@@ -15,28 +17,13 @@ export const permissionCatalog: { key: PermissionKey; label: string; desc: strin
   { key: 'cards:delete', label: 'Удаление карточек', desc: 'Удалять задачи' },
 ]
 
+// owner = full set; member = read-only across the board.
 export const rolePresets: Record<UserRole, PermissionKey[]> = {
-  admin: permissionCatalog.map((item) => item.key),
-  manager: [
-    'boards:view',
-    'boards:add',
-    'boards:edit',
-    'columns:view',
-    'columns:add',
-    'columns:edit',
-    'cards:view',
-    'cards:add',
-    'cards:edit',
-    'cards:delete',
-  ],
-  editor: [
-    'boards:view',
-    'columns:view',
-    'columns:add',
-    'columns:edit',
-    'cards:view',
-    'cards:add',
-    'cards:edit',
-  ],
-  viewer: ['boards:view', 'columns:view', 'cards:view'],
+  owner: permissionCatalog.map((item) => item.key),
+  member: ['boards:view', 'columns:view', 'cards:view'],
+}
+
+export const roleLabels: Record<UserRole, string> = {
+  owner: 'Владелец',
+  member: 'Участник',
 }

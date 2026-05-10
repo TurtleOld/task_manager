@@ -292,11 +292,9 @@ class UserSerializer(serializers.ModelSerializer[AbstractUser]):
         return bool(obj.is_staff or obj.is_superuser)
 
     def get_role(self, obj: AbstractUser) -> str:
-        if obj.is_superuser:
-            return "admin"
-        if obj.is_staff:
-            return "manager"
-        return "viewer"
+        # Phase 1 (T-304): owner = full access; member = everything else.
+        # is_admin and role == "owner" are synonyms going forward.
+        return "owner" if (obj.is_superuser or obj.is_staff) else "member"
 
     def get_permissions(self, obj: AbstractUser) -> list[str]:
         return sorted(
@@ -314,25 +312,9 @@ class UserSerializer(serializers.ModelSerializer[AbstractUser]):
 class UserUpdateSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     role = serializers.ChoiceField(
-        choices=[
-            ("admin", "admin"),
-            ("manager", "manager"),
-            ("editor", "editor"),
-            ("viewer", "viewer"),
-        ],
+        choices=[("owner", "owner"), ("member", "member")],
         required=False,
     )
-    permissions = serializers.ListField(
-        child=serializers.CharField(),
-        required=False,
-        allow_empty=True,
-    )
-
-    def validate_permissions(self, value: list[str]) -> list[str]:
-        invalid = [item for item in value if item not in PERMISSION_MAP]
-        if invalid:
-            raise serializers.ValidationError(_("Некорректные права доступа"))
-        return value
 
     def update(self, instance: AbstractUser, validated_data: dict[str, Any]) -> AbstractUser:
         full_name = validated_data.get("full_name")
@@ -341,19 +323,10 @@ class UserUpdateSerializer(serializers.Serializer):
 
         role = validated_data.get("role")
         if role is not None:
-            instance.is_staff = role in {"admin", "manager"}
-            instance.is_superuser = role == "admin"
-
-        permissions = validated_data.get("permissions")
-        if permissions is not None:
-            permission_pairs = [PERMISSION_MAP[key] for key in permissions]
-            app_labels = {app for app, _ in permission_pairs}
-            codenames = [codename for _, codename in permission_pairs]
-            perms = Permission.objects.filter(
-                content_type__app_label__in=app_labels,
-                codename__in=codenames,
-            )
-            instance.user_permissions.set(perms)
+            # Owner = full admin access. Superuser flag flips with is_staff so
+            # the two-role model stays a single source of truth.
+            instance.is_staff = role == "owner"
+            instance.is_superuser = role == "owner"
 
         instance.save()
         return instance
@@ -389,19 +362,9 @@ class RegisterSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
     full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     role = serializers.ChoiceField(
-        choices=[
-            ("admin", "admin"),
-            ("manager", "manager"),
-            ("editor", "editor"),
-            ("viewer", "viewer"),
-        ],
-        default="viewer",
+        choices=[("owner", "owner"), ("member", "member")],
+        default="member",
         required=False,
-    )
-    permissions = serializers.ListField(
-        child=serializers.CharField(),
-        required=False,
-        allow_empty=True,
     )
 
     def validate_username(self, value: str) -> str:
@@ -413,17 +376,8 @@ class RegisterSerializer(serializers.Serializer):
         validate_password(value)
         return value
 
-    def validate_permissions(self, value: list[str]) -> list[str]:
-        invalid = [item for item in value if item not in PERMISSION_MAP]
-        if invalid:
-            raise serializers.ValidationError(_("Некорректные права доступа"))
-        return value
-
     def create(self, validated_data: dict[str, Any]) -> AbstractUser:
-        role = validated_data.get("role") or "viewer"
-        permissions = validated_data.get("permissions")
-        if permissions is None:
-            permissions = ROLE_PRESETS.get(role, ROLE_PRESETS["viewer"])
+        role = validated_data.get("role") or "member"
 
         user = User(username=validated_data["username"])
         full_name = validated_data.get("full_name")
@@ -431,17 +385,9 @@ class RegisterSerializer(serializers.Serializer):
             user.first_name = full_name
         validate_password(validated_data["password"], user=user)
         user.set_password(validated_data["password"])
-        user.is_staff = role in {"admin", "manager"}
+        user.is_staff = role == "owner"
         user.save()
 
-        permission_pairs = [PERMISSION_MAP[key] for key in permissions]
-        app_labels = {app for app, _ in permission_pairs}
-        codenames = [codename for _, codename in permission_pairs]
-        perms = Permission.objects.filter(
-            content_type__app_label__in=app_labels,
-            codename__in=codenames,
-        )
-        user.user_permissions.set(perms)
         NotificationProfile.objects.get_or_create(user=user)
         return user
 
