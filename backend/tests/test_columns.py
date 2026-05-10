@@ -114,3 +114,47 @@ def test_column_requires_board(api_client: APIClient) -> None:
 def test_column_404_on_nonexistent(api_client: APIClient) -> None:
     resp = api_client.get("/api/v1/columns/99999/")
     assert resp.status_code == 404
+
+
+@pytest.mark.django_db()
+def test_move_column_after_neighbor(api_client: APIClient, board: Board) -> None:
+    first = Column.objects.create(board=board, name="First", position="1")
+    second = Column.objects.create(board=board, name="Second", position="2")
+    third = Column.objects.create(board=board, name="Third", position="3")
+
+    resp = api_client.post(
+        f"/api/v1/columns/{first.id}/move/",
+        data={"before_id": third.id},
+        format="json",
+    )
+
+    assert resp.status_code == 200
+    first.refresh_from_db()
+    third.refresh_from_db()
+    assert first.position > third.position
+    ordered_ids = list(
+        Column.objects.filter(board=board).order_by("position").values_list("id", flat=True)
+    )
+    assert ordered_ids == [second.id, third.id, first.id]
+
+
+@pytest.mark.django_db()
+def test_move_column_before_neighbor(api_client: APIClient, board: Board) -> None:
+    first = Column.objects.create(board=board, name="First", position="1")
+    second = Column.objects.create(board=board, name="Second", position="2")
+    third = Column.objects.create(board=board, name="Third", position="3")
+
+    resp = api_client.post(
+        f"/api/v1/columns/{third.id}/move/",
+        data={"after_id": first.id},
+        format="json",
+    )
+
+    assert resp.status_code == 200
+    first.refresh_from_db()
+    third.refresh_from_db()
+    assert third.position < first.position
+    ordered_ids = list(
+        Column.objects.filter(board=board).order_by("position").values_list("id", flat=True)
+    )
+    assert ordered_ids == [third.id, first.id, second.id]
