@@ -124,8 +124,7 @@ export const api = {
       assignee: number | null
       deadline: string | null
       priority: 0 | 1 | 2 | 3
-      tags: string[]
-      categories: string[]
+      labels: { name: string; color?: string }[]
       checklist: { id: string; text: string; done: boolean }[]
       attachments: { id: string; name: string; type: 'file' | 'link' | 'photo'; url?: string }[]
     }>

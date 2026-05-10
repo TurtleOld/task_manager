@@ -8,18 +8,18 @@ import {
 } from '../../../api/queries/cards'
 import type { Card, CardDeadlineReminder, CardDeadlineReminderResponse } from '../../../api/types'
 import { ensureProfileTimeZoneInitialized, formatIsoForTimeZone, getDeviceTimeZone, resolveTimeZone, zonedDateTimeLocalToIso } from '../../../shared/lib/timezone'
-import type { AssigneeOption, BoardCardDraft, BoardPriority } from '../types'
+import type { AssigneeOption, BoardCardDraft, BoardLabel, BoardPriority } from '../types'
 import { priorityToMarker } from '../lib/priority'
+import { hashLabelColor } from '../lib/labelColor'
 
 interface UseBoardTaskModalOptions {
   boardId: number
   assignees: AssigneeOption[]
-  allKnownTags: string[]
-  allKnownCategories: string[]
+  allKnownLabels: BoardLabel[]
 }
 
 export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
-  const { boardId, assignees, allKnownTags, allKnownCategories } = options
+  const { boardId, assignees, allKnownLabels } = options
   const updateCardMutation = useUpdateCard(boardId)
   const deleteCardMutation = useDeleteCard(boardId)
   const uploadAttachmentsMutation = useUploadCardAttachments(boardId)
@@ -47,8 +47,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       }
   >(null)
 
-  const [newTag, setNewTag] = useState('')
-  const [newCategory, setNewCategory] = useState('')
+  const [newLabel, setNewLabel] = useState('')
   const [newChecklistItem, setNewChecklistItem] = useState('')
   const [newAttachmentName, setNewAttachmentName] = useState('')
   const [newAttachmentType, setNewAttachmentType] = useState<'file' | 'link' | 'photo'>('file')
@@ -91,8 +90,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
   }, [deviceTimeZone])
 
   useEffect(() => {
-    setNewTag('')
-    setNewCategory('')
+    setNewLabel('')
     setNewChecklistItem('')
     setNewAttachmentName('')
     setNewAttachmentUrl('')
@@ -123,8 +121,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       assignee: selectedCard.assignee ?? null,
       deadline: selectedCard.deadline ? isoToDatetimeLocal(selectedCard.deadline) : '',
       priority: (selectedCard.priority ?? 2) as BoardPriority,
-      tags: selectedCard.tags ?? [],
-      categories: selectedCard.categories ?? [],
+      labels: selectedCard.labels ?? [],
       checklist: selectedCard.checklist ?? [],
       attachments: selectedCard.attachments ?? [],
     }
@@ -134,8 +131,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
 
   const selectedCardId = selectedCard?.id ?? null
   const selectedCardIsPending = selectedCardId != null && selectedCardId < 0
-  const selectedTags = draft?.tags ?? []
-  const selectedCategories = draft?.categories ?? []
+  const selectedLabels = draft?.labels ?? []
   const selectedChecklist = draft?.checklist ?? []
   const selectedAttachments = draft?.attachments ?? []
   const selectedPriority: BoardPriority | '' = draft?.priority ?? ''
@@ -166,8 +162,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       assignee: number | null
       deadline: string | null
       priority: BoardPriority
-      tags: string[]
-      categories: string[]
+      labels: BoardLabel[]
       checklist: { id: string; text: string; done: boolean }[]
       attachments: Card['attachments']
     }>
@@ -249,23 +244,15 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       changesMeta.priority = next.priority
     }
 
-    if (!sameJson(next.tags, base.tags)) {
-      if (next.tags.length > 0) {
-        changes.push(`Теги: ${next.tags.join(', ')}`)
-        changesMeta.tags = next.tags
+    const baseLabelNames = base.labels.map((label) => label.name)
+    const nextLabelNames = next.labels.map((label) => label.name)
+    if (!sameJson(nextLabelNames, baseLabelNames)) {
+      if (nextLabelNames.length > 0) {
+        changes.push(`Лейблы: ${nextLabelNames.join(', ')}`)
+        changesMeta.labels = nextLabelNames
       } else {
-        changes.push('Теги удалены')
-        changesMeta.tags = []
-      }
-    }
-
-    if (!sameJson(next.categories, base.categories)) {
-      if (next.categories.length > 0) {
-        changes.push(`Категории: ${next.categories.join(', ')}`)
-        changesMeta.categories = next.categories
-      } else {
-        changes.push('Категории удалены')
-        changesMeta.categories = []
+        changes.push('Лейблы удалены')
+        changesMeta.labels = []
       }
     }
 
@@ -406,8 +393,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       assignee: number | null
       deadline: string | null
       priority: BoardPriority
-      tags: string[]
-      categories: string[]
+      labels: BoardLabel[]
       checklist: { id: string; text: string; done: boolean }[]
       attachments: Card['attachments']
     }> = {}
@@ -425,8 +411,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     if (draft.assignee !== base.assignee) patch.assignee = draft.assignee
     if (draft.deadline !== base.deadline) patch.deadline = draft.deadline ? datetimeLocalToIso(draft.deadline) : null
     if (draft.priority !== base.priority) patch.priority = draft.priority
-    if (!sameJson(draft.tags, base.tags)) patch.tags = draft.tags
-    if (!sameJson(draft.categories, base.categories)) patch.categories = draft.categories
+    if (!sameJson(draft.labels, base.labels)) patch.labels = draft.labels
     if (!sameJson(draft.checklist, base.checklist)) patch.checklist = draft.checklist
     if (!sameJson(draft.attachments, base.attachments)) patch.attachments = draft.attachments
 
@@ -486,8 +471,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
           title: draft.title.trim(),
           description: draft.description,
           deadline: draft.deadline,
-          tags: draft.tags,
-          categories: draft.categories,
+          labels: draft.labels,
           checklist: draft.checklist,
           attachments: draft.attachments,
         })
@@ -582,44 +566,31 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     }
   }
 
-  const addTagValue = (valueRaw: string) => {
+  const addLabelValue = (input: string | BoardLabel) => {
     if (!selectedCardId || !draft) return
-    const value = valueRaw.trim()
-    if (!value) return
-    const next = Array.from(new Set([...(draft.tags ?? []), value]))
-    setDraft((prev) => (prev ? { ...prev, tags: next } : prev))
+    const candidate: BoardLabel = typeof input === 'string'
+      ? { name: input.trim(), color: hashLabelColor(input.trim()) }
+      : input
+    if (!candidate.name) return
+    if (draft.labels.some((label) => label.name === candidate.name)) return
+    const known = allKnownLabels.find((label) => label.name === candidate.name)
+    const resolved: BoardLabel = known
+      ? known
+      : { name: candidate.name, color: candidate.color || hashLabelColor(candidate.name) }
+    const next = [...draft.labels, resolved]
+    setDraft((prev) => (prev ? { ...prev, labels: next } : prev))
   }
 
-  const addCategoryValue = (valueRaw: string) => {
-    if (!selectedCardId || !draft) return
-    const value = valueRaw.trim()
-    if (!value) return
-    const next = Array.from(new Set([...(draft.categories ?? []), value]))
-    setDraft((prev) => (prev ? { ...prev, categories: next } : prev))
-  }
-
-  const addTag = () => {
+  const addLabel = () => {
     if (!selectedCardId) return
-    addTagValue(newTag)
-    setNewTag('')
+    addLabelValue(newLabel)
+    setNewLabel('')
   }
 
-  const removeTag = (tag: string) => {
+  const removeLabel = (name: string) => {
     if (!selectedCardId || !draft) return
-    const next = (draft.tags ?? []).filter((item) => item !== tag)
-    setDraft((prev) => (prev ? { ...prev, tags: next } : prev))
-  }
-
-  const addCategory = () => {
-    if (!selectedCardId) return
-    addCategoryValue(newCategory)
-    setNewCategory('')
-  }
-
-  const removeCategory = (category: string) => {
-    if (!selectedCardId || !draft) return
-    const next = (draft.categories ?? []).filter((item) => item !== category)
-    setDraft((prev) => (prev ? { ...prev, categories: next } : prev))
+    const next = draft.labels.filter((item) => item.name !== name)
+    setDraft((prev) => (prev ? { ...prev, labels: next } : prev))
   }
 
   const addChecklistItem = () => {
@@ -727,20 +698,13 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     profileTimeZone,
     scheduleDeadlineSave,
     selectedPriority,
-    allKnownTags,
-    selectedTags,
-    newTag,
-    setNewTag,
-    addTagValue,
-    removeTag,
-    addTag,
-    allKnownCategories,
-    selectedCategories,
-    newCategory,
-    setNewCategory,
-    addCategoryValue,
-    removeCategory,
-    addCategory,
+    allKnownLabels,
+    selectedLabels,
+    newLabel,
+    setNewLabel,
+    addLabelValue,
+    removeLabel,
+    addLabel,
     onSaveCard,
     deleteSelectedCard,
     toast,

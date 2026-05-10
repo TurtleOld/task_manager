@@ -175,7 +175,7 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
 class CardViewSet(viewsets.ModelViewSet[Card]):
     queryset = (
         Card.objects.select_related("board", "column")
-        .prefetch_related("tags", "categories")
+        .prefetch_related("labels")
         .all()
         .order_by("position", "id")
     )
@@ -307,7 +307,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         card = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("tags", "categories")
+            .prefetch_related("labels")
             .get(pk=card.pk)
         )
         broadcast_board_event(card.board_id, "card.created", {"card": CardS(card).data})
@@ -326,7 +326,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         card = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("tags", "categories")
+            .prefetch_related("labels")
             .get(pk=card.pk)
         )
         broadcast_board_event(card.board_id, "card.updated", {"card": CardS(card).data})
@@ -591,7 +591,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         # Prefetch M2M for serialization
         card = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("tags", "categories")
+            .prefetch_related("labels")
             .get(pk=card.pk)
         )
         serializer = self.get_serializer(card)

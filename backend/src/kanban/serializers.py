@@ -6,7 +6,6 @@ from typing import Any
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser, Permission
 from django.contrib.auth.password_validation import validate_password
-from django.db import models
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
@@ -14,14 +13,13 @@ from .models import (
     Board,
     Card,
     CardDeadlineReminder,
-    Category,
     Column,
+    Label,
     NotificationChannel,
     NotificationEventType,
     NotificationPreference,
     NotificationProfile,
     SiteSettings,
-    Tag,
 )
 
 User = get_user_model()
@@ -89,41 +87,81 @@ class ColumnSerializer(serializers.ModelSerializer[Column]):
         return super().create(validated_data)
 
 
-class NameRelatedField(serializers.SlugRelatedField):
-    def to_internal_value(self, data: Any) -> models.Model:
-        if not isinstance(data, str):
-            raise serializers.ValidationError("Ожидалась строка")
-        value = data.strip()
-        if not value:
-            raise serializers.ValidationError("Название не может быть пустым")
-        obj, _ = self.get_queryset().get_or_create(**{self.slug_field: value})
-        return obj
-
-
-class TagSerializer(serializers.ModelSerializer[Tag]):
+class LabelSerializer(serializers.ModelSerializer[Label]):
     class Meta:
-        model = Tag
-        fields = ["id", "name"]
+        model = Label
+        fields = ["id", "name", "color"]
         read_only_fields = ["id"]
 
 
-class CategorySerializer(serializers.ModelSerializer[Category]):
-    class Meta:
-        model = Category
-        fields = ["id", "name"]
-        read_only_fields = ["id"]
+class CardLabelField(serializers.Field):
+    """Bi-directional translation between Card.labels (M2M) and the API
+    representation `[{name, color}]`.
+
+    On read: serialize each Label as a dict.
+    On write: accept either a list of strings (legacy/simple) or a list of
+    {name, color} dicts; create labels by name on first use, persisting the
+    color when supplied (or leaving the auto-generated one alone otherwise).
+    """
+
+    default_error_messages = {
+        "invalid_type": "Ожидался список",
+        "invalid_item": "Каждый лейбл должен быть строкой или объектом с полем name",
+        "blank_name": "Название лейбла не может быть пустым",
+    }
+
+    def to_representation(self, value: Any) -> list[dict[str, str]]:
+        return [{"name": label.name, "color": label.color} for label in value.all()]
+
+    def to_internal_value(self, data: Any) -> list[Label]:
+        if not isinstance(data, list):
+            self.fail("invalid_type")
+        labels: list[Label] = []
+        for item in data:
+            if isinstance(item, str):
+                name = item.strip()
+                color: str | None = None
+            elif isinstance(item, dict):
+                name = str(item.get("name", "")).strip()
+                color = item.get("color")
+                color = color.strip() if isinstance(color, str) else None
+            else:
+                self.fail("invalid_item")
+            if not name:
+                self.fail("blank_name")
+            label, created = Label.objects.get_or_create(
+                name=name,
+                defaults={"color": color or _hash_color(name)},
+            )
+            if color and not created and label.color != color:
+                label.color = color
+                label.save(update_fields=["color"])
+            labels.append(label)
+        return labels
+
+
+def _hash_color(name: str) -> str:
+    """Stable hash → hex color, used when a label is created without an
+    explicit color."""
+    palette = [
+        "#3b82f6",  # blue
+        "#10b981",  # emerald
+        "#f59e0b",  # amber
+        "#ef4444",  # red
+        "#8b5cf6",  # violet
+        "#ec4899",  # pink
+        "#14b8a6",  # teal
+        "#f97316",  # orange
+    ]
+    digest = sum(ord(c) for c in name)
+    return palette[digest % len(palette)]
 
 
 class CardSerializer(serializers.ModelSerializer[Card]):
     assignee = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), allow_null=True, required=False
     )
-    tags = NameRelatedField(
-        many=True, slug_field="name", queryset=Tag.objects.all(), required=False
-    )
-    categories = NameRelatedField(
-        many=True, slug_field="name", queryset=Category.objects.all(), required=False
-    )
+    labels = CardLabelField(required=False)
     priority_label = serializers.CharField(source="get_priority_display", read_only=True)
 
     class Meta:
@@ -138,8 +176,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "deadline",
             "priority",
             "priority_label",
-            "tags",
-            "categories",
+            "labels",
             "checklist",
             "attachments",
             "position",
@@ -165,8 +202,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
         return attrs
 
     def create(self, validated_data: dict[str, Any]) -> Card:
-        tags = validated_data.pop("tags", None)
-        categories = validated_data.pop("categories", None)
+        labels = validated_data.pop("labels", None)
         column: Column = validated_data["column"]
         last = Card.objects.filter(column=column).order_by("-position").first()
         validated_data.setdefault(
@@ -174,20 +210,15 @@ class CardSerializer(serializers.ModelSerializer[Card]):
         )
         validated_data["board"] = column.board
         card = super().create(validated_data)
-        if tags is not None:
-            card.tags.set(tags)
-        if categories is not None:
-            card.categories.set(categories)
+        if labels is not None:
+            card.labels.set(labels)
         return card
 
     def update(self, instance: Card, validated_data: dict[str, Any]) -> Card:
-        tags = validated_data.pop("tags", None)
-        categories = validated_data.pop("categories", None)
+        labels = validated_data.pop("labels", None)
         card = super().update(instance, validated_data)
-        if tags is not None:
-            card.tags.set(tags)
-        if categories is not None:
-            card.categories.set(categories)
+        if labels is not None:
+            card.labels.set(labels)
         return card
 
     def to_representation(self, instance: Card) -> dict[str, Any]:

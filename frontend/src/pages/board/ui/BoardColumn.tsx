@@ -1,5 +1,6 @@
 import { Badge, Chip, EmptyState, IconButton, TextInput } from '../../../shared/ui'
 import type { Card, Column } from '../../../api/types'
+import type { BoardLabel } from '../types'
 
 interface PriorityView {
   label: string
@@ -19,8 +20,7 @@ interface BoardColumnProps {
   onDragStart: (card: Card) => void
   onDragEnd: () => void
   priorityFor: (card: Card) => PriorityView
-  tagsFor: (card: Card) => string[]
-  categoriesFor: (card: Card) => string[]
+  labelsFor: (card: Card) => BoardLabel[]
   deadlineFor: (card: Card) => string
   assigneeNameFor: (card: Card) => string | null
   formatDateTime: (value: string) => string
@@ -42,8 +42,7 @@ export function BoardColumn({
   onDragStart,
   onDragEnd,
   priorityFor,
-  tagsFor,
-  categoriesFor,
+  labelsFor,
   deadlineFor,
   assigneeNameFor,
   formatDateTime,
@@ -88,8 +87,7 @@ export function BoardColumn({
         ) : null}
         {cards.map((card) => {
           const priority = priorityFor(card)
-          const tags = tagsFor(card)
-          const categories = categoriesFor(card)
+          const labels = labelsFor(card)
           const deadline = deadlineFor(card)
           const assigneeName = assigneeNameFor(card)
 
@@ -111,8 +109,14 @@ export function BoardColumn({
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {tags.map((tag) => <Chip key={tag} tone="primary">{tag}</Chip>)}
-                  {categories.map((category) => <Chip key={category} tone="success">{category}</Chip>)}
+                  {labels.map((label) => (
+                    <Chip
+                      key={label.name}
+                      style={{ borderColor: label.color, backgroundColor: `${label.color}1a`, color: label.color }}
+                    >
+                      {label.name}
+                    </Chip>
+                  ))}
                 </div>
 
                 {deadline ? <div className="mt-3 flex flex-wrap gap-2"><Chip tone="warning">⏰ {formatDateTime(deadline)}</Chip></div> : null}

@@ -12,7 +12,7 @@ import { Button, Card as SurfaceCard, Field, Select, TextInput, Toast } from '..
 import { useBoardWebSocket } from '../../useBoardWebSocket'
 import type { BoardEvent } from '../../useBoardWebSocket'
 import type { AuthUser, Card, Column } from '../../api/types'
-import type { AssigneeOption } from './types'
+import type { AssigneeOption, BoardLabel } from './types'
 import { useBoardTaskModal } from './hooks/useBoardTaskModal'
 import {
   PRIORITY_HIGH,
@@ -52,8 +52,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
   const [isCreatingColumn, setIsCreatingColumn] = useState(false)
   const [newCardTitle, setNewCardTitle] = useState<Record<number, string>>({})
   const [dragged, setDragged] = useState<Card | null>(null)
-  const [activeTag, setActiveTag] = useState('Все')
-  const [activeCategory, setActiveCategory] = useState('Все')
+  const [activeLabel, setActiveLabel] = useState('Все')
   const [searchQuery, setSearchQuery] = useState('')
   const [assignees, setAssignees] = useState<AssigneeOption[]>([])
 
@@ -111,26 +110,23 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
     },
   })
 
-  const tagOptions = useMemo(
-    () => ['Все', ...new Set(cards.flatMap((c) => c.tags ?? []))],
-    [cards],
-  )
-  const categoryOptions = useMemo(
-    () => ['Все', ...new Set(cards.flatMap((c) => c.categories ?? []))],
-    [cards],
-  )
-  const allKnownTags = tagOptions.filter((t) => t !== 'Все')
-  const allKnownCategories = categoryOptions.filter((c) => c !== 'Все')
+  const allKnownLabels = useMemo(() => {
+    const map = new Map<string, BoardLabel>()
+    for (const card of cards) {
+      for (const label of card.labels ?? []) {
+        if (!map.has(label.name)) map.set(label.name, label)
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }, [cards])
 
   const taskModal = useBoardTaskModal({
     boardId,
     assignees,
-    allKnownTags,
-    allKnownCategories,
+    allKnownLabels,
   })
 
-  const tagsFor = (card: Card) => card.tags ?? []
-  const categoriesFor = (card: Card) => card.categories ?? []
+  const labelsFor = (card: Card) => card.labels ?? []
   const deadlineFor = (card: Card) => card.deadline ?? ''
   const assigneeNameFor = (card: Card) => {
     const assigneeId = card.assignee
@@ -140,15 +136,14 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
   const filteredCards = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     return cards.filter((card) => {
-      const tags = card.tags ?? []
-      const categories = card.categories ?? []
-      const matchesTag = activeTag === 'Все' || tags.includes(activeTag)
-      const matchesCategory = activeCategory === 'Все' || categories.includes(activeCategory)
-      const searchable = [card.title, card.description, ...tags, ...categories].join(' ').toLowerCase()
+      const labels = card.labels ?? []
+      const labelNames = labels.map((label) => label.name)
+      const matchesLabel = activeLabel === 'Все' || labelNames.includes(activeLabel)
+      const searchable = [card.title, card.description, ...labelNames].join(' ').toLowerCase()
       const matchesSearch = !query || searchable.includes(query)
-      return matchesTag && matchesCategory && matchesSearch
+      return matchesLabel && matchesSearch
     })
-  }, [activeCategory, activeTag, cards, searchQuery])
+  }, [activeLabel, cards, searchQuery])
 
   const grouped = useMemo(() => {
     const g: Record<number, Card[]> = {}
@@ -196,7 +191,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
 
   const urgentCardsCount = cards.filter((card) => card.priority === PRIORITY_HIGH).length
   const datedCardsCount = cards.filter((card) => Boolean(deadlineFor(card))).length
-  const activeFilterCount = [activeTag !== 'Все', activeCategory !== 'Все', Boolean(searchQuery.trim())].filter(Boolean).length
+  const activeFilterCount = [activeLabel !== 'Все', Boolean(searchQuery.trim())].filter(Boolean).length
 
   const onCreateColumn = async () => {
     if (!colName.trim()) return
@@ -219,8 +214,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
       description: '',
       deadline: null,
       priority: PRIORITY_NORMAL,
-      tags: [],
-      categories: [],
+      labels: [],
       checklist: [],
       attachments: [],
       position: '999999',
@@ -377,12 +371,9 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
           activeFilterCount={activeFilterCount}
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
-          tagOptions={tagOptions}
-          activeTag={activeTag}
-          onActiveTagChange={setActiveTag}
-          categoryOptions={categoryOptions}
-          activeCategory={activeCategory}
-          onActiveCategoryChange={setActiveCategory}
+          labelOptions={allKnownLabels}
+          activeLabel={activeLabel}
+          onActiveLabelChange={setActiveLabel}
         />
 
         <section className="grid gap-5 lg:grid-cols-3" aria-label="Колонки канбан-доски">
@@ -400,8 +391,7 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
               onDragStart={setDragged}
               onDragEnd={() => setDragged(null)}
               priorityFor={priorityFor}
-              tagsFor={tagsFor}
-              categoriesFor={categoriesFor}
+              labelsFor={labelsFor}
               deadlineFor={deadlineFor}
               assigneeNameFor={assigneeNameFor}
               formatDateTime={formatDateTime}
@@ -466,20 +456,13 @@ export function BoardPage({ onLogout, user }: BoardPageProps) {
           getTimeZoneLabel={getTimeZoneLabel}
           scheduleDeadlineSave={taskModal.scheduleDeadlineSave}
           selectedPriority={taskModal.selectedPriority}
-          allKnownTags={allKnownTags}
-          selectedTags={taskModal.selectedTags}
-          newTag={taskModal.newTag}
-          setNewTag={taskModal.setNewTag}
-          addTagValue={taskModal.addTagValue}
-          removeTag={taskModal.removeTag}
-          addTag={taskModal.addTag}
-          allKnownCategories={allKnownCategories}
-          selectedCategories={taskModal.selectedCategories}
-          newCategory={taskModal.newCategory}
-          setNewCategory={taskModal.setNewCategory}
-          addCategoryValue={taskModal.addCategoryValue}
-          removeCategory={taskModal.removeCategory}
-          addCategory={taskModal.addCategory}
+          allKnownLabels={allKnownLabels}
+          selectedLabels={taskModal.selectedLabels}
+          newLabel={taskModal.newLabel}
+          setNewLabel={taskModal.setNewLabel}
+          addLabelValue={taskModal.addLabelValue}
+          removeLabel={taskModal.removeLabel}
+          addLabel={taskModal.addLabel}
         />
       ) : null}
 

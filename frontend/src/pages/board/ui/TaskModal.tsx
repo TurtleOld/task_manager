@@ -15,7 +15,7 @@ import {
   Textarea,
 } from '../../../shared/ui'
 import type { Card, CardDeadlineReminder, CardDeadlineReminderResponse } from '../../../api/types'
-import type { AssigneeOption, BoardAttachment, BoardCardDraft, BoardChecklistItem, BoardPriority } from '../types'
+import type { AssigneeOption, BoardAttachment, BoardCardDraft, BoardChecklistItem, BoardLabel, BoardPriority } from '../types'
 import { priorityToLabel, priorityToMarker } from '../lib/priority'
 
 interface TaskModalProps {
@@ -69,20 +69,13 @@ interface TaskModalProps {
   getTimeZoneLabel: (value: string | null | undefined) => string
   scheduleDeadlineSave: () => void
   selectedPriority: BoardPriority | ''
-  allKnownTags: string[]
-  selectedTags: string[]
-  newTag: string
-  setNewTag: (value: string) => void
-  addTagValue: (value: string) => void
-  removeTag: (tag: string) => void
-  addTag: () => void
-  allKnownCategories: string[]
-  selectedCategories: string[]
-  newCategory: string
-  setNewCategory: (value: string) => void
-  addCategoryValue: (value: string) => void
-  removeCategory: (category: string) => void
-  addCategory: () => void
+  allKnownLabels: BoardLabel[]
+  selectedLabels: BoardLabel[]
+  newLabel: string
+  setNewLabel: (value: string) => void
+  addLabelValue: (value: string | BoardLabel) => void
+  removeLabel: (name: string) => void
+  addLabel: () => void
 }
 
 export function TaskModal({
@@ -136,20 +129,13 @@ export function TaskModal({
   getTimeZoneLabel,
   scheduleDeadlineSave,
   selectedPriority,
-  allKnownTags,
-  selectedTags,
-  newTag,
-  setNewTag,
-  addTagValue,
-  removeTag,
-  addTag,
-  allKnownCategories,
-  selectedCategories,
-  newCategory,
-  setNewCategory,
-  addCategoryValue,
-  removeCategory,
-  addCategory,
+  allKnownLabels,
+  selectedLabels,
+  newLabel,
+  setNewLabel,
+  addLabelValue,
+  removeLabel,
+  addLabel,
 }: TaskModalProps) {
   const enabledReminderCount = reminderDrafts.filter((item) => item.enabled).length
   const hasDeadline = Boolean(reminderData?.deadline || draft?.deadline)
@@ -548,37 +534,58 @@ export function TaskModal({
               <div>
                 <div className="flex items-center gap-2">
                   <Badge variant="success">Labels</Badge>
-                  <Badge variant="neutral">Tags & categories</Badge>
                 </div>
-                <h3 className="mt-3 text-h3 text-text">Теги и категории</h3>
+                <h3 className="mt-3 text-h3 text-text">Лейблы</h3>
               </div>
               <div className="grid gap-4">
                 <div className="rounded-panel border border-border/70 bg-background-subtle/55 p-4 text-caption text-text-muted">
-                  <p className="font-semibold text-text">Доступные теги</p>
+                  <p className="font-semibold text-text">Доступные лейблы</p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {allKnownTags.length === 0 ? <span>Пока нет тегов в этой доске.</span> : allKnownTags.filter((tag) => !selectedTags.includes(tag)).filter((tag) => (newTag.trim() ? tag.toLowerCase().includes(newTag.trim().toLowerCase()) : true)).map((tag) => <ChipButton key={tag} onClick={() => addTagValue(tag)} tone="primary">+ {tag}</ChipButton>)}
+                    {allKnownLabels.length === 0 ? (
+                      <span>Пока нет лейблов в этой доске.</span>
+                    ) : (
+                      allKnownLabels
+                        .filter((label) => !selectedLabels.some((selected) => selected.name === label.name))
+                        .filter((label) =>
+                          newLabel.trim() ? label.name.toLowerCase().includes(newLabel.trim().toLowerCase()) : true,
+                        )
+                        .map((label) => (
+                          <ChipButton
+                            key={label.name}
+                            onClick={() => addLabelValue(label)}
+                            style={{ borderColor: label.color, color: label.color }}
+                          >
+                            + {label.name}
+                          </ChipButton>
+                        ))
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {selectedTags.length === 0 ? <span className="text-caption text-text-muted">Теги не добавлены.</span> : selectedTags.map((tag) => <Chip key={tag} tone="primary">{tag}<button type="button" onClick={() => removeTag(tag)} className="text-danger hover:text-danger/80" aria-label={`Удалить тег ${tag}`}>×</button></Chip>)}
+                  {selectedLabels.length === 0 ? (
+                    <span className="text-caption text-text-muted">Лейблы не добавлены.</span>
+                  ) : (
+                    selectedLabels.map((label) => (
+                      <Chip
+                        key={label.name}
+                        style={{ borderColor: label.color, backgroundColor: `${label.color}1a`, color: label.color }}
+                      >
+                        {label.name}
+                        <button
+                          type="button"
+                          onClick={() => removeLabel(label.name)}
+                          className="text-danger hover:text-danger/80"
+                          aria-label={`Удалить лейбл ${label.name}`}
+                        >
+                          ×
+                        </button>
+                      </Chip>
+                    ))
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <TextInput value={newTag} onChange={(event) => setNewTag(event.target.value)} placeholder="Новый тег" />
-                  <Button type="button" onClick={addTag} size="sm">Добавить</Button>
-                </div>
-
-                <div className="rounded-panel border border-border/70 bg-background-subtle/55 p-4 text-caption text-text-muted">
-                  <p className="font-semibold text-text">Доступные категории</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {allKnownCategories.length === 0 ? <span>Пока нет категорий в этой доске.</span> : allKnownCategories.filter((category) => !selectedCategories.includes(category)).filter((category) => (newCategory.trim() ? category.toLowerCase().includes(newCategory.trim().toLowerCase()) : true)).map((category) => <ChipButton key={category} onClick={() => addCategoryValue(category)} tone="success">+ {category}</ChipButton>)}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {selectedCategories.length === 0 ? <span className="text-caption text-text-muted">Категории не добавлены.</span> : selectedCategories.map((category) => <Chip key={category} tone="success">{category}<button type="button" onClick={() => removeCategory(category)} className="text-danger hover:text-danger/80" aria-label={`Удалить категорию ${category}`}>×</button></Chip>)}
-                </div>
-                <div className="flex items-center gap-2">
-                  <TextInput value={newCategory} onChange={(event) => setNewCategory(event.target.value)} placeholder="Новая категория" />
-                  <Button type="button" onClick={addCategory} size="sm" variant="secondary">Добавить</Button>
+                  <TextInput value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Новый лейбл" />
+                  <Button type="button" onClick={addLabel} size="sm">Добавить</Button>
                 </div>
               </div>
             </SurfaceCard>

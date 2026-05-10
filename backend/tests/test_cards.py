@@ -34,8 +34,7 @@ def test_create_card_full(api_client: APIClient, column: Column) -> None:
             "title": "Full task",
             "description": "Details here",
             "priority": 3,
-            "tags": ["bug", "urgent"],
-            "categories": ["backend"],
+            "labels": ["bug", "urgent", "backend"],
         },
         format="json",
     )
@@ -43,8 +42,10 @@ def test_create_card_full(api_client: APIClient, column: Column) -> None:
     data = resp.json()
     assert data["priority"] == 3
     assert data["priority_label"] == "Срочно"
-    assert "bug" in data["tags"]
-    assert "backend" in data["categories"]
+    label_names = {label["name"] for label in data["labels"]}
+    assert {"bug", "urgent", "backend"} <= label_names
+    # Each label has a non-empty color (auto-generated from name hash).
+    assert all(label["color"] for label in data["labels"])
 
 
 @pytest.mark.django_db()

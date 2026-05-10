@@ -55,18 +55,9 @@ class Column(TimestampedModel):
         return f"{self.board_id}:{self.name}"
 
 
-class Tag(TimestampedModel):
+class Label(TimestampedModel):
     name = models.CharField(max_length=100, unique=True)
-
-    class Meta:
-        ordering = ["name"]
-
-    def __str__(self) -> str:  # pragma: no cover
-        return self.name
-
-
-class Category(TimestampedModel):
-    name = models.CharField(max_length=100, unique=True)
+    color = models.CharField(max_length=9, blank=True, default="")
 
     class Meta:
         ordering = ["name"]
@@ -99,8 +90,7 @@ class Card(TimestampedModel):
         choices=CardPriority.choices,
         default=CardPriority.NORMAL,
     )
-    tags = models.ManyToManyField(Tag, blank=True, related_name="cards")
-    categories = models.ManyToManyField(Category, blank=True, related_name="cards")
+    labels = models.ManyToManyField(Label, blank=True, related_name="cards")
     checklist = models.JSONField(default=list, blank=True)
     attachments = models.JSONField(default=list, blank=True)
     position = models.DecimalField(max_digits=20, decimal_places=10, default=POSITION_DEFAULT)

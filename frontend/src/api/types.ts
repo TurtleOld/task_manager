@@ -31,8 +31,7 @@ export interface Card {
   deadline: string | null
   priority: 0 | 1 | 2 | 3
   priority_label?: string
-  tags: string[]
-  categories: string[]
+  labels: { name: string; color: string }[]
   checklist: { id: string; text: string; done: boolean }[]
   attachments: {
     id: string
