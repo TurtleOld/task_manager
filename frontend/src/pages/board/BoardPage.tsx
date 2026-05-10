@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { api } from '../../api/client'
 import { queryKeys } from '../../api/queries/keys'
 import { useBoards } from '../../api/queries/boards'
@@ -30,8 +32,12 @@ interface BoardPageProps {
 }
 
 export function BoardPage({ user }: BoardPageProps) {
-  const boardId = Number(window.location.pathname.split('/').at(-1))
+  const params = useParams()
+  const navigate = useNavigate()
+  const boardId = Number(params.id)
+  const routeCardId = params.cardId ?? null
   const queryClient = useQueryClient()
+  const pendingCreateCardIdRef = useRef<number | null>(null)
 
   const { data: cards = [], isLoading: cardsLoading } = useCards(boardId)
   const { data: columns = [], isLoading: columnsLoading } = useColumns(boardId)
@@ -124,6 +130,32 @@ export function BoardPage({ user }: BoardPageProps) {
     assignees,
     allKnownLabels,
   })
+  const setSelectedCard = taskModal.setSelectedCard
+
+  useEffect(() => {
+    if (!routeCardId) {
+      if (pendingCreateCardIdRef.current == null) setSelectedCard(null)
+      return
+    }
+
+    const parsedCardId = Number(routeCardId)
+    if (!Number.isInteger(parsedCardId) || parsedCardId <= 0) {
+      toast.error('Задача не найдена')
+      navigate(`/boards/${boardId}`, { replace: true })
+      return
+    }
+
+    if (isBoardLoading) return
+
+    const routedCard = cards.find((card) => card.id === parsedCardId)
+    if (!routedCard) {
+      toast.error('Задача не найдена')
+      navigate(`/boards/${boardId}`, { replace: true })
+      return
+    }
+
+    setSelectedCard(routedCard)
+  }, [boardId, cards, isBoardLoading, navigate, routeCardId, setSelectedCard])
 
   const labelsFor = (card: Card) => card.labels ?? []
   const deadlineFor = (card: Card) => card.deadline ?? ''
@@ -226,7 +258,8 @@ export function BoardPage({ user }: BoardPageProps) {
     queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
       prev ? [...prev, placeholder] : [placeholder],
     )
-    taskModal.setSelectedCard(placeholder)
+    pendingCreateCardIdRef.current = tempId
+    setSelectedCard(placeholder)
     setNewCardTitle((s) => ({ ...s, [columnId]: '' }))
 
     try {
@@ -238,8 +271,12 @@ export function BoardPage({ user }: BoardPageProps) {
         if (withoutTemp.some((c) => c.id === card.id)) return withoutTemp
         return [...withoutTemp, card]
       })
-      taskModal.setSelectedCard((prev) => (prev?.id === tempId ? card : prev))
+      const shouldOpenPersistedCard = pendingCreateCardIdRef.current === tempId
+      pendingCreateCardIdRef.current = null
+      setSelectedCard((prev) => (prev?.id === tempId ? card : prev))
+      if (shouldOpenPersistedCard) navigate(`/boards/${boardId}/cards/${card.id}`)
     } catch {
+      if (pendingCreateCardIdRef.current === tempId) pendingCreateCardIdRef.current = null
       queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
         prev?.filter((c) => c.id !== tempId),
       )
@@ -324,6 +361,28 @@ export function BoardPage({ user }: BoardPageProps) {
     event.stopPropagation()
   }
 
+  const openTaskModal = (card: Card) => {
+    pendingCreateCardIdRef.current = null
+    setSelectedCard(card)
+    navigate(`/boards/${boardId}/cards/${card.id}`)
+  }
+
+  const closeTaskModal = () => {
+    pendingCreateCardIdRef.current = null
+    setSelectedCard(null)
+    navigate(`/boards/${boardId}`)
+  }
+
+  const saveAndCloseTaskModal = async () => {
+    const shouldClose = await taskModal.onSaveCard()
+    if (shouldClose) closeTaskModal()
+  }
+
+  const deleteAndCloseTaskModal = async () => {
+    const shouldClose = await taskModal.deleteSelectedCard()
+    if (shouldClose) closeTaskModal()
+  }
+
   const sortedColumns = [...columns].sort((a, b) => (a.position > b.position ? 1 : -1))
   const availableIcons = ['📋', '📝', '⚡', '✅', '🧩', '🛠️', '🎯', '📦', '💡', '🔍']
   const accentClasses = ['text-primary', 'text-warning', 'text-success', 'text-danger', 'text-secondary', 'text-accent']
@@ -388,7 +447,7 @@ export function BoardPage({ user }: BoardPageProps) {
               onNewCardTitleChange={(value) => setNewCardTitle((s) => ({ ...s, [col.id]: value }))}
               onCreateCard={() => onCreateCard(col.id)}
               onDrop={() => handleDropOnColumn(col.id)}
-              onCardOpen={taskModal.setSelectedCard}
+              onCardOpen={openTaskModal}
               onDragStart={setDragged}
               onDragEnd={() => setDragged(null)}
               priorityFor={priorityFor}
@@ -413,9 +472,9 @@ export function BoardPage({ user }: BoardPageProps) {
           saveBusy={taskModal.saveBusy}
           deleteBusy={taskModal.deleteBusy}
           modalError={taskModal.modalError}
-          onClose={() => taskModal.setSelectedCard(null)}
-          onSave={() => void taskModal.onSaveCard()}
-          onDelete={() => void taskModal.deleteSelectedCard()}
+          onClose={closeTaskModal}
+          onSave={() => void saveAndCloseTaskModal()}
+          onDelete={() => void deleteAndCloseTaskModal()}
           setDraft={taskModal.setDraft}
           reminderDrafts={taskModal.reminderDrafts}
           reminderData={taskModal.reminderData}

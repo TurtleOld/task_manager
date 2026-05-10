@@ -7,11 +7,15 @@ import {
   useUpdateCard,
   useUploadCardAttachments,
 } from '../../../api/queries/cards'
-import type { Card, CardDeadlineReminder, CardDeadlineReminderResponse } from '../../../api/types'
-import { ensureProfileTimeZoneInitialized, formatIsoForTimeZone, getDeviceTimeZone, resolveTimeZone, zonedDateTimeLocalToIso } from '../../../shared/lib/timezone'
+import type { Card } from '../../../api/types'
+import { ensureProfileTimeZoneInitialized, getDeviceTimeZone, resolveTimeZone } from '../../../shared/lib/timezone'
 import type { AssigneeOption, BoardCardDraft, BoardLabel, BoardPriority } from '../types'
 import { priorityToMarker } from '../lib/priority'
-import { hashLabelColor } from '../lib/labelColor'
+import { useCardDraft } from './useCardDraft'
+import { useCardReminders } from './useCardReminders'
+import { useCardAttachments } from './useCardAttachments'
+import { useCardLabels } from './useCardLabels'
+import { useCardChecklist } from './useCardChecklist'
 
 interface UseBoardTaskModalOptions {
   boardId: number
@@ -27,40 +31,80 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
   const deleteAttachmentMutation = useDeleteCardAttachment(boardId)
 
   const [selectedCard, setSelectedCard] = useState<Card | null>(null)
-  const [draft, setDraft] = useState<BoardCardDraft | null>(null)
-  const draftBaseRef = useRef<BoardCardDraft | null>(null)
-  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([])
-  const [pendingDeleteAttachmentIds, setPendingDeleteAttachmentIds] = useState<string[]>([])
-
   const [saveBusy, setSaveBusy] = useState(false)
   const saveBusyRef = useRef(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [modalError, setModalError] = useState('')
-
-
-  const [newLabel, setNewLabel] = useState('')
-  const [newChecklistItem, setNewChecklistItem] = useState('')
-  const [newAttachmentName, setNewAttachmentName] = useState('')
-  const [newAttachmentType, setNewAttachmentType] = useState<'file' | 'link' | 'photo'>('file')
-  const [newAttachmentUrl, setNewAttachmentUrl] = useState('')
-  const [newAttachmentFiles, setNewAttachmentFiles] = useState<File[]>([])
-  const [attachmentFileInputKey, setAttachmentFileInputKey] = useState(0)
-  const attachmentFileInputRef = useRef<HTMLInputElement | null>(null)
-  const deadlineSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const [reminderData, setReminderData] = useState<CardDeadlineReminderResponse | null>(null)
-  const [reminderDrafts, setReminderDrafts] = useState<CardDeadlineReminder[]>([])
-  const [reminderLoading, setReminderLoading] = useState(false)
-  const [reminderSaving, setReminderSaving] = useState(false)
-  const [reminderError, setReminderError] = useState('')
-  const [reminderFieldError, setReminderFieldError] = useState('')
-  const [newReminderValue, setNewReminderValue] = useState(10)
-  const [newReminderUnit, setNewReminderUnit] = useState<'minutes' | 'hours'>('minutes')
   const deviceTimeZone = useMemo(() => getDeviceTimeZone(), [])
   const [profileTimeZone, setProfileTimeZone] = useState(deviceTimeZone)
+  const selectedCardId = selectedCard?.id ?? null
+  const selectedCardIsPending = selectedCardId != null && selectedCardId < 0
 
-  const isoToDatetimeLocal = (value: string) => formatIsoForTimeZone(value, profileTimeZone)
-  const datetimeLocalToIso = (value: string) => zonedDateTimeLocalToIso(value, profileTimeZone)
+  const {
+    draft,
+    setDraft,
+    draftBaseRef,
+    scheduleDeadlineSave,
+    clearDeadlineSave,
+    datetimeLocalToIso,
+  } = useCardDraft(selectedCard, profileTimeZone)
+
+  const {
+    reminderData,
+    reminderDrafts,
+    reminderLoading,
+    reminderError,
+    reminderFieldError,
+    newReminderValue,
+    setNewReminderValue,
+    newReminderUnit,
+    setNewReminderUnit,
+    applyReminderValue,
+    applyReminderUnit,
+    applyReminderChannel,
+    toggleReminder,
+    addReminderInterval,
+    removeReminderInterval,
+    saveReminder,
+    formatReminder,
+  } = useCardReminders(selectedCardId, selectedCardIsPending)
+
+  const {
+    pendingUploadFiles,
+    setPendingUploadFiles,
+    pendingDeleteAttachmentIds,
+    setPendingDeleteAttachmentIds,
+    newAttachmentType,
+    setNewAttachmentType,
+    attachmentFileInputKey,
+    attachmentFileInputRef,
+    setNewAttachmentFiles,
+    newAttachmentFiles,
+    newAttachmentName,
+    setNewAttachmentName,
+    newAttachmentUrl,
+    setNewAttachmentUrl,
+    addAttachment,
+    removeAttachment,
+  } = useCardAttachments({ selectedCardId, draft, setDraft })
+
+  const {
+    selectedLabels,
+    newLabel,
+    setNewLabel,
+    addLabelValue,
+    removeLabel,
+    addLabel,
+  } = useCardLabels({ selectedCardId, draft, setDraft, allKnownLabels })
+
+  const {
+    selectedChecklist,
+    newChecklistItem,
+    setNewChecklistItem,
+    addChecklistItem,
+    toggleChecklistItem,
+    removeChecklistItem,
+  } = useCardChecklist({ selectedCardId, draft, setDraft })
 
   useEffect(() => {
     let mounted = true
@@ -81,65 +125,14 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
   }, [deviceTimeZone])
 
   useEffect(() => {
-    setNewLabel('')
-    setNewChecklistItem('')
-    setNewAttachmentName('')
-    setNewAttachmentUrl('')
-    setNewAttachmentType('file')
-    setNewAttachmentFiles([])
-    setAttachmentFileInputKey((k) => k + 1)
-    setPendingUploadFiles([])
-    setPendingDeleteAttachmentIds([])
     setModalError('')
     setSaveBusy(false)
     saveBusyRef.current = false
     setDeleteBusy(false)
-    setReminderData(null)
-    setReminderDrafts([])
-    setReminderLoading(false)
-    setReminderSaving(false)
-    setReminderError('')
-    setReminderFieldError('')
-    if (!selectedCard) {
-      setDraft(null)
-      draftBaseRef.current = null
-      return
-    }
-
-    const base: BoardCardDraft = {
-      title: selectedCard.title || '',
-      description: selectedCard.description || '',
-      assignee: selectedCard.assignee ?? null,
-      deadline: selectedCard.deadline ? isoToDatetimeLocal(selectedCard.deadline) : '',
-      priority: (selectedCard.priority ?? 2) as BoardPriority,
-      labels: selectedCard.labels ?? [],
-      checklist: selectedCard.checklist ?? [],
-      attachments: selectedCard.attachments ?? [],
-    }
-    setDraft(base)
-    draftBaseRef.current = base
   }, [selectedCard?.id])
 
-  const selectedCardId = selectedCard?.id ?? null
-  const selectedCardIsPending = selectedCardId != null && selectedCardId < 0
-  const selectedLabels = draft?.labels ?? []
-  const selectedChecklist = draft?.checklist ?? []
   const selectedAttachments = draft?.attachments ?? []
   const selectedPriority: BoardPriority | '' = draft?.priority ?? ''
-
-  useEffect(() => {
-    if (!selectedCardId || selectedCardIsPending) return
-    setReminderLoading(true)
-    setReminderError('')
-    api
-      .getCardDeadlineReminder(selectedCardId)
-      .then((data) => {
-        setReminderData(data)
-        setReminderDrafts(data.reminders ?? [])
-      })
-      .catch((e) => setReminderError((e as Error).message))
-      .finally(() => setReminderLoading(false))
-  }, [selectedCardId, selectedCardIsPending])
 
   const applyCardUpdate = (updated: Card) => {
     setSelectedCard((prev) => (prev?.id === updated.id ? updated : prev))
@@ -162,15 +155,6 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     const updated = await updateCardMutation.mutateAsync({ id: selectedCardId, payload: patch })
     applyCardUpdate(updated)
     return updated
-  }
-
-  const formatReminder = (reminder: CardDeadlineReminder) => {
-    if (reminder.offset_unit === 'hours') {
-      const unit = reminder.offset_value === 1 ? 'час' : reminder.offset_value < 5 ? 'часа' : 'часов'
-      return `за ${reminder.offset_value} ${unit}`
-    }
-    const unit = reminder.offset_value === 1 ? 'минуту' : reminder.offset_value < 5 ? 'минуты' : 'минут'
-    return `за ${reminder.offset_value} ${unit}`
   }
 
   const formatDateTime = (value: string) => {
@@ -279,19 +263,12 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     return { changes, changesMeta }
   }
 
-  const scheduleDeadlineSave = () => {
-    if (deadlineSaveTimeoutRef.current) {
-      clearTimeout(deadlineSaveTimeoutRef.current)
-      deadlineSaveTimeoutRef.current = null
-    }
-  }
-
   const deleteSelectedCard = async () => {
     const cardId = selectedCard?.id
-    if (!cardId) return
-    if (deleteBusy || saveBusy) return
+    if (!cardId) return false
+    if (deleteBusy || saveBusy) return false
     const title = selectedCard?.title || 'задачу'
-    if (!window.confirm(`Удалить ${title}?`)) return
+    if (!window.confirm(`Удалить ${title}?`)) return false
 
     const meta = {
       card_id: cardId,
@@ -317,65 +294,23 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
           },
         })
       }
+      return true
     } catch (e) {
       setModalError((e as Error).message)
+      return false
     } finally {
       setDeleteBusy(false)
     }
   }
 
-  useEffect(() => {
-    return () => {
-      if (deadlineSaveTimeoutRef.current) {
-        clearTimeout(deadlineSaveTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  const saveReminder = async () => {
-    if (!selectedCardId) return false
-    if (reminderSaving) return false
-    setReminderSaving(true)
-    setReminderError('')
-    setReminderFieldError('')
-    try {
-      const availableCount = reminderData?.channels ? Object.values(reminderData.channels).filter((c) => c.available).length : 0
-      const invalidChannel = reminderDrafts.some((item) => item.enabled && !item.channel && availableCount !== 1)
-      if (invalidChannel) {
-        setReminderFieldError('Выберите доступный канал доставки')
-        setReminderSaving(false)
-        return false
-      }
-      const updated = await api.saveCardDeadlineReminder(selectedCardId, {
-        reminders: reminderDrafts.map((item) => ({
-          enabled: item.enabled,
-          offset_value: item.offset_value,
-          offset_unit: item.offset_unit,
-          channel: item.channel,
-        })),
-      })
-      setReminderData((prev) => (prev ? { ...prev, reminders: updated } : prev))
-      setReminderDrafts(updated)
-      return true
-    } catch (e) {
-      setReminderError((e as Error).message)
-      return false
-    } finally {
-      setReminderSaving(false)
-    }
-  }
-
   const onSaveCard = async () => {
-    if (!selectedCardId || !selectedCard || !draft || !draftBaseRef.current) return
-    if (saveBusyRef.current) return
+    if (!selectedCardId || !selectedCard || !draft || !draftBaseRef.current) return false
+    if (saveBusyRef.current) return false
     saveBusyRef.current = true
     setSaveBusy(true)
     setModalError('')
 
-    if (deadlineSaveTimeoutRef.current) {
-      clearTimeout(deadlineSaveTimeoutRef.current)
-      deadlineSaveTimeoutRef.current = null
-    }
+    clearDeadlineSave()
 
     const base = draftBaseRef.current
     const sameJson = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
@@ -395,7 +330,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       setModalError('Заголовок не может быть пустым')
       setSaveBusy(false)
       saveBusyRef.current = false
-      return
+      return false
     }
 
     if (nextTitle !== base.title) patch.title = nextTitle
@@ -415,7 +350,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       setSelectedCard(null)
       setSaveBusy(false)
       saveBusyRef.current = false
-      return
+      return true
     }
 
     try {
@@ -430,7 +365,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
         if (!reminderOk) {
           setSaveBusy(false)
           saveBusyRef.current = false
-          return
+          return false
         }
       }
 
@@ -496,137 +431,14 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
           },
         })
       }
+      return true
     } catch (e) {
       setModalError((e as Error).message)
+      return false
     } finally {
       setSaveBusy(false)
       saveBusyRef.current = false
     }
-  }
-
-  const applyReminderValue = (id: number, value: number) => {
-    setReminderDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, offset_value: value } : item)))
-  }
-
-  const applyReminderUnit = (id: number, unit: 'minutes' | 'hours') => {
-    setReminderDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, offset_unit: unit } : item)))
-  }
-
-  const applyReminderChannel = (channel: 'email' | 'telegram' | null) => {
-    setReminderDrafts((prev) => prev.map((item) => ({ ...item, channel })))
-  }
-
-  const toggleReminder = (id: number, enabled: boolean) => {
-    setReminderDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, enabled } : item)))
-  }
-
-  const addReminderInterval = (value: number, unit: 'minutes' | 'hours') => {
-    const nextId = Math.max(0, ...reminderDrafts.map((item) => item.id)) + 1
-    setReminderDrafts((prev) => [
-      ...prev,
-      {
-        id: nextId,
-        order: prev.length + 1,
-        enabled: true,
-        offset_value: value,
-        offset_unit: unit,
-        channel: prev[0]?.channel ?? null,
-        scheduled_at: null,
-        status: 'disabled',
-        last_error: '',
-        sent_at: null,
-      },
-    ])
-  }
-
-  const removeReminderInterval = (id: number) => {
-    setReminderDrafts((prev) => prev.filter((item) => item.id !== id))
-  }
-
-  const addLabelValue = (input: string | BoardLabel) => {
-    if (!selectedCardId || !draft) return
-    const candidate: BoardLabel = typeof input === 'string'
-      ? { name: input.trim(), color: hashLabelColor(input.trim()) }
-      : input
-    if (!candidate.name) return
-    if (draft.labels.some((label) => label.name === candidate.name)) return
-    const known = allKnownLabels.find((label) => label.name === candidate.name)
-    const resolved: BoardLabel = known
-      ? known
-      : { name: candidate.name, color: candidate.color || hashLabelColor(candidate.name) }
-    const next = [...draft.labels, resolved]
-    setDraft((prev) => (prev ? { ...prev, labels: next } : prev))
-  }
-
-  const addLabel = () => {
-    if (!selectedCardId) return
-    addLabelValue(newLabel)
-    setNewLabel('')
-  }
-
-  const removeLabel = (name: string) => {
-    if (!selectedCardId || !draft) return
-    const next = draft.labels.filter((item) => item.name !== name)
-    setDraft((prev) => (prev ? { ...prev, labels: next } : prev))
-  }
-
-  const addChecklistItem = () => {
-    if (!selectedCardId || !draft) return
-    const value = newChecklistItem.trim()
-    if (!value) return
-    const item = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, text: value, done: false }
-    const next = [...(draft.checklist ?? []), item]
-    setDraft((prev) => (prev ? { ...prev, checklist: next } : prev))
-    setNewChecklistItem('')
-  }
-
-  const toggleChecklistItem = (itemId: string) => {
-    if (!selectedCardId || !draft) return
-    const next = (draft.checklist ?? []).map((item) => (item.id === itemId ? { ...item, done: !item.done } : item))
-    setDraft((prev) => (prev ? { ...prev, checklist: next } : prev))
-  }
-
-  const removeChecklistItem = (itemId: string) => {
-    if (!selectedCardId || !draft) return
-    const next = (draft.checklist ?? []).filter((item) => item.id !== itemId)
-    setDraft((prev) => (prev ? { ...prev, checklist: next } : prev))
-  }
-
-  const addAttachment = async () => {
-    if (!selectedCardId || !draft) return
-
-    if (newAttachmentType === 'file') {
-      if (newAttachmentFiles.length === 0) return
-      setPendingUploadFiles((prev) => [...prev, ...newAttachmentFiles])
-      setNewAttachmentFiles([])
-      setAttachmentFileInputKey((k) => k + 1)
-      return
-    }
-
-    const name = newAttachmentName.trim()
-    if (!name) return
-    const attachment = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      name,
-      type: newAttachmentType,
-      url: newAttachmentUrl.trim() || undefined,
-    }
-    const next = [...(draft.attachments ?? []), attachment]
-    setDraft((prev) => (prev ? { ...prev, attachments: next } : prev))
-    setNewAttachmentName('')
-    setNewAttachmentUrl('')
-  }
-
-  const removeAttachment = async (item: { id: string; type: 'file' | 'link' | 'photo' }) => {
-    if (!selectedCardId || !draft) return
-
-    if (item.type === 'file') {
-      setPendingDeleteAttachmentIds((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]))
-      setDraft((prev) => (prev ? { ...prev, attachments: (prev.attachments ?? []).filter((x) => x.id !== item.id) } : prev))
-      return
-    }
-
-    setDraft((prev) => (prev ? { ...prev, attachments: (prev.attachments ?? []).filter((x) => x.id !== item.id) } : prev))
   }
 
   return {

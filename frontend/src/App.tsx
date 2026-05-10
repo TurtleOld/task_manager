@@ -44,6 +44,7 @@ export default function App() {
         <Route path="/" element={<BoardsPage />} />
         <Route path="/settings" element={user ? <SettingsPage user={user} onUserUpdate={updateUser} /> : null} />
         <Route path="/boards/:id" element={user ? <BoardPage user={user} /> : null} />
+        <Route path="/boards/:id/cards/:cardId" element={user ? <BoardPage user={user} /> : null} />
         <Route path="/today" element={<AppPlaceholderPage taskId="T-202" title="Мой день" description="Агрегированный список задач на сегодня появится на следующей фазе ценности для семьи." />} />
         <Route path="/calendar" element={<AppPlaceholderPage taskId="T-203" title="Календарь" description="Календарный вид задач с дедлайнами будет реализован отдельной задачей плана." />} />
         <Route path="/inbox" element={<AppPlaceholderPage taskId="T-204" title="Inbox" description="Быстрый сбор неразобранных задач будет добавлен после каркаса приложения." />} />
