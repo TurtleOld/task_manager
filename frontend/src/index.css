@@ -1,5 +1,50 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 @config "../tailwind.config.cjs";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * shadcn/ui tokens are stored as RGB triplets ("R G B") so that Tailwind v4's
+ * `rgb(var(--token) / <alpha-value>)` keeps the alpha-channel-syntax we use
+ * across the codebase (e.g. `bg-primary/10`, `border-danger/25`).
+ *
+ * Token mapping is anchored on the existing --color-* palette to keep light
+ * and dark themes visually identical.
+ */
+@theme inline {
+  --color-card: rgb(var(--card) / <alpha-value>);
+  --color-card-foreground: rgb(var(--card-foreground) / <alpha-value>);
+  --color-popover: rgb(var(--popover) / <alpha-value>);
+  --color-popover-foreground: rgb(var(--popover-foreground) / <alpha-value>);
+  --color-primary-foreground: rgb(var(--primary-foreground) / <alpha-value>);
+  --color-secondary-foreground: rgb(var(--secondary-foreground) / <alpha-value>);
+  --color-muted: rgb(var(--muted) / <alpha-value>);
+  --color-muted-foreground: rgb(var(--muted-foreground) / <alpha-value>);
+  --color-accent-foreground: rgb(var(--accent-foreground) / <alpha-value>);
+  --color-destructive: rgb(var(--destructive) / <alpha-value>);
+  --color-destructive-foreground: rgb(var(--destructive-foreground) / <alpha-value>);
+  --color-input: rgb(var(--input) / <alpha-value>);
+  --color-ring: rgb(var(--ring) / <alpha-value>);
+  --color-foreground: rgb(var(--foreground) / <alpha-value>);
+  --color-chart-1: rgb(var(--chart-1) / <alpha-value>);
+  --color-chart-2: rgb(var(--chart-2) / <alpha-value>);
+  --color-chart-3: rgb(var(--chart-3) / <alpha-value>);
+  --color-chart-4: rgb(var(--chart-4) / <alpha-value>);
+  --color-chart-5: rgb(var(--chart-5) / <alpha-value>);
+  --color-sidebar: rgb(var(--sidebar) / <alpha-value>);
+  --color-sidebar-foreground: rgb(var(--sidebar-foreground) / <alpha-value>);
+  --color-sidebar-primary: rgb(var(--sidebar-primary) / <alpha-value>);
+  --color-sidebar-primary-foreground: rgb(var(--sidebar-primary-foreground) / <alpha-value>);
+  --color-sidebar-accent: rgb(var(--sidebar-accent) / <alpha-value>);
+  --color-sidebar-accent-foreground: rgb(var(--sidebar-accent-foreground) / <alpha-value>);
+  --color-sidebar-border: rgb(var(--sidebar-border) / <alpha-value>);
+  --color-sidebar-ring: rgb(var(--sidebar-ring) / <alpha-value>);
+  --radius-control: var(--radius-sm);
+  --radius-panel: var(--radius-md);
+  --radius-overlay: var(--radius-lg);
+  --radius-spacious: var(--radius-xl);
+}
 
 @layer base {
   :root {
@@ -48,6 +93,38 @@
     --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
     --motion-easing-entrance: cubic-bezier(0, 0, 0.2, 1);
     --motion-easing-exit: cubic-bezier(0.4, 0, 1, 1);
+
+    /* shadcn/ui tokens (RGB triplets, alias old --color-* palette). */
+    --foreground: var(--color-text);
+    --card: var(--color-surface);
+    --card-foreground: var(--color-text);
+    --popover: var(--color-surface-elevated);
+    --popover-foreground: var(--color-text);
+    --primary-foreground: var(--color-text-inverse);
+    --secondary-foreground: var(--color-text);
+    --muted: var(--color-background-subtle);
+    --muted-foreground: var(--color-text-muted);
+    --accent-foreground: var(--color-text);
+    --destructive: var(--color-danger);
+    --destructive-foreground: var(--color-text-inverse);
+    --input: var(--color-border);
+    --ring: var(--color-focus-ring);
+    --radius: 0.625rem;
+
+    --chart-1: var(--color-primary);
+    --chart-2: var(--color-secondary);
+    --chart-3: var(--color-accent);
+    --chart-4: var(--color-warning);
+    --chart-5: var(--color-info);
+
+    --sidebar: var(--color-surface);
+    --sidebar-foreground: var(--color-text);
+    --sidebar-primary: var(--color-primary);
+    --sidebar-primary-foreground: var(--color-text-inverse);
+    --sidebar-accent: var(--color-surface-hover);
+    --sidebar-accent-foreground: var(--color-text);
+    --sidebar-border: var(--color-border);
+    --sidebar-ring: var(--color-focus-ring);
 
     color-scheme: light;
   }
