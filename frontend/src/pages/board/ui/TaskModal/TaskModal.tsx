@@ -28,38 +28,35 @@ export function TaskModal(props: TaskModalProps) {
         if (!saveBusy && !deleteBusy) onClose()
       }}
       title={selectedCard.title || 'Редактирование задачи'}
-      className="max-h-[calc(100vh-2rem)] max-w-7xl overflow-y-auto"
+      className="p-0 max-w-7xl flex flex-col max-h-[calc(100vh-2rem)]"
     >
-      <div className="space-y-6">
-        <section className="rounded-panel border border-primary/15 bg-[image:var(--gradient-surface)] p-6 shadow-elevated">
-          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-4">
-            <div className="min-w-0 space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="neutral">#{selectedCard.id}</Badge>
-                {boardName ? <Badge variant="info">{boardName}</Badge> : null}
-              </div>
-              <div className="min-w-0">
-                <p className="text-label uppercase text-text-muted">Редактирование задачи</p>
-                <h3 className="mt-2 break-words text-h3 text-text sm:text-h2">{selectedCard.title || 'Без названия'}</h3>
-                <p className="mt-2 max-w-2xl text-caption text-text-muted sm:text-body-sm">
-                  Управляйте содержанием, сроками, приоритетом, вложениями и уведомлениями в одном месте.
-                </p>
-              </div>
+      {/* Sticky header */}
+      <div className="shrink-0 rounded-t-overlay border-b border-border/60 bg-[image:var(--gradient-surface)] px-6 py-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-6">
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="neutral">#{selectedCard.id}</Badge>
+              {boardName ? <Badge variant="info">{boardName}</Badge> : null}
+              <span className="text-label uppercase text-text-muted">Редактирование задачи</span>
             </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1 lg:max-w-[14rem] lg:justify-end">
-              <Button type="button" onClick={onSave} loading={saveBusy} disabled={deleteBusy}>Сохранить</Button>
-              <Button type="button" variant="danger" onClick={onDelete} loading={deleteBusy} disabled={saveBusy}>Архивировать задачу</Button>
-              <Button type="button" variant="secondary" onClick={onClose} disabled={saveBusy || deleteBusy}>Закрыть</Button>
-            </div>
+            <h3 className="break-words text-h3 text-text">{selectedCard.title || 'Без названия'}</h3>
           </div>
-          {modalError ? (
-            <div className="mt-4 rounded-panel border border-danger/25 bg-danger/10 px-4 py-3 text-body-sm text-danger" role="alert">
-              {modalError}
-            </div>
-          ) : null}
-        </section>
+          <div className="flex shrink-0 flex-wrap gap-2 lg:flex-nowrap">
+            <Button type="button" onClick={onSave} loading={saveBusy} disabled={deleteBusy} className="flex-1 lg:flex-none">Сохранить</Button>
+            <Button type="button" variant="danger" onClick={onDelete} loading={deleteBusy} disabled={saveBusy} className="flex-1 lg:flex-none">Архивировать</Button>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={saveBusy || deleteBusy} className="flex-1 lg:flex-none">Закрыть</Button>
+          </div>
+        </div>
+        {modalError ? (
+          <div className="mt-3 rounded-panel border border-danger/25 bg-danger/10 px-4 py-3 text-body-sm text-danger" role="alert">
+            {modalError}
+          </div>
+        ) : null}
+      </div>
 
-        <div className="grid w-full gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+      {/* Scrollable body */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        <div className="grid w-full gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
           <div className="space-y-5">
             <MainSection draft={props.draft} setDraft={props.setDraft} />
             <RemindersSection {...props} />
