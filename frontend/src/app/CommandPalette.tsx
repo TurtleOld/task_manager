@@ -8,6 +8,8 @@ import { api } from '../api/client'
 import { queryKeys } from '../api/queries/keys'
 import { useCreateInboxCard } from '../api/queries/cards'
 import { toggleTheme } from './theme'
+import { parseTaskInput } from '../shared/lib/parseTaskInput'
+import { getDeviceTimeZone } from '../shared/lib/timezone'
 import {
   CommandDialog,
   CommandEmpty,
@@ -32,6 +34,10 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
   const debouncedQuery = useDebouncedValue(query.trim(), 200)
   const createInboxCard = useCreateInboxCard()
   const shouldSearch = debouncedQuery.length >= 2
+  const parsedTaskInput = useMemo(
+    () => parseTaskInput(query, { timeZone: getDeviceTimeZone() }),
+    [query],
+  )
   const { data: searchResults, isFetching } = useQuery({
     queryKey: queryKeys.search(debouncedQuery),
     queryFn: () => api.search(debouncedQuery),
@@ -57,11 +63,11 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
   }
 
   const createTask = async () => {
-    const title = query.trim()
+    const title = parsedTaskInput.deadline ? parsedTaskInput.title : query.trim()
     if (!title || createInboxCard.isPending) return
 
     try {
-      await createInboxCard.mutateAsync({ title })
+      await createInboxCard.mutateAsync({ title, deadline: parsedTaskInput.deadline })
       toast.success('Задача добавлена в Inbox')
       close()
     } catch {
@@ -99,7 +105,11 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
             <span className="truncate">
               {hasQuery ? `Создать в Inbox: ${query.trim()}` : 'Введите название задачи'}
             </span>
-            <CommandShortcut>Enter</CommandShortcut>
+            {parsedTaskInput.deadline ? (
+              <CommandShortcut>{formatDateTime(parsedTaskInput.deadline)}</CommandShortcut>
+            ) : (
+              <CommandShortcut>Enter</CommandShortcut>
+            )}
           </CommandItem>
         </CommandGroup>
 
@@ -193,4 +203,15 @@ function useDebouncedValue<T>(value: T, delayMs: number) {
   }, [delayMs, value])
 
   return debounced
+}
+
+function formatDateTime(value: string) {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'дедлайн'
+  return parsed.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }

@@ -22,6 +22,7 @@ import { useColumns, useCreateColumn, useMoveColumn } from '../../api/queries/co
 import { useCards, useCreateCard, useMoveCard } from '../../api/queries/cards'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { getTimeZoneLabel } from '../../shared/lib/timezone'
+import { parseTaskInput } from '../../shared/lib/parseTaskInput'
 import { Button, Card as SurfaceCard, Field, Select, Skeleton, TextInput } from '@/components/ui'
 import { useBoardWebSocket } from '../../useBoardWebSocket'
 import type { BoardEvent } from '../../useBoardWebSocket'
@@ -70,6 +71,7 @@ export function BoardPage({ user }: BoardPageProps) {
   const [colIcon, setColIcon] = useState('📋')
   const [isCreatingColumn, setIsCreatingColumn] = useState(false)
   const [newCardTitle, setNewCardTitle] = useState<Record<number, string>>({})
+  const [dismissedQuickAddInput, setDismissedQuickAddInput] = useState<Record<number, string>>({})
   const [activeDragCardId, setActiveDragCardId] = useState<number | null>(null)
   const [activeLabel, setActiveLabel] = useState('Все')
   const [searchQuery, setSearchQuery] = useState('')
@@ -250,8 +252,11 @@ export function BoardPage({ user }: BoardPageProps) {
   }
 
   const onCreateCard = async (columnId: number) => {
-    const title = (newCardTitle[columnId] || '').trim()
+    const rawTitle = (newCardTitle[columnId] || '').trim()
+    const quickAdd = quickAddPreviewFor(columnId)
+    const title = quickAdd?.title || rawTitle
     if (!title) return
+    const deadline = quickAdd?.deadline ?? null
 
     const tempId = -Date.now()
     const placeholder: Card = {
@@ -261,7 +266,7 @@ export function BoardPage({ user }: BoardPageProps) {
       assignee: null,
       title,
       description: '',
-      deadline: null,
+      deadline,
       priority: PRIORITY_NORMAL,
       labels: [],
       checklist: [],
@@ -280,7 +285,7 @@ export function BoardPage({ user }: BoardPageProps) {
     setNewCardTitle((s) => ({ ...s, [columnId]: '' }))
 
     try {
-      const card = await createCardMutation.mutateAsync({ column: columnId, title })
+      const card = await createCardMutation.mutateAsync({ column: columnId, title, deadline })
       // Replace the placeholder with the persisted card.
       queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) => {
         if (!prev) return [card]
@@ -298,6 +303,19 @@ export function BoardPage({ user }: BoardPageProps) {
         prev?.filter((c) => c.id !== tempId),
       )
     }
+  }
+
+  const quickAddPreviewFor = (columnId: number) => {
+    const input = newCardTitle[columnId] || ''
+    if (!input.trim()) return null
+    if (dismissedQuickAddInput[columnId] === input) return null
+    const parsed = parseTaskInput(input, { timeZone: taskModal.profileTimeZone })
+    return parsed.deadline ? parsed : null
+  }
+
+  const dismissQuickAddDeadline = (columnId: number) => {
+    const input = newCardTitle[columnId] || ''
+    setDismissedQuickAddInput((state) => ({ ...state, [columnId]: input }))
   }
 
   const move = async (card: Card, dir: 'up' | 'down' | 'left' | 'right') => {
@@ -572,27 +590,33 @@ export function BoardPage({ user }: BoardPageProps) {
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
           <SortableContext items={sortedColumns.map((column) => `column-${column.id}`)} strategy={rectSortingStrategy}>
             <section className="grid gap-5 lg:grid-cols-3" aria-label="Колонки канбан-доски">
-              {sortedColumns.map((col, index) => (
-                <BoardColumn
-                  key={col.id}
-                  column={col}
-                  accentClass={accentForColumn(index)}
-                  cards={grouped[col.id] || []}
-                  newCardTitle={newCardTitle[col.id] || ''}
-                  onNewCardTitleChange={(value) => setNewCardTitle((s) => ({ ...s, [col.id]: value }))}
-                  onCreateCard={() => onCreateCard(col.id)}
-                  onCardOpen={openTaskModal}
-                  priorityFor={priorityFor}
-                  labelsFor={labelsFor}
-                  deadlineFor={deadlineFor}
-                  assigneeNameFor={assigneeNameFor}
-                  formatDateTime={formatDateTime}
-                  formatUpdatedStatus={formatUpdatedStatus}
-                  move={move}
-                  stopCardOpen={stopCardOpen}
-                  stopCardKeyBubble={stopCardKeyBubble}
-                />
-              ))}
+              {sortedColumns.map((col, index) => {
+                const quickAddPreview = quickAddPreviewFor(col.id)
+                return (
+                  <BoardColumn
+                    key={col.id}
+                    column={col}
+                    accentClass={accentForColumn(index)}
+                    cards={grouped[col.id] || []}
+                    newCardTitle={newCardTitle[col.id] || ''}
+                    onNewCardTitleChange={(value) => setNewCardTitle((s) => ({ ...s, [col.id]: value }))}
+                    onCreateCard={() => onCreateCard(col.id)}
+                    parsedQuickAddDeadline={quickAddPreview?.deadline ? formatDateTime(quickAddPreview.deadline) : undefined}
+                    parsedQuickAddTitle={quickAddPreview?.title}
+                    onDismissParsedDeadline={() => dismissQuickAddDeadline(col.id)}
+                    onCardOpen={openTaskModal}
+                    priorityFor={priorityFor}
+                    labelsFor={labelsFor}
+                    deadlineFor={deadlineFor}
+                    assigneeNameFor={assigneeNameFor}
+                    formatDateTime={formatDateTime}
+                    formatUpdatedStatus={formatUpdatedStatus}
+                    move={move}
+                    stopCardOpen={stopCardOpen}
+                    stopCardKeyBubble={stopCardKeyBubble}
+                  />
+                )
+              })}
             </section>
           </SortableContext>
           <DragOverlay>

@@ -175,11 +175,13 @@ export function useCreateCard(boardId: number) {
       column,
       title,
       description,
+      deadline,
     }: {
       column: number
       title: string
       description?: string
-    }) => api.createCard(column, title, description),
+      deadline?: string | null
+    }) => api.createCardWithDetails({ column, title, description, deadline }),
     onSuccess: (card) => {
       qc.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) => {
         if (!prev) return [card]

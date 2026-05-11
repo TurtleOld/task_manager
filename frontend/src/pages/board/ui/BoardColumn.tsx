@@ -18,6 +18,9 @@ interface BoardColumnProps {
   newCardTitle: string
   onNewCardTitleChange: (value: string) => void
   onCreateCard: () => void
+  parsedQuickAddDeadline?: string
+  parsedQuickAddTitle?: string
+  onDismissParsedDeadline?: () => void
   onCardOpen: (card: Card) => void
   priorityFor: (card: Card) => PriorityView
   labelsFor: (card: Card) => BoardLabel[]
@@ -52,6 +55,9 @@ export function BoardColumn({
   newCardTitle,
   onNewCardTitleChange,
   onCreateCard,
+  parsedQuickAddDeadline,
+  parsedQuickAddTitle,
+  onDismissParsedDeadline,
   onCardOpen,
   priorityFor,
   labelsFor,
@@ -111,12 +117,25 @@ export function BoardColumn({
         <Badge>{cards.length} задач</Badge>
       </div>
 
-      <div className="mt-5 flex items-center gap-2 rounded-panel border border-border/70 bg-background-subtle/60 p-2">
-        <label className="flex-1">
-          <span className="sr-only">Новая карточка</span>
-          <TextInput placeholder="Название задачи" value={newCardTitle} onChange={(e) => onNewCardTitleChange(e.target.value)} />
-        </label>
-        <IconButton onClick={onCreateCard} variant="primary" aria-label={`Добавить карточку в ${displayName || 'колонку'}`}>+</IconButton>
+      <div className="mt-5 rounded-panel border border-border/70 bg-background-subtle/60 p-2">
+        <div className="flex items-center gap-2">
+          <label className="flex-1">
+            <span className="sr-only">Новая карточка</span>
+            <TextInput placeholder="Название задачи" value={newCardTitle} onChange={(e) => onNewCardTitleChange(e.target.value)} />
+          </label>
+          <IconButton onClick={onCreateCard} variant="primary" aria-label={`Добавить карточку в ${displayName || 'колонку'}`}>+</IconButton>
+        </div>
+        {parsedQuickAddDeadline ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-control border border-primary/20 bg-primary/10 px-3 py-2 text-caption text-primary">
+            <span>Распознан дедлайн: {parsedQuickAddDeadline}</span>
+            {parsedQuickAddTitle ? <span className="text-text-muted">→ {parsedQuickAddTitle}</span> : null}
+            {onDismissParsedDeadline ? (
+              <button type="button" onClick={onDismissParsedDeadline} className="font-semibold text-primary hover:text-primary-hover">
+                отменить
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <SortableContext items={cards.map((card) => `card-${card.id}`)} strategy={verticalListSortingStrategy}>
