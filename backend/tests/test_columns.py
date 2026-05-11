@@ -76,6 +76,8 @@ def test_delete_column(api_client: APIClient, board: Board) -> None:
     resp = api_client.delete(f"/api/v1/columns/{col_id}/")
     assert resp.status_code == 204
     assert not Column.objects.filter(id=col_id).exists()
+    archived = Column.with_archived.get(id=col_id)
+    assert archived.archived_at is not None
 
 
 @pytest.mark.django_db()
@@ -86,6 +88,7 @@ def test_delete_column_cascades_cards(api_client: APIClient, column: Column) -> 
     resp = api_client.delete(f"/api/v1/columns/{column.id}/")
     assert resp.status_code == 204
     assert not Card.objects.filter(id=card.id).exists()
+    assert Card.with_archived.filter(id=card.id, archived_at__isnull=True).exists()
 
 
 @pytest.mark.django_db()

@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.request import Request
@@ -63,7 +64,8 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
         board_id = instance.board_id
         column_id = instance.id
         board = instance.board
-        instance.delete()
+        instance.archived_at = timezone.now()
+        instance.save(update_fields=["archived_at", "updated_at", "version"])
         create_notification_event(
             event_type=NotificationEventType.COLUMN_DELETED.value,
             actor=actor,
@@ -72,6 +74,22 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
             payload=payload,
         )
         broadcast_board_event(board_id, "column.deleted", {"column_id": column_id})
+
+    @action(detail=True, methods=["post"], url_path="restore")
+    def restore(self, request: Request, pk: str | None = None) -> Response:
+        try:
+            column = Column.with_archived.select_related("board").get(pk=pk)
+        except Column.DoesNotExist:
+            return Response({"detail": "Not found"}, status=404)
+
+        if column.archived_at is not None:
+            column.archived_at = None
+            column.save(update_fields=["archived_at", "updated_at", "version"])
+            column = Column.objects.select_related("board").get(pk=column.pk)
+
+        serializer = self.get_serializer(column)
+        broadcast_board_event(column.board_id, "column.created", {"column": serializer.data})
+        return Response(serializer.data)
 
     @action(detail=True, methods=["post"], url_path="move")
     def move(self, request: Request, pk: str | None = None) -> Response:

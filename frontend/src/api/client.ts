@@ -14,6 +14,7 @@ import type {
   SiteSettings,
   MyTodayResponse,
   InboxResponse,
+  ArchiveResponse,
 } from './types'
 
 type ViteImportMeta = ImportMeta & {
@@ -195,6 +196,13 @@ export const api = {
     })
     return ok(res)
   },
+  restoreCard: async (id: number): Promise<Card> => {
+    const res = await fetch(`${V1}/cards/${id}/restore/`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    return json(res)
+  },
   moveCard: async (
     id: number,
     payload: Partial<{ to_column: number; before_id: number; after_id: number; expected_version: number }>
@@ -203,6 +211,13 @@ export const api = {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+  restoreColumn: async (id: number): Promise<Column> => {
+    const res = await fetch(`${V1}/columns/${id}/restore/`, {
+      method: 'POST',
+      headers: authHeaders(),
     })
     return json(res)
   },
@@ -249,6 +264,12 @@ export const api = {
       headers: authHeaders(),
       body: JSON.stringify(payload),
     })
+    return json(res)
+  },
+
+  listArchive: async (boardId?: number): Promise<ArchiveResponse> => {
+    const query = boardId ? `?board=${boardId}` : ''
+    const res = await fetch(`${V1}/archive/${query}`, { headers: authHeaders() })
     return json(res)
   },
 

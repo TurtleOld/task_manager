@@ -10,6 +10,19 @@ from django.utils import timezone
 POSITION_DEFAULT = Decimal("1")
 
 
+class ActiveColumnManager(models.Manager["Column"]):
+    def get_queryset(self) -> models.QuerySet["Column"]:
+        return super().get_queryset().filter(archived_at__isnull=True)
+
+
+class ActiveCardManager(models.Manager["Card"]):
+    def get_queryset(self) -> models.QuerySet["Card"]:
+        return super().get_queryset().filter(
+            archived_at__isnull=True,
+            column__archived_at__isnull=True,
+        )
+
+
 class TimestampedModel(models.Model):
     created_at = models.DateTimeField(default=timezone.now, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
@@ -57,6 +70,10 @@ class Column(TimestampedModel):
     position = models.DecimalField(max_digits=20, decimal_places=10, default=POSITION_DEFAULT)
     is_default = models.BooleanField(default=False)
     is_done = models.BooleanField(default=False)
+    archived_at = models.DateTimeField(null=True, blank=True)
+
+    objects = ActiveColumnManager()
+    with_archived = models.Manager()
 
     class Meta:
         ordering = ["position", "id"]
@@ -107,6 +124,10 @@ class Card(TimestampedModel):
     checklist = models.JSONField(default=list, blank=True)
     attachments = models.JSONField(default=list, blank=True)
     position = models.DecimalField(max_digits=20, decimal_places=10, default=POSITION_DEFAULT)
+    archived_at = models.DateTimeField(null=True, blank=True)
+
+    objects = ActiveCardManager()
+    with_archived = models.Manager()
 
     class Meta:
         ordering = ["position", "id"]

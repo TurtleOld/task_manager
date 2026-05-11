@@ -216,8 +216,39 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     def perform_destroy(self, instance: Card) -> None:
         board_id = instance.board_id
         card_id = instance.id
-        instance.delete()
+        instance.archived_at = timezone.now()
+        instance.save(update_fields=["archived_at", "updated_at", "version"])
         broadcast_board_event(board_id, "card.deleted", {"card_id": card_id})
+
+    @action(detail=True, methods=["post"], url_path="restore")
+    def restore(self, request: Request, pk: str | None = None) -> Response:
+        try:
+            card = (
+                Card.with_archived.select_related("board", "column")
+                .prefetch_related("labels")
+                .get(pk=pk)
+            )
+        except Card.DoesNotExist:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if card.column.archived_at is not None:
+            return Response(
+                {"detail": "Restore the column before restoring this card"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if card.archived_at is not None:
+            card.archived_at = None
+            card.save(update_fields=["archived_at", "updated_at", "version"])
+            card = (
+                Card.objects.select_related("board", "column")
+                .prefetch_related("labels")
+                .get(pk=card.pk)
+            )
+
+        data = self.get_serializer(card).data
+        broadcast_board_event(card.board_id, "card.created", {"card": data})
+        return Response(data)
 
     @action(detail=True, methods=["get", "put", "patch", "delete"], url_path="deadline-reminder")
     def deadline_reminder(self, request: Request, pk: str | None = None) -> Response:
@@ -367,7 +398,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 board = None
         if column_id is not None:
             try:
-                column = Column.objects.get(id=int(column_id))
+                column = Column.with_archived.get(id=int(column_id))
             except Exception:  # noqa: BLE001
                 column = None
 

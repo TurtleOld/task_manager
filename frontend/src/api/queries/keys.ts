@@ -5,6 +5,7 @@ export const queryKeys = {
   calendarCards: () => ['cards', 'calendar'] as const,
   myToday: () => ['cards', 'my-today'] as const,
   inbox: () => ['inbox'] as const,
+  archive: (boardId?: number) => ['archive', boardId ?? 'all'] as const,
   card: (cardId: number) => ['card', cardId] as const,
   cardDeadlineReminder: (cardId: number) =>
     ['cardDeadlineReminder', cardId] as const,

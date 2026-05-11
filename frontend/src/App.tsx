@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
-import { AppPlaceholderPage } from './app/AppPlaceholderPage'
 import { AppShell } from './app/AppShell'
 import { ProtectedRoute } from './app/ProtectedRoute'
 import { registerOneSignalPlayerId } from './app/auth'
+import { ArchivePage } from './pages/archive/ArchivePage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { BoardPage } from './pages/board/BoardPage'
@@ -51,7 +51,7 @@ export default function App() {
         <Route path="/today" element={<TodayPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/inbox" element={<InboxPage />} />
-        <Route path="/archive" element={<AppPlaceholderPage taskId="T-205" title="Архив" description="Архив задач и колонок появится вместе с soft-delete моделью." />} />
+        <Route path="/archive" element={<ArchivePage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

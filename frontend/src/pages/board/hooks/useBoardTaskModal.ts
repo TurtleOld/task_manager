@@ -268,7 +268,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     if (!cardId) return false
     if (deleteBusy || saveBusy) return false
     const title = selectedCard?.title || 'задачу'
-    if (!window.confirm(`Удалить ${title}?`)) return false
+    if (!window.confirm(`Архивировать ${title}?`)) return false
 
     const meta = {
       card_id: cardId,
@@ -287,7 +287,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       try {
         await api.notifyCardDeleted(meta)
       } catch {
-        toast.error('Задача удалена, но уведомление отправить не удалось.', {
+        toast.error('Задача архивирована, но уведомление отправить не удалось.', {
           action: {
             label: 'Повторить',
             onClick: () => void api.notifyCardDeleted(meta).catch(() => null),

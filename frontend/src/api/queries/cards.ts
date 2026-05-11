@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../client'
-import type { Card, InboxResponse, MyTodayCard, MyTodayResponse } from '../types'
+import type { ArchiveResponse, Card, Column, InboxResponse, MyTodayCard, MyTodayResponse } from '../types'
 import { queryKeys } from './keys'
 
 type UpdateCardPayload = Parameters<typeof api.updateCard>[1]
@@ -60,6 +60,50 @@ export function useInbox() {
   return useQuery<InboxResponse>({
     queryKey: queryKeys.inbox(),
     queryFn: api.getInbox,
+  })
+}
+
+export function useArchive(boardId?: number) {
+  return useQuery<ArchiveResponse>({
+    queryKey: queryKeys.archive(boardId),
+    queryFn: () => api.listArchive(boardId),
+  })
+}
+
+export function useRestoreArchiveCard(boardId?: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.restoreCard(id),
+    onSuccess: (card) => {
+      qc.setQueryData<ArchiveResponse>(queryKeys.archive(boardId), (prev) => {
+        if (!prev) return prev
+        return { ...prev, cards: prev.cards.filter((item) => item.id !== card.id) }
+      })
+      qc.setQueryData<Card[]>(queryKeys.cards(card.board), (prev) => upsertCard(prev, card))
+      void qc.invalidateQueries({ queryKey: queryKeys.myToday() })
+      void qc.invalidateQueries({ queryKey: queryKeys.calendarCards() })
+      void qc.invalidateQueries({ queryKey: queryKeys.inbox() })
+    },
+  })
+}
+
+export function useRestoreArchiveColumn(boardId?: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.restoreColumn(id),
+    onSuccess: (column) => {
+      qc.setQueryData<ArchiveResponse>(queryKeys.archive(boardId), (prev) => {
+        if (!prev) return prev
+        return { ...prev, columns: prev.columns.filter((item) => item.id !== column.id) }
+      })
+      qc.setQueryData<Column[]>(queryKeys.columns(column.board), (prev) => {
+        if (!prev) return [column]
+        if (prev.some((item) => item.id === column.id)) {
+          return prev.map((item) => (item.id === column.id ? column : item))
+        }
+        return [...prev, column]
+      })
+    },
   })
 }
 
@@ -167,6 +211,10 @@ export function useDeleteCard(boardId: number) {
       qc.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
         prev?.filter((c) => c.id !== id),
       )
+      void qc.invalidateQueries({ queryKey: queryKeys.archive() })
+      void qc.invalidateQueries({ queryKey: queryKeys.myToday() })
+      void qc.invalidateQueries({ queryKey: queryKeys.calendarCards() })
+      void qc.invalidateQueries({ queryKey: queryKeys.inbox() })
     },
   })
 }

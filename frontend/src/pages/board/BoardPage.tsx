@@ -270,6 +270,7 @@ export function BoardPage({ user }: BoardPageProps) {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
+      archived_at: null,
     }
     queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
       prev ? [...prev, placeholder] : [placeholder],

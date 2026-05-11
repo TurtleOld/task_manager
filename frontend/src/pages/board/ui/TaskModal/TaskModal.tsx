@@ -48,7 +48,7 @@ export function TaskModal(props: TaskModalProps) {
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1 lg:max-w-[14rem] lg:justify-end">
               <Button type="button" onClick={onSave} loading={saveBusy} disabled={deleteBusy}>Сохранить</Button>
-              <Button type="button" variant="danger" onClick={onDelete} loading={deleteBusy} disabled={saveBusy}>Удалить задачу</Button>
+              <Button type="button" variant="danger" onClick={onDelete} loading={deleteBusy} disabled={saveBusy}>Архивировать задачу</Button>
               <Button type="button" variant="secondary" onClick={onClose} disabled={saveBusy || deleteBusy}>Закрыть</Button>
             </div>
           </div>

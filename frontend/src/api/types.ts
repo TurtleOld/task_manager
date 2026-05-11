@@ -15,6 +15,7 @@ export interface Column {
   position: string
   is_default: boolean
   is_done: boolean
+  archived_at: string | null
   created_at: string
   updated_at: string
   version: number
@@ -45,6 +46,7 @@ export interface Card {
   created_at: string
   updated_at: string
   version: number
+  archived_at: string | null
 }
 
 export interface MyTodayCard extends Card {
@@ -63,6 +65,20 @@ export interface InboxResponse {
   board: Board
   column: Column
   cards: Card[]
+}
+
+export interface ArchivedCard extends Card {
+  board_name: string
+  column_name: string
+}
+
+export interface ArchivedColumn extends Column {
+  board_name: string
+}
+
+export interface ArchiveResponse {
+  cards: ArchivedCard[]
+  columns: ArchivedColumn[]
 }
 
 export interface AuthUser {

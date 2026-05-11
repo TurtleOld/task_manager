@@ -8,7 +8,6 @@ from rest_framework import serializers
 
 from ..models import Card, Column, Label
 
-
 User = get_user_model()
 
 
@@ -54,7 +53,10 @@ class CardLabelField(serializers.Field):
                 self.fail("invalid_item")
             if not name:
                 self.fail("blank_name")
-            label, created = Label.objects.get_or_create(name=name, defaults={"color": color or _hash_color(name)})
+            label, created = Label.objects.get_or_create(
+                name=name,
+                defaults={"color": color or _hash_color(name)},
+            )
             if color and not created and label.color != color:
                 label.color = color
                 label.save(update_fields=["color"])
@@ -63,7 +65,11 @@ class CardLabelField(serializers.Field):
 
 
 class CardSerializer(serializers.ModelSerializer[Card]):
-    assignee = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), allow_null=True, required=False)
+    assignee = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(),
+        allow_null=True,
+        required=False,
+    )
     labels = CardLabelField(required=False)
     priority_label = serializers.CharField(source="get_priority_display", read_only=True)
 
@@ -73,8 +79,11 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "id", "board", "column", "assignee", "title", "description",
             "deadline", "priority", "priority_label", "labels",
             "checklist", "attachments", "position", "created_at", "updated_at", "version",
+            "archived_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at", "version", "board", "priority_label"]
+        read_only_fields = [
+            "id", "created_at", "updated_at", "version", "board", "priority_label", "archived_at",
+        ]
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         column: Column | None = attrs.get("column")
@@ -87,7 +96,10 @@ class CardSerializer(serializers.ModelSerializer[Card]):
         labels = validated_data.pop("labels", None)
         column: Column = validated_data["column"]
         last = Card.objects.filter(column=column).order_by("-position").first()
-        validated_data.setdefault("position", (last.position + Decimal("1")) if last else Decimal("1"))
+        validated_data.setdefault(
+            "position",
+            (last.position + Decimal("1")) if last else Decimal("1"),
+        )
         validated_data["board"] = column.board
         card = super().create(validated_data)
         if labels is not None:

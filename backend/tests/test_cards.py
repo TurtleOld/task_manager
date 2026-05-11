@@ -301,6 +301,8 @@ def test_delete_card(api_client: APIClient, card: Card) -> None:
     resp = api_client.delete(f"/api/v1/cards/{card_id}/")
     assert resp.status_code == 204
     assert not Card.objects.filter(id=card_id).exists()
+    archived = Card.with_archived.get(id=card_id)
+    assert archived.archived_at is not None
 
 
 @pytest.mark.django_db()
