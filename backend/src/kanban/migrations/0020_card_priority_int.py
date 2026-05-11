@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from django.db import migrations, models
 
-
 EMOJI_TO_INT = {
     "🔥": "3",  # HIGH
     "🟡": "2",  # NORMAL

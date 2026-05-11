@@ -10,11 +10,11 @@ from .notifications import (
 )
 from .site_settings import SiteSettingsSerializer
 from .users import (
+    PERMISSION_MAP,
+    ROLE_PRESETS,
     CurrentUserUpdateSerializer,
     PasswordChangeSerializer,
-    PERMISSION_MAP,
     RegisterSerializer,
-    ROLE_PRESETS,
     UserSerializer,
     UserUpdateSerializer,
 )

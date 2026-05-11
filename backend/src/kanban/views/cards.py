@@ -17,7 +17,15 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from ..broadcast import broadcast_board_event
-from ..models import Board, Card, CardDeadlineReminder, CardPriority, ChecklistItem, Column, NotificationEventType
+from ..models import (
+    Board,
+    Card,
+    CardDeadlineReminder,
+    CardPriority,
+    ChecklistItem,
+    Column,
+    NotificationEventType,
+)
 from ..notifications import create_notification_event
 from ..reminders import reminder_channel_availability, upsert_and_schedule_reminder
 from ..serializers import CardDeadlineReminderSerializer, CardSerializer, ChecklistItemSerializer

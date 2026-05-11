@@ -5,7 +5,6 @@ from rest_framework.test import APIClient
 
 from kanban.models import Card, ChecklistItem, Column
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -134,7 +133,9 @@ def test_patch_checklist_item_text(api_client: APIClient, card_with_items: Card)
 
 
 @pytest.mark.django_db()
-def test_patch_checklist_item_wrong_card(api_client: APIClient, column: Column, card_with_items: Card) -> None:
+def test_patch_checklist_item_wrong_card(
+    api_client: APIClient, column: Column, card_with_items: Card
+) -> None:
     other_card = Card.objects.create(column=column, title="Other card")
     item = ChecklistItem.objects.filter(card=card_with_items).first()
     assert item is not None

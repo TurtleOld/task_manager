@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from django.db import migrations, models
 import django.db.models.deletion
+from django.db import migrations, models
 
 
 def migrate_json_to_table(apps: object, schema_editor: object) -> None:
@@ -9,7 +9,7 @@ def migrate_json_to_table(apps: object, schema_editor: object) -> None:
     ChecklistItem = apps.get_model("kanban", "ChecklistItem")  # type: ignore[attr-defined]
 
     items_to_create = []
-    for card in Card.with_archived.only("id", "checklist").iterator():
+    for card in Card.objects.only("id", "checklist").iterator():
         checklist = card.checklist or []
         if not isinstance(checklist, list):
             continue

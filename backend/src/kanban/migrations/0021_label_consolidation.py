@@ -14,7 +14,6 @@ from __future__ import annotations
 import django.utils.timezone
 from django.db import migrations, models
 
-
 PALETTE = [
     "#3b82f6",  # blue
     "#10b981",  # emerald

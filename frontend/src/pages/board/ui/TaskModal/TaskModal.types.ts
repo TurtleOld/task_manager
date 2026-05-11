@@ -32,8 +32,8 @@ export interface TaskModalProps {
   newChecklistItem: string
   setNewChecklistItem: (value: string) => void
   addChecklistItem: () => void
-  toggleChecklistItem: (id: string) => void
-  removeChecklistItem: (id: string) => void
+  toggleChecklistItem: (id: number) => void
+  removeChecklistItem: (id: number) => void
   selectedAttachments: BoardAttachment[]
   newAttachmentType: 'file' | 'link' | 'photo'
   setNewAttachmentType: (value: 'file' | 'link' | 'photo') => void
