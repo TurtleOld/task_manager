@@ -59,6 +59,12 @@ export interface MyTodayResponse {
   important: MyTodayCard[]
 }
 
+export interface InboxResponse {
+  board: Board
+  column: Column
+  cards: Card[]
+}
+
 export interface AuthUser {
   id: number
   username: string

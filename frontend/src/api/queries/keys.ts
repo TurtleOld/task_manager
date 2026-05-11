@@ -4,6 +4,7 @@ export const queryKeys = {
   cards: (boardId: number) => ['cards', boardId] as const,
   calendarCards: () => ['cards', 'calendar'] as const,
   myToday: () => ['cards', 'my-today'] as const,
+  inbox: () => ['inbox'] as const,
   card: (cardId: number) => ['card', cardId] as const,
   cardDeadlineReminder: (cardId: number) =>
     ['cardDeadlineReminder', cardId] as const,

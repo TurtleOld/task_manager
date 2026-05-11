@@ -13,6 +13,7 @@ import type {
   CardDeadlineReminder,
   SiteSettings,
   MyTodayResponse,
+  InboxResponse,
 } from './types'
 
 type ViteImportMeta = ImportMeta & {
@@ -226,6 +227,24 @@ export const api = {
     card_title?: string
   }): Promise<{ event_id: number | null; dedupe_key: string }> => {
     const res = await fetch(`${V1}/cards/notify-deleted/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+
+  getInbox: async (): Promise<InboxResponse> => {
+    const res = await fetch(`${V1}/inbox/`, { headers: authHeaders() })
+    return json(res)
+  },
+  createInboxCard: async (payload: {
+    title: string
+    description?: string
+    deadline?: string | null
+    priority?: 0 | 1 | 2 | 3
+  }): Promise<Card> => {
+    const res = await fetch(`${V1}/inbox/`, {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify(payload),

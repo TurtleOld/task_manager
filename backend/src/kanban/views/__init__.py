@@ -5,6 +5,7 @@ from .auth import CurrentUserView, LoginView, RegisterView, RegistrationStatusVi
 from .boards import BoardViewSet
 from .cards import CardViewSet
 from .columns import ColumnViewSet
+from .inbox import InboxView
 from .notifications import NotificationPreferenceViewSet, NotificationProfileView
 from .site_settings import SiteSettingsView
 from .users import IsAdminUser, UserAdminViewSet
@@ -14,6 +15,7 @@ __all__ = [
     "CardViewSet",
     "ColumnViewSet",
     "CurrentUserView",
+    "InboxView",
     "IsAdminUser",
     "LoginView",
     "NotificationPreferenceViewSet",

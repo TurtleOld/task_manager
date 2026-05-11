@@ -1,30 +1,24 @@
 from __future__ import annotations
 
-from decimal import Decimal
-from typing import Any
-
 from rest_framework import viewsets
 
 from ..broadcast import broadcast_board_event
-from ..models import Board, Column, NotificationEventType
+from ..inbox import create_default_board_columns
+from ..models import Board, NotificationEventType
 from ..notifications import create_notification_event
-from ..serializers import BoardSerializer, ColumnSerializer
+from ..serializers import BoardSerializer
 
 
 class BoardViewSet(viewsets.ModelViewSet[Board]):
     queryset = Board.objects.all().order_by("id")
     serializer_class = BoardSerializer
 
+    def get_queryset(self):
+        return Board.objects.filter(is_inbox=False).order_by("id")
+
     def perform_create(self, serializer: BoardSerializer) -> None:
         board = serializer.save()
-
-        default_columns = [
-            {"name": "To Do", "icon": "📋", "position": Decimal("1"), "is_default": True},
-            {"name": "In Progress", "icon": "⚡", "position": Decimal("2"), "is_default": True},
-            {"name": "Done", "icon": "✅", "position": Decimal("3"), "is_default": True, "is_done": True},
-        ]
-        for col_data in default_columns:
-            Column.objects.create(board=board, **col_data)
+        create_default_board_columns(board)
 
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(

@@ -5,6 +5,8 @@ from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
+from kanban.models import Board, Column
+
 User = get_user_model()
 
 
@@ -54,6 +56,9 @@ def test_first_user_registers_as_admin(api_client: APIClient) -> None:
     user = User.objects.get(username="alice")
     assert user.is_superuser is True
     assert user.is_staff is True
+    inbox = Board.objects.get(owner=user, is_inbox=True)
+    assert inbox.name == "Inbox"
+    assert Column.objects.filter(board=inbox, name="Inbox").exists()
 
 
 @pytest.mark.django_db()

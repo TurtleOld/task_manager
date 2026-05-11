@@ -10,6 +10,7 @@ import { RegisterPage } from './pages/auth/RegisterPage'
 import { BoardPage } from './pages/board/BoardPage'
 import { BoardsPage } from './pages/boards/BoardsPage'
 import { CalendarPage } from './pages/calendar/CalendarPage'
+import { InboxPage } from './pages/inbox/InboxPage'
 import { SettingsPage } from './pages/settings/SettingsPage'
 import { TodayPage } from './pages/today/TodayPage'
 import { useAuthState } from './shared/hooks/useAuthState'
@@ -49,7 +50,7 @@ export default function App() {
         <Route path="/boards/:id/cards/:cardId" element={user ? <BoardPage user={user} /> : null} />
         <Route path="/today" element={<TodayPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
-        <Route path="/inbox" element={<AppPlaceholderPage taskId="T-204" title="Inbox" description="Быстрый сбор неразобранных задач будет добавлен после каркаса приложения." />} />
+        <Route path="/inbox" element={<InboxPage />} />
         <Route path="/archive" element={<AppPlaceholderPage taskId="T-205" title="Архив" description="Архив задач и колонок появится вместе с soft-delete моделью." />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -27,9 +27,24 @@ class TimestampedModel(models.Model):
 
 class Board(TimestampedModel):
     name = models.CharField(max_length=200)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="boards",
+        null=True,
+        blank=True,
+    )
+    is_inbox = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner"],
+                condition=models.Q(is_inbox=True),
+                name="unique_inbox_board_per_owner",
+            ),
+        ]
 
     def __str__(self) -> str:  # pragma: no cover
         return self.name

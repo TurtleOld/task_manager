@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../client'
-import type { Card, MyTodayCard, MyTodayResponse } from '../types'
+import type { Card, InboxResponse, MyTodayCard, MyTodayResponse } from '../types'
 import { queryKeys } from './keys'
 
 type UpdateCardPayload = Parameters<typeof api.updateCard>[1]
@@ -52,6 +52,44 @@ export function useCreateCalendarCard() {
       qc.setQueryData<Card[]>(queryKeys.calendarCards(), (prev) => upsertCard(prev, card))
       qc.setQueryData<Card[]>(queryKeys.cards(card.board), (prev) => upsertCard(prev, card))
       void qc.invalidateQueries({ queryKey: queryKeys.myToday() })
+    },
+  })
+}
+
+export function useInbox() {
+  return useQuery<InboxResponse>({
+    queryKey: queryKeys.inbox(),
+    queryFn: api.getInbox,
+  })
+}
+
+export function useCreateInboxCard() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof api.createInboxCard>[0]) => api.createInboxCard(payload),
+    onSuccess: (card) => {
+      qc.setQueryData<InboxResponse>(queryKeys.inbox(), (prev) => {
+        if (!prev) return prev
+        return { ...prev, cards: upsertCard(prev.cards, card) }
+      })
+      void qc.invalidateQueries({ queryKey: queryKeys.myToday() })
+    },
+  })
+}
+
+export function useMoveInboxCard() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, toColumn }: { id: number; toColumn: number }) =>
+      api.moveCard(id, { to_column: toColumn }),
+    onSuccess: (card) => {
+      qc.setQueryData<InboxResponse>(queryKeys.inbox(), (prev) => {
+        if (!prev) return prev
+        return { ...prev, cards: prev.cards.filter((item) => item.id !== card.id) }
+      })
+      qc.setQueryData<Card[]>(queryKeys.cards(card.board), (prev) => upsertCard(prev, card))
+      void qc.invalidateQueries({ queryKey: queryKeys.myToday() })
+      void qc.invalidateQueries({ queryKey: queryKeys.calendarCards() })
     },
   })
 }

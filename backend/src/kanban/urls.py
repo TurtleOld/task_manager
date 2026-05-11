@@ -8,6 +8,7 @@ from .views import (
     CardViewSet,
     ColumnViewSet,
     CurrentUserView,
+    InboxView,
     LoginView,
     NotificationPreferenceViewSet,
     NotificationProfileView,
@@ -33,6 +34,7 @@ urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
     path("auth/me/", CurrentUserView.as_view(), name="current-user"),
     path("auth/registration-status/", RegistrationStatusView.as_view(), name="registration-status"),
+    path("inbox/", InboxView.as_view(), name="inbox"),
     path("notifications/profile/", NotificationProfileView.as_view(), name="notification-profile"),
     path("settings/site/", SiteSettingsView.as_view(), name="site-settings"),
 ]

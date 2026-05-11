@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     "django_filters",
     "django_celery_beat",
     # Local
-    "kanban",
+    "kanban.apps.KanbanConfig",
 ]
 
 MIDDLEWARE = [
