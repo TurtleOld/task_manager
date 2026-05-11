@@ -17,6 +17,7 @@ import type {
   InboxResponse,
   ArchiveResponse,
   SearchResponse,
+  ChecklistItem,
 } from './types'
 
 type ViteImportMeta = ImportMeta & {
@@ -173,7 +174,6 @@ export const api = {
       deadline: string | null
       priority: 0 | 1 | 2 | 3
       labels: { name: string; color?: string }[]
-      checklist: { id: string; text: string; done: boolean }[]
       attachments: { id: string; name: string; type: 'file' | 'link' | 'photo'; url?: string }[]
     }>
   ): Promise<Card> => {
@@ -203,6 +203,39 @@ export const api = {
     })
     return json(res)
   },
+  // Checklist items
+  listChecklist: async (cardId: number): Promise<ChecklistItem[]> => {
+    const res = await fetch(`${V1}/cards/${cardId}/checklist/`, { headers: authHeaders() })
+    return json(res)
+  },
+  addChecklistItem: async (cardId: number, payload: { text: string; done?: boolean }): Promise<ChecklistItem> => {
+    const res = await fetch(`${V1}/cards/${cardId}/checklist/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+  updateChecklistItem: async (
+    cardId: number,
+    itemId: number,
+    payload: Partial<{ text: string; done: boolean; position: number }>
+  ): Promise<ChecklistItem> => {
+    const res = await fetch(`${V1}/cards/${cardId}/checklist/${itemId}/`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+  deleteChecklistItem: async (cardId: number, itemId: number): Promise<void> => {
+    const res = await fetch(`${V1}/cards/${cardId}/checklist/${itemId}/`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    })
+    return ok(res)
+  },
+
   deleteCard: async (id: number): Promise<void> => {
     const res = await fetch(`${V1}/cards/${id}/`, {
       method: 'DELETE',

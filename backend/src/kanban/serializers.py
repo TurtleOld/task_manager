@@ -7,6 +7,7 @@ from .serializers_pkg import (  # noqa: F401
     CardDeadlineReminderSerializer,
     CardLabelField,
     CardSerializer,
+    ChecklistItemSerializer,
     ColumnSerializer,
     CurrentUserUpdateSerializer,
     LabelSerializer,

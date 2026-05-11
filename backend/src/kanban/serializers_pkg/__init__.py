@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .boards import BoardSerializer
-from .cards import CardLabelField, CardSerializer, LabelSerializer
+from .cards import CardLabelField, CardSerializer, ChecklistItemSerializer, LabelSerializer
 from .columns import ColumnSerializer
 from .notifications import (
     CardDeadlineReminderSerializer,
@@ -24,6 +24,7 @@ __all__ = [
     "CardDeadlineReminderSerializer",
     "CardLabelField",
     "CardSerializer",
+    "ChecklistItemSerializer",
     "ColumnSerializer",
     "CurrentUserUpdateSerializer",
     "LabelSerializer",

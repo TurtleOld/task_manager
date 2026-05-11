@@ -1,4 +1,11 @@
 // Generated via openapi-typescript normally; minimal hand-written fallback
+export interface ChecklistItem {
+  id: number
+  text: string
+  done: boolean
+  position: number
+}
+
 export interface Board {
   id: number
   name: string
@@ -41,7 +48,7 @@ export interface Card {
   priority: 0 | 1 | 2 | 3
   priority_label?: string
   labels: { name: string; color: string }[]
-  checklist: { id: string; text: string; done: boolean }[]
+  checklist: ChecklistItem[]
   attachments: {
     id: string
     name: string

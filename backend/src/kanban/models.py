@@ -123,7 +123,6 @@ class Card(TimestampedModel):
         default=CardPriority.NORMAL,
     )
     labels = models.ManyToManyField(Label, blank=True, related_name="cards")
-    checklist = models.JSONField(default=list, blank=True)
     attachments = models.JSONField(default=list, blank=True)
     position = models.DecimalField(max_digits=20, decimal_places=10, default=POSITION_DEFAULT)
     archived_at = models.DateTimeField(null=True, blank=True)
@@ -142,6 +141,22 @@ class Card(TimestampedModel):
         if self.column_id:
             self.board = self.column.board
         super().save(*args, **kwargs)
+
+
+class ChecklistItem(models.Model):
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="checklist_items")
+    text = models.CharField(max_length=1000)
+    done = models.BooleanField(default=False)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "id"]
+        indexes = [
+            models.Index(fields=["card", "position"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"card:{self.card_id}:{self.text[:40]}"
 
 
 class NotificationChannel(models.TextChoices):

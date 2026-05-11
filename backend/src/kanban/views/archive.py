@@ -18,7 +18,7 @@ class ArchiveView(APIView):
         board_id = request.query_params.get("board")
         cards = (
             Card.with_archived.select_related("board", "column")
-            .prefetch_related("labels")
+            .prefetch_related("labels", "checklist_items")
             .filter(archived_at__isnull=False)
         )
         columns = Column.with_archived.select_related("board").filter(archived_at__isnull=False)

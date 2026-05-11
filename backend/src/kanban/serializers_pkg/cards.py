@@ -6,7 +6,7 @@ from typing import Any
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from ..models import Card, Column, Label
+from ..models import Card, ChecklistItem, Column, Label
 
 User = get_user_model()
 
@@ -64,6 +64,13 @@ class CardLabelField(serializers.Field):
         return labels
 
 
+class ChecklistItemSerializer(serializers.ModelSerializer[ChecklistItem]):
+    class Meta:
+        model = ChecklistItem
+        fields = ["id", "text", "done", "position"]
+        read_only_fields = ["id"]
+
+
 class CardSerializer(serializers.ModelSerializer[Card]):
     assignee = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
@@ -72,6 +79,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
     )
     labels = CardLabelField(required=False)
     priority_label = serializers.CharField(source="get_priority_display", read_only=True)
+    checklist = serializers.SerializerMethodField()
 
     class Meta:
         model = Card
@@ -82,8 +90,16 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "archived_at",
         ]
         read_only_fields = [
-            "id", "created_at", "updated_at", "version", "board", "priority_label", "archived_at",
+            "id", "created_at", "updated_at", "version", "board", "priority_label",
+            "archived_at", "checklist",
         ]
+
+    def get_checklist(self, obj: Card) -> list[dict[str, Any]]:
+        # checklist_items is prefetched in the viewset queryset
+        items = getattr(obj, "_prefetched_objects_cache", {}).get("checklist_items")
+        if items is None:
+            items = obj.checklist_items.order_by("position", "id")
+        return ChecklistItemSerializer(items, many=True).data
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         column: Column | None = attrs.get("column")

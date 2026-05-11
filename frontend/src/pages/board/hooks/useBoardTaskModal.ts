@@ -147,7 +147,6 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       deadline: string | null
       priority: BoardPriority
       labels: BoardLabel[]
-      checklist: { id: string; text: string; done: boolean }[]
       attachments: Card['attachments']
     }>
   ) => {
@@ -231,11 +230,13 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       }
     }
 
+    // Checklist changes are persisted immediately via dedicated endpoints — we only
+    // track them here for the notification summary.
     if (!sameJson(next.checklist, base.checklist)) {
-      const baseMap = new Map(base.checklist.map((item) => [item.id, item]))
-      const nextMap = new Map(next.checklist.map((item) => [item.id, item]))
-      const added = next.checklist.filter((item) => !baseMap.has(item.id))
-      const removed = base.checklist.filter((item) => !nextMap.has(item.id))
+      const baseIds = new Set(base.checklist.map((item) => item.id))
+      const nextIds = new Set(next.checklist.map((item) => item.id))
+      const added = next.checklist.filter((item) => !baseIds.has(item.id))
+      const removed = base.checklist.filter((item) => !nextIds.has(item.id))
       if (added.length > 0) {
         changes.push(`Чек-лист добавлено: ${added.map((item) => item.text).join(', ')}`)
         changesMeta.checklist_added = added
@@ -321,7 +322,6 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       deadline: string | null
       priority: BoardPriority
       labels: BoardLabel[]
-      checklist: { id: string; text: string; done: boolean }[]
       attachments: Card['attachments']
     }> = {}
 
@@ -339,7 +339,6 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     if (draft.deadline !== base.deadline) patch.deadline = draft.deadline ? datetimeLocalToIso(draft.deadline) : null
     if (draft.priority !== base.priority) patch.priority = draft.priority
     if (!sameJson(draft.labels, base.labels)) patch.labels = draft.labels
-    if (!sameJson(draft.checklist, base.checklist)) patch.checklist = draft.checklist
     if (!sameJson(draft.attachments, base.attachments)) patch.attachments = draft.attachments
 
     const hasPatch = Object.keys(patch).length > 0

@@ -252,15 +252,15 @@ def test_patch_card_priority(api_client: APIClient, card: Card) -> None:
 
 
 @pytest.mark.django_db()
-def test_patch_card_checklist(api_client: APIClient, card: Card) -> None:
-    checklist = [{"id": "1", "text": "Step 1", "done": False}]
+def test_card_checklist_field_is_read_only(api_client: APIClient, card: Card) -> None:
+    # checklist is now managed via /checklist/ sub-resource; patching it via card PATCH is a no-op
     resp = api_client.patch(
         f"/api/v1/cards/{card.id}/",
-        data={"checklist": checklist},
+        data={"title": "Updated"},
         format="json",
     )
     assert resp.status_code == 200
-    assert resp.json()["checklist"][0]["text"] == "Step 1"
+    assert resp.json()["checklist"] == []
 
 
 @pytest.mark.django_db()

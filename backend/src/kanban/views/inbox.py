@@ -35,7 +35,7 @@ class InboxView(APIView):
         card = serializer.save()
         card = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("labels")
+            .prefetch_related("labels", "checklist_items")
             .get(pk=card.pk)
         )
         return Response(CardSerializer(card).data, status=status.HTTP_201_CREATED)

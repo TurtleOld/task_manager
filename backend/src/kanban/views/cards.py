@@ -17,16 +17,16 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from ..broadcast import broadcast_board_event
-from ..models import Board, Card, CardDeadlineReminder, CardPriority, Column, NotificationEventType
+from ..models import Board, Card, CardDeadlineReminder, CardPriority, ChecklistItem, Column, NotificationEventType
 from ..notifications import create_notification_event
 from ..reminders import reminder_channel_availability, upsert_and_schedule_reminder
-from ..serializers import CardDeadlineReminderSerializer, CardSerializer
+from ..serializers import CardDeadlineReminderSerializer, CardSerializer, ChecklistItemSerializer
 
 
 class CardViewSet(viewsets.ModelViewSet[Card]):
     queryset = (
         Card.objects.select_related("board", "column")
-        .prefetch_related("labels")
+        .prefetch_related("labels", "checklist_items")
         .all()
         .order_by("position", "id")
     )
@@ -41,7 +41,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         base = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("labels")
+            .prefetch_related("labels", "checklist_items")
             .exclude(
                 Q(column__is_done=True)
                 | Q(column__name__iexact="Done")
@@ -182,6 +182,58 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         broadcast_board_event(card.board_id, "card.updated", {"card": card_data})
         return Response(card_data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=["get", "post"], url_path="checklist")
+    def checklist(self, request: Request, pk: str | None = None) -> Response:
+        card = self.get_object()
+
+        if request.method == "GET":
+            items = ChecklistItem.objects.filter(card=card).order_by("position", "id")
+            return Response(ChecklistItemSerializer(items, many=True).data)
+
+        serializer = ChecklistItemSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        last = ChecklistItem.objects.filter(card=card).order_by("-position").first()
+        position = (last.position + 1) if last else 0
+        item = serializer.save(card=card, position=position)
+        self._broadcast_checklist_update(card)
+        return Response(ChecklistItemSerializer(item).data, status=status.HTTP_201_CREATED)
+
+    @action(
+        detail=True,
+        methods=["patch", "delete"],
+        url_path=r"checklist/(?P<item_id>[0-9]+)",
+    )
+    def checklist_item(
+        self,
+        request: Request,
+        pk: str | None = None,
+        item_id: str | None = None,
+    ) -> Response:
+        card = self.get_object()
+        try:
+            item = ChecklistItem.objects.get(id=int(item_id or 0), card=card)
+        except ChecklistItem.DoesNotExist:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if request.method == "DELETE":
+            item.delete()
+            self._broadcast_checklist_update(card)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        serializer = ChecklistItemSerializer(item, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        self._broadcast_checklist_update(card)
+        return Response(serializer.data)
+
+    def _broadcast_checklist_update(self, card: Card) -> None:
+        card = (
+            Card.objects.select_related("board", "column")
+            .prefetch_related("labels", "checklist_items")
+            .get(pk=card.pk)
+        )
+        broadcast_board_event(card.board_id, "card.updated", {"card": CardSerializer(card).data})
+
     def perform_create(self, serializer: CardSerializer) -> None:
         card = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
@@ -196,7 +248,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         )
         card = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("labels")
+            .prefetch_related("labels", "checklist_items")
             .get(pk=card.pk)
         )
         broadcast_board_event(card.board_id, "card.created", {"card": CardSerializer(card).data})
@@ -208,7 +260,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             upsert_and_schedule_reminder(card=card, reminder=reminder)
         card = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("labels")
+            .prefetch_related("labels", "checklist_items")
             .get(pk=card.pk)
         )
         broadcast_board_event(card.board_id, "card.updated", {"card": CardSerializer(card).data})
@@ -225,7 +277,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         try:
             card = (
                 Card.with_archived.select_related("board", "column")
-                .prefetch_related("labels")
+                .prefetch_related("labels", "checklist_items")
                 .get(pk=pk)
             )
         except Card.DoesNotExist:
@@ -242,7 +294,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             card.save(update_fields=["archived_at", "updated_at", "version"])
             card = (
                 Card.objects.select_related("board", "column")
-                .prefetch_related("labels")
+                .prefetch_related("labels", "checklist_items")
                 .get(pk=card.pk)
             )
 
@@ -471,7 +523,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         card = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("labels")
+            .prefetch_related("labels", "checklist_items")
             .get(pk=card.pk)
         )
         serializer = self.get_serializer(card)
