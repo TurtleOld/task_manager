@@ -541,7 +541,7 @@ export function BoardPage({ user }: BoardPageProps) {
 
   return (
     <div className="min-h-screen bg-background pb-12 text-text">
-      <BoardHeader boardName={boardName} onCreateColumn={() => setIsCreatingColumn(true)} />
+      <BoardHeader boardId={boardId} boardName={boardName} onCreateColumn={() => setIsCreatingColumn(true)} />
 
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 pt-6">
         <section className="grid gap-3 sm:grid-cols-3" aria-label="Сводка по доске">

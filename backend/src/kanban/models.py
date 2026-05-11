@@ -38,6 +38,11 @@ class TimestampedModel(models.Model):
         super().save(*args, **kwargs)
 
 
+class ActiveBoardManager(models.Manager["Board"]):
+    def get_queryset(self) -> models.QuerySet["Board"]:
+        return super().get_queryset().filter(archived_at__isnull=True)
+
+
 class Board(TimestampedModel):
     name = models.CharField(max_length=200)
     icon = models.CharField(max_length=50, blank=True, default="📋")
@@ -50,6 +55,10 @@ class Board(TimestampedModel):
         blank=True,
     )
     is_inbox = models.BooleanField(default=False)
+    archived_at = models.DateTimeField(null=True, blank=True)
+
+    objects = ActiveBoardManager()
+    with_archived = models.Manager()
 
     class Meta:
         ordering = ["id"]

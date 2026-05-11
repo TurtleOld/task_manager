@@ -70,3 +70,50 @@ export function useUpdateBoard() {
     },
   })
 }
+
+export function useDeleteBoard() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.deleteBoard(id),
+    onSuccess: (_data, id) => {
+      qc.setQueryData<Board[]>(queryKeys.boards(), (prev) =>
+        prev?.filter((b) => b.id !== id),
+      )
+    },
+  })
+}
+
+export function useArchiveBoard() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.archiveBoard(id),
+    onSuccess: (board) => {
+      qc.setQueryData<Board[]>(queryKeys.boards(), (prev) =>
+        prev?.filter((b) => b.id !== board.id),
+      )
+    },
+  })
+}
+
+export function useUnarchiveBoard() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.unarchiveBoard(id),
+    onSuccess: (board) => {
+      qc.setQueryData<Board[]>(queryKeys.boards(), (prev) =>
+        prev ? [...prev, board] : [board],
+      )
+      qc.invalidateQueries({ queryKey: queryKeys.boards() })
+    },
+  })
+}
+
+export function useForceDeleteBoard() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.forceDeleteBoard(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.boards() })
+    },
+  })
+}

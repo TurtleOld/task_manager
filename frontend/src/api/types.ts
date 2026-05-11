@@ -11,6 +11,7 @@ export interface Board {
   name: string
   icon: string
   color: string
+  archived_at: string | null
   created_at: string
   updated_at: string
   version: number
@@ -95,6 +96,7 @@ export interface ArchivedColumn extends Column {
 export interface ArchiveResponse {
   cards: ArchivedCard[]
   columns: ArchivedColumn[]
+  boards: Board[]
 }
 
 export interface SearchCardResult {

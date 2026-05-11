@@ -7,8 +7,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..models import Card, Column
-from ..serializers import CardSerializer, ColumnSerializer
+from ..models import Board, Card, Column
+from ..serializers import BoardSerializer, CardSerializer, ColumnSerializer
 
 
 class ArchiveView(APIView):
@@ -22,17 +22,21 @@ class ArchiveView(APIView):
             .filter(archived_at__isnull=False)
         )
         columns = Column.with_archived.select_related("board").filter(archived_at__isnull=False)
+        boards = Board.with_archived.filter(archived_at__isnull=False, is_inbox=False)
 
         if board_id:
             cards = cards.filter(board_id=board_id)
             columns = columns.filter(board_id=board_id)
+            boards = boards.none()
 
         archived_cards = list(cards.order_by("-archived_at", "id"))
         archived_columns = list(columns.order_by("-archived_at", "id"))
+        archived_boards = list(boards.order_by("-archived_at", "id"))
 
         return Response({
             "cards": self._serialize_cards(archived_cards),
             "columns": self._serialize_columns(archived_columns),
+            "boards": BoardSerializer(archived_boards, many=True).data,
         })
 
     def _serialize_cards(self, cards: list[Card]) -> list[dict[str, Any]]:

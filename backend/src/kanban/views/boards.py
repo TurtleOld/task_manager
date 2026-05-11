@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.request import Request
@@ -80,3 +81,58 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             payload=payload,
         )
         broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
+
+    @action(detail=True, methods=["post"], url_path="archive")
+    def archive(self, request: Request, pk: int | None = None) -> Response:
+        board = self.get_object()
+        board.archived_at = timezone.now()
+        board.save(update_fields=["archived_at", "updated_at", "version"])
+        actor = request.user if request.user.is_authenticated else None
+        create_notification_event(
+            event_type=NotificationEventType.BOARD_UPDATED.value,
+            actor=actor,
+            board=board,
+            summary=f"Архивирована доска «{board.name}»",
+            payload={"board": board.name},
+        )
+        broadcast_board_event(board.id, "board.archived", {"board_id": board.id})
+        return Response(BoardSerializer(board).data)
+
+    @action(detail=True, methods=["post"], url_path="unarchive")
+    def unarchive(self, request: Request, pk: int | None = None) -> Response:
+        board = Board.with_archived.filter(pk=pk, is_inbox=False).first()
+        if board is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        board.archived_at = None
+        board.save(update_fields=["archived_at", "updated_at", "version"])
+        actor = request.user if request.user.is_authenticated else None
+        create_notification_event(
+            event_type=NotificationEventType.BOARD_UPDATED.value,
+            actor=actor,
+            board=board,
+            summary=f"Восстановлена доска «{board.name}»",
+            payload={"board": board.name},
+        )
+        broadcast_board_event(board.id, "board.unarchived", {"board_id": board.id})
+        return Response(BoardSerializer(board).data)
+
+    @action(detail=True, methods=["delete"], url_path="force-delete")
+    def force_delete(self, request: Request, pk: int | None = None) -> Response:
+        """Hard-delete an archived board."""
+        board = Board.with_archived.filter(pk=pk, is_inbox=False).first()
+        if board is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        actor = request.user if request.user.is_authenticated else None
+        summary = f"Удалена доска «{board.name}»"
+        payload = {"board": board.name}
+        board_id = board.id
+        board.delete()
+        create_notification_event(
+            event_type=NotificationEventType.BOARD_DELETED.value,
+            actor=actor,
+            board=None,
+            summary=summary,
+            payload=payload,
+        )
+        broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
+        return Response(status=status.HTTP_204_NO_CONTENT)

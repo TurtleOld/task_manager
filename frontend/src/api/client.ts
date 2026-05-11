@@ -100,6 +100,34 @@ export const api = {
     })
     return json(res)
   },
+  deleteBoard: async (id: number): Promise<void> => {
+    const res = await fetch(`${V1}/boards/${id}/`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    })
+    return ok(res)
+  },
+  archiveBoard: async (id: number): Promise<Board> => {
+    const res = await fetch(`${V1}/boards/${id}/archive/`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    return json(res)
+  },
+  unarchiveBoard: async (id: number): Promise<Board> => {
+    const res = await fetch(`${V1}/boards/${id}/unarchive/`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    return json(res)
+  },
+  forceDeleteBoard: async (id: number): Promise<void> => {
+    const res = await fetch(`${V1}/boards/${id}/force-delete/`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    })
+    return ok(res)
+  },
 
   // Columns
   listColumns: async (boardId: number): Promise<Column[]> => {

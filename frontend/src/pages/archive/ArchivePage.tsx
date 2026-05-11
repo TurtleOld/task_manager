@@ -1,10 +1,19 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { useBoards } from '../../api/queries/boards'
+import { RotateCcw, Trash2 } from 'lucide-react'
+import { useBoards, useUnarchiveBoard, useForceDeleteBoard } from '../../api/queries/boards'
 import { useArchive, useRestoreArchiveCard, useRestoreArchiveColumn } from '../../api/queries/cards'
-import type { ArchivedCard, ArchivedColumn } from '../../api/types'
+import type { ArchivedCard, ArchivedColumn, Board } from '../../api/types'
 import { priorityToLabel, priorityToMarker, priorityToTone } from '../board/lib/priority'
 import { Badge, Button, Card as SurfaceCard, Chip, EmptyState, ErrorState, PageShell, Select, Skeleton } from '@/components/ui'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 export function ArchivePage() {
   const { data: boards = [], isLoading: boardsLoading } = useBoards()
@@ -13,11 +22,15 @@ export function ArchivePage() {
   const { data, isLoading: archiveLoading, isError, refetch } = useArchive(selectedBoardId)
   const restoreCard = useRestoreArchiveCard(selectedBoardId)
   const restoreColumn = useRestoreArchiveColumn(selectedBoardId)
+  const unarchiveBoard = useUnarchiveBoard()
+  const forceDeleteBoard = useForceDeleteBoard()
   const [restoringKey, setRestoringKey] = useState<string | null>(null)
+  const [deletingBoard, setDeletingBoard] = useState<Board | null>(null)
 
   const cards = data?.cards ?? []
   const columns = data?.columns ?? []
-  const totalCount = cards.length + columns.length
+  const archivedBoards = data?.boards ?? []
+  const totalCount = cards.length + columns.length + archivedBoards.length
   const isLoading = boardsLoading || archiveLoading
 
   const restoreArchivedCard = async (card: ArchivedCard) => {
@@ -44,6 +57,31 @@ export function ArchivePage() {
     }
   }
 
+  const restoreArchivedBoard = async (board: Board) => {
+    setRestoringKey(`board-${board.id}`)
+    try {
+      await unarchiveBoard.mutateAsync(board.id)
+      toast.success(`Доска «${board.name}» восстановлена`)
+      void refetch()
+    } catch (error) {
+      toast.error((error as Error).message || 'Не удалось восстановить доску')
+    } finally {
+      setRestoringKey(null)
+    }
+  }
+
+  const forceDeleteArchivedBoard = async (board: Board) => {
+    try {
+      await forceDeleteBoard.mutateAsync(board.id)
+      toast.success(`Доска «${board.name}» удалена`)
+      void refetch()
+    } catch (error) {
+      toast.error((error as Error).message || 'Не удалось удалить доску')
+    } finally {
+      setDeletingBoard(null)
+    }
+  }
+
   if (isLoading) return <ArchivePageSkeleton />
 
   if (isError) {
@@ -66,15 +104,16 @@ export function ArchivePage() {
               <Badge variant="success">Архив</Badge>
             </div>
             <div>
-              <h1 className="text-h1 text-text">Архив задач и колонок</h1>
+              <h1 className="text-h1 text-text">Архив задач, колонок и досок</h1>
               <p className="mt-2 max-w-3xl text-body-sm text-text-muted">
                 Удаление теперь не стирает данные. Архивированные элементы скрываются с досок и могут быть восстановлены.
               </p>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[30rem]">
+          <div className="grid gap-3 sm:grid-cols-4 lg:min-w-[38rem]">
             <ArchiveMetric label="Всего" value={totalCount} tone="primary" />
+            <ArchiveMetric label="Досок" value={archivedBoards.length} tone="info" />
             <ArchiveMetric label="Задач" value={cards.length} tone="warning" />
             <ArchiveMetric label="Колонок" value={columns.length} tone="success" />
           </div>
@@ -99,9 +138,33 @@ export function ArchivePage() {
 
       {totalCount === 0 ? (
         <EmptyState title="Архив пуст">
-          Здесь появятся задачи и колонки после архивирования.
+          Здесь появятся задачи, колонки и доски после архивирования.
         </EmptyState>
       ) : null}
+
+      {selectedBoardId == null && (
+        <SurfaceCard as="section" className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="info">Доски</Badge>
+            <Badge>{archivedBoards.length} items</Badge>
+          </div>
+          {archivedBoards.length === 0 ? (
+            <EmptyState title="Архивированных досок нет" className="p-4 text-left" />
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {archivedBoards.map((board) => (
+                <ArchivedBoardItem
+                  key={board.id}
+                  board={board}
+                  restoring={restoringKey === `board-${board.id}`}
+                  onRestore={() => void restoreArchivedBoard(board)}
+                  onDelete={() => setDeletingBoard(board)}
+                />
+              ))}
+            </div>
+          )}
+        </SurfaceCard>
+      )}
 
       <SurfaceCard as="section" className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -144,7 +207,65 @@ export function ArchivePage() {
           </div>
         )}
       </SurfaceCard>
+
+      <Dialog open={deletingBoard !== null} onOpenChange={(open) => !open && setDeletingBoard(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Удалить доску навсегда?</DialogTitle>
+            <DialogDescription>
+              Доска «{deletingBoard?.name}» и все её данные будут удалены безвозвратно. Это действие нельзя отменить.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeletingBoard(null)}>Отмена</Button>
+            <Button
+              variant="danger"
+              loading={forceDeleteBoard.isPending}
+              onClick={() => deletingBoard && void forceDeleteArchivedBoard(deletingBoard)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Удалить навсегда
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageShell>
+  )
+}
+
+function ArchivedBoardItem({ board, restoring, onRestore, onDelete }: {
+  board: Board
+  restoring: boolean
+  onRestore: () => void
+  onDelete: () => void
+}) {
+  return (
+    <article className="rounded-[1.2rem] border border-border/75 bg-surface/90 p-4 shadow-surface backdrop-blur">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <span
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl text-white shadow-surface"
+            style={{ backgroundColor: board.color || '#2563eb' }}
+            aria-hidden="true"
+          >
+            {board.icon || '📋'}
+          </span>
+          <div className="min-w-0">
+            <h3 className="truncate text-h3 text-text">{board.name}</h3>
+            <p className="mt-1 text-caption text-text-muted">В архиве с {formatDateTime(board.archived_at)}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <Button type="button" variant="secondary" size="sm" loading={restoring} disabled={restoring} onClick={onRestore}>
+            <RotateCcw className="h-4 w-4" />
+            Восстановить
+          </Button>
+          <Button type="button" variant="danger" size="sm" onClick={onDelete}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </article>
   )
 }
 
@@ -191,8 +312,13 @@ function ArchivedColumnItem({ column, restoring, onRestore }: { column: Archived
   )
 }
 
-function ArchiveMetric({ label, value, tone }: { label: string; value: number; tone: 'primary' | 'success' | 'warning' }) {
-  const valueClass = tone === 'success' ? 'text-success' : tone === 'warning' ? 'text-warning' : 'text-primary'
+function ArchiveMetric({ label, value, tone }: { label: string; value: number; tone: 'primary' | 'success' | 'warning' | 'info' }) {
+  const valueClass = {
+    success: 'text-success',
+    warning: 'text-warning',
+    primary: 'text-primary',
+    info: 'text-info',
+  }[tone]
   return (
     <div className="rounded-[1.15rem] border border-border/70 bg-background-subtle/65 p-4">
       <p className="text-caption uppercase tracking-[0.08em] text-text-muted">{label}</p>
@@ -228,7 +354,8 @@ function ArchivePageSkeleton() {
             <Skeleton className="h-4 w-full max-w-2xl" />
             <Skeleton className="h-4 w-2/3 max-w-xl" />
           </div>
-          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[30rem]">
+          <div className="grid gap-3 sm:grid-cols-4 lg:min-w-[38rem]">
+            <Skeleton className="h-24 rounded-[1.15rem]" />
             <Skeleton className="h-24 rounded-[1.15rem]" />
             <Skeleton className="h-24 rounded-[1.15rem]" />
             <Skeleton className="h-24 rounded-[1.15rem]" />

@@ -10,8 +10,8 @@ from ..models import Board
 class BoardSerializer(serializers.ModelSerializer[Board]):
     class Meta:
         model = Board
-        fields = ["id", "name", "icon", "color", "created_at", "updated_at", "version"]
-        read_only_fields = ["id", "created_at", "updated_at", "version"]
+        fields = ["id", "name", "icon", "color", "archived_at", "created_at", "updated_at", "version"]
+        read_only_fields = ["id", "archived_at", "created_at", "updated_at", "version"]
 
     def update(self, instance: Board, validated_data: dict[str, Any]) -> Board:
         name = validated_data.get("name")
