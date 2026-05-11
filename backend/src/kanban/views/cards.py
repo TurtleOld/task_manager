@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
 from django.core.files.storage import default_storage
 from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
 from django.utils.text import get_valid_filename
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -14,7 +17,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from ..broadcast import broadcast_board_event
-from ..models import Board, Card, CardDeadlineReminder, Column, NotificationEventType
+from ..models import Board, Card, CardDeadlineReminder, CardPriority, Column, NotificationEventType
 from ..notifications import create_notification_event
 from ..reminders import reminder_channel_availability, upsert_and_schedule_reminder
 from ..serializers import CardDeadlineReminderSerializer, CardSerializer
@@ -30,7 +33,67 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     serializer_class = CardSerializer
     filterset_fields = ["board", "column"]
 
-    @action(detail=True, methods=["post"], url_path="attachments", parser_classes=[MultiPartParser, FormParser])
+    @action(detail=False, methods=["get"], url_path="my-today")
+    def my_today(self, request: Request) -> Response:
+        local_now = timezone.localtime(timezone.now())
+        today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        tomorrow_start = today_start + timedelta(days=1)
+
+        base = (
+            Card.objects.select_related("board", "column")
+            .prefetch_related("labels")
+            .exclude(
+                Q(column__is_done=True)
+                | Q(column__name__iexact="Done")
+                | Q(column__name__iexact="Готово")
+            )
+        )
+        if request.user and request.user.is_authenticated:
+            base = base.filter(Q(assignee=request.user) | Q(assignee__isnull=True))
+
+        overdue_cards = list(
+            base.filter(deadline__lt=today_start).order_by("deadline", "position", "id")
+        )
+        today_cards = list(
+            base.filter(deadline__gte=today_start, deadline__lt=tomorrow_start).order_by(
+                "deadline", "position", "id"
+            )
+        )
+        important_cards = list(
+            base.filter(priority=CardPriority.HIGH).order_by("deadline", "position", "id")
+        )
+
+        board_ids = {card.board_id for card in [*overdue_cards, *today_cards, *important_cards]}
+        done_columns = {
+            item["board_id"]: item["id"]
+            for item in Column.objects.filter(board_id__in=board_ids, is_done=True)
+            .order_by("board_id", "position", "id")
+            .values("board_id", "id")
+        }
+
+        def serialize(cards: list[Card]) -> list[dict[str, Any]]:
+            payload = self.get_serializer(cards, many=True).data
+            result: list[dict[str, Any]] = []
+            for card, item in zip(cards, payload, strict=True):
+                data = dict(item)
+                data["board_name"] = card.board.name
+                data["column_name"] = card.column.name
+                data["done_column"] = done_columns.get(card.board_id)
+                result.append(data)
+            return result
+
+        return Response({
+            "overdue": serialize(overdue_cards),
+            "today": serialize(today_cards),
+            "important": serialize(important_cards),
+        })
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="attachments",
+        parser_classes=[MultiPartParser, FormParser],
+    )
     def upload_attachments(self, request: Request, pk: str | None = None) -> Response:
         card_id = int(pk) if pk is not None else None
         if not card_id:
@@ -38,7 +101,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         files = request.FILES.getlist("files") or request.FILES.getlist("file")
         if not files:
-            return Response({"detail": "No files uploaded. Use form field 'files'."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "No files uploaded. Use form field 'files'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         with transaction.atomic():
             try:
@@ -71,7 +137,12 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         return Response(card_data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["delete"], url_path=r"attachments/(?P<attachment_id>[^/]+)")
-    def delete_attachment(self, request: Request, pk: str | None = None, attachment_id: str | None = None) -> Response:
+    def delete_attachment(
+        self,
+        request: Request,
+        pk: str | None = None,
+        attachment_id: str | None = None,
+    ) -> Response:
         card_id = int(pk) if pk is not None else None
         if not card_id or not attachment_id:
             return Response({"detail": "Card id and attachment id are required"}, status=400)
@@ -92,7 +163,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 kept.append(item)
 
             if removed is None:
-                return Response({"detail": "Attachment not found"}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"detail": "Attachment not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
             path = removed.get("path")
             if isinstance(path, str) and path:
@@ -120,7 +194,11 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             summary=f"Создана карточка «{card.title}»",
             payload={"board": card.board.name, "column": card.column.name, "card": card.title},
         )
-        card = Card.objects.select_related("board", "column").prefetch_related("labels").get(pk=card.pk)
+        card = (
+            Card.objects.select_related("board", "column")
+            .prefetch_related("labels")
+            .get(pk=card.pk)
+        )
         broadcast_board_event(card.board_id, "card.created", {"card": CardSerializer(card).data})
 
     def perform_update(self, serializer: CardSerializer) -> None:
@@ -128,7 +206,11 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         reminders = CardDeadlineReminder.objects.filter(card_id=card.id, enabled=True)
         for reminder in reminders:
             upsert_and_schedule_reminder(card=card, reminder=reminder)
-        card = Card.objects.select_related("board", "column").prefetch_related("labels").get(pk=card.pk)
+        card = (
+            Card.objects.select_related("board", "column")
+            .prefetch_related("labels")
+            .get(pk=card.pk)
+        )
         broadcast_board_event(card.board_id, "card.updated", {"card": CardSerializer(card).data})
 
     def perform_destroy(self, instance: Card) -> None:
@@ -145,7 +227,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         if request.method == "GET":
             reminders = list(
-                CardDeadlineReminder.objects.filter(card_id=card.id, user_id=request.user.id).order_by("order", "id")
+                CardDeadlineReminder.objects.filter(
+                    card_id=card.id,
+                    user_id=request.user.id,
+                ).order_by("order", "id")
             )
             availability = reminder_channel_availability(
                 user_id=request.user.id,
@@ -155,8 +240,14 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             return Response({
                 "reminders": CardDeadlineReminderSerializer(reminders, many=True).data,
                 "channels": {
-                    "email": {"available": availability["email"].available, "reason": availability["email"].reason},
-                    "telegram": {"available": availability["telegram"].available, "reason": availability["telegram"].reason},
+                    "email": {
+                        "available": availability["email"].available,
+                        "reason": availability["email"].reason,
+                    },
+                    "telegram": {
+                        "available": availability["telegram"].available,
+                        "reason": availability["telegram"].reason,
+                    },
                 },
                 "deadline": card.deadline,
             })
@@ -196,7 +287,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         try:
             version_int = int(version)
         except (TypeError, ValueError):
-            return Response({"detail": "version must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "version must be an integer"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if version_int != card.version:
             return Response({"detail": "Version conflict"}, status=status.HTTP_409_CONFLICT)
@@ -236,7 +330,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             payload=payload_updates,
             dedupe_key=dedupe_key,
         )
-        return Response({"event_id": getattr(event, "pk", None), "dedupe_key": dedupe_key}, status=200)
+        return Response(
+            {"event_id": getattr(event, "pk", None), "dedupe_key": dedupe_key},
+            status=200,
+        )
 
     @action(detail=False, methods=["post"], url_path="notify-deleted")
     def notify_deleted(self, request: Request) -> Response:
@@ -247,13 +344,19 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         missing = [k for k in ["card_id", "version"] if payload.get(k) is None]
         if missing:
-            return Response({"detail": f"Missing fields: {', '.join(missing)}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": f"Missing fields: {', '.join(missing)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             card_id_int = int(payload["card_id"])
             version_int = int(payload["version"])
         except (TypeError, ValueError):
-            return Response({"detail": "card_id and version must be integers"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "card_id and version must be integers"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         board: Board | None = None
         column: Column | None = None
@@ -284,7 +387,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             },
             dedupe_key=dedupe_key,
         )
-        return Response({"event_id": getattr(event, "pk", None), "dedupe_key": dedupe_key}, status=200)
+        return Response(
+            {"event_id": getattr(event, "pk", None), "dedupe_key": dedupe_key},
+            status=200,
+        )
 
     @action(detail=True, methods=["post"], url_path="move")
     def move(self, request: Request, pk: str | None = None) -> Response:
@@ -332,7 +438,11 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             card.position = new_position
             card.save()
 
-        card = Card.objects.select_related("board", "column").prefetch_related("labels").get(pk=card.pk)
+        card = (
+            Card.objects.select_related("board", "column")
+            .prefetch_related("labels")
+            .get(pk=card.pk)
+        )
         serializer = self.get_serializer(card)
 
         actor = request.user if request.user.is_authenticated else None

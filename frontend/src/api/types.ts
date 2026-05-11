@@ -14,6 +14,7 @@ export interface Column {
   icon: string
   position: string
   is_default: boolean
+  is_done: boolean
   created_at: string
   updated_at: string
   version: number
@@ -44,6 +45,18 @@ export interface Card {
   created_at: string
   updated_at: string
   version: number
+}
+
+export interface MyTodayCard extends Card {
+  board_name: string
+  column_name: string
+  done_column: number | null
+}
+
+export interface MyTodayResponse {
+  overdue: MyTodayCard[]
+  today: MyTodayCard[]
+  important: MyTodayCard[]
 }
 
 export interface AuthUser {

@@ -12,6 +12,7 @@ import type {
   CardDeadlineReminderResponse,
   CardDeadlineReminder,
   SiteSettings,
+  MyTodayResponse,
 } from './types'
 
 type ViteImportMeta = ImportMeta & {
@@ -109,6 +110,10 @@ export const api = {
   },
 
   // Cards
+  listCards: async (): Promise<Card[]> => {
+    const res = await fetch(`${V1}/cards/`, { headers: authHeaders() })
+    return json(res)
+  },
   listCardsByBoard: async (boardId: number): Promise<Card[]> => {
     const res = await fetch(`${V1}/cards/?board=${boardId}`, { headers: authHeaders() })
     return json(res)
@@ -117,11 +122,28 @@ export const api = {
     const res = await fetch(`${V1}/cards/?column=${columnId}`, { headers: authHeaders() })
     return json(res)
   },
+  listMyToday: async (): Promise<MyTodayResponse> => {
+    const res = await fetch(`${V1}/cards/my-today/`, { headers: authHeaders() })
+    return json(res)
+  },
   createCard: async (column: number, title: string, description = ''): Promise<Card> => {
     const res = await fetch(`${V1}/cards/`, {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ column, title, description }),
+    })
+    return json(res)
+  },
+  createCardWithDetails: async (payload: {
+    column: number
+    title: string
+    description?: string
+    deadline?: string | null
+  }): Promise<Card> => {
+    const res = await fetch(`${V1}/cards/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
     })
     return json(res)
   },

@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
+from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from kanban.models import Board, Card, Column, NotificationEvent
+
+User = get_user_model()
 
 # ---------------------------------------------------------------------------
 # Create
@@ -151,6 +157,69 @@ def test_create_card_response_contains_complete_immediate_use_payload(
     assert data["column"] == column.id
     assert data["board"] == column.board_id
     assert data["title"] == "Open right away"
+
+
+@pytest.mark.django_db()
+def test_my_today_groups_active_cards(api_client: APIClient, board: Board) -> None:
+    todo = Column.objects.create(board=board, name="To Do")
+    done = Column.objects.create(board=board, name="Done", is_done=True)
+    today_start = timezone.localtime(timezone.now()).replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    today_deadline = today_start + timedelta(hours=12)
+    overdue = Card.objects.create(
+        column=todo,
+        title="Overdue",
+        deadline=today_start - timedelta(hours=1),
+    )
+    today = Card.objects.create(column=todo, title="Today", deadline=today_deadline)
+    important = Card.objects.create(column=todo, title="Important", priority=3)
+    completed = Card.objects.create(
+        column=done,
+        title="Completed",
+        deadline=today_deadline,
+        priority=3,
+    )
+
+    resp = api_client.get("/api/v1/cards/my-today/")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert {item["id"] for item in data["overdue"]} == {overdue.id}
+    assert {item["id"] for item in data["today"]} == {today.id}
+    assert {item["id"] for item in data["important"]} == {important.id}
+    assert completed.id not in {
+        item["id"]
+        for section in [data["overdue"], data["today"], data["important"]]
+        for item in section
+    }
+    assert data["today"][0]["board_name"] == board.name
+    assert data["today"][0]["column_name"] == todo.name
+    assert data["today"][0]["done_column"] == done.id
+
+
+@pytest.mark.django_db()
+def test_my_today_for_authenticated_user_includes_own_and_unassigned_cards(
+    auth_client: APIClient,
+    regular_user: User,
+    board: Board,
+) -> None:
+    other_user = User.objects.create_user(username="other", password="pass")
+    todo = Column.objects.create(board=board, name="To Do")
+    own = Card.objects.create(column=todo, title="Own", assignee=regular_user, priority=3)
+    unassigned = Card.objects.create(column=todo, title="Unassigned", priority=3)
+    other = Card.objects.create(column=todo, title="Other", assignee=other_user, priority=3)
+
+    resp = auth_client.get("/api/v1/cards/my-today/")
+
+    assert resp.status_code == 200
+    ids = {item["id"] for item in resp.json()["important"]}
+    assert own.id in ids
+    assert unassigned.id in ids
+    assert other.id not in ids
 
 
 # ---------------------------------------------------------------------------
