@@ -100,7 +100,6 @@ export function ArchivePage() {
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="primary">T-205</Badge>
               <Badge variant="success">Архив</Badge>
             </div>
             <div>

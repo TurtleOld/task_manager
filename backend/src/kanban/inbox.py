@@ -48,7 +48,14 @@ def get_or_create_user_inbox(user: Any) -> tuple[Board, Column]:
 
 
 def serialize_inbox(user: Any) -> dict[str, Any]:
-    board, column = get_or_create_user_inbox(user)
+    board = Board.objects.filter(owner=user, is_inbox=True).first()
+    if board is None:
+        board, column = get_or_create_user_inbox(user)
+    else:
+        column = Column.objects.filter(board=board, name="Inbox").first()
+        if column is None:
+            _, column = get_or_create_user_inbox(user)
+
     cards = (
         Card.objects.select_related("board", "column")
         .prefetch_related("labels")

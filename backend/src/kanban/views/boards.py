@@ -76,7 +76,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         create_notification_event(
             event_type=NotificationEventType.BOARD_DELETED.value,
             actor=actor,
-            board=board,
+            board=None,
             summary=summary,
             payload=payload,
         )

@@ -166,7 +166,6 @@ export function CalendarPage() {
         <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="primary">T-203</Badge>
               <Badge variant="success">Календарь</Badge>
             </div>
             <div>

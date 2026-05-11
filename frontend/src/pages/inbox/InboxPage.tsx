@@ -102,7 +102,7 @@ export function InboxPage() {
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="primary">T-204</Badge>
+
               <Badge variant="success">Inbox</Badge>
             </div>
             <div>

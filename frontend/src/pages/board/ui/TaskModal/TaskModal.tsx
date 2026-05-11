@@ -28,7 +28,7 @@ export function TaskModal(props: TaskModalProps) {
         if (!saveBusy && !deleteBusy) onClose()
       }}
       title={selectedCard.title || 'Редактирование задачи'}
-      className="p-0 max-w-7xl flex flex-col max-h-[calc(100vh-2rem)]"
+      className="p-0 max-w-7xl w-[calc(100%-2rem)] flex flex-col max-h-[calc(100vh-2rem)]"
     >
       {/* Sticky header */}
       <div className="shrink-0 rounded-t-overlay border-b border-border/60 bg-[image:var(--gradient-surface)] px-6 py-5">

@@ -58,7 +58,6 @@ export function BoardsPage() {
           <div>
             <div className="flex items-center gap-2">
               <Badge variant="primary">Create board</Badge>
-              <Badge variant="neutral">T-506</Badge>
             </div>
             <h2 className="mt-3 text-h3 text-text">Создать пустую доску</h2>
             <p className="mt-1 text-body-sm text-text-muted">Выберите иконку и цвет, чтобы доска легко отличалась в sidebar и списке.</p>
@@ -113,7 +112,6 @@ export function BoardsPage() {
           <div>
             <div className="flex items-center gap-2">
               <Badge variant="primary">Templates</Badge>
-              <Badge variant="neutral">T-505</Badge>
             </div>
             <h2 className="mt-3 text-h3 text-text">Создать из шаблона</h2>
             <p className="mt-1 text-body-sm text-text-muted">Шаблон создаёт доску с колонками и стартовыми карточками.</p>

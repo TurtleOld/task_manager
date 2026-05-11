@@ -12,6 +12,7 @@ import type {
 import { Button as RawButton } from './button'
 import { Checkbox as RawCheckbox } from './checkbox'
 import { Dialog, DialogContent, DialogTitle } from './dialog'
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { Input } from './input'
 import { Label } from './label'
 import { Skeleton } from './skeleton'
@@ -252,7 +253,7 @@ export function Modal({ children, className, footer, labelledBy, onClose, open, 
         )}
         {hasCustomPadding && (
           <>
-            <DialogTitle id={titleId} className="sr-only">{title}</DialogTitle>
+            <VisuallyHidden><DialogTitle id={titleId}>{title}</DialogTitle></VisuallyHidden>
             {children}
             {footer ? <div className="flex flex-wrap justify-end gap-2 p-4">{footer}</div> : null}
           </>

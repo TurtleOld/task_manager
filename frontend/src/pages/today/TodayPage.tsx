@@ -69,7 +69,6 @@ export function TodayPage() {
         <div className="grid gap-6 p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-7">
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="primary">T-202</Badge>
               <Badge variant="success">Мой день</Badge>
             </div>
             <div>
