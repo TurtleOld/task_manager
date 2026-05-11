@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-from rest_framework import viewsets
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.request import Request
+from rest_framework.response import Response
 
+from ..board_templates import create_board_from_template, list_board_templates
 from ..broadcast import broadcast_board_event
 from ..inbox import create_default_board_columns
 from ..models import Board, NotificationEventType
@@ -19,7 +23,9 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
     def perform_create(self, serializer: BoardSerializer) -> None:
         board = serializer.save()
         create_default_board_columns(board)
+        self._notify_board_created(board)
 
+    def _notify_board_created(self, board: Board) -> None:
         actor = self.request.user if self.request.user.is_authenticated else None
         create_notification_event(
             event_type=NotificationEventType.BOARD_CREATED.value,
@@ -29,6 +35,23 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             payload={"board": board.name},
         )
         broadcast_board_event(board.id, "board.created", {"board": BoardSerializer(board).data})
+
+    @action(detail=False, methods=["get"], url_path="templates")
+    def templates(self, request: Request) -> Response:
+        return Response(list_board_templates())
+
+    @action(detail=False, methods=["post"], url_path="from-template")
+    def from_template(self, request: Request) -> Response:
+        payload = request.data or {}
+        template_id = str(payload.get("template_id", "")).strip()
+        name = str(payload.get("name", "")).strip() or None
+        try:
+            board = create_board_from_template(template_id, name=name)
+        except KeyError:
+            return Response({"detail": "Template not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        self._notify_board_created(board)
+        return Response(BoardSerializer(board).data, status=status.HTTP_201_CREATED)
 
     def perform_update(self, serializer: BoardSerializer) -> None:
         board = serializer.save()

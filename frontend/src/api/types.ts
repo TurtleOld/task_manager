@@ -2,9 +2,18 @@
 export interface Board {
   id: number
   name: string
+  icon: string
+  color: string
   created_at: string
   updated_at: string
   version: number
+}
+
+export interface BoardTemplate {
+  id: string
+  name: string
+  icon: string
+  color: string
 }
 
 export interface Column {

@@ -40,6 +40,8 @@ class TimestampedModel(models.Model):
 
 class Board(TimestampedModel):
     name = models.CharField(max_length=200)
+    icon = models.CharField(max_length=50, blank=True, default="📋")
+    color = models.CharField(max_length=9, blank=True, default="#2563eb")
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

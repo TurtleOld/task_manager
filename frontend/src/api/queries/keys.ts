@@ -1,5 +1,6 @@
 export const queryKeys = {
   boards: () => ['boards'] as const,
+  boardTemplates: () => ['boardTemplates'] as const,
   columns: (boardId: number) => ['columns', boardId] as const,
   cards: (boardId: number) => ['cards', boardId] as const,
   calendarCards: () => ['cards', 'calendar'] as const,

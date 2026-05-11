@@ -1,5 +1,6 @@
 import type {
   Board,
+  BoardTemplate,
   Column,
   Card,
   AuthUser,
@@ -67,17 +68,29 @@ export const api = {
     const res = await fetch(`${V1}/boards/`, { headers: authHeaders() })
     return json(res)
   },
-  createBoard: async (name: string): Promise<Board> => {
+  createBoard: async (payload: { name: string; icon?: string; color?: string }): Promise<Board> => {
     const res = await fetch(`${V1}/boards/`, {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+  listBoardTemplates: async (): Promise<BoardTemplate[]> => {
+    const res = await fetch(`${V1}/boards/templates/`, { headers: authHeaders() })
+    return json(res)
+  },
+  createBoardFromTemplate: async (payload: { template_id: string; name?: string }): Promise<Board> => {
+    const res = await fetch(`${V1}/boards/from-template/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
     })
     return json(res)
   },
   updateBoard: async (
     id: number,
-    payload: Partial<{ name: string }>
+    payload: Partial<{ name: string; icon: string; color: string }>
   ): Promise<Board> => {
     const res = await fetch(`${V1}/boards/${id}/`, {
       method: 'PATCH',

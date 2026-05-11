@@ -164,7 +164,7 @@ export function AppShell({ user, onLogout }: AppShellProps) {
 }
 
 interface ShellSidebarProps {
-  boards: { id: number; name: string }[]
+  boards: { id: number; name: string; icon?: string; color?: string }[]
   boardsLoading: boolean
   collapsed: boolean
   mobile?: boolean
@@ -227,7 +227,13 @@ function ShellSidebar({ boards, boardsLoading, collapsed, mobile = false, onColl
             !collapsed || mobile ? <p className="px-3 text-caption text-text-muted">Пока нет досок</p> : null
           ) : null}
           {boards.map((board) => (
-            <ShellNavItem key={board.id} to={`/boards/${board.id}`} label={board.name} icon={BoardDotIcon} collapsed={collapsed && !mobile} />
+            <ShellNavItem
+              key={board.id}
+              to={`/boards/${board.id}`}
+              label={board.name}
+              icon={(props) => <BoardDotIcon {...props} icon={board.icon} color={board.color} />}
+              collapsed={collapsed && !mobile}
+            />
           ))}
         </NavSection>
       </nav>
@@ -289,8 +295,12 @@ function ShellNavItem({ to, label, icon: Icon, collapsed, end = false }: { to: s
   )
 }
 
-function BoardDotIcon({ className }: { className?: string }) {
-  return <span className={cn('h-2.5 w-2.5 rounded-full bg-accent ring-4 ring-accent/12', className)} aria-hidden="true" />
+function BoardDotIcon({ className, color, icon }: { className?: string; color?: string; icon?: string }) {
+  return icon ? (
+    <span className={cn('text-body-sm', className)} aria-hidden="true">{icon}</span>
+  ) : (
+    <span className={cn('h-2.5 w-2.5 rounded-full ring-4 ring-accent/12', className)} style={{ backgroundColor: color || '#2563eb' }} aria-hidden="true" />
+  )
 }
 
 function BoardsNavSkeleton({ collapsed }: { collapsed: boolean }) {
