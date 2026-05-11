@@ -151,7 +151,7 @@ services:
       [
         "sh",
         "-lc",
-        "npm ci --include=optional --no-audit --no-fund && npm run dev -- --host 0.0.0.0 --port 5173"
+        "npm run dev -- --host 0.0.0.0 --port 5173"
       ]
     environment:
       VITE_API_BASE_URL: /api
@@ -161,8 +161,14 @@ services:
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend:/app
-      - frontend-node-modules:/app/node_modules
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/tailwind.config.cjs:/app/tailwind.config.cjs
+      - ./frontend/postcss.config.cjs:/app/postcss.config.cjs
+      - ./frontend/components.json:/app/components.json
     depends_on:
       backend:
         condition: service_healthy
@@ -171,4 +177,3 @@ services:
 volumes:
   db-data:
   redis-data:
-  frontend-node-modules:
