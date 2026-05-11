@@ -15,6 +15,7 @@ from .views import (
     NotificationProfileView,
     RegisterView,
     RegistrationStatusView,
+    SearchView,
     SiteSettingsView,
     UserAdminViewSet,
 )
@@ -38,6 +39,7 @@ urlpatterns = [
     path("auth/registration-status/", RegistrationStatusView.as_view(), name="registration-status"),
     path("inbox/", InboxView.as_view(), name="inbox"),
     path("notifications/profile/", NotificationProfileView.as_view(), name="notification-profile"),
+    path("search/", SearchView.as_view(), name="search"),
     path("settings/site/", SiteSettingsView.as_view(), name="site-settings"),
 ]
 urlpatterns += router.urls

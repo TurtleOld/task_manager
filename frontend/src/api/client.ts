@@ -15,6 +15,7 @@ import type {
   MyTodayResponse,
   InboxResponse,
   ArchiveResponse,
+  SearchResponse,
 } from './types'
 
 type ViteImportMeta = ImportMeta & {
@@ -270,6 +271,12 @@ export const api = {
   listArchive: async (boardId?: number): Promise<ArchiveResponse> => {
     const query = boardId ? `?board=${boardId}` : ''
     const res = await fetch(`${V1}/archive/${query}`, { headers: authHeaders() })
+    return json(res)
+  },
+
+  search: async (query: string): Promise<SearchResponse> => {
+    const params = new URLSearchParams({ q: query })
+    const res = await fetch(`${V1}/search/?${params.toString()}`, { headers: authHeaders() })
     return json(res)
   },
 

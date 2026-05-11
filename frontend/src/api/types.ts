@@ -81,6 +81,28 @@ export interface ArchiveResponse {
   columns: ArchivedColumn[]
 }
 
+export interface SearchCardResult {
+  id: number
+  title: string
+  description: string
+  board: number
+  board_name: string
+  column: number
+  column_name: string
+  deadline: string | null
+  priority: 0 | 1 | 2 | 3
+}
+
+export interface SearchBoardResult {
+  id: number
+  name: string
+}
+
+export interface SearchResponse {
+  cards: SearchCardResult[]
+  boards: SearchBoardResult[]
+}
+
 export interface AuthUser {
   id: number
   username: string

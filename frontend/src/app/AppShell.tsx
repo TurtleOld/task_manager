@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Bell, CalendarDays, ChevronLeft, Inbox, LayoutDashboard, Menu, Search, Settings, SunMedium, TreePalm, Archive } from 'lucide-react'
 import { useBoards } from '../api/queries/boards'
 import type { AuthUser } from '../api/types'
+import { CommandPalette } from './CommandPalette'
 import { toggleTheme } from './theme'
 import { Button, Skeleton } from '@/components/ui'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
@@ -27,6 +28,7 @@ export function AppShell({ user, onLogout }: AppShellProps) {
   const location = useLocation()
   const { data: boards = [], isLoading: boardsLoading } = useBoards()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [commandOpen, setCommandOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'
@@ -46,6 +48,18 @@ export function AppShell({ user, onLogout }: AppShellProps) {
   useEffect(() => {
     setMobileOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setCommandOpen((open) => !open)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   const boardId = getBoardId(location.pathname)
   const activeBoard = boardId ? boards.find((board) => board.id === boardId) : undefined
@@ -118,6 +132,7 @@ export function AppShell({ user, onLogout }: AppShellProps) {
             <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
+                onClick={() => setCommandOpen(true)}
                 className="hidden min-h-10 items-center gap-2 rounded-control border border-border bg-surface/90 px-3 py-2 text-caption text-text-muted shadow-surface transition hover:border-border-strong hover:bg-surface-hover hover:text-text sm:inline-flex"
                 aria-label="Открыть командную палитру"
               >
@@ -143,6 +158,7 @@ export function AppShell({ user, onLogout }: AppShellProps) {
           <Outlet />
         </main>
       </div>
+      <CommandPalette boards={boards} onLogout={onLogout} open={commandOpen} onOpenChange={setCommandOpen} />
     </div>
   )
 }

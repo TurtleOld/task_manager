@@ -8,6 +8,7 @@ from .cards import CardViewSet
 from .columns import ColumnViewSet
 from .inbox import InboxView
 from .notifications import NotificationPreferenceViewSet, NotificationProfileView
+from .search import SearchView
 from .site_settings import SiteSettingsView
 from .users import IsAdminUser, UserAdminViewSet
 
@@ -24,6 +25,7 @@ __all__ = [
     "NotificationProfileView",
     "RegisterView",
     "RegistrationStatusView",
+    "SearchView",
     "SiteSettingsView",
     "UserAdminViewSet",
 ]
