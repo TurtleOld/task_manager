@@ -17,6 +17,7 @@ import { useCardAttachments } from './useCardAttachments'
 import { useCardLabels } from './useCardLabels'
 import { useCardChecklist } from './useCardChecklist'
 import { useCardSubtasks } from './useCardSubtasks'
+import { useCardRecurrence } from './useCardRecurrence'
 
 interface UseBoardTaskModalOptions {
   boardId: number
@@ -114,6 +115,18 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     subtaskBusy,
     addSubtask,
   } = useCardSubtasks({ selectedCardId, draft, setDraft, profileTimeZone })
+
+  const {
+    recurrenceRule,
+    recurrenceDraft,
+    setRecurrenceDraft,
+    recurrencePreset,
+    recurrenceLoading,
+    recurrenceBusy,
+    recurrenceError,
+    applyRecurrencePreset,
+    saveRecurrence,
+  } = useCardRecurrence({ selectedCardId, selectedCardIsPending, cardDeadline: draft?.deadline ?? '' })
 
   useEffect(() => {
     let mounted = true
@@ -353,8 +366,18 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     const hasPatch = Object.keys(patch).length > 0
     const hasAttachmentOps = pendingUploadFiles.length > 0 || pendingDeleteAttachmentIds.length > 0
     const reminderChanged = reminderData ? JSON.stringify(reminderDrafts) !== JSON.stringify(reminderData.reminders) : reminderDrafts.length > 0
+    const recurrenceChanged = recurrenceRule
+      ? JSON.stringify(recurrenceDraft) !== JSON.stringify({
+        freq: recurrenceRule.freq,
+        interval: recurrenceRule.interval,
+        byweekday: recurrenceRule.byweekday,
+        byday: recurrenceRule.byday,
+        until: recurrenceRule.until,
+        count: recurrenceRule.count,
+      }) || recurrencePreset === 'none'
+      : recurrencePreset !== 'none'
 
-    if (!hasPatch && !hasAttachmentOps && !reminderChanged) {
+    if (!hasPatch && !hasAttachmentOps && !reminderChanged && !recurrenceChanged) {
       setSelectedCard(null)
       setSaveBusy(false)
       saveBusyRef.current = false
@@ -371,6 +394,15 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       if (reminderChanged) {
         const reminderOk = await saveReminder()
         if (!reminderOk) {
+          setSaveBusy(false)
+          saveBusyRef.current = false
+          return false
+        }
+      }
+
+      if (recurrenceChanged) {
+        const recurrenceOk = await saveRecurrence()
+        if (!recurrenceOk) {
           setSaveBusy(false)
           saveBusyRef.current = false
           return false
@@ -422,6 +454,11 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
             changes.push('Напоминания отключены')
             changesMeta.reminders = []
           }
+        }
+
+        if (recurrenceChanged) {
+          changes.push(recurrencePreset === 'none' ? 'Повторение отключено' : 'Повторение обновлено')
+          changesMeta.recurrence = recurrencePreset
         }
 
         await api.notifyCardUpdated(finalCard.id, {
@@ -484,6 +521,14 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     setNewSubtaskTitle,
     subtaskBusy,
     addSubtask,
+    recurrenceRule,
+    recurrenceDraft,
+    setRecurrenceDraft,
+    recurrencePreset,
+    recurrenceLoading,
+    recurrenceBusy,
+    recurrenceError,
+    applyRecurrencePreset,
     selectedAttachments,
     newAttachmentType,
     setNewAttachmentType,

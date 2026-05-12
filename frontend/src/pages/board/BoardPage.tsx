@@ -55,8 +55,8 @@ export function BoardPage({ user }: BoardPageProps) {
 
   const { data: cards = [], isLoading: cardsLoading } = useCards(boardId)
   const { data: columns = [], isLoading: columnsLoading } = useColumns(boardId)
-  const { data: boards = [], isLoading: boardsLoading } = useBoards()
-  const isBoardLoading = cardsLoading || columnsLoading || boardsLoading
+  const { data: boards = [] } = useBoards()
+  const isBoardLoading = cardsLoading || columnsLoading
   const boardName = useMemo(
     () => boards.find((b) => b.id === boardId)?.name ?? '',
     [boards, boardId],
@@ -279,6 +279,8 @@ export function BoardPage({ user }: BoardPageProps) {
       version: 1,
       archived_at: null,
       is_done: false,
+      parent_recurrence: null,
+      recurrence: null,
     }
     queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
       prev ? [...prev, placeholder] : [placeholder],
@@ -677,6 +679,14 @@ export function BoardPage({ user }: BoardPageProps) {
           setNewSubtaskTitle={taskModal.setNewSubtaskTitle}
           subtaskBusy={taskModal.subtaskBusy}
           addSubtask={taskModal.addSubtask}
+          recurrenceRule={taskModal.recurrenceRule}
+          recurrenceDraft={taskModal.recurrenceDraft}
+          setRecurrenceDraft={taskModal.setRecurrenceDraft}
+          recurrencePreset={taskModal.recurrencePreset}
+          recurrenceLoading={taskModal.recurrenceLoading}
+          recurrenceBusy={taskModal.recurrenceBusy}
+          recurrenceError={taskModal.recurrenceError}
+          applyRecurrencePreset={taskModal.applyRecurrencePreset}
           selectedAttachments={taskModal.selectedAttachments}
           newAttachmentType={taskModal.newAttachmentType}
           setNewAttachmentType={taskModal.setNewAttachmentType}

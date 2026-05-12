@@ -1,5 +1,5 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
-import type { Card, CardDeadlineReminder, CardDeadlineReminderResponse } from '../../../../api/types'
+import type { Card, CardDeadlineReminder, CardDeadlineReminderResponse, RecurrenceRule } from '../../../../api/types'
 import type { AssigneeOption, BoardAttachment, BoardCardDraft, BoardChecklistItem, BoardLabel, BoardPriority, BoardSubtask } from '../../types'
 
 export interface TaskModalProps {
@@ -39,6 +39,14 @@ export interface TaskModalProps {
   setNewSubtaskTitle: (value: string) => void
   subtaskBusy: boolean
   addSubtask: () => void
+  recurrenceRule: RecurrenceRule | null
+  recurrenceDraft: Pick<RecurrenceRule, 'freq' | 'interval' | 'byweekday' | 'byday' | 'until' | 'count'>
+  setRecurrenceDraft: Dispatch<SetStateAction<Pick<RecurrenceRule, 'freq' | 'interval' | 'byweekday' | 'byday' | 'until' | 'count'>>>
+  recurrencePreset: 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly'
+  recurrenceLoading: boolean
+  recurrenceBusy: boolean
+  recurrenceError: string
+  applyRecurrencePreset: (preset: 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly') => void
   selectedAttachments: BoardAttachment[]
   newAttachmentType: 'file' | 'link' | 'photo'
   setNewAttachmentType: (value: 'file' | 'link' | 'photo') => void
@@ -97,6 +105,19 @@ export type ChecklistSectionProps = Pick<
 export type SubtasksSectionProps = Pick<
   TaskModalProps,
   'selectedSubtasks' | 'newSubtaskTitle' | 'setNewSubtaskTitle' | 'subtaskBusy' | 'addSubtask' | 'getTimeZoneLabel' | 'profileTimeZone'
+>
+
+export type RecurrenceSectionProps = Pick<
+  TaskModalProps,
+  | 'draft'
+  | 'recurrenceRule'
+  | 'recurrenceDraft'
+  | 'setRecurrenceDraft'
+  | 'recurrencePreset'
+  | 'recurrenceLoading'
+  | 'recurrenceBusy'
+  | 'recurrenceError'
+  | 'applyRecurrencePreset'
 >
 
 export type AttachmentsSectionProps = Pick<

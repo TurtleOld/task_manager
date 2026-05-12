@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from ..models import Card, ChecklistItem, Column, Label
+from ..models import Card, ChecklistItem, Column, Label, RecurrenceFrequency, RecurrenceRule
 
 User = get_user_model()
 
@@ -78,6 +78,71 @@ class ChecklistItemSerializer(serializers.ModelSerializer[ChecklistItem]):
         read_only_fields = ["id"]
 
 
+class RecurrenceRuleSerializer(serializers.ModelSerializer[RecurrenceRule]):
+    class Meta:
+        model = RecurrenceRule
+        fields = [
+            "id",
+            "card",
+            "freq",
+            "interval",
+            "byweekday",
+            "byday",
+            "until",
+            "count",
+            "generated_count",
+            "next_due",
+            "last_generated_at",
+            "created_at",
+            "updated_at",
+            "version",
+        ]
+        read_only_fields = [
+            "id",
+            "card",
+            "generated_count",
+            "last_generated_at",
+            "created_at",
+            "updated_at",
+            "version",
+        ]
+
+    def validate_interval(self, value: int) -> int:
+        if value < 1 or value > 365:
+            raise serializers.ValidationError("Interval must be between 1 and 365.")
+        return value
+
+    def validate_byweekday(self, value: Any) -> list[int]:
+        if value in (None, ""):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("byweekday must be a list.")
+        result: list[int] = []
+        for item in value:
+            try:
+                weekday = int(item)
+            except (TypeError, ValueError) as exc:
+                raise serializers.ValidationError("Weekday must be an integer 0..6.") from exc
+            if weekday < 0 or weekday > 6:
+                raise serializers.ValidationError("Weekday must be an integer 0..6.")
+            if weekday not in result:
+                result.append(weekday)
+        return result
+
+    def validate_byday(self, value: int | None) -> int | None:
+        if value is not None and (value < 1 or value > 31):
+            raise serializers.ValidationError("byday must be between 1 and 31.")
+        return value
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        freq = attrs.get("freq") or getattr(self.instance, "freq", None)
+        if freq not in RecurrenceFrequency.values:
+            raise serializers.ValidationError({"freq": "Unsupported recurrence frequency."})
+        if attrs.get("count") is not None and attrs["count"] < 1:
+            raise serializers.ValidationError({"count": "Count must be positive."})
+        return attrs
+
+
 class CardSerializer(serializers.ModelSerializer[Card]):
     assignee = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
@@ -89,6 +154,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
     checklist = serializers.SerializerMethodField()
     subtasks = serializers.SerializerMethodField()
     is_done = serializers.BooleanField(source="column.is_done", read_only=True)
+    recurrence = serializers.SerializerMethodField()
 
     class Meta:
         model = Card
@@ -113,6 +179,8 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "parent",
             "subtasks",
             "is_done",
+            "parent_recurrence",
+            "recurrence",
         ]
         read_only_fields = [
             "id",
@@ -125,6 +193,8 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "checklist",
             "subtasks",
             "is_done",
+            "parent_recurrence",
+            "recurrence",
         ]
 
     def get_checklist(self, obj: Card) -> list[dict[str, Any]]:
@@ -139,6 +209,12 @@ class CardSerializer(serializers.ModelSerializer[Card]):
         if subtasks is None:
             subtasks = obj.subtasks.order_by("position", "id")
         return CardShallowSerializer(subtasks, many=True, context=self.context).data
+
+    def get_recurrence(self, obj: Card) -> dict[str, Any] | None:
+        rule = getattr(obj, "recurrence_rule", None)
+        if rule is None:
+            return None
+        return RecurrenceRuleSerializer(rule, context=self.context).data
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         column: Column | None = attrs.get("column")

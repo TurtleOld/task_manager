@@ -67,6 +67,25 @@ export interface Card {
   version: number
   archived_at: string | null
   is_done: boolean
+  parent_recurrence: number | null
+  recurrence: RecurrenceRule | null
+}
+
+export interface RecurrenceRule {
+  id: number
+  card: number
+  freq: 'daily' | 'weekly' | 'monthly' | 'yearly'
+  interval: number
+  byweekday: number[]
+  byday: number | null
+  until: string | null
+  count: number | null
+  generated_count: number
+  next_due: string | null
+  last_generated_at: string | null
+  created_at: string
+  updated_at: string
+  version: number
 }
 
 export interface MyTodayCard extends Card {

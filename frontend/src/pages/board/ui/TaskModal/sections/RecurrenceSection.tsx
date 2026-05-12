@@ -1,0 +1,102 @@
+import { Badge, Card as SurfaceCard, Select, Skeleton, TextInput } from '@/components/ui'
+import type { RecurrenceSectionProps } from '../TaskModal.types'
+
+const PRESETS = [
+  ['none', 'Не повторять'],
+  ['daily', 'Каждый день'],
+  ['weekdays', 'По будням'],
+  ['weekly', 'Каждую неделю'],
+  ['monthly', 'Каждый месяц'],
+  ['yearly', 'Каждый год'],
+] as const
+
+export function RecurrenceSection({
+  draft,
+  recurrenceRule,
+  recurrenceDraft,
+  setRecurrenceDraft,
+  recurrencePreset,
+  recurrenceLoading,
+  recurrenceBusy,
+  recurrenceError,
+  applyRecurrencePreset,
+}: RecurrenceSectionProps) {
+  const enabled = recurrencePreset !== 'none'
+
+  return (
+    <SurfaceCard as="section" className="space-y-4">
+      <div>
+        <div className="flex items-center gap-2">
+          <Badge variant="info">Repeat</Badge>
+          <Badge variant={enabled ? 'primary' : 'neutral'}>{enabled ? 'Включено' : 'Выключено'}</Badge>
+        </div>
+        <h3 className="mt-3 text-h3 text-text">Повторение</h3>
+        <p className="mt-1 text-body-sm text-text-muted">Приложение будет создавать следующую такую же задачу по выбранному расписанию. Изменения в этой задаче не затронут уже созданные повторения.</p>
+      </div>
+
+      {recurrenceLoading ? <Skeleton className="h-20 w-full" /> : null}
+      {recurrenceError ? <p className="text-caption text-danger" role="alert">{recurrenceError}</p> : null}
+      {!draft.deadline ? (
+        <div className="rounded-panel border border-dashed border-warning/35 bg-warning/10 px-4 py-3 text-caption text-warning">
+          Для точного расписания задайте срок выполнения. Без срока первая копия будет рассчитана от текущего времени.
+        </div>
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="space-y-1 text-caption text-text-muted">
+          <span>Пресет</span>
+          <Select value={recurrencePreset} onChange={(event) => applyRecurrencePreset(event.target.value as typeof recurrencePreset)} disabled={recurrenceBusy || recurrenceLoading}>
+            {PRESETS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </Select>
+        </label>
+        <label className="space-y-1 text-caption text-text-muted">
+          <span>Повторять каждые</span>
+          <TextInput
+            type="number"
+            min={1}
+            max={365}
+            value={recurrenceDraft.interval}
+            disabled={!enabled || recurrenceBusy || recurrenceLoading}
+            onChange={(event) => setRecurrenceDraft((prev) => ({ ...prev, interval: Math.max(1, Number(event.target.value) || 1) }))}
+          />
+        </label>
+        <label className="space-y-1 text-caption text-text-muted">
+          <span>До даты</span>
+          <TextInput
+            type="date"
+            value={recurrenceDraft.until ?? ''}
+            disabled={!enabled || recurrenceBusy || recurrenceLoading}
+            onChange={(event) => setRecurrenceDraft((prev) => ({ ...prev, until: event.target.value || null }))}
+          />
+        </label>
+        <label className="space-y-1 text-caption text-text-muted">
+          <span>Остановить после</span>
+          <TextInput
+            type="number"
+            min={1}
+            value={recurrenceDraft.count ?? ''}
+            placeholder="Без ограничения"
+            disabled={!enabled || recurrenceBusy || recurrenceLoading}
+            onChange={(event) => setRecurrenceDraft((prev) => ({ ...prev, count: event.target.value ? Math.max(1, Number(event.target.value) || 1) : null }))}
+          />
+        </label>
+      </div>
+
+      {enabled ? <p className="text-caption text-text-muted">Например, значение 2 для «Каждый месяц» означает «раз в два месяца».</p> : null}
+      {recurrenceRule?.next_due ? <p className="text-caption text-text-muted">Следующая задача будет создана: {formatDateTime(recurrenceRule.next_due)}</p> : null}
+      <p className="text-caption text-text-muted">Изменения сохраняются общей кнопкой «Сохранить».</p>
+    </SurfaceCard>
+  )
+}
+
+function formatDateTime(value: string) {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return parsed.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}

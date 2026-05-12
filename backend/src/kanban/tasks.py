@@ -27,6 +27,8 @@ from .models import (
     NotificationEventType,
     NotificationPreference,
     NotificationProfile,
+    RecurrenceFrequency,
+    RecurrenceRule,
     SiteSettings,
 )
 from .reminders import reminder_channel_availability, resolve_delivery_channel
@@ -34,6 +36,47 @@ from .reminders import reminder_channel_availability, resolve_delivery_channel
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
+
+
+def calculate_next_recurrence_due(
+    *,
+    base: datetime,
+    freq: str,
+    interval: int = 1,
+    byweekday: list[int] | None = None,
+    byday: int | None = None,
+) -> datetime:
+    interval = max(1, int(interval or 1))
+    byweekday = sorted(set(int(day) for day in (byweekday or []) if 0 <= int(day) <= 6))
+
+    if freq == RecurrenceFrequency.DAILY:
+        return base + timezone.timedelta(days=interval)
+
+    if freq == RecurrenceFrequency.WEEKLY:
+        if byweekday:
+            for offset in range(1, 8 * interval + 1):
+                candidate = base + timezone.timedelta(days=offset)
+                if candidate.weekday() in byweekday:
+                    return candidate
+        return base + timezone.timedelta(weeks=interval)
+
+    if freq == RecurrenceFrequency.MONTHLY:
+        return _add_months(base, interval, byday or base.day)
+
+    if freq == RecurrenceFrequency.YEARLY:
+        return _add_months(base, 12 * interval, byday or base.day)
+
+    return base + timezone.timedelta(days=interval)
+
+
+def _add_months(value: datetime, months: int, day: int) -> datetime:
+    import calendar
+
+    month_index = value.month - 1 + months
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    max_day = calendar.monthrange(year, month)[1]
+    return value.replace(year=year, month=month, day=min(day, max_day))
 
 
 def _ru_plural(value: int, forms: tuple[str, str, str]) -> str:
@@ -491,6 +534,69 @@ def send_notification_event(self, event_id: int) -> None:
                     delivery.error = str(exc)
                     delivery.save(update_fields=["status", "error"])
                     continue
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=30)
+def generate_recurring_cards(self) -> None:
+    now = timezone.now()
+    rules = (
+        RecurrenceRule.objects.filter(next_due__isnull=False, next_due__lte=now)
+        .select_related("card", "card__column", "card__board", "card__assignee")
+        .order_by("next_due", "id")
+    )
+
+    for rule in rules:
+        card = rule.card
+        if card.archived_at is not None or card.column.archived_at is not None:
+            continue
+        if rule.until is not None and rule.next_due and rule.next_due.date() > rule.until:
+            continue
+        if rule.count is not None and rule.generated_count >= rule.count:
+            continue
+
+        due = rule.next_due or now
+        copy = Card.objects.create(
+            board=card.board,
+            column=card.column,
+            parent=card.parent,
+            assignee=card.assignee,
+            title=card.title,
+            description=card.description,
+            deadline=due if card.deadline else None,
+            priority=card.priority,
+            attachments=list(card.attachments or []),
+            parent_recurrence=rule,
+        )
+        copy.labels.set(card.labels.all())
+
+        rule.generated_count += 1
+        rule.last_generated_at = now
+        next_due = calculate_next_recurrence_due(
+            base=due,
+            freq=rule.freq,
+            interval=rule.interval,
+            byweekday=rule.byweekday,
+            byday=rule.byday,
+        )
+        rule.next_due = next_due
+        if rule.until is not None and next_due.date() > rule.until:
+            rule.next_due = None
+        if rule.count is not None and rule.generated_count >= rule.count:
+            rule.next_due = None
+        rule.save(
+            update_fields=[
+                "generated_count",
+                "last_generated_at",
+                "next_due",
+                "updated_at",
+                "version",
+            ]
+        )
+
+        from .broadcast import broadcast_board_event  # noqa: E402
+        from .serializers import CardSerializer  # noqa: E402
+
+        broadcast_board_event(copy.board_id, "card.created", {"card": CardSerializer(copy).data})
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)

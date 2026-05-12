@@ -16,6 +16,7 @@ from .serializers_pkg import (  # noqa: F401
     NotificationPreferenceSerializer,
     NotificationProfileSerializer,
     PasswordChangeSerializer,
+    RecurrenceRuleSerializer,
     RegisterSerializer,
     SiteSettingsSerializer,
     UserSerializer,

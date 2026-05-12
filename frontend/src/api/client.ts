@@ -18,6 +18,7 @@ import type {
   ArchiveResponse,
   SearchResponse,
   ChecklistItem,
+  RecurrenceRule,
 } from './types'
 
 type ViteImportMeta = ImportMeta & {
@@ -31,24 +32,39 @@ const V1 = `${BASE}/v1`
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const text = await res.text()
-    let detail = text
-    try {
-      const parsed = JSON.parse(text) as { detail?: string }
-      detail = parsed.detail || text
-    } catch {
-      detail = text
-    }
-    throw new Error(detail || `HTTP ${res.status}`)
+    throw new Error(await errorDetail(res))
   }
-  return res.json() as Promise<T>
+  const text = await res.text()
+  if (!text.trim()) return null as T
+  return JSON.parse(text) as T
 }
 
 async function ok(res: Response): Promise<void> {
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`HTTP ${res.status}: ${text}`)
+    throw new Error(await errorDetail(res))
   }
+}
+
+async function errorDetail(res: Response): Promise<string> {
+  const contentType = res.headers.get('content-type') || ''
+  const text = await res.text()
+
+  if (contentType.includes('application/json')) {
+    try {
+      const parsed = JSON.parse(text) as { detail?: string; [key: string]: unknown }
+      if (typeof parsed.detail === 'string' && parsed.detail.trim()) return parsed.detail
+      const firstFieldError = Object.values(parsed).flat().find((item) => typeof item === 'string')
+      if (typeof firstFieldError === 'string' && firstFieldError.trim()) return firstFieldError
+    } catch {
+      // Fall through to generic HTTP message.
+    }
+  }
+
+  if (contentType.includes('text/html') || /^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text)) {
+    return `HTTP ${res.status}: ${res.statusText || 'Ошибка сервера'}`
+  }
+
+  return text.trim() ? `HTTP ${res.status}: ${text}` : `HTTP ${res.status}: ${res.statusText || 'Ошибка сервера'}`
 }
 
 function authHeaders(): HeadersInit {
@@ -456,6 +472,29 @@ export const api = {
   },
   deleteCardDeadlineReminder: async (cardId: number): Promise<void> => {
     const res = await fetch(`${V1}/cards/${cardId}/deadline-reminder/`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    })
+    return ok(res)
+  },
+  getCardRecurrence: async (cardId: number): Promise<RecurrenceRule | null> => {
+    const res = await fetch(`${V1}/cards/${cardId}/recurrence/`, { headers: authHeaders() })
+    if (res.status === 404) return null
+    return json(res)
+  },
+  saveCardRecurrence: async (
+    cardId: number,
+    payload: Pick<RecurrenceRule, 'freq' | 'interval' | 'byweekday' | 'byday' | 'until' | 'count'>
+  ): Promise<RecurrenceRule> => {
+    const res = await fetch(`${V1}/cards/${cardId}/recurrence/`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+  deleteCardRecurrence: async (cardId: number): Promise<void> => {
+    const res = await fetch(`${V1}/cards/${cardId}/recurrence/`, {
       method: 'DELETE',
       headers: authHeaders(),
     })

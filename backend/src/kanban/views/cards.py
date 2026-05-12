@@ -25,16 +25,23 @@ from ..models import (
     ChecklistItem,
     Column,
     NotificationEventType,
+    RecurrenceRule,
 )
 from ..notifications import create_notification_event
 from ..reminders import reminder_channel_availability, upsert_and_schedule_reminder
-from ..serializers import CardDeadlineReminderSerializer, CardSerializer, ChecklistItemSerializer
+from ..serializers import (
+    CardDeadlineReminderSerializer,
+    CardSerializer,
+    ChecklistItemSerializer,
+    RecurrenceRuleSerializer,
+)
 
 CARD_PREFETCH_RELATED = (
     "labels",
     "checklist_items",
     "subtasks__labels",
     "subtasks__checklist_items",
+    "recurrence_rule",
 )
 
 
@@ -47,6 +54,14 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     )
     serializer_class = CardSerializer
     filterset_fields = ["board", "column"]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if self.action == "list" and (
+            self.request.query_params.get("board") or self.request.query_params.get("column")
+        ):
+            return queryset.filter(parent__isnull=True)
+        return queryset
 
     @action(detail=False, methods=["get"], url_path="my-today")
     def my_today(self, request: Request) -> Response:
@@ -294,6 +309,37 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             "card.updated",
             {"card": CardSerializer(parent).data},
         )
+
+    @action(detail=True, methods=["get", "put", "delete"], url_path="recurrence")
+    def recurrence(self, request: Request, pk: str | None = None) -> Response:
+        card = self.get_object()
+
+        if request.method == "GET":
+            rule = getattr(card, "recurrence_rule", None)
+            if rule is None:
+                return Response(None)
+            return Response(RecurrenceRuleSerializer(rule).data)
+
+        if request.method == "DELETE":
+            RecurrenceRule.objects.filter(card=card).delete()
+            self._broadcast_card_with_parent(card, "card.updated")
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        from ..tasks import calculate_next_recurrence_due  # noqa: E402
+
+        rule = getattr(card, "recurrence_rule", None)
+        serializer = RecurrenceRuleSerializer(rule, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        next_due = calculate_next_recurrence_due(
+            base=card.deadline or timezone.now(),
+            freq=serializer.validated_data["freq"],
+            interval=serializer.validated_data.get("interval", 1),
+            byweekday=serializer.validated_data.get("byweekday", []),
+            byday=serializer.validated_data.get("byday"),
+        )
+        saved = serializer.save(card=card, next_due=next_due)
+        self._broadcast_card_with_parent(card, "card.updated")
+        return Response(RecurrenceRuleSerializer(saved).data)
 
     def perform_create(self, serializer: CardSerializer) -> None:
         card = serializer.save()

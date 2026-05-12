@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from .boards import BoardSerializer
-from .cards import CardLabelField, CardSerializer, ChecklistItemSerializer, LabelSerializer
+from .cards import (
+    CardLabelField,
+    CardSerializer,
+    ChecklistItemSerializer,
+    LabelSerializer,
+    RecurrenceRuleSerializer,
+)
 from .columns import ColumnSerializer
 from .notifications import (
     CardDeadlineReminderSerializer,
@@ -32,6 +38,7 @@ __all__ = [
     "NotificationProfileSerializer",
     "PasswordChangeSerializer",
     "PERMISSION_MAP",
+    "RecurrenceRuleSerializer",
     "RegisterSerializer",
     "ROLE_PRESETS",
     "SiteSettingsSerializer",

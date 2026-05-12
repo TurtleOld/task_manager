@@ -118,6 +118,13 @@ class CardPriority(models.IntegerChoices):
     HIGH = 3, "Срочно"
 
 
+class RecurrenceFrequency(models.TextChoices):
+    DAILY = "daily", "Daily"
+    WEEKLY = "weekly", "Weekly"
+    MONTHLY = "monthly", "Monthly"
+    YEARLY = "yearly", "Yearly"
+
+
 class Card(TimestampedModel):
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="cards")
     column = models.ForeignKey(Column, on_delete=models.CASCADE, related_name="cards")
@@ -146,6 +153,13 @@ class Card(TimestampedModel):
     attachments = models.JSONField(default=list, blank=True)
     position = models.DecimalField(max_digits=20, decimal_places=10, default=POSITION_DEFAULT)
     archived_at = models.DateTimeField(null=True, blank=True)
+    parent_recurrence = models.ForeignKey(
+        "RecurrenceRule",
+        on_delete=models.SET_NULL,
+        related_name="generated_cards",
+        null=True,
+        blank=True,
+    )
 
     objects = ActiveCardManager()
     with_archived = models.Manager()
@@ -155,6 +169,7 @@ class Card(TimestampedModel):
         indexes = [
             models.Index(fields=["column", "position"]),
             models.Index(fields=["parent", "position"]),
+            models.Index(fields=["parent_recurrence", "created_at"]),
         ]
 
     def save(self, *args: Any, **kwargs: Any) -> None:
@@ -173,6 +188,29 @@ class Card(TimestampedModel):
             raise ValidationError({"parent": "A card cannot be its own parent."})
         if self.parent and self.parent.parent_id is not None:
             raise ValidationError({"parent": "Only two subtask levels are allowed."})
+
+
+class RecurrenceRule(TimestampedModel):
+    card = models.OneToOneField(Card, on_delete=models.CASCADE, related_name="recurrence_rule")
+    freq = models.CharField(max_length=12, choices=RecurrenceFrequency.choices)
+    interval = models.PositiveIntegerField(default=1)
+    byweekday = models.JSONField(default=list, blank=True)
+    byday = models.PositiveIntegerField(null=True, blank=True)
+    until = models.DateField(null=True, blank=True)
+    count = models.PositiveIntegerField(null=True, blank=True)
+    generated_count = models.PositiveIntegerField(default=0)
+    next_due = models.DateTimeField(null=True, blank=True)
+    last_generated_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["id"]
+        indexes = [
+            models.Index(fields=["next_due"]),
+            models.Index(fields=["freq"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"recurrence:{self.card_id}:{self.freq}"
 
 
 class ChecklistItem(models.Model):

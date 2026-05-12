@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import dj_database_url
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 # Load env vars from repo root `.env` (preferred, used by docker-compose by default).
@@ -158,6 +159,10 @@ CELERY_BEAT_SCHEDULE = {
     "check-overdue-cards": {
         "task": "kanban.tasks.send_overdue_card_reminders",
         "schedule": 60.0,  # runs every minute, task itself reads interval from SiteSettings
+    },
+    "generate-recurring-cards": {
+        "task": "kanban.tasks.generate_recurring_cards",
+        "schedule": crontab(hour=0, minute=5),
     },
 }
 
