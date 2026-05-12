@@ -7,7 +7,16 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from ..models import Card, CardComment, ChecklistItem, Column, Label, RecurrenceFrequency, RecurrenceRule
+from ..models import (
+    Card,
+    CardActivity,
+    CardComment,
+    ChecklistItem,
+    Column,
+    Label,
+    RecurrenceFrequency,
+    RecurrenceRule,
+)
 
 User = get_user_model()
 
@@ -175,6 +184,22 @@ class CardCommentSerializer(serializers.ModelSerializer[CardComment]):
         if len(text) > 5000:
             raise serializers.ValidationError("Comment text is too long.")
         return text
+
+
+class CardActivitySerializer(serializers.ModelSerializer[CardActivity]):
+    actor_name = serializers.SerializerMethodField()
+    actor_username = serializers.CharField(source="actor.username", read_only=True, allow_null=True)
+
+    class Meta:
+        model = CardActivity
+        fields = ["id", "card", "actor", "actor_name", "actor_username", "action", "before", "after", "created_at"]
+        read_only_fields = fields
+
+    def get_actor_name(self, obj: CardActivity) -> str:
+        if obj.actor is None:
+            return "Система"
+        full_name = getattr(obj.actor, "first_name", "") or ""
+        return full_name or obj.actor.username
 
 
 class CardSerializer(serializers.ModelSerializer[Card]):

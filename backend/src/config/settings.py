@@ -164,6 +164,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "kanban.tasks.generate_recurring_cards",
         "schedule": crontab(hour=0, minute=5),
     },
+    "prune-card-activity": {
+        "task": "kanban.tasks.prune_card_activity",
+        "schedule": crontab(hour=0, minute=30, day_of_month="1"),
+    },
 }
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")

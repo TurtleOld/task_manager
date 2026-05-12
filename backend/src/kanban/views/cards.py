@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import timedelta
 from decimal import Decimal
-import re
 from typing import Any
 
 from django.contrib.auth import get_user_model
@@ -22,6 +22,7 @@ from ..broadcast import broadcast_board_event
 from ..models import (
     Board,
     Card,
+    CardActivity,
     CardComment,
     CardDeadlineReminder,
     CardPriority,
@@ -33,6 +34,7 @@ from ..models import (
 from ..notifications import create_notification_event
 from ..reminders import reminder_channel_availability, upsert_and_schedule_reminder
 from ..serializers import (
+    CardActivitySerializer,
     CardCommentSerializer,
     CardDeadlineReminderSerializer,
     CardSerializer,
@@ -403,6 +405,12 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         self._broadcast_comment(card, comment, "comment.updated", request)
         return Response(CardCommentSerializer(comment, context={"request": request}).data)
 
+    @action(detail=True, methods=["get"], url_path="activity")
+    def activity(self, request: Request, pk: str | None = None) -> Response:
+        card = self.get_object()
+        activities = CardActivity.objects.filter(card=card).select_related("actor").order_by("-created_at", "-id")[:30]
+        return Response(CardActivitySerializer(activities, many=True).data)
+
     def _broadcast_comment(
         self,
         card: Card,
@@ -463,6 +471,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         self._broadcast_parent_update(card.parent_id)
 
     def perform_update(self, serializer: CardSerializer) -> None:
+        serializer.instance._activity_actor = self.request.user if self.request.user.is_authenticated else None
         card = serializer.save()
         reminders = CardDeadlineReminder.objects.filter(card_id=card.id, enabled=True)
         for reminder in reminders:
@@ -733,6 +742,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             card.column = target_column
             card.board = target_column.board
             card.position = new_position
+            card._activity_actor = request.user if request.user.is_authenticated else None
             card.save()
 
         card = (

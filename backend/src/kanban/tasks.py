@@ -19,6 +19,7 @@ from django.utils.text import Truncator
 
 from .models import (
     Card,
+    CardActivity,
     CardDeadlineReminder,
     CardDeadlineReminderDelivery,
     NotificationChannel,
@@ -601,6 +602,18 @@ def generate_recurring_cards(self) -> None:
         from .serializers import CardSerializer  # noqa: E402
 
         broadcast_board_event(copy.board_id, "card.created", {"card": CardSerializer(copy).data})
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=30)
+def prune_card_activity(self) -> None:
+    card_ids = CardActivity.objects.order_by().values_list("card_id", flat=True).distinct()
+    for card_id in card_ids:
+        keep_ids = list(
+            CardActivity.objects.filter(card_id=card_id)
+            .order_by("-created_at", "-id")
+            .values_list("id", flat=True)[:30]
+        )
+        CardActivity.objects.filter(card_id=card_id).exclude(id__in=keep_ids).delete()
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .boards import BoardSerializer
 from .cards import (
+    CardActivitySerializer,
     CardCommentSerializer,
     CardLabelField,
     CardSerializer,
@@ -28,6 +29,7 @@ from .users import (
 
 __all__ = [
     "BoardSerializer",
+    "CardActivitySerializer",
     "CardDeadlineReminderSerializer",
     "CardCommentSerializer",
     "CardLabelField",

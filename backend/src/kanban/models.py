@@ -272,6 +272,31 @@ class CardComment(models.Model):
         return f"comment:{self.card_id}:{self.author_id}"
 
 
+class CardActivity(models.Model):
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="activities")
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="card_activities",
+    )
+    action = models.CharField(max_length=50)
+    before = models.JSONField(default=dict, blank=True)
+    after = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["card", "created_at"]),
+            models.Index(fields=["actor", "created_at"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"activity:{self.card_id}:{self.action}"
+
+
 class NotificationProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     email = models.EmailField(blank=True, default="")
