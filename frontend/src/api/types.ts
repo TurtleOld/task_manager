@@ -100,6 +100,18 @@ export interface CardComment {
   can_edit: boolean
 }
 
+export interface CardActivity {
+  id: number
+  card: number
+  actor: number | null
+  actor_name: string
+  actor_username: string | null
+  action: string
+  before: Record<string, unknown>
+  after: Record<string, unknown>
+  created_at: string
+}
+
 export interface MyTodayCard extends Card {
   board_name: string
   column_name: string

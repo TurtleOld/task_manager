@@ -19,6 +19,7 @@ import { useCardChecklist } from './useCardChecklist'
 import { useCardSubtasks } from './useCardSubtasks'
 import { useCardRecurrence } from './useCardRecurrence'
 import { useCardComments } from './useCardComments'
+import { useCardActivity } from './useCardActivity'
 
 interface UseBoardTaskModalOptions {
   boardId: number
@@ -145,6 +146,13 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     saveEditedComment,
     deleteComment,
   } = useCardComments({ selectedCardId, selectedCardIsPending })
+
+  const {
+    activities,
+    activityLoading,
+    activityError,
+    reloadActivity,
+  } = useCardActivity({ selectedCardId, selectedCardIsPending })
 
   useEffect(() => {
     let mounted = true
@@ -561,6 +569,10 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     cancelEditComment,
     saveEditedComment,
     deleteComment,
+    activities,
+    activityLoading,
+    activityError,
+    reloadActivity,
     selectedAttachments,
     newAttachmentType,
     setNewAttachmentType,

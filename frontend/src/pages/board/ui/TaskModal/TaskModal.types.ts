@@ -1,5 +1,5 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
-import type { Card, CardComment, CardDeadlineReminder, CardDeadlineReminderResponse, RecurrenceRule } from '../../../../api/types'
+import type { Card, CardActivity, CardComment, CardDeadlineReminder, CardDeadlineReminderResponse, RecurrenceRule } from '../../../../api/types'
 import type { AssigneeOption, BoardAttachment, BoardCardDraft, BoardChecklistItem, BoardLabel, BoardPriority, BoardSubtask } from '../../types'
 
 export interface TaskModalProps {
@@ -61,6 +61,10 @@ export interface TaskModalProps {
   cancelEditComment: () => void
   saveEditedComment: (commentId: number) => void
   deleteComment: (commentId: number) => void
+  activities: CardActivity[]
+  activityLoading: boolean
+  activityError: string
+  reloadActivity: () => Promise<void>
   selectedAttachments: BoardAttachment[]
   newAttachmentType: 'file' | 'link' | 'photo'
   setNewAttachmentType: (value: 'file' | 'link' | 'photo') => void
@@ -150,6 +154,11 @@ export type CommentsSectionProps = Pick<
   | 'cancelEditComment'
   | 'saveEditedComment'
   | 'deleteComment'
+>
+
+export type ActivitySectionProps = Pick<
+  TaskModalProps,
+  'activities' | 'activityLoading' | 'activityError' | 'reloadActivity'
 >
 
 export type AttachmentsSectionProps = Pick<

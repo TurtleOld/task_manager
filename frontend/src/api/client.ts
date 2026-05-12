@@ -20,6 +20,7 @@ import type {
   ChecklistItem,
   RecurrenceRule,
   CardComment,
+  CardActivity,
 } from './types'
 
 type ViteImportMeta = ImportMeta & {
@@ -527,6 +528,10 @@ export const api = {
       headers: authHeaders(),
     })
     return ok(res)
+  },
+  listCardActivity: async (cardId: number): Promise<CardActivity[]> => {
+    const res = await fetch(`${V1}/cards/${cardId}/activity/`, { headers: authHeaders() })
+    return json(res)
   },
   listNotificationPreferences: async (boardId?: number): Promise<NotificationPreference[]> => {
     const query = boardId ? `?board=${boardId}` : ''

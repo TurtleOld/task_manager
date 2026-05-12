@@ -703,6 +703,10 @@ export function BoardPage({ user }: BoardPageProps) {
           cancelEditComment={taskModal.cancelEditComment}
           saveEditedComment={taskModal.saveEditedComment}
           deleteComment={taskModal.deleteComment}
+          activities={taskModal.activities}
+          activityLoading={taskModal.activityLoading}
+          activityError={taskModal.activityError}
+          reloadActivity={taskModal.reloadActivity}
           selectedAttachments={taskModal.selectedAttachments}
           newAttachmentType={taskModal.newAttachmentType}
           setNewAttachmentType={taskModal.setNewAttachmentType}
