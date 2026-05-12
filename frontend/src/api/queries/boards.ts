@@ -10,10 +10,11 @@ export function useBoards() {
   })
 }
 
-export function useBoardTemplates() {
+export function useBoardTemplates(options?: { enabled?: boolean }) {
   return useQuery<BoardTemplate[]>({
     queryKey: queryKeys.boardTemplates(),
     queryFn: () => api.listBoardTemplates(),
+    enabled: options?.enabled ?? true,
   })
 }
 

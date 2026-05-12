@@ -8,7 +8,8 @@ const BOARD_COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed', '#0
 
 export function BoardsPage() {
   const { data: boards = [], isLoading } = useBoards()
-  const { data: templates = [], isLoading: templatesLoading } = useBoardTemplates()
+  const [createPanelOpen, setCreatePanelOpen] = useState(false)
+  const { data: templates = [], isLoading: templatesLoading } = useBoardTemplates({ enabled: createPanelOpen })
   const createBoardMutation = useCreateBoard()
   const createFromTemplateMutation = useCreateBoardFromTemplate()
   const [name, setName] = useState('')
@@ -53,7 +54,7 @@ export function BoardsPage() {
         </div>
       </header>
 
-      <details className="group rounded-[1.35rem] border border-border/80 bg-[image:var(--gradient-surface)] shadow-surface backdrop-blur">
+      <details className="group rounded-[1.35rem] border border-border/80 bg-[image:var(--gradient-surface)] shadow-surface backdrop-blur" onToggle={(event) => setCreatePanelOpen(event.currentTarget.open)}>
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:hidden [&::-webkit-details-marker]:hidden">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">

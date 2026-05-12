@@ -1,19 +1,20 @@
-import { useEffect } from 'react'
+import { lazy, useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import OneSignal from 'react-onesignal'
 import { AppShell } from './app/AppShell'
 import { ProtectedRoute } from './app/ProtectedRoute'
 import { registerOneSignalPlayerId } from './app/auth'
-import { ArchivePage } from './pages/archive/ArchivePage'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
-import { BoardPage } from './pages/board/BoardPage'
-import { BoardsPage } from './pages/boards/BoardsPage'
-import { CalendarPage } from './pages/calendar/CalendarPage'
-import { InboxPage } from './pages/inbox/InboxPage'
 import { SettingsPage } from './pages/settings/SettingsPage'
-import { TodayPage } from './pages/today/TodayPage'
 import { useAuthState } from './shared/hooks/useAuthState'
+
+const ArchivePage = lazy(() => import('./pages/archive/ArchivePage').then((module) => ({ default: module.ArchivePage })))
+const BoardPage = lazy(() => import('./pages/board/BoardPage').then((module) => ({ default: module.BoardPage })))
+const BoardsPage = lazy(() => import('./pages/boards/BoardsPage').then((module) => ({ default: module.BoardsPage })))
+const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage').then((module) => ({ default: module.CalendarPage })))
+const InboxPage = lazy(() => import('./pages/inbox/InboxPage').then((module) => ({ default: module.InboxPage })))
+const TodayPage = lazy(() => import('./pages/today/TodayPage').then((module) => ({ default: module.TodayPage })))
 
 export default function App() {
   const { user, token, login, logout, updateUser } = useAuthState()

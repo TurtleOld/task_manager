@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import type { ComponentType, ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Bell, CalendarDays, ChevronLeft, Inbox, LayoutDashboard, Menu, Search, Settings, SunMedium, TreePalm, Archive } from 'lucide-react'
@@ -155,7 +155,9 @@ export function AppShell({ user, onLogout }: AppShellProps) {
         </header>
 
         <main>
-          <Outlet />
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <CommandPalette boards={boards} onLogout={onLogout} open={commandOpen} onOpenChange={setCommandOpen} />
