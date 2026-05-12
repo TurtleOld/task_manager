@@ -17,9 +17,13 @@ class ActiveColumnManager(models.Manager["Column"]):
 
 class ActiveCardManager(models.Manager["Card"]):
     def get_queryset(self) -> models.QuerySet["Card"]:
-        return super().get_queryset().filter(
-            archived_at__isnull=True,
-            column__archived_at__isnull=True,
+        return (
+            super()
+            .get_queryset()
+            .filter(
+                archived_at__isnull=True,
+                column__archived_at__isnull=True,
+            )
         )
 
 

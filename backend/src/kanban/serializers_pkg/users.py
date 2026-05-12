@@ -30,14 +30,25 @@ PERMISSION_MAP: dict[str, tuple[str, str]] = {
 ROLE_PRESETS: dict[str, list[str]] = {
     "admin": list(PERMISSION_MAP.keys()),
     "manager": [
-        "boards:view", "boards:add", "boards:edit",
-        "columns:view", "columns:add", "columns:edit",
-        "cards:view", "cards:add", "cards:edit", "cards:delete",
+        "boards:view",
+        "boards:add",
+        "boards:edit",
+        "columns:view",
+        "columns:add",
+        "columns:edit",
+        "cards:view",
+        "cards:add",
+        "cards:edit",
+        "cards:delete",
     ],
     "editor": [
         "boards:view",
-        "columns:view", "columns:add", "columns:edit",
-        "cards:view", "cards:add", "cards:edit",
+        "columns:view",
+        "columns:add",
+        "columns:edit",
+        "cards:view",
+        "cards:add",
+        "cards:edit",
     ],
     "viewer": ["boards:view", "columns:view", "cards:view"],
 }
@@ -60,15 +71,24 @@ class UserSerializer(serializers.ModelSerializer[AbstractUser]):
         return "owner" if (obj.is_superuser or obj.is_staff) else "member"
 
     def get_permissions(self, obj: AbstractUser) -> list[str]:
-        return sorted([
-            key for key, pair in PERMISSION_MAP.items()
-            if obj.user_permissions.filter(content_type__app_label=pair[0], codename=pair[1]).exists()
-        ])
+        return sorted(
+            [
+                key
+                for key, pair in PERMISSION_MAP.items()
+                if obj.user_permissions.filter(
+                    content_type__app_label=pair[0],
+                    codename=pair[1],
+                ).exists()
+            ]
+        )
 
 
 class UserUpdateSerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    role = serializers.ChoiceField(choices=[("owner", "owner"), ("member", "member")], required=False)
+    role = serializers.ChoiceField(
+        choices=[("owner", "owner"), ("member", "member")],
+        required=False,
+    )
 
     def update(self, instance: AbstractUser, validated_data: dict[str, Any]) -> AbstractUser:
         full_name = validated_data.get("full_name")
@@ -111,7 +131,11 @@ class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True)
     full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    role = serializers.ChoiceField(choices=[("owner", "owner"), ("member", "member")], default="member", required=False)
+    role = serializers.ChoiceField(
+        choices=[("owner", "owner"), ("member", "member")],
+        default="member",
+        required=False,
+    )
 
     def validate_username(self, value: str) -> str:
         if User.objects.filter(username=value).exists():

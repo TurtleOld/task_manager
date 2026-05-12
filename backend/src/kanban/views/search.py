@@ -38,10 +38,12 @@ class SearchView(APIView):
             .order_by("deadline", "position", "id")[:12]
         )
 
-        return Response({
-            "cards": [self._card_result(card) for card in cards],
-            "boards": [self._board_result(board) for board in boards],
-        })
+        return Response(
+            {
+                "cards": [self._card_result(card) for card in cards],
+                "boards": [self._board_result(board) for board in boards],
+            }
+        )
 
     def _card_result(self, card: Card) -> dict[str, Any]:
         return {

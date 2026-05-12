@@ -1,6 +1,9 @@
 line-length = 100
 target-version = "py313"
+extend-exclude = [
+    "src/kanban/migrations/0023_drop_board_notification_contacts.py",
+    "src/kanban/migrations/0029_board_archive.py",
+]
 
 [lint]
 select = ["E", "F", "I"]
-

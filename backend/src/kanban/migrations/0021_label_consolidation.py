@@ -60,7 +60,6 @@ def merge_tags_and_categories_into_labels(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("kanban", "0020_card_priority_int"),
     ]
@@ -80,9 +79,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "created_at",
-                    models.DateTimeField(
-                        default=django.utils.timezone.now, editable=False
-                    ),
+                    models.DateTimeField(default=django.utils.timezone.now, editable=False),
                 ),
                 ("updated_at", models.DateTimeField(auto_now=True)),
                 ("version", models.PositiveIntegerField(default=1)),
@@ -96,9 +93,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="card",
             name="labels",
-            field=models.ManyToManyField(
-                blank=True, related_name="cards", to="kanban.label"
-            ),
+            field=models.ManyToManyField(blank=True, related_name="cards", to="kanban.label"),
         ),
         migrations.RunPython(
             merge_tags_and_categories_into_labels,

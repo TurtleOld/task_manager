@@ -16,10 +16,20 @@ from ..models import (
 class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProfile]):
     class Meta:
         model = NotificationProfile
-        fields = ["email", "telegram_chat_id", "onesignal_player_id", "timezone", "timezone_configured"]
+        fields = [
+            "email",
+            "telegram_chat_id",
+            "onesignal_player_id",
+            "timezone",
+            "timezone_configured",
+        ]
         read_only_fields = ["timezone_configured"]
 
-    def update(self, instance: NotificationProfile, validated_data: dict[str, Any]) -> NotificationProfile:
+    def update(
+        self,
+        instance: NotificationProfile,
+        validated_data: dict[str, Any],
+    ) -> NotificationProfile:
         update_fields: list[str] = []
         email = validated_data.get("email")
         if email is not None:
@@ -57,8 +67,16 @@ class CardDeadlineReminderSerializer(serializers.ModelSerializer[CardDeadlineRem
     class Meta:
         model = CardDeadlineReminder
         fields = [
-            "id", "order", "enabled", "offset_value", "offset_unit",
-            "channel", "scheduled_at", "status", "last_error", "sent_at",
+            "id",
+            "order",
+            "enabled",
+            "offset_value",
+            "offset_unit",
+            "channel",
+            "scheduled_at",
+            "status",
+            "last_error",
+            "sent_at",
         ]
         read_only_fields = ["id", "scheduled_at", "status", "last_error", "sent_at"]
 
@@ -73,11 +91,17 @@ class CardDeadlineReminderSerializer(serializers.ModelSerializer[CardDeadlineRem
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         unit = attrs.get("offset_unit")
-        if unit and unit not in {CardDeadlineReminder.Unit.MINUTES, CardDeadlineReminder.Unit.HOURS}:
+        if unit and unit not in {
+            CardDeadlineReminder.Unit.MINUTES,
+            CardDeadlineReminder.Unit.HOURS,
+        }:
             raise serializers.ValidationError({"offset_unit": "Некорректная единица"})
 
         channel = attrs.get("channel")
-        if channel is not None and channel not in {NotificationChannel.EMAIL, NotificationChannel.TELEGRAM}:
+        if channel is not None and channel not in {
+            NotificationChannel.EMAIL,
+            NotificationChannel.TELEGRAM,
+        }:
             raise serializers.ValidationError({"channel": "Некорректный канал"})
 
         if self.instance is not None:

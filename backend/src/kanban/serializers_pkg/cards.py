@@ -14,8 +14,14 @@ User = get_user_model()
 
 def _hash_color(name: str) -> str:
     palette = [
-        "#3b82f6", "#10b981", "#f59e0b", "#ef4444",
-        "#8b5cf6", "#ec4899", "#14b8a6", "#f97316",
+        "#3b82f6",
+        "#10b981",
+        "#f59e0b",
+        "#ef4444",
+        "#8b5cf6",
+        "#ec4899",
+        "#14b8a6",
+        "#f97316",
     ]
     digest = sum(ord(c) for c in name)
     return palette[digest % len(palette)]
@@ -87,14 +93,38 @@ class CardSerializer(serializers.ModelSerializer[Card]):
     class Meta:
         model = Card
         fields = [
-            "id", "board", "column", "assignee", "title", "description",
-            "deadline", "priority", "priority_label", "labels",
-            "checklist", "attachments", "position", "created_at", "updated_at", "version",
-            "archived_at", "parent", "subtasks", "is_done",
+            "id",
+            "board",
+            "column",
+            "assignee",
+            "title",
+            "description",
+            "deadline",
+            "priority",
+            "priority_label",
+            "labels",
+            "checklist",
+            "attachments",
+            "position",
+            "created_at",
+            "updated_at",
+            "version",
+            "archived_at",
+            "parent",
+            "subtasks",
+            "is_done",
         ]
         read_only_fields = [
-            "id", "created_at", "updated_at", "version", "board", "priority_label",
-            "archived_at", "checklist", "subtasks", "is_done",
+            "id",
+            "created_at",
+            "updated_at",
+            "version",
+            "board",
+            "priority_label",
+            "archived_at",
+            "checklist",
+            "subtasks",
+            "is_done",
         ]
 
     def get_checklist(self, obj: Card) -> list[dict[str, Any]]:
@@ -121,10 +151,14 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             if instance is not None and parent.pk == instance.pk:
                 raise serializers.ValidationError({"parent": "A card cannot be its own parent."})
             if parent.parent_id is not None:
-                raise serializers.ValidationError({"parent": "Only two subtask levels are allowed."})
+                raise serializers.ValidationError(
+                    {"parent": "Only two subtask levels are allowed."}
+                )
             target_column = column or getattr(instance, "column", None)
             if target_column is not None and parent.board_id != target_column.board_id:
-                raise serializers.ValidationError({"parent": "Subtask must belong to the same board."})
+                raise serializers.ValidationError(
+                    {"parent": "Subtask must belong to the same board."}
+                )
         return attrs
 
     def create(self, validated_data: dict[str, Any]) -> Card:

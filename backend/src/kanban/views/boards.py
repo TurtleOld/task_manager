@@ -71,7 +71,6 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         summary = f"Удалена доска «{instance.name}»"
         payload = {"board": instance.name}
         board_id = instance.id
-        board = instance
         instance.delete()
         create_notification_event(
             event_type=NotificationEventType.BOARD_DELETED.value,

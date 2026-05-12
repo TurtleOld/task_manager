@@ -30,11 +30,18 @@ from ..notifications import create_notification_event
 from ..reminders import reminder_channel_availability, upsert_and_schedule_reminder
 from ..serializers import CardDeadlineReminderSerializer, CardSerializer, ChecklistItemSerializer
 
+CARD_PREFETCH_RELATED = (
+    "labels",
+    "checklist_items",
+    "subtasks__labels",
+    "subtasks__checklist_items",
+)
+
 
 class CardViewSet(viewsets.ModelViewSet[Card]):
     queryset = (
         Card.objects.select_related("board", "column")
-        .prefetch_related("labels", "checklist_items", "subtasks__labels", "subtasks__checklist_items")
+        .prefetch_related(*CARD_PREFETCH_RELATED)
         .all()
         .order_by("position", "id")
     )
@@ -49,7 +56,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         base = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("labels", "checklist_items", "subtasks__labels", "subtasks__checklist_items")
+            .prefetch_related(*CARD_PREFETCH_RELATED)
             .exclude(
                 Q(column__is_done=True)
                 | Q(column__name__iexact="Done")
@@ -90,11 +97,13 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 result.append(data)
             return result
 
-        return Response({
-            "overdue": serialize(overdue_cards),
-            "today": serialize(today_cards),
-            "important": serialize(important_cards),
-        })
+        return Response(
+            {
+                "overdue": serialize(overdue_cards),
+                "today": serialize(today_cards),
+                "important": serialize(important_cards),
+            }
+        )
 
     @action(
         detail=True,
@@ -127,15 +136,17 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 storage_path = f"cards/{card.id}/{attachment_id}-{safe_name}"
                 saved_path = default_storage.save(storage_path, f)
                 url = default_storage.url(saved_path)
-                existing.append({
-                    "id": attachment_id,
-                    "name": safe_name,
-                    "type": "file",
-                    "url": url,
-                    "mimeType": getattr(f, "content_type", ""),
-                    "size": getattr(f, "size", None),
-                    "path": saved_path,
-                })
+                existing.append(
+                    {
+                        "id": attachment_id,
+                        "name": safe_name,
+                        "type": "file",
+                        "url": url,
+                        "mimeType": getattr(f, "content_type", ""),
+                        "size": getattr(f, "size", None),
+                        "path": saved_path,
+                    }
+                )
 
             card.attachments = existing
             card.save(update_fields=["attachments"])
@@ -237,7 +248,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     def _broadcast_checklist_update(self, card: Card) -> None:
         card = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("labels", "checklist_items", "subtasks__labels", "subtasks__checklist_items")
+            .prefetch_related(*CARD_PREFETCH_RELATED)
             .get(pk=card.pk)
         )
         broadcast_board_event(card.board_id, "card.updated", {"card": CardSerializer(card).data})
@@ -247,7 +258,9 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         parent = self.get_object()
 
         if request.method == "GET":
-            cards = self._card_queryset_for_payload().filter(parent=parent).order_by("position", "id")
+            cards = (
+                self._card_queryset_for_payload().filter(parent=parent).order_by("position", "id")
+            )
             return Response(self.get_serializer(cards, many=True).data)
 
         payload = dict(request.data or {})
@@ -262,7 +275,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
     def _card_queryset_for_payload(self):
         return Card.objects.select_related("board", "column").prefetch_related(
-            "labels", "checklist_items", "subtasks__labels", "subtasks__checklist_items",
+            *CARD_PREFETCH_RELATED,
         )
 
     def _broadcast_card_with_parent(self, card: Card, event_type: str) -> None:
@@ -276,7 +289,11 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             parent = self._card_queryset_for_payload().get(pk=parent_id)
         except Card.DoesNotExist:
             return
-        broadcast_board_event(parent.board_id, "card.updated", {"card": CardSerializer(parent).data})
+        broadcast_board_event(
+            parent.board_id,
+            "card.updated",
+            {"card": CardSerializer(parent).data},
+        )
 
     def perform_create(self, serializer: CardSerializer) -> None:
         card = serializer.save()
@@ -292,7 +309,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         )
         card = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("labels", "checklist_items", "subtasks__labels", "subtasks__checklist_items")
+            .prefetch_related(*CARD_PREFETCH_RELATED)
             .get(pk=card.pk)
         )
         broadcast_board_event(card.board_id, "card.created", {"card": CardSerializer(card).data})
@@ -305,7 +322,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             upsert_and_schedule_reminder(card=card, reminder=reminder)
         card = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("labels", "checklist_items", "subtasks__labels", "subtasks__checklist_items")
+            .prefetch_related(*CARD_PREFETCH_RELATED)
             .get(pk=card.pk)
         )
         broadcast_board_event(card.board_id, "card.updated", {"card": CardSerializer(card).data})
@@ -324,7 +341,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         try:
             card = (
                 Card.with_archived.select_related("board", "column")
-                .prefetch_related("labels", "checklist_items", "subtasks__labels", "subtasks__checklist_items")
+                .prefetch_related(*CARD_PREFETCH_RELATED)
                 .get(pk=pk)
             )
         except Card.DoesNotExist:
@@ -341,7 +358,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             card.save(update_fields=["archived_at", "updated_at", "version"])
             card = (
                 Card.objects.select_related("board", "column")
-                .prefetch_related("labels", "checklist_items", "subtasks__labels", "subtasks__checklist_items")
+                .prefetch_related(*CARD_PREFETCH_RELATED)
                 .get(pk=card.pk)
             )
 
@@ -368,20 +385,22 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 board_id=card.board_id,
                 event_type="card.deadline_reminder",
             )
-            return Response({
-                "reminders": CardDeadlineReminderSerializer(reminders, many=True).data,
-                "channels": {
-                    "email": {
-                        "available": availability["email"].available,
-                        "reason": availability["email"].reason,
+            return Response(
+                {
+                    "reminders": CardDeadlineReminderSerializer(reminders, many=True).data,
+                    "channels": {
+                        "email": {
+                            "available": availability["email"].available,
+                            "reason": availability["email"].reason,
+                        },
+                        "telegram": {
+                            "available": availability["telegram"].available,
+                            "reason": availability["telegram"].reason,
+                        },
                     },
-                    "telegram": {
-                        "available": availability["telegram"].available,
-                        "reason": availability["telegram"].reason,
-                    },
-                },
-                "deadline": card.deadline,
-            })
+                    "deadline": card.deadline,
+                }
+            )
 
         if request.method == "DELETE":
             CardDeadlineReminder.objects.filter(card_id=card.id, user_id=request.user.id).delete()
@@ -571,7 +590,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         card = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("labels", "checklist_items", "subtasks__labels", "subtasks__checklist_items")
+            .prefetch_related(*CARD_PREFETCH_RELATED)
             .get(pk=card.pk)
         )
         serializer = self.get_serializer(card)

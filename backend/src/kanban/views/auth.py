@@ -57,17 +57,22 @@ class LoginView(APIView):
             return Response({"detail": "Username and password required"}, status=400)
         user = authenticate(request, username=username, password=password)
         if user is None:
-            return Response({"detail": "Неверный логин или пароль"}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {"detail": "Неверный логин или пароль"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
         token, _ = Token.objects.get_or_create(user=user)
         is_owner = user.is_staff or user.is_superuser
-        return Response({
-            "id": user.id,
-            "username": user.username,
-            "full_name": user.first_name,
-            "is_admin": is_owner,
-            "role": "owner" if is_owner else "member",
-            "token": token.key,
-        })
+        return Response(
+            {
+                "id": user.id,
+                "username": user.username,
+                "full_name": user.first_name,
+                "is_admin": is_owner,
+                "role": "owner" if is_owner else "member",
+                "token": token.key,
+            }
+        )
 
 
 class CurrentUserView(APIView):
@@ -90,8 +95,10 @@ class RegistrationStatusView(APIView):
         user_count = User.objects.count()
         requester = request.user
         allow_admin = not isinstance(requester, AnonymousUser) and requester.is_staff
-        return Response({
-            "user_count": user_count,
-            "allow_first": user_count == 0,
-            "allow_admin": allow_admin,
-        })
+        return Response(
+            {
+                "user_count": user_count,
+                "allow_first": user_count == 0,
+                "allow_admin": allow_admin,
+            }
+        )

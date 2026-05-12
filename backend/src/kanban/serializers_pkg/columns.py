@@ -12,11 +12,26 @@ class ColumnSerializer(serializers.ModelSerializer[Column]):
     class Meta:
         model = Column
         fields = [
-            "id", "board", "name", "icon", "position",
-            "is_default", "is_done", "created_at", "updated_at", "version", "archived_at",
+            "id",
+            "board",
+            "name",
+            "icon",
+            "position",
+            "is_default",
+            "is_done",
+            "created_at",
+            "updated_at",
+            "version",
+            "archived_at",
         ]
         read_only_fields = [
-            "id", "is_default", "is_done", "created_at", "updated_at", "version", "archived_at",
+            "id",
+            "is_default",
+            "is_done",
+            "created_at",
+            "updated_at",
+            "version",
+            "archived_at",
         ]
 
     def create(self, validated_data: dict[str, Any]) -> Column:

@@ -33,11 +33,13 @@ class ArchiveView(APIView):
         archived_columns = list(columns.order_by("-archived_at", "id"))
         archived_boards = list(boards.order_by("-archived_at", "id"))
 
-        return Response({
-            "cards": self._serialize_cards(archived_cards),
-            "columns": self._serialize_columns(archived_columns),
-            "boards": BoardSerializer(archived_boards, many=True).data,
-        })
+        return Response(
+            {
+                "cards": self._serialize_cards(archived_cards),
+                "columns": self._serialize_columns(archived_columns),
+                "boards": BoardSerializer(archived_boards, many=True).data,
+            }
+        )
 
     def _serialize_cards(self, cards: list[Card]) -> list[dict[str, Any]]:
         payload = CardSerializer(cards, many=True).data

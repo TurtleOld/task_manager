@@ -1,9 +1,8 @@
-from django.db import migrations, models
 import django.db.models.deletion
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("kanban", "0029_board_archive"),
     ]
@@ -22,6 +21,9 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="card",
-            index=models.Index(fields=["parent", "position"], name="kanban_card_parent__5f29f0_idx"),
+            index=models.Index(
+                fields=["parent", "position"],
+                name="kanban_card_parent__5f29f0_idx",
+            ),
         ),
     ]
