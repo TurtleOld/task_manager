@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from ..models import Card, ChecklistItem, Column, Label, RecurrenceFrequency, RecurrenceRule
+from ..models import Card, CardComment, ChecklistItem, Column, Label, RecurrenceFrequency, RecurrenceRule
 
 User = get_user_model()
 
@@ -141,6 +141,40 @@ class RecurrenceRuleSerializer(serializers.ModelSerializer[RecurrenceRule]):
         if attrs.get("count") is not None and attrs["count"] < 1:
             raise serializers.ValidationError({"count": "Count must be positive."})
         return attrs
+
+
+class CardCommentSerializer(serializers.ModelSerializer[CardComment]):
+    author_name = serializers.SerializerMethodField()
+    author_username = serializers.CharField(source="author.username", read_only=True)
+    can_edit = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CardComment
+        fields = [
+            "id", "card", "author", "author_name", "author_username", "text",
+            "created_at", "edited_at", "can_edit",
+        ]
+        read_only_fields = [
+            "id", "card", "author", "author_name", "author_username",
+            "created_at", "edited_at", "can_edit",
+        ]
+
+    def get_author_name(self, obj: CardComment) -> str:
+        full_name = getattr(obj.author, "first_name", "") or ""
+        return full_name or obj.author.username
+
+    def get_can_edit(self, obj: CardComment) -> bool:
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        return bool(user and user.is_authenticated and obj.author_id == user.id)
+
+    def validate_text(self, value: str) -> str:
+        text = value.strip()
+        if not text:
+            raise serializers.ValidationError("Comment text cannot be empty.")
+        if len(text) > 5000:
+            raise serializers.ValidationError("Comment text is too long.")
+        return text
 
 
 class CardSerializer(serializers.ModelSerializer[Card]):

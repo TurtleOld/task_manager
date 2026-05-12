@@ -3,8 +3,10 @@ from __future__ import annotations
 import uuid
 from datetime import timedelta
 from decimal import Decimal
+import re
 from typing import Any
 
+from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Q
@@ -20,6 +22,7 @@ from ..broadcast import broadcast_board_event
 from ..models import (
     Board,
     Card,
+    CardComment,
     CardDeadlineReminder,
     CardPriority,
     ChecklistItem,
@@ -30,11 +33,14 @@ from ..models import (
 from ..notifications import create_notification_event
 from ..reminders import reminder_channel_availability, upsert_and_schedule_reminder
 from ..serializers import (
+    CardCommentSerializer,
     CardDeadlineReminderSerializer,
     CardSerializer,
     ChecklistItemSerializer,
     RecurrenceRuleSerializer,
 )
+
+User = get_user_model()
 
 CARD_PREFETCH_RELATED = (
     "labels",
@@ -340,6 +346,101 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         saved = serializer.save(card=card, next_due=next_due)
         self._broadcast_card_with_parent(card, "card.updated")
         return Response(RecurrenceRuleSerializer(saved).data)
+
+    @action(detail=True, methods=["get", "post"], url_path="comments")
+    def comments(self, request: Request, pk: str | None = None) -> Response:
+        card = self.get_object()
+
+        if request.method == "GET":
+            comments = CardComment.objects.filter(card=card).select_related("author")
+            return Response(CardCommentSerializer(comments, many=True, context={"request": request}).data)
+
+        if not request.user or not request.user.is_authenticated:
+            return Response({"detail": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = CardCommentSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        comment = serializer.save(card=card, author=request.user)
+        self._broadcast_comment(card, comment, "comment.created", request)
+        self._notify_comment_mentions(card, comment)
+        return Response(
+            CardCommentSerializer(comment, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(
+        detail=True,
+        methods=["patch", "delete"],
+        url_path=r"comments/(?P<comment_id>[0-9]+)",
+    )
+    def comment_item(
+        self,
+        request: Request,
+        pk: str | None = None,
+        comment_id: str | None = None,
+    ) -> Response:
+        card = self.get_object()
+        try:
+            comment = CardComment.objects.select_related("author").get(
+                id=int(comment_id or 0),
+                card=card,
+            )
+        except CardComment.DoesNotExist:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if not request.user or not request.user.is_authenticated or comment.author_id != request.user.id:
+            return Response({"detail": "Only the author can edit this comment"}, status=status.HTTP_403_FORBIDDEN)
+
+        if request.method == "DELETE":
+            comment_id_int = comment.id
+            comment.delete()
+            broadcast_board_event(card.board_id, "comment.deleted", {"card_id": card.id, "comment_id": comment_id_int})
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        serializer = CardCommentSerializer(comment, data=request.data, partial=True, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        comment = serializer.save(edited_at=timezone.now())
+        self._broadcast_comment(card, comment, "comment.updated", request)
+        return Response(CardCommentSerializer(comment, context={"request": request}).data)
+
+    def _broadcast_comment(
+        self,
+        card: Card,
+        comment: CardComment,
+        event_type: str,
+        request: Request,
+    ) -> None:
+        broadcast_board_event(
+            card.board_id,
+            event_type,
+            {
+                "card_id": card.id,
+                "comment": CardCommentSerializer(comment, context={"request": request}).data,
+            },
+        )
+
+    def _notify_comment_mentions(self, card: Card, comment: CardComment) -> None:
+        usernames = {item.lower() for item in re.findall(r"@([\w.@+-]+)", comment.text)}
+        if not usernames:
+            return
+        mentioned_users = User.objects.filter(username__in=usernames).exclude(id=comment.author_id)
+        if not mentioned_users.exists():
+            return
+        create_notification_event(
+            event_type=NotificationEventType.COMMENT_CREATED.value,
+            actor=comment.author,
+            board=card.board,
+            column=card.column,
+            card=card,
+            summary=f"Новый комментарий с упоминанием в задаче «{card.title}»",
+            payload={
+                "board": card.board.name,
+                "column": card.column.name,
+                "card": card.title,
+                "comment": comment.text[:500],
+                "mention_user_ids": list(mentioned_users.values_list("id", flat=True)),
+            },
+        )
 
     def perform_create(self, serializer: CardSerializer) -> None:
         card = serializer.save()

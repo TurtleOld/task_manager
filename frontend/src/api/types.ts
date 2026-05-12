@@ -88,6 +88,18 @@ export interface RecurrenceRule {
   version: number
 }
 
+export interface CardComment {
+  id: number
+  card: number
+  author: number
+  author_name: string
+  author_username: string
+  text: string
+  created_at: string
+  edited_at: string | null
+  can_edit: boolean
+}
+
 export interface MyTodayCard extends Card {
   board_name: string
   column_name: string
@@ -204,6 +216,9 @@ export type NotificationEventType =
   | 'card.updated'
   | 'card.deleted'
   | 'card.moved'
+  | 'comment.created'
+  | 'comment.updated'
+  | 'comment.deleted'
   | 'card.deadline_reminder'
 
 export interface NotificationProfile {

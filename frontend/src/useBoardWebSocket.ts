@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { Card, Column, Board } from './api/types'
+import type { Card, Column, Board, CardComment } from './api/types'
 
 type ViteImportMeta = ImportMeta & { env?: { VITE_WS_BASE_URL?: string; VITE_API_BASE_URL?: string } }
 
@@ -16,6 +16,9 @@ export type BoardEvent =
   | { type: 'card.updated'; card: Card }
   | { type: 'card.deleted'; card_id: number }
   | { type: 'card.moved'; card: Card }
+  | { type: 'comment.created'; card_id: number; comment: CardComment }
+  | { type: 'comment.updated'; card_id: number; comment: CardComment }
+  | { type: 'comment.deleted'; card_id: number; comment_id: number }
   | { type: 'column.created'; column: Column }
   | { type: 'column.updated'; column: Column }
   | { type: 'column.deleted'; column_id: number }

@@ -1,5 +1,5 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
-import type { Card, CardDeadlineReminder, CardDeadlineReminderResponse, RecurrenceRule } from '../../../../api/types'
+import type { Card, CardComment, CardDeadlineReminder, CardDeadlineReminderResponse, RecurrenceRule } from '../../../../api/types'
 import type { AssigneeOption, BoardAttachment, BoardCardDraft, BoardChecklistItem, BoardLabel, BoardPriority, BoardSubtask } from '../../types'
 
 export interface TaskModalProps {
@@ -47,6 +47,20 @@ export interface TaskModalProps {
   recurrenceBusy: boolean
   recurrenceError: string
   applyRecurrencePreset: (preset: 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly') => void
+  comments: CardComment[]
+  newComment: string
+  setNewComment: (value: string) => void
+  editingCommentId: number | null
+  editingCommentText: string
+  setEditingCommentText: (value: string) => void
+  commentsLoading: boolean
+  commentsBusy: boolean
+  commentsError: string
+  addComment: () => void
+  startEditComment: (comment: CardComment) => void
+  cancelEditComment: () => void
+  saveEditedComment: (commentId: number) => void
+  deleteComment: (commentId: number) => void
   selectedAttachments: BoardAttachment[]
   newAttachmentType: 'file' | 'link' | 'photo'
   setNewAttachmentType: (value: 'file' | 'link' | 'photo') => void
@@ -118,6 +132,24 @@ export type RecurrenceSectionProps = Pick<
   | 'recurrenceBusy'
   | 'recurrenceError'
   | 'applyRecurrencePreset'
+>
+
+export type CommentsSectionProps = Pick<
+  TaskModalProps,
+  | 'comments'
+  | 'newComment'
+  | 'setNewComment'
+  | 'editingCommentId'
+  | 'editingCommentText'
+  | 'setEditingCommentText'
+  | 'commentsLoading'
+  | 'commentsBusy'
+  | 'commentsError'
+  | 'addComment'
+  | 'startEditComment'
+  | 'cancelEditComment'
+  | 'saveEditedComment'
+  | 'deleteComment'
 >
 
 export type AttachmentsSectionProps = Pick<

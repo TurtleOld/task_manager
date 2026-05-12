@@ -18,6 +18,7 @@ import { useCardLabels } from './useCardLabels'
 import { useCardChecklist } from './useCardChecklist'
 import { useCardSubtasks } from './useCardSubtasks'
 import { useCardRecurrence } from './useCardRecurrence'
+import { useCardComments } from './useCardComments'
 
 interface UseBoardTaskModalOptions {
   boardId: number
@@ -127,6 +128,23 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     applyRecurrencePreset,
     saveRecurrence,
   } = useCardRecurrence({ selectedCardId, selectedCardIsPending, cardDeadline: draft?.deadline ?? '' })
+
+  const {
+    comments,
+    newComment,
+    setNewComment,
+    editingCommentId,
+    editingCommentText,
+    setEditingCommentText,
+    commentsLoading,
+    commentsBusy,
+    commentsError,
+    addComment,
+    startEditComment,
+    cancelEditComment,
+    saveEditedComment,
+    deleteComment,
+  } = useCardComments({ selectedCardId, selectedCardIsPending })
 
   useEffect(() => {
     let mounted = true
@@ -529,6 +547,20 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     recurrenceBusy,
     recurrenceError,
     applyRecurrencePreset,
+    comments,
+    newComment,
+    setNewComment,
+    editingCommentId,
+    editingCommentText,
+    setEditingCommentText,
+    commentsLoading,
+    commentsBusy,
+    commentsError,
+    addComment,
+    startEditComment,
+    cancelEditComment,
+    saveEditedComment,
+    deleteComment,
     selectedAttachments,
     newAttachmentType,
     setNewAttachmentType,

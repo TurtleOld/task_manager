@@ -5,6 +5,7 @@ import { RemindersSection } from './sections/RemindersSection'
 import { ChecklistSection } from './sections/ChecklistSection'
 import { SubtasksSection } from './sections/SubtasksSection'
 import { RecurrenceSection } from './sections/RecurrenceSection'
+import { CommentsSection } from './sections/CommentsSection'
 import { AttachmentsSection } from './sections/AttachmentsSection'
 import { MetaSection } from './sections/MetaSection'
 import { PrioritySection } from './sections/PrioritySection'
@@ -66,6 +67,7 @@ export function TaskModal(props: TaskModalProps) {
             <SubtasksSection {...props} />
             <ChecklistSection {...props} />
             <AttachmentsSection {...props} />
+            <CommentsSection {...props} />
           </div>
 
           <div className="space-y-5">

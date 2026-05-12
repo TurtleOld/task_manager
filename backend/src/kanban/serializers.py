@@ -6,6 +6,7 @@ from .serializers_pkg import (  # noqa: F401
     PERMISSION_MAP,
     ROLE_PRESETS,
     BoardSerializer,
+    CardCommentSerializer,
     CardDeadlineReminderSerializer,
     CardLabelField,
     CardSerializer,

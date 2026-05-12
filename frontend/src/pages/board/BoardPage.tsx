@@ -114,6 +114,8 @@ export function BoardPage({ user }: BoardPageProps) {
         queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
           prev?.filter((c) => c.id !== event.card_id),
         )
+      } else if (event.type === 'comment.created' || event.type === 'comment.updated' || event.type === 'comment.deleted') {
+        window.dispatchEvent(new CustomEvent('board-comment-event', { detail: event }))
       } else if (event.type === 'column.created') {
         queryClient.setQueryData<Column[]>(queryKeys.columns(boardId), (prev) => {
           if (!prev) return [event.column]
@@ -687,6 +689,20 @@ export function BoardPage({ user }: BoardPageProps) {
           recurrenceBusy={taskModal.recurrenceBusy}
           recurrenceError={taskModal.recurrenceError}
           applyRecurrencePreset={taskModal.applyRecurrencePreset}
+          comments={taskModal.comments}
+          newComment={taskModal.newComment}
+          setNewComment={taskModal.setNewComment}
+          editingCommentId={taskModal.editingCommentId}
+          editingCommentText={taskModal.editingCommentText}
+          setEditingCommentText={taskModal.setEditingCommentText}
+          commentsLoading={taskModal.commentsLoading}
+          commentsBusy={taskModal.commentsBusy}
+          commentsError={taskModal.commentsError}
+          addComment={taskModal.addComment}
+          startEditComment={taskModal.startEditComment}
+          cancelEditComment={taskModal.cancelEditComment}
+          saveEditedComment={taskModal.saveEditedComment}
+          deleteComment={taskModal.deleteComment}
           selectedAttachments={taskModal.selectedAttachments}
           newAttachmentType={taskModal.newAttachmentType}
           setNewAttachmentType={taskModal.setNewAttachmentType}

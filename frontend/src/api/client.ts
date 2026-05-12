@@ -19,6 +19,7 @@ import type {
   SearchResponse,
   ChecklistItem,
   RecurrenceRule,
+  CardComment,
 } from './types'
 
 type ViteImportMeta = ImportMeta & {
@@ -495,6 +496,33 @@ export const api = {
   },
   deleteCardRecurrence: async (cardId: number): Promise<void> => {
     const res = await fetch(`${V1}/cards/${cardId}/recurrence/`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    })
+    return ok(res)
+  },
+  listCardComments: async (cardId: number): Promise<CardComment[]> => {
+    const res = await fetch(`${V1}/cards/${cardId}/comments/`, { headers: authHeaders() })
+    return json(res)
+  },
+  addCardComment: async (cardId: number, payload: { text: string }): Promise<CardComment> => {
+    const res = await fetch(`${V1}/cards/${cardId}/comments/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+  updateCardComment: async (cardId: number, commentId: number, payload: { text: string }): Promise<CardComment> => {
+    const res = await fetch(`${V1}/cards/${cardId}/comments/${commentId}/`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+  deleteCardComment: async (cardId: number, commentId: number): Promise<void> => {
+    const res = await fetch(`${V1}/cards/${cardId}/comments/${commentId}/`, {
       method: 'DELETE',
       headers: authHeaders(),
     })

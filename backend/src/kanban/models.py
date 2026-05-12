@@ -246,7 +246,30 @@ class NotificationEventType(models.TextChoices):
     CARD_UPDATED = "card.updated", "Card updated"
     CARD_DELETED = "card.deleted", "Card deleted"
     CARD_MOVED = "card.moved", "Card moved"
+    COMMENT_CREATED = "comment.created", "Comment created"
     CARD_DEADLINE_REMINDER = "card.deadline_reminder", "Card deadline reminder"
+
+
+class CardComment(models.Model):
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="comments")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="card_comments",
+    )
+    text = models.TextField()
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    edited_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        indexes = [
+            models.Index(fields=["card", "created_at"]),
+            models.Index(fields=["author", "created_at"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"comment:{self.card_id}:{self.author_id}"
 
 
 class NotificationProfile(models.Model):
