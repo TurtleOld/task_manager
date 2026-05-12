@@ -210,6 +210,8 @@ export function BoardTaskCard({
   const labels = labelsFor(card)
   const deadline = deadlineFor(card)
   const assigneeName = assigneeNameFor(card)
+  const subtasks = card.subtasks ?? []
+  const doneSubtasks = subtasks.filter((item) => item.is_done).length
 
   return (
     <div
@@ -236,6 +238,12 @@ export function BoardTaskCard({
         </div>
 
         {deadline ? <div className="mt-3 flex flex-wrap gap-2"><Chip tone="warning">⏰ {formatDateTime(deadline)}</Chip></div> : null}
+
+        {subtasks.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Chip tone={doneSubtasks === subtasks.length ? 'success' : 'neutral'}>↳ {doneSubtasks}/{subtasks.length}</Chip>
+          </div>
+        ) : null}
 
         {assigneeName ? (
           <div className="mt-3 flex items-center gap-1.5 text-caption text-text-muted">

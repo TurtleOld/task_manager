@@ -263,6 +263,7 @@ export function BoardPage({ user }: BoardPageProps) {
       id: tempId,
       board: boardId,
       column: columnId,
+      parent: null,
       assignee: null,
       title,
       description: '',
@@ -270,12 +271,14 @@ export function BoardPage({ user }: BoardPageProps) {
       priority: PRIORITY_NORMAL,
       labels: [],
       checklist: [],
+      subtasks: [],
       attachments: [],
       position: '999999',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       version: 1,
       archived_at: null,
+      is_done: false,
     }
     queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
       prev ? [...prev, placeholder] : [placeholder],
@@ -669,6 +672,11 @@ export function BoardPage({ user }: BoardPageProps) {
           addChecklistItem={taskModal.addChecklistItem}
           toggleChecklistItem={taskModal.toggleChecklistItem}
           removeChecklistItem={taskModal.removeChecklistItem}
+          selectedSubtasks={taskModal.selectedSubtasks}
+          newSubtaskTitle={taskModal.newSubtaskTitle}
+          setNewSubtaskTitle={taskModal.setNewSubtaskTitle}
+          subtaskBusy={taskModal.subtaskBusy}
+          addSubtask={taskModal.addSubtask}
           selectedAttachments={taskModal.selectedAttachments}
           newAttachmentType={taskModal.newAttachmentType}
           setNewAttachmentType={taskModal.setNewAttachmentType}

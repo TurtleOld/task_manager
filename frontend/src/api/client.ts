@@ -264,6 +264,18 @@ export const api = {
     return ok(res)
   },
 
+  addSubtask: async (
+    cardId: number,
+    payload: { title: string; deadline?: string | null; description?: string; assignee?: number | null; priority?: 0 | 1 | 2 | 3 }
+  ): Promise<Card> => {
+    const res = await fetch(`${V1}/cards/${cardId}/subtasks/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+
   deleteCard: async (id: number): Promise<void> => {
     const res = await fetch(`${V1}/cards/${id}/`, {
       method: 'DELETE',

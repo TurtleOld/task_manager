@@ -1,6 +1,6 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import type { Card, CardDeadlineReminder, CardDeadlineReminderResponse } from '../../../../api/types'
-import type { AssigneeOption, BoardAttachment, BoardCardDraft, BoardChecklistItem, BoardLabel, BoardPriority } from '../../types'
+import type { AssigneeOption, BoardAttachment, BoardCardDraft, BoardChecklistItem, BoardLabel, BoardPriority, BoardSubtask } from '../../types'
 
 export interface TaskModalProps {
   selectedCard: Card
@@ -34,6 +34,11 @@ export interface TaskModalProps {
   addChecklistItem: () => void
   toggleChecklistItem: (id: number) => void
   removeChecklistItem: (id: number) => void
+  selectedSubtasks: BoardSubtask[]
+  newSubtaskTitle: string
+  setNewSubtaskTitle: (value: string) => void
+  subtaskBusy: boolean
+  addSubtask: () => void
   selectedAttachments: BoardAttachment[]
   newAttachmentType: 'file' | 'link' | 'photo'
   setNewAttachmentType: (value: 'file' | 'link' | 'photo') => void
@@ -87,6 +92,11 @@ export type RemindersSectionProps = Pick<
 export type ChecklistSectionProps = Pick<
   TaskModalProps,
   'selectedChecklist' | 'newChecklistItem' | 'setNewChecklistItem' | 'addChecklistItem' | 'toggleChecklistItem' | 'removeChecklistItem'
+>
+
+export type SubtasksSectionProps = Pick<
+  TaskModalProps,
+  'selectedSubtasks' | 'newSubtaskTitle' | 'setNewSubtaskTitle' | 'subtaskBusy' | 'addSubtask' | 'getTimeZoneLabel' | 'profileTimeZone'
 >
 
 export type AttachmentsSectionProps = Pick<

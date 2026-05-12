@@ -117,6 +117,13 @@ class CardPriority(models.IntegerChoices):
 class Card(TimestampedModel):
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="cards")
     column = models.ForeignKey(Column, on_delete=models.CASCADE, related_name="cards")
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        related_name="subtasks",
+        null=True,
+        blank=True,
+    )
     assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -143,6 +150,7 @@ class Card(TimestampedModel):
         ordering = ["position", "id"]
         indexes = [
             models.Index(fields=["column", "position"]),
+            models.Index(fields=["parent", "position"]),
         ]
 
     def save(self, *args: Any, **kwargs: Any) -> None:
@@ -150,6 +158,17 @@ class Card(TimestampedModel):
         if self.column_id:
             self.board = self.column.board
         super().save(*args, **kwargs)
+
+    def clean(self) -> None:
+        super().clean()
+        if not self.parent_id:
+            return
+        from django.core.exceptions import ValidationError
+
+        if self.pk and self.parent_id == self.pk:
+            raise ValidationError({"parent": "A card cannot be its own parent."})
+        if self.parent and self.parent.parent_id is not None:
+            raise ValidationError({"parent": "Only two subtask levels are allowed."})
 
 
 class ChecklistItem(models.Model):

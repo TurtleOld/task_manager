@@ -42,6 +42,7 @@ export interface Card {
   id: number
   board: number
   column: number
+  parent: number | null
   assignee: number | null
   title: string
   description: string
@@ -50,6 +51,7 @@ export interface Card {
   priority_label?: string
   labels: { name: string; color: string }[]
   checklist: ChecklistItem[]
+  subtasks: Card[]
   attachments: {
     id: string
     name: string
@@ -64,6 +66,7 @@ export interface Card {
   updated_at: string
   version: number
   archived_at: string | null
+  is_done: boolean
 }
 
 export interface MyTodayCard extends Card {

@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from ..models import Card, ChecklistItem, Column, Label
@@ -80,6 +81,8 @@ class CardSerializer(serializers.ModelSerializer[Card]):
     labels = CardLabelField(required=False)
     priority_label = serializers.CharField(source="get_priority_display", read_only=True)
     checklist = serializers.SerializerMethodField()
+    subtasks = serializers.SerializerMethodField()
+    is_done = serializers.BooleanField(source="column.is_done", read_only=True)
 
     class Meta:
         model = Card
@@ -87,11 +90,11 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "id", "board", "column", "assignee", "title", "description",
             "deadline", "priority", "priority_label", "labels",
             "checklist", "attachments", "position", "created_at", "updated_at", "version",
-            "archived_at",
+            "archived_at", "parent", "subtasks", "is_done",
         ]
         read_only_fields = [
             "id", "created_at", "updated_at", "version", "board", "priority_label",
-            "archived_at", "checklist",
+            "archived_at", "checklist", "subtasks", "is_done",
         ]
 
     def get_checklist(self, obj: Card) -> list[dict[str, Any]]:
@@ -101,11 +104,27 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             items = obj.checklist_items.order_by("position", "id")
         return ChecklistItemSerializer(items, many=True).data
 
+    def get_subtasks(self, obj: Card) -> list[dict[str, Any]]:
+        subtasks = getattr(obj, "_prefetched_objects_cache", {}).get("subtasks")
+        if subtasks is None:
+            subtasks = obj.subtasks.order_by("position", "id")
+        return CardShallowSerializer(subtasks, many=True, context=self.context).data
+
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         column: Column | None = attrs.get("column")
-        if column is None:
-            return attrs
-        attrs["board"] = column.board
+        if column is not None:
+            attrs["board"] = column.board
+
+        parent: Card | None = attrs.get("parent")
+        instance = getattr(self, "instance", None)
+        if parent is not None:
+            if instance is not None and parent.pk == instance.pk:
+                raise serializers.ValidationError({"parent": "A card cannot be its own parent."})
+            if parent.parent_id is not None:
+                raise serializers.ValidationError({"parent": "Only two subtask levels are allowed."})
+            target_column = column or getattr(instance, "column", None)
+            if target_column is not None and parent.board_id != target_column.board_id:
+                raise serializers.ValidationError({"parent": "Subtask must belong to the same board."})
         return attrs
 
     def create(self, validated_data: dict[str, Any]) -> Card:
@@ -118,6 +137,11 @@ class CardSerializer(serializers.ModelSerializer[Card]):
         )
         validated_data["board"] = column.board
         card = super().create(validated_data)
+        try:
+            card.full_clean(exclude=["labels"])
+        except DjangoValidationError as exc:
+            card.delete()
+            raise serializers.ValidationError(exc.message_dict) from exc
         if labels is not None:
             card.labels.set(labels)
         return card
@@ -125,6 +149,10 @@ class CardSerializer(serializers.ModelSerializer[Card]):
     def update(self, instance: Card, validated_data: dict[str, Any]) -> Card:
         labels = validated_data.pop("labels", None)
         card = super().update(instance, validated_data)
+        try:
+            card.full_clean(exclude=["labels"])
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict) from exc
         if labels is not None:
             card.labels.set(labels)
         return card
@@ -137,3 +165,8 @@ class CardSerializer(serializers.ModelSerializer[Card]):
                 if isinstance(item, dict):
                     item.pop("path", None)
         return data
+
+
+class CardShallowSerializer(CardSerializer):
+    class Meta(CardSerializer.Meta):
+        fields = [field for field in CardSerializer.Meta.fields if field != "subtasks"]

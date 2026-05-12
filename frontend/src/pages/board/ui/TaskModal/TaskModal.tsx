@@ -3,6 +3,7 @@ import type { TaskModalProps } from './TaskModal.types'
 import { MainSection } from './sections/MainSection'
 import { RemindersSection } from './sections/RemindersSection'
 import { ChecklistSection } from './sections/ChecklistSection'
+import { SubtasksSection } from './sections/SubtasksSection'
 import { AttachmentsSection } from './sections/AttachmentsSection'
 import { MetaSection } from './sections/MetaSection'
 import { PrioritySection } from './sections/PrioritySection'
@@ -60,6 +61,7 @@ export function TaskModal(props: TaskModalProps) {
           <div className="space-y-5">
             <MainSection draft={props.draft} setDraft={props.setDraft} />
             <RemindersSection {...props} />
+            <SubtasksSection {...props} />
             <ChecklistSection {...props} />
             <AttachmentsSection {...props} />
           </div>

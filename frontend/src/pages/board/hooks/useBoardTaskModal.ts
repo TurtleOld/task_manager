@@ -16,6 +16,7 @@ import { useCardReminders } from './useCardReminders'
 import { useCardAttachments } from './useCardAttachments'
 import { useCardLabels } from './useCardLabels'
 import { useCardChecklist } from './useCardChecklist'
+import { useCardSubtasks } from './useCardSubtasks'
 
 interface UseBoardTaskModalOptions {
   boardId: number
@@ -105,6 +106,14 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     toggleChecklistItem,
     removeChecklistItem,
   } = useCardChecklist({ selectedCardId, draft, setDraft })
+
+  const {
+    selectedSubtasks,
+    newSubtaskTitle,
+    setNewSubtaskTitle,
+    subtaskBusy,
+    addSubtask,
+  } = useCardSubtasks({ selectedCardId, draft, setDraft, profileTimeZone })
 
   useEffect(() => {
     let mounted = true
@@ -399,6 +408,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
           deadline: draft.deadline,
           labels: draft.labels,
           checklist: draft.checklist,
+          subtasks: draft.subtasks,
           attachments: draft.attachments,
         })
 
@@ -469,6 +479,11 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     addChecklistItem,
     toggleChecklistItem,
     removeChecklistItem,
+    selectedSubtasks,
+    newSubtaskTitle,
+    setNewSubtaskTitle,
+    subtaskBusy,
+    addSubtask,
     selectedAttachments,
     newAttachmentType,
     setNewAttachmentType,

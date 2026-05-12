@@ -26,6 +26,7 @@ export function useCardDraft(selectedCard: Card | null, profileTimeZone: string)
       priority: (selectedCard.priority ?? 2) as BoardPriority,
       labels: selectedCard.labels ?? [],
       checklist: selectedCard.checklist ?? [],
+      subtasks: selectedCard.subtasks ?? [],
       attachments: selectedCard.attachments ?? [],
     }
     setDraft(base)
