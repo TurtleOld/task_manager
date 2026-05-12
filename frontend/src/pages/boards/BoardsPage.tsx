@@ -53,8 +53,21 @@ export function BoardsPage() {
         </div>
       </header>
 
-      <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <SurfaceCard as="section" className="space-y-4 border-primary/10">
+      <details className="group rounded-[1.35rem] border border-border/80 bg-[image:var(--gradient-surface)] shadow-surface backdrop-blur">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:hidden [&::-webkit-details-marker]:hidden">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="primary">Create board</Badge>
+              <Badge variant="info">Templates</Badge>
+            </div>
+            <h2 className="mt-2 text-h3 text-text">Создать доску</h2>
+            <p className="mt-1 text-body-sm text-text-muted">Пустая доска или готовый шаблон скрыты здесь, чтобы список досок был выше.</p>
+          </div>
+          <span className="shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-caption font-semibold text-text-muted transition group-open:rotate-180" aria-hidden="true">⌄</span>
+        </summary>
+
+        <div className="grid gap-4 border-t border-border/70 p-4 xl:grid-cols-[1fr_1fr]">
+          <SurfaceCard as="section" className="space-y-4 border-primary/10">
           <div>
             <div className="flex items-center gap-2">
               <Badge variant="primary">Create board</Badge>
@@ -106,9 +119,9 @@ export function BoardsPage() {
             </div>
             <Button onClick={onCreate} loading={createBoardMutation.isPending} disabled={!name.trim() || createBoardMutation.isPending} aria-label="Создать доску">Создать</Button>
           </div>
-        </SurfaceCard>
+          </SurfaceCard>
 
-        <SurfaceCard as="section" className="space-y-4 border-primary/10">
+          <SurfaceCard as="section" className="space-y-4 border-primary/10">
           <div>
             <div className="flex items-center gap-2">
               <Badge variant="primary">Templates</Badge>
@@ -144,8 +157,9 @@ export function BoardsPage() {
               ))}
             </div>
           )}
-        </SurfaceCard>
-      </section>
+          </SurfaceCard>
+        </div>
+      </details>
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
