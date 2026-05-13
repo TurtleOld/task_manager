@@ -416,21 +416,6 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     try {
       let updated: Card | undefined
 
-      const deleteRecurrenceFirst = recurrenceChanged && recurrencePreset === 'none'
-
-      if (deleteRecurrenceFirst) {
-        const recurrenceOk = await saveRecurrence()
-        if (!recurrenceOk) {
-          setSaveBusy(false)
-          saveBusyRef.current = false
-          return false
-        }
-      }
-
-      if (hasPatch) {
-        updated = await persistSelectedCard(patch)
-      }
-
       if (reminderChanged) {
         const reminderOk = await saveReminder()
         if (!reminderOk) {
@@ -440,7 +425,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
         }
       }
 
-      if (recurrenceChanged && !deleteRecurrenceFirst) {
+      if (recurrenceChanged) {
         const recurrenceOk = await saveRecurrence()
         if (!recurrenceOk) {
           setSaveBusy(false)
@@ -484,6 +469,10 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
         applyCardUpdate(deleted)
       }
       setPendingDeleteAttachmentIds([])
+
+      if (hasPatch) {
+        updated = await persistSelectedCard(patch)
+      }
 
       const finalCard = updated ?? selectedCard
       setSelectedCard(null)
