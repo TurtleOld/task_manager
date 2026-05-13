@@ -170,6 +170,9 @@ class Card(TimestampedModel):
             models.Index(fields=["column", "position"]),
             models.Index(fields=["parent", "position"]),
             models.Index(fields=["parent_recurrence", "created_at"]),
+            models.Index(fields=["assignee", "deadline"], name="card_assignee_deadline_idx"),
+            models.Index(fields=["column", "archived_at"], name="card_column_archived_idx"),
+            models.Index(fields=["priority", "deadline"], name="card_priority_deadline_idx"),
         ]
 
     def save(self, *args: Any, **kwargs: Any) -> None:

@@ -27,6 +27,7 @@ dev = [
     "ruff>=0.6.9",
     "mypy>=1.12.0",
     "pytest>=9.0.3",
+    "pytest-cov>=6.0",
     "pytest-django>=4.9",
 ]
 
@@ -34,6 +35,17 @@ dev = [
 DJANGO_SETTINGS_MODULE = "config.settings"
 pythonpath = ["src"]
 testpaths = ["backend/tests", "tests"]
+
+[tool.coverage.run]
+source = ["src/kanban"]
+omit = [
+    "src/kanban/migrations/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 55
 
 [tool.ruff]
 line-length = 100

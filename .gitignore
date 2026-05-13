@@ -28,6 +28,8 @@ frontend/dist/
 frontend/.vite/
 frontend/.eslintcache
 frontend/*.tsbuildinfo
+frontend/playwright-report/
+frontend/test-results/
 
 # Docker
 **/.docker-volume/

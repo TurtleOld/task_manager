@@ -6,7 +6,7 @@ else
 PYTHON ?= python3
 endif
 
-.PHONY: uv-venv uv-sync dev migrate run lint typecheck test openapi-export version sync-version set-version release-tag
+.PHONY: uv-venv uv-sync dev migrate run lint typecheck test test-coverage openapi-export version sync-version set-version release-tag
 
 uv-venv:
 	uv venv --python 3.13
@@ -30,6 +30,9 @@ typecheck:
 
 test:
 	cd backend && uv run pytest -q
+
+test-coverage:
+	cd backend && uv run pytest --cov=src/kanban --cov-report=term-missing --cov-report=xml
 
 openapi-export:
 	cd backend && uv run python manage.py spectacular --file openapi.json
