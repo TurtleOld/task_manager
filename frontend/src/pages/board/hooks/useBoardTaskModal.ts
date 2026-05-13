@@ -416,6 +416,17 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     try {
       let updated: Card | undefined
 
+      const deleteRecurrenceFirst = recurrenceChanged && recurrencePreset === 'none'
+
+      if (deleteRecurrenceFirst) {
+        const recurrenceOk = await saveRecurrence()
+        if (!recurrenceOk) {
+          setSaveBusy(false)
+          saveBusyRef.current = false
+          return false
+        }
+      }
+
       if (hasPatch) {
         updated = await persistSelectedCard(patch)
       }
@@ -429,7 +440,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
         }
       }
 
-      if (recurrenceChanged) {
+      if (recurrenceChanged && !deleteRecurrenceFirst) {
         const recurrenceOk = await saveRecurrence()
         if (!recurrenceOk) {
           setSaveBusy(false)
