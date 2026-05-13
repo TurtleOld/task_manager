@@ -30,8 +30,12 @@ def capture_card_activity(
     if not instance.pk:
         return
     update_fields = kwargs.get("update_fields")
-    if update_fields is not None and not set(update_fields).intersection(TRACKED_CARD_FIELDS):
-        return
+    if update_fields is not None:
+        if not isinstance(update_fields, (set, frozenset, list, tuple)):
+            return
+        updated_field_names = {str(field) for field in update_fields}
+        if not updated_field_names.intersection(TRACKED_CARD_FIELDS):
+            return
 
     try:
         previous = Card.with_archived.get(pk=instance.pk)
