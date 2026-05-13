@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('kanban', '0036_rename_kanban_att_card_id_1b22c6_idx_kanban_atta_card_id_094604_idx_and_more'),
+        ('kanban', '0036_rename_kanban_att_card_id_1b22c6_idx_kanban_atta_card_id_094604_idx_and_more'),  # noqa: E501
     ]
 
     operations = [

@@ -94,7 +94,10 @@ def _nth_weekday_of_month(base: datetime, months: int, weekday: int, pos: int) -
     max_day = calendar.monthrange(year, month)[1]
 
     # Collect all days in that month matching the weekday (0=Mon … 6=Sun)
-    days = [d for d in range(1, max_day + 1) if base.replace(year=year, month=month, day=d).weekday() == weekday]
+    days = [
+        d for d in range(1, max_day + 1)
+        if base.replace(year=year, month=month, day=d).weekday() == weekday
+    ]
     if not days:
         return _add_months(base, months, base.day)
 
@@ -241,7 +244,7 @@ def send_card_deadline_reminder(self, reminder_id: int, schedule_token: str) -> 
         elif channel == NotificationChannel.PUSH:
             if not profile.onesignal_player_id:
                 raise RuntimeError("Push is not configured")
-            _send_push(profile.onesignal_player_id, subject, body, event_id=event.id)
+            _send_push(profile.onesignal_player_id, subject, body)
         else:
             raise RuntimeError(f"Unsupported channel: {channel}")
 
@@ -645,6 +648,32 @@ def generate_recurring_cards(self) -> None:
                 "version",
             ]
         )
+
+        # Attach a recurrence rule to the copy so it also spawns future tasks.
+        copy_next_due = calculate_next_recurrence_due(
+            base=due,
+            freq=rule.freq,
+            interval=rule.interval,
+            byweekday=rule.byweekday,
+            byday=rule.byday,
+            bysetpos=rule.bysetpos,
+        )
+        copy_rule = RecurrenceRule(
+            card=copy,
+            freq=rule.freq,
+            interval=rule.interval,
+            byweekday=rule.byweekday,
+            byday=rule.byday,
+            bysetpos=rule.bysetpos,
+            until=rule.until,
+            count=rule.count,
+            next_due=copy_next_due,
+        )
+        if copy_rule.until is not None and copy_next_due.date() > copy_rule.until:
+            copy_rule.next_due = None
+        if copy_rule.count is not None and rule.generated_count >= copy_rule.count:
+            copy_rule.next_due = None
+        copy_rule.save()
 
         from .broadcast import broadcast_board_event  # noqa: E402
         from .serializers import CardSerializer  # noqa: E402

@@ -40,8 +40,8 @@ export default function App() {
       <Route path="/register" element={<RegisterPage user={user} />} />
       <Route
         element={
-          <ProtectedRoute token={token}>
-            {user ? <AppShell user={user} onLogout={logout} /> : null}
+          <ProtectedRoute token={token} user={user} onInvalidSession={logout}>
+            <AppShell user={user!} onLogout={logout} />
           </ProtectedRoute>
         }
       >

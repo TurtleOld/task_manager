@@ -68,11 +68,11 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='notificationevent',
             name='event_type',
-            field=models.CharField(choices=[('board.created', 'Board created'), ('board.updated', 'Board updated'), ('board.deleted', 'Board deleted'), ('column.created', 'Column created'), ('column.updated', 'Column updated'), ('column.deleted', 'Column deleted'), ('card.created', 'Card created'), ('card.updated', 'Card updated'), ('card.deleted', 'Card deleted'), ('card.moved', 'Card moved'), ('comment.created', 'Comment created'), ('card.deadline_reminder', 'Card deadline reminder')], max_length=50),
+            field=models.CharField(choices=[('board.created', 'Board created'), ('board.updated', 'Board updated'), ('board.deleted', 'Board deleted'), ('column.created', 'Column created'), ('column.updated', 'Column updated'), ('column.deleted', 'Column deleted'), ('card.created', 'Card created'), ('card.updated', 'Card updated'), ('card.deleted', 'Card deleted'), ('card.moved', 'Card moved'), ('comment.created', 'Comment created'), ('card.deadline_reminder', 'Card deadline reminder')], max_length=50),  # noqa: E501
         ),
         migrations.AlterField(
             model_name='notificationpreference',
             name='event_type',
-            field=models.CharField(choices=[('board.created', 'Board created'), ('board.updated', 'Board updated'), ('board.deleted', 'Board deleted'), ('column.created', 'Column created'), ('column.updated', 'Column updated'), ('column.deleted', 'Column deleted'), ('card.created', 'Card created'), ('card.updated', 'Card updated'), ('card.deleted', 'Card deleted'), ('card.moved', 'Card moved'), ('comment.created', 'Comment created'), ('card.deadline_reminder', 'Card deadline reminder')], max_length=50),
+            field=models.CharField(choices=[('board.created', 'Board created'), ('board.updated', 'Board updated'), ('board.deleted', 'Board deleted'), ('column.created', 'Column created'), ('column.updated', 'Column updated'), ('column.deleted', 'Column deleted'), ('card.created', 'Card created'), ('card.updated', 'Card updated'), ('card.deleted', 'Card deleted'), ('card.moved', 'Card moved'), ('comment.created', 'Comment created'), ('card.deadline_reminder', 'Card deadline reminder')], max_length=50),  # noqa: E501
         ),
     ]
