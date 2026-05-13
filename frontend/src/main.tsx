@@ -25,7 +25,17 @@ try {
 
 const ONESIGNAL_APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID || ''
 
-if (ONESIGNAL_APP_ID) {
+if (import.meta.env.DEV) {
+  navigator.serviceWorker?.getRegistrations?.()
+    .then((registrations) => {
+      for (const registration of registrations) {
+        void registration.unregister()
+      }
+    })
+    .catch(() => null)
+}
+
+if (!import.meta.env.DEV && ONESIGNAL_APP_ID) {
   OneSignal.init({
     appId: ONESIGNAL_APP_ID,
     allowLocalhostAsSecureOrigin: true,
