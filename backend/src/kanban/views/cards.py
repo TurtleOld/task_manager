@@ -355,10 +355,15 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         if request.method == "GET":
             comments = CardComment.objects.filter(card=card).select_related("author")
-            return Response(CardCommentSerializer(comments, many=True, context={"request": request}).data)
+            return Response(
+                CardCommentSerializer(comments, many=True, context={"request": request}).data
+            )
 
         if not request.user or not request.user.is_authenticated:
-            return Response({"detail": "Authentication required"}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                {"detail": "Authentication required"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
         serializer = CardCommentSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -390,16 +395,32 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         except CardComment.DoesNotExist:
             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if not request.user or not request.user.is_authenticated or comment.author_id != request.user.id:
-            return Response({"detail": "Only the author can edit this comment"}, status=status.HTTP_403_FORBIDDEN)
+        if (
+            not request.user
+            or not request.user.is_authenticated
+            or comment.author_id != request.user.id
+        ):
+            return Response(
+                {"detail": "Only the author can edit this comment"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         if request.method == "DELETE":
             comment_id_int = comment.id
             comment.delete()
-            broadcast_board_event(card.board_id, "comment.deleted", {"card_id": card.id, "comment_id": comment_id_int})
+            broadcast_board_event(
+                card.board_id,
+                "comment.deleted",
+                {"card_id": card.id, "comment_id": comment_id_int},
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-        serializer = CardCommentSerializer(comment, data=request.data, partial=True, context={"request": request})
+        serializer = CardCommentSerializer(
+            comment,
+            data=request.data,
+            partial=True,
+            context={"request": request},
+        )
         serializer.is_valid(raise_exception=True)
         comment = serializer.save(edited_at=timezone.now())
         self._broadcast_comment(card, comment, "comment.updated", request)
@@ -408,7 +429,14 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     @action(detail=True, methods=["get"], url_path="activity")
     def activity(self, request: Request, pk: str | None = None) -> Response:
         card = self.get_object()
-        activities = CardActivity.objects.filter(card=card).select_related("actor").order_by("-created_at", "-id")[:30]
+        activities = (
+            CardActivity.objects.filter(card=card)
+            .select_related("actor")
+            .order_by(
+                "-created_at",
+                "-id",
+            )[:30]
+        )
         return Response(CardActivitySerializer(activities, many=True).data)
 
     def _broadcast_comment(
@@ -471,7 +499,9 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         self._broadcast_parent_update(card.parent_id)
 
     def perform_update(self, serializer: CardSerializer) -> None:
-        serializer.instance._activity_actor = self.request.user if self.request.user.is_authenticated else None
+        serializer.instance._activity_actor = (
+            self.request.user if self.request.user.is_authenticated else None
+        )
         card = serializer.save()
         reminders = CardDeadlineReminder.objects.filter(card_id=card.id, enabled=True)
         for reminder in reminders:

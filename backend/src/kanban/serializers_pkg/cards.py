@@ -160,12 +160,25 @@ class CardCommentSerializer(serializers.ModelSerializer[CardComment]):
     class Meta:
         model = CardComment
         fields = [
-            "id", "card", "author", "author_name", "author_username", "text",
-            "created_at", "edited_at", "can_edit",
+            "id",
+            "card",
+            "author",
+            "author_name",
+            "author_username",
+            "text",
+            "created_at",
+            "edited_at",
+            "can_edit",
         ]
         read_only_fields = [
-            "id", "card", "author", "author_name", "author_username",
-            "created_at", "edited_at", "can_edit",
+            "id",
+            "card",
+            "author",
+            "author_name",
+            "author_username",
+            "created_at",
+            "edited_at",
+            "can_edit",
         ]
 
     def get_author_name(self, obj: CardComment) -> str:
@@ -192,7 +205,17 @@ class CardActivitySerializer(serializers.ModelSerializer[CardActivity]):
 
     class Meta:
         model = CardActivity
-        fields = ["id", "card", "actor", "actor_name", "actor_username", "action", "before", "after", "created_at"]
+        fields = [
+            "id",
+            "card",
+            "actor",
+            "actor_name",
+            "actor_username",
+            "action",
+            "before",
+            "after",
+            "created_at",
+        ]
         read_only_fields = fields
 
     def get_actor_name(self, obj: CardActivity) -> str:

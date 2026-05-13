@@ -1,6 +1,5 @@
 from django.db import migrations, models
 
-
 INDEXES = [
     (
         "card_assignee_deadline_idx",

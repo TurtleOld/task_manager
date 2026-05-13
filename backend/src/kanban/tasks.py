@@ -461,7 +461,9 @@ def send_notification_event(self, event_id: int) -> None:
 
     subject = Truncator(_event_title(event)).chars(120)
     body = _event_body(event)
-    mention_user_ids = event.payload.get("mention_user_ids") if isinstance(event.payload, dict) else None
+    mention_user_ids = (
+        event.payload.get("mention_user_ids") if isinstance(event.payload, dict) else None
+    )
 
     for user in users:
         if isinstance(mention_user_ids, list) and mention_user_ids:

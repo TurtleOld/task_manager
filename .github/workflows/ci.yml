@@ -36,7 +36,7 @@ jobs:
         env:
           DJANGO_SECRET_KEY: test
           DJANGO_DEBUG: 'true'
-          DATABASE_URL: sqlite:///$(pwd)/test.sqlite3
+          DATABASE_URL: sqlite:///${{ github.workspace }}/backend/test.sqlite3
         run: uv run pytest --cov=src/kanban --cov-report=term-missing --cov-report=xml
       - name: Upload backend coverage
         uses: actions/upload-artifact@v4
@@ -89,7 +89,7 @@ jobs:
         env:
           DJANGO_SECRET_KEY: test
           DJANGO_DEBUG: 'true'
-          DATABASE_URL: sqlite:///$(pwd)/e2e.sqlite3
+          DATABASE_URL: sqlite:///${{ github.workspace }}/backend/e2e.sqlite3
           CELERY_TASK_ALWAYS_EAGER: 'true'
         run: uv run python manage.py migrate --noinput
       - name: Start backend
@@ -97,7 +97,7 @@ jobs:
         env:
           DJANGO_SECRET_KEY: test
           DJANGO_DEBUG: 'true'
-          DATABASE_URL: sqlite:///$(pwd)/e2e.sqlite3
+          DATABASE_URL: sqlite:///${{ github.workspace }}/backend/e2e.sqlite3
           CELERY_TASK_ALWAYS_EAGER: 'true'
           FRONTEND_BASE_URL: http://127.0.0.1:5173
         run: |
