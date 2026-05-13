@@ -7,12 +7,37 @@ from django.conf import settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from kanban.models import Card, CardDeadlineReminder, NotificationProfile
+from kanban.models import Card, CardDeadlineReminder, NotificationProfile, RecurrenceFrequency, RecurrenceRule
+from kanban.tasks import generate_recurring_cards
 
 
 @pytest.mark.django_db()
 def test_generate_recurring_cards_runs_every_minute() -> None:
     assert settings.CELERY_BEAT_SCHEDULE["generate-recurring-cards"]["schedule"] == 60.0
+
+
+@pytest.mark.django_db()
+def test_generated_recurring_card_does_not_get_own_recurrence(column) -> None:
+    now = timezone.now()
+    card = Card.objects.create(
+        column=column,
+        title="Recurring source",
+        deadline=now - timedelta(minutes=1),
+    )
+    rule = RecurrenceRule.objects.create(
+        card=card,
+        freq=RecurrenceFrequency.DAILY,
+        interval=1,
+        next_due=now - timedelta(minutes=1),
+    )
+
+    generate_recurring_cards()
+
+    generated = Card.objects.get(parent_recurrence=rule)
+    assert not RecurrenceRule.objects.filter(card=generated).exists()
+    rule.refresh_from_db()
+    assert rule.generated_count == 1
+    assert rule.next_due is not None
 
 
 @pytest.mark.django_db()

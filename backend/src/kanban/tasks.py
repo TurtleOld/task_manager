@@ -649,32 +649,6 @@ def generate_recurring_cards(self) -> None:
             ]
         )
 
-        # Attach a recurrence rule to the copy so it also spawns future tasks.
-        copy_next_due = calculate_next_recurrence_due(
-            base=due,
-            freq=rule.freq,
-            interval=rule.interval,
-            byweekday=rule.byweekday,
-            byday=rule.byday,
-            bysetpos=rule.bysetpos,
-        )
-        copy_rule = RecurrenceRule(
-            card=copy,
-            freq=rule.freq,
-            interval=rule.interval,
-            byweekday=rule.byweekday,
-            byday=rule.byday,
-            bysetpos=rule.bysetpos,
-            until=rule.until,
-            count=rule.count,
-            next_due=copy_next_due,
-        )
-        if copy_rule.until is not None and copy_next_due.date() > copy_rule.until:
-            copy_rule.next_due = None
-        if copy_rule.count is not None and rule.generated_count >= copy_rule.count:
-            copy_rule.next_due = None
-        copy_rule.save()
-
         from .broadcast import broadcast_board_event  # noqa: E402
         from .serializers import CardSerializer  # noqa: E402
 
