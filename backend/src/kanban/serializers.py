@@ -5,6 +5,7 @@ from __future__ import annotations
 from .serializers_pkg import (  # noqa: F401
     PERMISSION_MAP,
     ROLE_PRESETS,
+    AttachmentSerializer,
     BoardSerializer,
     CardActivitySerializer,
     CardCommentSerializer,

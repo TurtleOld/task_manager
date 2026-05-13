@@ -18,6 +18,7 @@ from django.utils import timezone
 from django.utils.text import Truncator
 
 from .models import (
+    Attachment,
     Card,
     CardActivity,
     CardDeadlineReminder,
@@ -46,6 +47,7 @@ def calculate_next_recurrence_due(
     interval: int = 1,
     byweekday: list[int] | None = None,
     byday: int | None = None,
+    bysetpos: int | None = None,
 ) -> datetime:
     interval = max(1, int(interval or 1))
     byweekday = sorted(set(int(day) for day in (byweekday or []) if 0 <= int(day) <= 6))
@@ -62,6 +64,8 @@ def calculate_next_recurrence_due(
         return base + timezone.timedelta(weeks=interval)
 
     if freq == RecurrenceFrequency.MONTHLY:
+        if bysetpos is not None and byweekday:
+            return _nth_weekday_of_month(base, interval, byweekday[0], bysetpos)
         return _add_months(base, interval, byday or base.day)
 
     if freq == RecurrenceFrequency.YEARLY:
@@ -78,6 +82,29 @@ def _add_months(value: datetime, months: int, day: int) -> datetime:
     month = month_index % 12 + 1
     max_day = calendar.monthrange(year, month)[1]
     return value.replace(year=year, month=month, day=min(day, max_day))
+
+
+def _nth_weekday_of_month(base: datetime, months: int, weekday: int, pos: int) -> datetime:
+    """Return the pos-th occurrence of weekday in the target month (pos<0 counts from end)."""
+    import calendar
+
+    month_index = base.month - 1 + months
+    year = base.year + month_index // 12
+    month = month_index % 12 + 1
+    max_day = calendar.monthrange(year, month)[1]
+
+    # Collect all days in that month matching the weekday (0=Mon … 6=Sun)
+    days = [d for d in range(1, max_day + 1) if base.replace(year=year, month=month, day=d).weekday() == weekday]
+    if not days:
+        return _add_months(base, months, base.day)
+
+    # pos is 1-based; negative counts from end (-1 = last)
+    try:
+        target_day = days[pos - 1] if pos > 0 else days[pos]
+    except IndexError:
+        target_day = days[-1]
+
+    return base.replace(year=year, month=month, day=target_day)
 
 
 def _ru_plural(value: int, forms: tuple[str, str, str]) -> str:
@@ -211,6 +238,10 @@ def send_card_deadline_reminder(self, reminder_id: int, schedule_token: str) -> 
             if not profile.telegram_chat_id:
                 raise RuntimeError("Telegram chat_id is not configured")
             _send_telegram(profile.telegram_chat_id, body)
+        elif channel == NotificationChannel.PUSH:
+            if not profile.onesignal_player_id:
+                raise RuntimeError("Push is not configured")
+            _send_push(profile.onesignal_player_id, subject, body, event_id=event.id)
         else:
             raise RuntimeError(f"Unsupported channel: {channel}")
 
@@ -571,10 +602,24 @@ def generate_recurring_cards(self) -> None:
             description=card.description,
             deadline=due if card.deadline else None,
             priority=card.priority,
-            attachments=list(card.attachments or []),
             parent_recurrence=rule,
         )
         copy.labels.set(card.labels.all())
+        Attachment.objects.bulk_create(
+            [
+                Attachment(
+                    card=copy,
+                    name=attachment.name,
+                    type=attachment.type,
+                    url=attachment.url,
+                    path=attachment.path,
+                    mime=attachment.mime,
+                    size=attachment.size,
+                    uploaded_by=attachment.uploaded_by,
+                )
+                for attachment in card.attachments.all()
+            ]
+        )
 
         rule.generated_count += 1
         rule.last_generated_at = now
@@ -584,6 +629,7 @@ def generate_recurring_cards(self) -> None:
             interval=rule.interval,
             byweekday=rule.byweekday,
             byday=rule.byday,
+            bysetpos=rule.bysetpos,
         )
         rule.next_due = next_due
         if rule.until is not None and next_due.date() > rule.until:

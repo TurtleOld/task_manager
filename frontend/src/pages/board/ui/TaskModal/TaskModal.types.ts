@@ -24,7 +24,7 @@ export interface TaskModalProps {
   setNewReminderUnit: (value: 'minutes' | 'hours') => void
   applyReminderValue: (id: number, value: number) => void
   applyReminderUnit: (id: number, unit: 'minutes' | 'hours') => void
-  applyReminderChannel: (channel: 'email' | 'telegram' | null) => void
+  applyReminderChannel: (channel: 'email' | 'telegram' | 'push' | null) => void
   toggleReminder: (id: number, enabled: boolean) => void
   addReminderInterval: (value: number, unit: 'minutes' | 'hours') => void
   removeReminderInterval: (id: number) => void
@@ -40,8 +40,8 @@ export interface TaskModalProps {
   subtaskBusy: boolean
   addSubtask: () => void
   recurrenceRule: RecurrenceRule | null
-  recurrenceDraft: Pick<RecurrenceRule, 'freq' | 'interval' | 'byweekday' | 'byday' | 'until' | 'count'>
-  setRecurrenceDraft: Dispatch<SetStateAction<Pick<RecurrenceRule, 'freq' | 'interval' | 'byweekday' | 'byday' | 'until' | 'count'>>>
+  recurrenceDraft: Pick<RecurrenceRule, 'freq' | 'interval' | 'byweekday' | 'byday' | 'bysetpos' | 'until' | 'count'>
+  setRecurrenceDraft: Dispatch<SetStateAction<Pick<RecurrenceRule, 'freq' | 'interval' | 'byweekday' | 'byday' | 'bysetpos' | 'until' | 'count'>>>
   recurrencePreset: 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly'
   recurrenceLoading: boolean
   recurrenceBusy: boolean

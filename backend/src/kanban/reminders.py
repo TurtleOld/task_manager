@@ -81,9 +81,22 @@ def reminder_channel_availability(
             return ChannelAvailability(False, "Telegram chat_id не указан в профиле уведомлений")
         return ChannelAvailability(True, "")
 
+    def push_availability() -> ChannelAvailability:
+        if not preferences_enabled_for_event_type(
+            user_id=user_id,
+            board_id=board_id,
+            channel=NotificationChannel.PUSH.value,
+            event_type=event_type,
+        ):
+            return ChannelAvailability(False, "Push отключён в настройках уведомлений")
+        if not profile.onesignal_player_id:
+            return ChannelAvailability(False, "Push не настроен на этом устройстве")
+        return ChannelAvailability(True, "")
+
     return {
         NotificationChannel.EMAIL.value: email_availability(),
         NotificationChannel.TELEGRAM.value: telegram_availability(),
+        NotificationChannel.PUSH.value: push_availability(),
     }
 
 

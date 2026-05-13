@@ -101,6 +101,7 @@ class CardDeadlineReminderSerializer(serializers.ModelSerializer[CardDeadlineRem
         if channel is not None and channel not in {
             NotificationChannel.EMAIL,
             NotificationChannel.TELEGRAM,
+            NotificationChannel.PUSH,
         }:
             raise serializers.ValidationError({"channel": "Некорректный канал"})
 

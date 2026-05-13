@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from decimal import Decimal
 from typing import Any
 
@@ -125,6 +126,12 @@ class RecurrenceFrequency(models.TextChoices):
     YEARLY = "yearly", "Yearly"
 
 
+class AttachmentType(models.TextChoices):
+    FILE = "file", "File"
+    LINK = "link", "Link"
+    PHOTO = "photo", "Photo"
+
+
 class Card(TimestampedModel):
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="cards")
     column = models.ForeignKey(Column, on_delete=models.CASCADE, related_name="cards")
@@ -150,7 +157,6 @@ class Card(TimestampedModel):
         default=CardPriority.NORMAL,
     )
     labels = models.ManyToManyField(Label, blank=True, related_name="cards")
-    attachments = models.JSONField(default=list, blank=True)
     position = models.DecimalField(max_digits=20, decimal_places=10, default=POSITION_DEFAULT)
     archived_at = models.DateTimeField(null=True, blank=True)
     parent_recurrence = models.ForeignKey(
@@ -199,6 +205,7 @@ class RecurrenceRule(TimestampedModel):
     interval = models.PositiveIntegerField(default=1)
     byweekday = models.JSONField(default=list, blank=True)
     byday = models.PositiveIntegerField(null=True, blank=True)
+    bysetpos = models.SmallIntegerField(null=True, blank=True)
     until = models.DateField(null=True, blank=True)
     count = models.PositiveIntegerField(null=True, blank=True)
     generated_count = models.PositiveIntegerField(default=0)
@@ -214,6 +221,40 @@ class RecurrenceRule(TimestampedModel):
 
     def __str__(self) -> str:  # pragma: no cover
         return f"recurrence:{self.card_id}:{self.freq}"
+
+
+class Attachment(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="attachments")
+    name = models.CharField(max_length=255)
+    type = models.CharField(
+        max_length=10,
+        choices=AttachmentType.choices,
+        default=AttachmentType.FILE,
+    )
+    url = models.URLField(max_length=2000, blank=True, default="")
+    path = models.CharField(max_length=1000, blank=True, default="")
+    mime = models.CharField(max_length=255, blank=True, default="")
+    size = models.PositiveBigIntegerField(null=True, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="uploaded_attachments",
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        indexes = [
+            models.Index(fields=["card", "created_at"]),
+            models.Index(fields=["uploaded_by", "created_at"]),
+            models.Index(fields=["type", "created_at"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"attachment:{self.card_id}:{self.name}"
 
 
 class ChecklistItem(models.Model):

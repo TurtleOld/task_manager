@@ -162,7 +162,7 @@ CELERY_BEAT_SCHEDULE = {
     },
     "generate-recurring-cards": {
         "task": "kanban.tasks.generate_recurring_cards",
-        "schedule": crontab(hour=0, minute=5),
+        "schedule": 60.0,
     },
     "prune-card-activity": {
         "task": "kanban.tasks.prune_card_activity",

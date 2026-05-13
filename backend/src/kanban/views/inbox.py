@@ -26,7 +26,7 @@ class InboxView(APIView):
             "title": payload.get("title"),
             "description": payload.get("description", ""),
         }
-        for field in ["deadline", "priority", "labels", "checklist", "attachments"]:
+        for field in ["deadline", "priority", "labels", "checklist"]:
             if field in payload:
                 data[field] = payload[field]
 
@@ -35,7 +35,7 @@ class InboxView(APIView):
         card = serializer.save()
         card = (
             Card.objects.select_related("board", "column")
-            .prefetch_related("labels", "checklist_items")
+            .prefetch_related("labels", "checklist_items", "attachments")
             .get(pk=card.pk)
         )
         return Response(CardSerializer(card).data, status=status.HTTP_201_CREATED)

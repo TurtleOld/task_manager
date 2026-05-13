@@ -123,18 +123,20 @@ export function RemindersSection({
 
 function ReminderChannelPicker({ reminderDrafts, reminderData, reminderFieldError, applyReminderChannel }: Pick<RemindersSectionProps, 'reminderDrafts' | 'reminderData' | 'reminderFieldError' | 'applyReminderChannel'>) {
   const availableCount = reminderData?.channels ? Object.values(reminderData.channels).filter((channel) => channel.available).length : 0
-  const autoChannel = availableCount === 1 ? (['email', 'telegram'] as const).find((channel) => reminderData?.channels?.[channel]?.available) : undefined
+  const autoChannel = availableCount === 1 ? (['email', 'telegram', 'push'] as const).find((channel) => reminderData?.channels?.[channel]?.available) : undefined
   const value = reminderDrafts.every((item) => item.channel === 'email') || (reminderDrafts.every((item) => item.channel === null) && autoChannel === 'email')
     ? 'email'
     : reminderDrafts.every((item) => item.channel === 'telegram') || (reminderDrafts.every((item) => item.channel === null) && autoChannel === 'telegram')
       ? 'telegram'
+      : reminderDrafts.every((item) => item.channel === 'push') || (reminderDrafts.every((item) => item.channel === null) && autoChannel === 'push')
+        ? 'push'
       : undefined
 
   return (
     <div className="rounded-panel border border-border/70 bg-background-subtle/55 p-4 text-caption text-text-muted">
       <p className="font-semibold text-text">Канал доставки</p>
-      <RadioGroup className="mt-3 grid gap-2" value={value} onValueChange={(next) => applyReminderChannel(next as 'email' | 'telegram')}>
-        {(['email', 'telegram'] as const).map((channel) => {
+      <RadioGroup className="mt-3 grid gap-2" value={value} onValueChange={(next) => applyReminderChannel(next as 'email' | 'telegram' | 'push')}>
+        {(['email', 'telegram', 'push'] as const).map((channel) => {
           const info = reminderData?.channels?.[channel]
           const available = info?.available ?? false
           const isOnlyAvailable = availableCount === 1
@@ -153,7 +155,7 @@ function ReminderChannelPicker({ reminderDrafts, reminderData, reminderFieldErro
             >
               <RadioGroupItem id={`reminder-channel-${channel}`} value={channel} disabled={!available} className="mt-0.5" />
               <span>
-                <span className="block font-semibold">{channel === 'email' ? 'Email' : 'Telegram'}</span>
+                <span className="block font-semibold">{channel === 'email' ? 'Email' : channel === 'telegram' ? 'Telegram' : 'Push'}</span>
                 {description ? <span className="mt-1 block text-caption text-text-muted">{description}</span> : null}
               </span>
             </RadixLabel>

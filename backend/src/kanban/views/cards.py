@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import uuid
 from datetime import timedelta
 from decimal import Decimal
 from typing import Any
@@ -14,12 +13,14 @@ from django.utils import timezone
 from django.utils.text import get_valid_filename
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from ..broadcast import broadcast_board_event
 from ..models import (
+    Attachment,
+    AttachmentType,
     Board,
     Card,
     CardActivity,
@@ -34,6 +35,7 @@ from ..models import (
 from ..notifications import create_notification_event
 from ..reminders import reminder_channel_availability, upsert_and_schedule_reminder
 from ..serializers import (
+    AttachmentSerializer,
     CardActivitySerializer,
     CardCommentSerializer,
     CardDeadlineReminderSerializer,
@@ -49,6 +51,7 @@ CARD_PREFETCH_RELATED = (
     "checklist_items",
     "subtasks__labels",
     "subtasks__checklist_items",
+    "attachments",
     "recurrence_rule",
 )
 
@@ -130,53 +133,63 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
     @action(
         detail=True,
-        methods=["post"],
+        methods=["get", "post"],
         url_path="attachments",
-        parser_classes=[MultiPartParser, FormParser],
+        parser_classes=[MultiPartParser, FormParser, JSONParser],
     )
     def upload_attachments(self, request: Request, pk: str | None = None) -> Response:
-        card_id = int(pk) if pk is not None else None
-        if not card_id:
-            return Response({"detail": "Card id is required"}, status=400)
+        card = self.get_object()
+
+        if request.method == "GET":
+            attachments = card.attachments.select_related("uploaded_by").order_by(
+                "created_at",
+                "id",
+            )
+            return Response(AttachmentSerializer(attachments, many=True).data)
 
         files = request.FILES.getlist("files") or request.FILES.getlist("file")
-        if not files:
-            return Response(
-                {"detail": "No files uploaded. Use form field 'files'."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if files:
+            self._create_file_attachments(card, files, request)
+            card_data = self._serialized_card(card.id)
+            broadcast_board_event(card.board_id, "card.updated", {"card": card_data})
+            return Response(card_data, status=status.HTTP_201_CREATED)
 
-        with transaction.atomic():
-            try:
-                card = Card.objects.select_for_update().get(id=card_id)
-            except Card.DoesNotExist:
-                return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-            existing = list(card.attachments or [])
-
-            for f in files:
-                attachment_id = str(uuid.uuid4())
-                safe_name = get_valid_filename(getattr(f, "name", "file"))
-                storage_path = f"cards/{card.id}/{attachment_id}-{safe_name}"
-                saved_path = default_storage.save(storage_path, f)
-                url = default_storage.url(saved_path)
-                existing.append(
-                    {
-                        "id": attachment_id,
-                        "name": safe_name,
-                        "type": "file",
-                        "url": url,
-                        "mimeType": getattr(f, "content_type", ""),
-                        "size": getattr(f, "size", None),
-                        "path": saved_path,
-                    }
-                )
-
-            card.attachments = existing
-            card.save(update_fields=["attachments"])
-
-        card_data = self.get_serializer(card).data
+        serializer = AttachmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(
+            card=card,
+            uploaded_by=request.user if request.user.is_authenticated else None,
+        )
+        card_data = self._serialized_card(card.id)
         broadcast_board_event(card.board_id, "card.updated", {"card": card_data})
-        return Response(card_data, status=status.HTTP_200_OK)
+        return Response(card_data, status=status.HTTP_201_CREATED)
+
+    def _create_file_attachments(self, card: Card, files: list[Any], request: Request) -> None:
+        attachment_type = str(request.data.get("type") or AttachmentType.FILE.value)
+        if attachment_type not in {AttachmentType.FILE.value, AttachmentType.PHOTO.value}:
+            attachment_type = AttachmentType.FILE.value
+
+        uploaded_by = request.user if request.user.is_authenticated else None
+        for file in files:
+            original_name = getattr(file, "name", "file") or "file"
+            safe_name = get_valid_filename(original_name) or "file"
+            attachment = Attachment.objects.create(
+                card=card,
+                name=safe_name,
+                type=attachment_type,
+                mime=getattr(file, "content_type", "") or "",
+                size=getattr(file, "size", None),
+                uploaded_by=uploaded_by,
+            )
+            storage_path = f"cards/{card.id}/{attachment.id}-{safe_name}"
+            saved_path = default_storage.save(storage_path, file)
+            attachment.path = saved_path
+            attachment.url = default_storage.url(saved_path)
+            attachment.save(update_fields=["path", "url"])
+
+    def _serialized_card(self, card_id: int) -> dict[str, Any]:
+        card = self._card_queryset_for_payload().get(pk=card_id)
+        return CardSerializer(card, context=self.get_serializer_context()).data
 
     @action(detail=True, methods=["delete"], url_path=r"attachments/(?P<attachment_id>[^/]+)")
     def delete_attachment(
@@ -185,42 +198,28 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         pk: str | None = None,
         attachment_id: str | None = None,
     ) -> Response:
-        card_id = int(pk) if pk is not None else None
-        if not card_id or not attachment_id:
+        card = self.get_object()
+        if not attachment_id:
             return Response({"detail": "Card id and attachment id are required"}, status=400)
 
         with transaction.atomic():
             try:
-                card = Card.objects.select_for_update().get(id=card_id)
-            except Card.DoesNotExist:
-                return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-            existing = list(card.attachments or [])
-
-            removed: dict[str, Any] | None = None
-            kept: list[dict[str, Any]] = []
-            for item in existing:
-                if str(item.get("id")) == attachment_id and removed is None:
-                    removed = item
-                    continue
-                kept.append(item)
-
-            if removed is None:
+                attachment = Attachment.objects.select_for_update().get(id=attachment_id, card=card)
+            except (Attachment.DoesNotExist, ValueError):
                 return Response(
                     {"detail": "Attachment not found"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            path = removed.get("path")
-            if isinstance(path, str) and path:
+            path = attachment.path
+            attachment.delete()
+            if path:
                 try:
                     default_storage.delete(path)
                 except Exception:  # noqa: BLE001
                     pass
 
-            card.attachments = kept
-            card.save(update_fields=["attachments"])
-
-        card_data = self.get_serializer(card).data
+        card_data = self._serialized_card(card.id)
         broadcast_board_event(card.board_id, "card.updated", {"card": card_data})
         return Response(card_data, status=status.HTTP_200_OK)
 
@@ -344,6 +343,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             interval=serializer.validated_data.get("interval", 1),
             byweekday=serializer.validated_data.get("byweekday", []),
             byday=serializer.validated_data.get("byday"),
+            bysetpos=serializer.validated_data.get("bysetpos"),
         )
         saved = serializer.save(card=card, next_due=next_due)
         self._broadcast_card_with_parent(card, "card.updated")
@@ -582,6 +582,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                         "telegram": {
                             "available": availability["telegram"].available,
                             "reason": availability["telegram"].reason,
+                        },
+                        "push": {
+                            "available": availability["push"].available,
+                            "reason": availability["push"].reason,
                         },
                     },
                     "deadline": card.deadline,

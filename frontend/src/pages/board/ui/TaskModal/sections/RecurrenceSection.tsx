@@ -10,6 +10,17 @@ const PRESETS = [
   ['yearly', 'Каждый год'],
 ] as const
 
+const WEEKDAY_NAMES_RU = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу', 'воскресенье']
+const ORDINAL_RU = ['', 'первый', 'второй', 'третий', 'четвёртый', 'пятый']
+const ORDINAL_RU_LAST = 'последний'
+
+function describeMonthlyRule(byweekday: number[], bysetpos: number | null): string | null {
+  if (!byweekday.length || bysetpos === null) return null
+  const weekdayName = WEEKDAY_NAMES_RU[byweekday[0] ?? 0] ?? ''
+  const ordinal = bysetpos === -1 ? ORDINAL_RU_LAST : (ORDINAL_RU[bysetpos] ?? `${bysetpos}-й`)
+  return `каждый ${ordinal} ${weekdayName} месяца`
+}
+
 export function RecurrenceSection({
   draft,
   recurrenceRule,
@@ -22,6 +33,9 @@ export function RecurrenceSection({
   applyRecurrencePreset,
 }: RecurrenceSectionProps) {
   const enabled = recurrencePreset !== 'none'
+  const monthlyDescription = enabled && recurrencePreset === 'monthly'
+    ? describeMonthlyRule(recurrenceDraft.byweekday, recurrenceDraft.bysetpos)
+    : null
 
   return (
     <SurfaceCard as="section" className="space-y-4">
@@ -82,7 +96,7 @@ export function RecurrenceSection({
         </label>
       </div>
 
-      {enabled ? <p className="text-caption text-text-muted">Например, значение 2 для «Каждый месяц» означает «раз в два месяца».</p> : null}
+      {monthlyDescription ? <p className="text-caption text-text-muted">Расписание: {monthlyDescription}.</p> : null}
       {recurrenceRule?.next_due ? <p className="text-caption text-text-muted">Следующая задача будет создана: {formatDateTime(recurrenceRule.next_due)}</p> : null}
       <p className="text-caption text-text-muted">Изменения сохраняются общей кнопкой «Сохранить».</p>
     </SurfaceCard>

@@ -83,7 +83,7 @@ export function useCardReminders(selectedCardId: number | null, selectedCardIsPe
     setReminderDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, offset_unit: unit } : item)))
   }
 
-  const applyReminderChannel = (channel: 'email' | 'telegram' | null) => {
+  const applyReminderChannel = (channel: 'email' | 'telegram' | 'push' | null) => {
     setReminderDrafts((prev) => prev.map((item) => ({ ...item, channel })))
   }
 

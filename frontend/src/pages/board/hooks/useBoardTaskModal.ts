@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { api } from '../../../api/client'
 import {
+  useAddCardAttachment,
   useDeleteCard,
   useDeleteCardAttachment,
   useUpdateCard,
@@ -32,6 +33,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
   const updateCardMutation = useUpdateCard(boardId)
   const deleteCardMutation = useDeleteCard(boardId)
   const uploadAttachmentsMutation = useUploadCardAttachments(boardId)
+  const addAttachmentMutation = useAddCardAttachment(boardId)
   const deleteAttachmentMutation = useDeleteCardAttachment(boardId)
 
   const [selectedCard, setSelectedCard] = useState<Card | null>(null)
@@ -76,6 +78,10 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
   const {
     pendingUploadFiles,
     setPendingUploadFiles,
+    pendingUploadType,
+    setPendingUploadType,
+    pendingCreateAttachments,
+    setPendingCreateAttachments,
     pendingDeleteAttachmentIds,
     setPendingDeleteAttachmentIds,
     newAttachmentType,
@@ -195,7 +201,6 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       deadline: string | null
       priority: BoardPriority
       labels: BoardLabel[]
-      attachments: Card['attachments']
     }>
   ) => {
     if (!selectedCardId) return
@@ -370,7 +375,6 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       deadline: string | null
       priority: BoardPriority
       labels: BoardLabel[]
-      attachments: Card['attachments']
     }> = {}
 
     const nextTitle = draft.title.trim()
@@ -387,10 +391,8 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     if (draft.deadline !== base.deadline) patch.deadline = draft.deadline ? datetimeLocalToIso(draft.deadline) : null
     if (draft.priority !== base.priority) patch.priority = draft.priority
     if (!sameJson(draft.labels, base.labels)) patch.labels = draft.labels
-    if (!sameJson(draft.attachments, base.attachments)) patch.attachments = draft.attachments
-
     const hasPatch = Object.keys(patch).length > 0
-    const hasAttachmentOps = pendingUploadFiles.length > 0 || pendingDeleteAttachmentIds.length > 0
+    const hasAttachmentOps = pendingUploadFiles.length > 0 || pendingCreateAttachments.length > 0 || pendingDeleteAttachmentIds.length > 0
     const reminderChanged = reminderData ? JSON.stringify(reminderDrafts) !== JSON.stringify(reminderData.reminders) : reminderDrafts.length > 0
     const recurrenceChanged = recurrenceRule
       ? JSON.stringify(recurrenceDraft) !== JSON.stringify({
@@ -398,6 +400,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
         interval: recurrenceRule.interval,
         byweekday: recurrenceRule.byweekday,
         byday: recurrenceRule.byday,
+        bysetpos: recurrenceRule.bysetpos,
         until: recurrenceRule.until,
         count: recurrenceRule.count,
       }) || recurrencePreset === 'none'
@@ -439,11 +442,27 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
         const uploaded = await uploadAttachmentsMutation.mutateAsync({
           id: selectedCardId,
           files: pendingUploadFiles,
+          type: pendingUploadType,
         })
         updated = uploaded
         applyCardUpdate(uploaded)
         setPendingUploadFiles([])
+        setPendingUploadType('file')
       }
+
+      for (const attachment of pendingCreateAttachments) {
+        const created = await addAttachmentMutation.mutateAsync({
+          id: selectedCardId,
+          payload: {
+            name: attachment.name,
+            type: attachment.type,
+            url: attachment.url,
+          },
+        })
+        updated = created
+        applyCardUpdate(created)
+      }
+      setPendingCreateAttachments([])
 
       for (const attachmentId of pendingDeleteAttachmentIds) {
         const deleted = await deleteAttachmentMutation.mutateAsync({

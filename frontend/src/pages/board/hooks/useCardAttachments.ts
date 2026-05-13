@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import type { BoardCardDraft } from '../types'
 
+export interface PendingAttachmentCreate {
+  id: string
+  name: string
+  type: 'link' | 'photo'
+  url: string
+}
+
 interface UseCardAttachmentsOptions {
   selectedCardId: number | null
   draft: BoardCardDraft | null
@@ -10,6 +17,8 @@ interface UseCardAttachmentsOptions {
 
 export function useCardAttachments({ selectedCardId, draft, setDraft }: UseCardAttachmentsOptions) {
   const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([])
+  const [pendingUploadType, setPendingUploadType] = useState<'file' | 'photo'>('file')
+  const [pendingCreateAttachments, setPendingCreateAttachments] = useState<PendingAttachmentCreate[]>([])
   const [pendingDeleteAttachmentIds, setPendingDeleteAttachmentIds] = useState<string[]>([])
   const [newAttachmentName, setNewAttachmentName] = useState('')
   const [newAttachmentType, setNewAttachmentType] = useState<'file' | 'link' | 'photo'>('file')
@@ -25,15 +34,18 @@ export function useCardAttachments({ selectedCardId, draft, setDraft }: UseCardA
     setNewAttachmentFiles([])
     setAttachmentFileInputKey((key) => key + 1)
     setPendingUploadFiles([])
+    setPendingUploadType('file')
+    setPendingCreateAttachments([])
     setPendingDeleteAttachmentIds([])
   }, [selectedCardId])
 
   const addAttachment = async () => {
     if (!selectedCardId || !draft) return
 
-    if (newAttachmentType === 'file') {
+    if (newAttachmentType === 'file' || newAttachmentType === 'photo') {
       if (newAttachmentFiles.length === 0) return
       setPendingUploadFiles((prev) => [...prev, ...newAttachmentFiles])
+      setPendingUploadType(newAttachmentType)
       setNewAttachmentFiles([])
       setAttachmentFileInputKey((key) => key + 1)
       return
@@ -42,11 +54,13 @@ export function useCardAttachments({ selectedCardId, draft, setDraft }: UseCardA
     const name = newAttachmentName.trim()
     if (!name) return
     const attachment = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       name,
       type: newAttachmentType,
-      url: newAttachmentUrl.trim() || undefined,
+      url: newAttachmentUrl.trim(),
     }
+    if (!attachment.url) return
+    setPendingCreateAttachments((prev) => [...prev, attachment])
     setDraft((prev) => (prev ? { ...prev, attachments: [...(prev.attachments ?? []), attachment] } : prev))
     setNewAttachmentName('')
     setNewAttachmentUrl('')
@@ -55,7 +69,8 @@ export function useCardAttachments({ selectedCardId, draft, setDraft }: UseCardA
   const removeAttachment = async (item: { id: string; type: 'file' | 'link' | 'photo' }) => {
     if (!selectedCardId || !draft) return
 
-    if (item.type === 'file') {
+    setPendingCreateAttachments((prev) => prev.filter((attachment) => attachment.id !== item.id))
+    if (!item.id.startsWith('pending-')) {
       setPendingDeleteAttachmentIds((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]))
     }
     setDraft((prev) => (prev ? { ...prev, attachments: (prev.attachments ?? []).filter((attachment) => attachment.id !== item.id) } : prev))
@@ -64,6 +79,10 @@ export function useCardAttachments({ selectedCardId, draft, setDraft }: UseCardA
   return {
     pendingUploadFiles,
     setPendingUploadFiles,
+    pendingUploadType,
+    setPendingUploadType,
+    pendingCreateAttachments,
+    setPendingCreateAttachments,
     pendingDeleteAttachmentIds,
     setPendingDeleteAttachmentIds,
     newAttachmentType,

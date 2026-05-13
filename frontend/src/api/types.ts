@@ -57,8 +57,12 @@ export interface Card {
     name: string
     type: 'file' | 'link' | 'photo'
     url?: string
+    mime?: string
     mimeType?: string
     size?: number
+    uploaded_by?: number | null
+    uploadedBy?: number | null
+    created_at?: string
     createdAt?: string
   }[]
   position: string
@@ -78,6 +82,7 @@ export interface RecurrenceRule {
   interval: number
   byweekday: number[]
   byday: number | null
+  bysetpos: number | null
   until: string | null
   count: number | null
   generated_count: number
@@ -215,7 +220,7 @@ export interface RegistrationStatus {
   allow_admin: boolean
 }
 
-export type NotificationChannel = 'email' | 'telegram'
+export type NotificationChannel = 'email' | 'telegram' | 'push'
 
 export type NotificationEventType =
   | 'board.created'
@@ -247,7 +252,7 @@ export interface SiteSettings {
 
 export type ReminderOffsetUnit = 'minutes' | 'hours'
 
-export type ReminderChannel = 'email' | 'telegram'
+export type ReminderChannel = 'email' | 'telegram' | 'push'
 
 export interface CardDeadlineReminder {
   id: number
@@ -280,6 +285,7 @@ export interface CardDeadlineReminderResponse {
   channels: {
     email: ReminderChannelInfo
     telegram: ReminderChannelInfo
+    push: ReminderChannelInfo
   }
   deadline: string | null
 }

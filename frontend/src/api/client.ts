@@ -220,7 +220,6 @@ export const api = {
       deadline: string | null
       priority: 0 | 1 | 2 | 3
       labels: { name: string; color?: string }[]
-      attachments: { id: string; name: string; type: 'file' | 'link' | 'photo'; url?: string }[]
     }>
   ): Promise<Card> => {
     const res = await fetch(`${V1}/cards/${id}/`, {
@@ -231,13 +230,26 @@ export const api = {
     return json(res)
   },
 
-  uploadCardAttachments: async (id: number, files: File[]): Promise<Card> => {
+  uploadCardAttachments: async (id: number, files: File[], type: 'file' | 'photo' = 'file'): Promise<Card> => {
     const form = new FormData()
+    form.append('type', type)
     for (const f of files) form.append('files', f)
     const res = await fetch(`${V1}/cards/${id}/attachments/`, {
       method: 'POST',
       headers: authOnlyHeaders(),
       body: form,
+    })
+    return json(res)
+  },
+
+  addCardAttachment: async (
+    id: number,
+    payload: { name: string; type: 'link' | 'photo'; url: string }
+  ): Promise<Card> => {
+    const res = await fetch(`${V1}/cards/${id}/attachments/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
     })
     return json(res)
   },
@@ -486,7 +498,7 @@ export const api = {
   },
   saveCardRecurrence: async (
     cardId: number,
-    payload: Pick<RecurrenceRule, 'freq' | 'interval' | 'byweekday' | 'byday' | 'until' | 'count'>
+    payload: Pick<RecurrenceRule, 'freq' | 'interval' | 'byweekday' | 'byday' | 'bysetpos' | 'until' | 'count'>
   ): Promise<RecurrenceRule> => {
     const res = await fetch(`${V1}/cards/${cardId}/recurrence/`, {
       method: 'PUT',

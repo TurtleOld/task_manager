@@ -8,6 +8,8 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from ..models import (
+    Attachment,
+    AttachmentType,
     Card,
     CardActivity,
     CardComment,
@@ -97,6 +99,7 @@ class RecurrenceRuleSerializer(serializers.ModelSerializer[RecurrenceRule]):
             "interval",
             "byweekday",
             "byday",
+            "bysetpos",
             "until",
             "count",
             "generated_count",
@@ -141,6 +144,11 @@ class RecurrenceRuleSerializer(serializers.ModelSerializer[RecurrenceRule]):
     def validate_byday(self, value: int | None) -> int | None:
         if value is not None and (value < 1 or value > 31):
             raise serializers.ValidationError("byday must be between 1 and 31.")
+        return value
+
+    def validate_bysetpos(self, value: int | None) -> int | None:
+        if value is not None and (value == 0 or value < -5 or value > 5):
+            raise serializers.ValidationError("bysetpos must be between -5 and 5 (non-zero).")
         return value
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
@@ -225,6 +233,59 @@ class CardActivitySerializer(serializers.ModelSerializer[CardActivity]):
         return full_name or obj.actor.username
 
 
+class AttachmentSerializer(serializers.ModelSerializer[Attachment]):
+    mimeType = serializers.CharField(source="mime", read_only=True)
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+    uploadedBy = serializers.PrimaryKeyRelatedField(source="uploaded_by", read_only=True)
+
+    class Meta:
+        model = Attachment
+        fields = [
+            "id",
+            "card",
+            "name",
+            "type",
+            "url",
+            "mime",
+            "mimeType",
+            "size",
+            "uploaded_by",
+            "uploadedBy",
+            "created_at",
+            "createdAt",
+        ]
+        read_only_fields = [
+            "id",
+            "card",
+            "mime",
+            "mimeType",
+            "size",
+            "uploaded_by",
+            "uploadedBy",
+            "created_at",
+            "createdAt",
+        ]
+
+    def validate_name(self, value: str) -> str:
+        name = value.strip()
+        if not name:
+            raise serializers.ValidationError("Attachment name is required.")
+        return name[:255]
+
+    def validate_type(self, value: str) -> str:
+        if value not in AttachmentType.values:
+            raise serializers.ValidationError("Unsupported attachment type.")
+        return value
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        attachment_type = attrs.get("type") or AttachmentType.LINK
+        url = str(attrs.get("url") or "").strip()
+        if attachment_type in {AttachmentType.LINK, AttachmentType.PHOTO} and not url:
+            raise serializers.ValidationError({"url": "URL is required."})
+        attrs["url"] = url
+        return attrs
+
+
 class CardSerializer(serializers.ModelSerializer[Card]):
     assignee = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
@@ -235,6 +296,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
     priority_label = serializers.CharField(source="get_priority_display", read_only=True)
     checklist = serializers.SerializerMethodField()
     subtasks = serializers.SerializerMethodField()
+    attachments = serializers.SerializerMethodField()
     is_done = serializers.BooleanField(source="column.is_done", read_only=True)
     recurrence = serializers.SerializerMethodField()
 
@@ -273,6 +335,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "priority_label",
             "archived_at",
             "checklist",
+            "attachments",
             "subtasks",
             "is_done",
             "parent_recurrence",
@@ -291,6 +354,12 @@ class CardSerializer(serializers.ModelSerializer[Card]):
         if subtasks is None:
             subtasks = obj.subtasks.order_by("position", "id")
         return CardShallowSerializer(subtasks, many=True, context=self.context).data
+
+    def get_attachments(self, obj: Card) -> list[dict[str, Any]]:
+        attachments = getattr(obj, "_prefetched_objects_cache", {}).get("attachments")
+        if attachments is None:
+            attachments = obj.attachments.order_by("created_at", "id")
+        return AttachmentSerializer(attachments, many=True, context=self.context).data
 
     def get_recurrence(self, obj: Card) -> dict[str, Any] | None:
         rule = getattr(obj, "recurrence_rule", None)
@@ -348,16 +417,6 @@ class CardSerializer(serializers.ModelSerializer[Card]):
         if labels is not None:
             card.labels.set(labels)
         return card
-
-    def to_representation(self, instance: Card) -> dict[str, Any]:
-        data = super().to_representation(instance)
-        attachments = data.get("attachments")
-        if isinstance(attachments, list):
-            for item in attachments:
-                if isinstance(item, dict):
-                    item.pop("path", None)
-        return data
-
 
 class CardShallowSerializer(CardSerializer):
     class Meta(CardSerializer.Meta):

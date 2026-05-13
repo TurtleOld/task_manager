@@ -256,8 +256,26 @@ export function useMoveCard(boardId: number) {
 export function useUploadCardAttachments(boardId: number) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, files }: { id: number; files: File[] }) =>
-      api.uploadCardAttachments(id, files),
+    mutationFn: ({ id, files, type }: { id: number; files: File[]; type?: 'file' | 'photo' }) =>
+      api.uploadCardAttachments(id, files, type),
+    onSuccess: (card) => {
+      qc.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
+        prev?.map((c) => (c.id === card.id ? card : c)),
+      )
+    },
+  })
+}
+
+export function useAddCardAttachment(boardId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: number
+      payload: { name: string; type: 'link' | 'photo'; url: string }
+    }) => api.addCardAttachment(id, payload),
     onSuccess: (card) => {
       qc.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
         prev?.map((c) => (c.id === card.id ? card : c)),
