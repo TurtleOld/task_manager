@@ -179,14 +179,28 @@ export function AppShell({ user, onLogout }: AppShellProps) {
         </header>
 
         <main>
-          <PageErrorBoundary>
-            <Suspense fallback={null}>
+          <PageErrorBoundary key={location.pathname}>
+            <Suspense fallback={<PageFallback />}>
               <Outlet />
             </Suspense>
           </PageErrorBoundary>
         </main>
       </div>
       <CommandPalette boards={boards} onLogout={onLogout} open={commandOpen} onOpenChange={setCommandOpen} />
+    </div>
+  )
+}
+
+function PageFallback() {
+  return (
+    <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10">
+      <Skeleton className="h-10 w-64" />
+      <Skeleton className="h-24 w-full" />
+      <div className="grid gap-5 lg:grid-cols-3">
+        <Skeleton className="h-80 w-full" />
+        <Skeleton className="h-80 w-full" />
+        <Skeleton className="h-80 w-full" />
+      </div>
     </div>
   )
 }
