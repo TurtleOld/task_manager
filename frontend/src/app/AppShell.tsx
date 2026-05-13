@@ -1,5 +1,5 @@
-import { Suspense, useEffect, useMemo, useState } from 'react'
-import type { ComponentType, ReactNode } from 'react'
+import { Component, Suspense, useEffect, useMemo, useState } from 'react'
+import type { ComponentType, ErrorInfo, ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Bell, CalendarDays, ChevronLeft, Inbox, LayoutDashboard, Menu, Search, Settings, SunMedium, TreePalm, Archive } from 'lucide-react'
 import { useBoards } from '../api/queries/boards'
@@ -11,6 +11,30 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { cn } from '@/lib/utils'
 
 const SIDEBAR_COLLAPSED_KEY = 'app-shell.sidebar-collapsed'
+
+class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error('[PageErrorBoundary]', error, info) }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-4 px-8 py-24 text-center">
+          <p className="text-h3 text-text">Что-то пошло не так</p>
+          <p className="max-w-md text-body-sm text-text-muted">{(this.state.error as Error).message}</p>
+          <button
+            type="button"
+            className="rounded-control border border-border bg-surface px-4 py-2 text-body-sm transition hover:bg-surface-hover"
+            onClick={() => this.setState({ error: null })}
+          >
+            Попробовать снова
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 interface AppShellProps {
   user: AuthUser
@@ -155,9 +179,11 @@ export function AppShell({ user, onLogout }: AppShellProps) {
         </header>
 
         <main>
-          <Suspense fallback={null}>
-            <Outlet />
-          </Suspense>
+          <PageErrorBoundary>
+            <Suspense fallback={null}>
+              <Outlet />
+            </Suspense>
+          </PageErrorBoundary>
         </main>
       </div>
       <CommandPalette boards={boards} onLogout={onLogout} open={commandOpen} onOpenChange={setCommandOpen} />
