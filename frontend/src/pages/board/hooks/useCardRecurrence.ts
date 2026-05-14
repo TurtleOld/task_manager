@@ -136,10 +136,10 @@ function ruleFromPreset(preset: RecurrencePreset, cardDeadline: string): Recurre
 }
 
 function presetFromRule(rule: Pick<RecurrenceRule, 'freq' | 'interval' | 'byweekday' | 'bysetpos'>): RecurrencePreset {
-  if (rule.freq === 'daily' && rule.interval === 1) return 'daily'
+  if (rule.freq === 'daily') return 'daily'
   if (rule.freq === 'weekly' && rule.interval === 1 && JSON.stringify(rule.byweekday) === JSON.stringify([0, 1, 2, 3, 4])) return 'weekdays'
-  if (rule.freq === 'weekly' && rule.interval === 1) return 'weekly'
-  if (rule.freq === 'monthly' && rule.interval === 1) return 'monthly'
-  if (rule.freq === 'yearly' && rule.interval === 1) return 'yearly'
+  if (rule.freq === 'weekly') return 'weekly'
+  if (rule.freq === 'monthly') return 'monthly'
+  if (rule.freq === 'yearly') return 'yearly'
   return 'weekly'
 }

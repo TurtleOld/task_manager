@@ -624,8 +624,7 @@ def generate_recurring_cards(self) -> None:
             ]
         )
 
-        rule.generated_count += 1
-        rule.last_generated_at = now
+        generated_count = rule.generated_count + 1
         next_due = calculate_next_recurrence_due(
             base=due,
             freq=rule.freq,
@@ -634,11 +633,29 @@ def generate_recurring_cards(self) -> None:
             byday=rule.byday,
             bysetpos=rule.bysetpos,
         )
-        rule.next_due = next_due
+        copy_next_due = next_due
         if rule.until is not None and next_due.date() > rule.until:
-            rule.next_due = None
-        if rule.count is not None and rule.generated_count >= rule.count:
-            rule.next_due = None
+            copy_next_due = None
+        if rule.count is not None and generated_count >= rule.count:
+            copy_next_due = None
+
+        RecurrenceRule.objects.create(
+            card=copy,
+            freq=rule.freq,
+            interval=rule.interval,
+            byweekday=rule.byweekday,
+            byday=rule.byday,
+            bysetpos=rule.bysetpos,
+            until=rule.until,
+            count=rule.count,
+            generated_count=generated_count,
+            last_generated_at=now,
+            next_due=copy_next_due,
+        )
+
+        rule.generated_count = generated_count
+        rule.last_generated_at = now
+        rule.next_due = None
         rule.save(
             update_fields=[
                 "generated_count",

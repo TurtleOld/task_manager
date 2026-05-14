@@ -17,7 +17,7 @@ def test_generate_recurring_cards_runs_every_minute() -> None:
 
 
 @pytest.mark.django_db()
-def test_generated_recurring_card_does_not_get_own_recurrence(column) -> None:
+def test_generated_recurring_card_receives_recurrence_and_source_stops(column) -> None:
     now = timezone.now()
     card = Card.objects.create(
         column=column,
@@ -34,10 +34,14 @@ def test_generated_recurring_card_does_not_get_own_recurrence(column) -> None:
     generate_recurring_cards()
 
     generated = Card.objects.get(parent_recurrence=rule)
-    assert not RecurrenceRule.objects.filter(card=generated).exists()
+    generated_rule = RecurrenceRule.objects.get(card=generated)
+    assert generated_rule.freq == rule.freq
+    assert generated_rule.interval == rule.interval
+    assert generated_rule.generated_count == 1
+    assert generated_rule.next_due is not None
     rule.refresh_from_db()
     assert rule.generated_count == 1
-    assert rule.next_due is not None
+    assert rule.next_due is None
 
 
 @pytest.mark.django_db()
