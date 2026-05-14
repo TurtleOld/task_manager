@@ -32,11 +32,17 @@ export default defineConfig(({ mode }) => {
     server: {
       host: true,
       port: 5173,
+      hmr: false,
       allowedHosts: allowedHost ? [allowedHost] : undefined,
       proxy: {
         '/api': {
           target: proxyTarget,
           changeOrigin: true,
+        },
+        '/ws': {
+          target: proxyTarget,
+          changeOrigin: true,
+          ws: true,
         },
       },
     },
@@ -49,8 +55,12 @@ export default defineConfig(({ mode }) => {
           target: proxyTarget,
           changeOrigin: true,
         },
+        '/ws': {
+          target: proxyTarget,
+          changeOrigin: true,
+          ws: true,
+        },
       },
     },
   }
 })
-
