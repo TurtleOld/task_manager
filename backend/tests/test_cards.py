@@ -55,6 +55,18 @@ def test_create_card_full(api_client: APIClient, column: Column) -> None:
 
 
 @pytest.mark.django_db()
+def test_create_card_accepts_legacy_android_priority(api_client: APIClient, column: Column) -> None:
+    resp = api_client.post(
+        "/api/v1/cards/",
+        data={"column": column.id, "title": "Legacy priority", "priority": "🔥"},
+        format="json",
+    )
+
+    assert resp.status_code == 201
+    assert resp.json()["priority"] == 3
+
+
+@pytest.mark.django_db()
 def test_create_card_requires_title(api_client: APIClient, column: Column) -> None:
     resp = api_client.post(
         "/api/v1/cards/",

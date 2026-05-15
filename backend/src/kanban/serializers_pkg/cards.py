@@ -13,6 +13,7 @@ from ..models import (
     Card,
     CardActivity,
     CardComment,
+    CardPriority,
     ChecklistItem,
     Column,
     Label,
@@ -87,6 +88,18 @@ class ChecklistItemSerializer(serializers.ModelSerializer[ChecklistItem]):
         model = ChecklistItem
         fields = ["id", "text", "done", "position"]
         read_only_fields = ["id"]
+
+
+class FlexiblePriorityField(serializers.IntegerField):
+    def to_internal_value(self, data: Any) -> int:
+        legacy_values = {
+            "🟢": CardPriority.LOW,
+            "🟡": CardPriority.NORMAL,
+            "🔥": CardPriority.HIGH,
+        }
+        if isinstance(data, str) and data in legacy_values:
+            return int(legacy_values[data])
+        return super().to_internal_value(data)
 
 
 class RecurrenceRuleSerializer(serializers.ModelSerializer[RecurrenceRule]):
@@ -294,6 +307,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
     )
     labels = CardLabelField(required=False)
     priority_label = serializers.CharField(source="get_priority_display", read_only=True)
+    priority = FlexiblePriorityField(required=False)
     checklist = serializers.SerializerMethodField()
     subtasks = serializers.SerializerMethodField()
     attachments = serializers.SerializerMethodField()
