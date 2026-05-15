@@ -14,6 +14,7 @@ from .cards import (
 from .columns import ColumnSerializer
 from .notifications import (
     CardDeadlineReminderSerializer,
+    NotificationInboxEntrySerializer,
     NotificationPreferenceSerializer,
     NotificationProfileSerializer,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "ColumnSerializer",
     "CurrentUserUpdateSerializer",
     "LabelSerializer",
+    "NotificationInboxEntrySerializer",
     "NotificationPreferenceSerializer",
     "NotificationProfileSerializer",
     "PasswordChangeSerializer",

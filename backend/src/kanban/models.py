@@ -346,6 +346,7 @@ class NotificationProfile(models.Model):
     email = models.EmailField(blank=True, default="")
     telegram_chat_id = models.CharField(max_length=64, blank=True, default="")
     onesignal_player_id = models.CharField(max_length=200, blank=True, default="")
+    unifiedpush_endpoint = models.URLField(max_length=1000, blank=True, default="")
     timezone = models.CharField(max_length=64, blank=True, default="UTC")
     timezone_configured = models.BooleanField(default=False)
 
@@ -429,6 +430,24 @@ class NotificationDelivery(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.event_id}:{self.user_id}:{self.channel}:{self.status}"
+
+
+class NotificationInboxEntry(models.Model):
+    event = models.ForeignKey(NotificationEvent, on_delete=models.CASCADE, related_name="inbox_entries")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notification_inbox")
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        unique_together = ["event", "user"]
+        indexes = [
+            models.Index(fields=["user", "read_at", "created_at"]),
+            models.Index(fields=["event", "user"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"inbox:{self.user_id}:{self.event_id}"
 
 
 class CardDeadlineReminder(TimestampedModel):

@@ -89,8 +89,8 @@ def reminder_channel_availability(
             event_type=event_type,
         ):
             return ChannelAvailability(False, "Push отключён в настройках уведомлений")
-        if not profile.onesignal_player_id:
-            return ChannelAvailability(False, "Push не настроен на этом устройстве")
+        if not profile.unifiedpush_endpoint and not settings.NTFY_URL:
+            return ChannelAvailability(False, "UnifiedPush endpoint не зарегистрирован")
         return ChannelAvailability(True, "")
 
     return {

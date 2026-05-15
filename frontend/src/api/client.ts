@@ -8,6 +8,7 @@ import type {
   RegistrationStatus,
   UserRole,
   AdminUser,
+  NotificationInboxResponse,
   NotificationProfile,
   NotificationPreference,
   CardDeadlineReminderResponse,
@@ -457,6 +458,22 @@ export const api = {
   // Notifications
   getNotificationProfile: async (): Promise<NotificationProfile> => {
     const res = await fetch(`${V1}/notifications/profile/`, { headers: authHeaders() })
+    return json(res)
+  },
+  getNotificationInbox: async (params?: { limit?: number; unreadOnly?: boolean }): Promise<NotificationInboxResponse> => {
+    const query = new URLSearchParams()
+    if (params?.limit) query.set('limit', String(params.limit))
+    if (params?.unreadOnly) query.set('unread_only', 'true')
+    const suffix = query.toString() ? `?${query.toString()}` : ''
+    const res = await fetch(`${V1}/notifications/inbox/${suffix}`, { headers: authHeaders() })
+    return json(res)
+  },
+  markNotificationInboxRead: async (payload: { ids?: number[]; mark_all?: boolean }): Promise<{ updated: number }> => {
+    const res = await fetch(`${V1}/notifications/inbox/`, {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
     return json(res)
   },
   updateNotificationProfile: async (payload: Partial<NotificationProfile>): Promise<NotificationProfile> => {

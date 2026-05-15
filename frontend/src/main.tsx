@@ -1,7 +1,6 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import OneSignal from 'react-onesignal'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { applyAppFontSize, loadAppFontSize } from './app/preferences'
@@ -22,31 +21,6 @@ try {
 } catch {
   // ignore: localStorage can be unavailable in private mode / blocked
 }
-
-const ONESIGNAL_APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID || ''
-
-if (import.meta.env.DEV) {
-  navigator.serviceWorker?.getRegistrations?.()
-    .then((registrations) => {
-      for (const registration of registrations) {
-        void registration.unregister()
-      }
-    })
-    .catch(() => null)
-}
-
-if (!import.meta.env.DEV && ONESIGNAL_APP_ID) {
-  OneSignal.init({
-    appId: ONESIGNAL_APP_ID,
-    allowLocalhostAsSecureOrigin: true,
-    serviceWorkerParam: { scope: '/' },
-    path: '/OneSignalSDKWorker.js',
-  }).catch((err: unknown) => {
-    console.warn('OneSignal init failed:', err)
-  })
-}
-
-export { OneSignal }
 
 const container = document.getElementById('root')!
 const root = createRoot(container)

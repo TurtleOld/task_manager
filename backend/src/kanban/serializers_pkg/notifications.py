@@ -4,9 +4,11 @@ from typing import Any
 
 from rest_framework import serializers
 
+from ..notifications import build_ntfy_topic
 from ..models import (
     CardDeadlineReminder,
     NotificationChannel,
+    NotificationInboxEntry,
     NotificationEventType,
     NotificationPreference,
     NotificationProfile,
@@ -14,16 +16,23 @@ from ..models import (
 
 
 class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProfile]):
+    ntfy_topic = serializers.SerializerMethodField()
+
     class Meta:
         model = NotificationProfile
         fields = [
             "email",
             "telegram_chat_id",
             "onesignal_player_id",
+            "unifiedpush_endpoint",
+            "ntfy_topic",
             "timezone",
             "timezone_configured",
         ]
-        read_only_fields = ["timezone_configured"]
+        read_only_fields = ["ntfy_topic", "timezone_configured"]
+
+    def get_ntfy_topic(self, obj: NotificationProfile) -> str:
+        return build_ntfy_topic(obj.user_id)
 
     def update(
         self,
@@ -43,6 +52,10 @@ class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProf
         if onesignal_player_id is not None:
             instance.onesignal_player_id = str(onesignal_player_id).strip()
             update_fields.append("onesignal_player_id")
+        unifiedpush_endpoint = validated_data.get("unifiedpush_endpoint")
+        if unifiedpush_endpoint is not None:
+            instance.unifiedpush_endpoint = str(unifiedpush_endpoint).strip()
+            update_fields.append("unifiedpush_endpoint")
         tz = validated_data.get("timezone")
         if tz is not None:
             instance.timezone = str(tz).strip() or "UTC"
@@ -51,6 +64,78 @@ class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProf
         if update_fields:
             instance.save(update_fields=update_fields)
         return instance
+
+
+def _build_notification_message(entry: NotificationInboxEntry) -> str:
+    event = entry.event
+    payload = event.payload or {}
+    lines = [event.summary]
+    board = payload.get("board") or (event.board.name if event.board else "")
+    column = payload.get("column") or (event.column.name if event.column else "")
+    card = payload.get("card") or (event.card.title if event.card else "")
+    if board:
+        lines.append(f"Доска: {board}")
+    if column:
+        lines.append(f"Колонка: {column}")
+    if card:
+        lines.append(f"Карточка: {card}")
+    changes = payload.get("changes")
+    if isinstance(changes, list):
+        rendered_changes = [str(item).strip() for item in changes if str(item).strip()]
+        if rendered_changes:
+            lines.extend(["Изменения:", *rendered_changes])
+    description = payload.get("description")
+    if isinstance(description, str) and description.strip():
+        lines.append(f"Описание: {description.strip()}")
+    return "\n".join(lines)
+
+
+def _build_notification_route(entry: NotificationInboxEntry) -> str:
+    event = entry.event
+    if event.board_id and event.card_id:
+        return f"/boards/{event.board_id}/cards/{event.card_id}"
+    if event.board_id:
+        return f"/boards/{event.board_id}"
+    return "/"
+
+
+class NotificationInboxEntrySerializer(serializers.ModelSerializer[NotificationInboxEntry]):
+    event_id = serializers.IntegerField(read_only=True)
+    event_type = serializers.CharField(source="event.event_type", read_only=True)
+    summary = serializers.CharField(source="event.summary", read_only=True)
+    link = serializers.CharField(source="event.link", read_only=True)
+    created_at = serializers.SerializerMethodField()
+    unread = serializers.SerializerMethodField()
+    message = serializers.SerializerMethodField()
+    route = serializers.SerializerMethodField()
+
+    class Meta:
+        model = NotificationInboxEntry
+        fields = [
+            "id",
+            "event_id",
+            "event_type",
+            "summary",
+            "message",
+            "link",
+            "route",
+            "created_at",
+            "read_at",
+            "unread",
+        ]
+        read_only_fields = fields
+
+    def get_unread(self, obj: NotificationInboxEntry) -> bool:
+        return obj.read_at is None
+
+    def get_created_at(self, obj: NotificationInboxEntry) -> object:
+        return obj.event.created_at
+
+    def get_message(self, obj: NotificationInboxEntry) -> str:
+        return _build_notification_message(obj)
+
+    def get_route(self, obj: NotificationInboxEntry) -> str:
+        return _build_notification_route(obj)
 
 
 class NotificationPreferenceSerializer(serializers.ModelSerializer[NotificationPreference]):

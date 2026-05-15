@@ -242,8 +242,28 @@ export interface NotificationProfile {
   email: string
   telegram_chat_id: string
   onesignal_player_id?: string
+  unifiedpush_endpoint?: string
+  ntfy_topic: string
   timezone: string
   timezone_configured: boolean
+}
+
+export interface NotificationInboxItem {
+  id: number
+  event_id: number
+  event_type: NotificationEventType
+  summary: string
+  message: string
+  link: string
+  route: string
+  created_at: string
+  read_at: string | null
+  unread: boolean
+}
+
+export interface NotificationInboxResponse {
+  results: NotificationInboxItem[]
+  unread_count: number
 }
 
 export interface SiteSettings {

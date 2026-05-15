@@ -46,14 +46,15 @@ def test_generated_recurring_card_receives_recurrence_and_source_stops(column) -
 
 @pytest.mark.django_db()
 def test_deadline_reminder_accepts_push_channel(
-    auth_client: APIClient, regular_user, column
+    auth_client: APIClient, regular_user, column, settings
 ) -> None:
+    settings.NTFY_URL = "https://ntfy.example"
     card = Card.objects.create(
         column=column,
         title="Push reminder",
         deadline=timezone.now() + timedelta(hours=2),
     )
-    NotificationProfile.objects.create(user=regular_user, onesignal_player_id="player-1")
+    NotificationProfile.objects.create(user=regular_user)
 
     response = auth_client.put(
         f"/api/v1/cards/{card.id}/deadline-reminder/",
@@ -78,9 +79,10 @@ def test_deadline_reminder_accepts_push_channel(
 
 @pytest.mark.django_db()
 def test_deadline_reminder_channels_include_push(
-    auth_client: APIClient, regular_user, card: Card
+    auth_client: APIClient, regular_user, card: Card, settings
 ) -> None:
-    NotificationProfile.objects.create(user=regular_user, onesignal_player_id="player-1")
+    settings.NTFY_URL = "https://ntfy.example"
+    NotificationProfile.objects.create(user=regular_user)
 
     response = auth_client.get(f"/api/v1/cards/{card.id}/deadline-reminder/")
 

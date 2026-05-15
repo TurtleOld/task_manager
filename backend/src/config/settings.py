@@ -173,6 +173,9 @@ CELERY_BEAT_SCHEDULE = {
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 ONESIGNAL_APP_ID = os.getenv("ONESIGNAL_APP_ID", "")
 ONESIGNAL_REST_API_KEY = os.getenv("ONESIGNAL_REST_API_KEY", "")
+NTFY_URL = os.getenv("NTFY_URL", "")
+NTFY_TOKEN = os.getenv("NTFY_TOKEN", "")
+NTFY_TOPIC_PATTERN = os.getenv("NTFY_TOPIC_PATTERN", "task-manager-user-{userId}")
 
 
 REST_FRAMEWORK = {
@@ -202,6 +205,6 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     "TITLE": "Task Manager API",
     "DESCRIPTION": "Kanban API for Task Manager",
-    "VERSION": "1.1.0",
+    "VERSION": "1.1.1",
     "SERVE_INCLUDE_SCHEMA": False,
 }

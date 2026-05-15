@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import OneSignal from 'react-onesignal'
-import { AUTH_TOKEN_KEY, clearAuth, loadAuthUser, registerOneSignalPlayerId, storeAuth } from '../../app/auth'
+import { AUTH_TOKEN_KEY, clearAuth, loadAuthUser, storeAuth } from '../../app/auth'
 import type { AuthUser } from '../../api/types'
 
 export function useAuthState() {
@@ -11,12 +10,6 @@ export function useAuthState() {
     storeAuth(next)
     setUser(next)
     setToken(next.token)
-    try {
-      OneSignal.Slidedown.promptPush()
-    } catch {
-      // not critical
-    }
-    void registerOneSignalPlayerId()
   }
 
   const logout = () => {

@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 from urllib import request
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 from zoneinfo import ZoneInfo
 
 from celery import shared_task
@@ -27,6 +27,7 @@ from .models import (
     NotificationDelivery,
     NotificationEvent,
     NotificationEventType,
+    NotificationInboxEntry,
     NotificationPreference,
     NotificationProfile,
     RecurrenceFrequency,
@@ -339,105 +340,45 @@ def _send_telegram(chat_id: str, message: str) -> None:
 
 
 def _send_push(player_id: str, title: str, message: str, event_id: int | None = None) -> None:
-    app_id = settings.ONESIGNAL_APP_ID
-    api_key = settings.ONESIGNAL_REST_API_KEY
-    if not app_id or not api_key:
-        raise RuntimeError("OneSignal is not configured")
+    base_url = settings.NTFY_URL.rstrip("/")
+    token = settings.NTFY_TOKEN
+    if player_id.startswith("https://") or player_id.startswith("http://"):
+        url = player_id
+    elif base_url:
+        url = f"{base_url}/{quote(player_id, safe='')}"
+    else:
+        raise RuntimeError("ntfy is not configured")
 
-    payload = json.dumps(
-        {
-            "app_id": app_id,
-            "include_subscription_ids": [player_id],
-            "headings": {"en": title, "ru": title},
-            "contents": {"en": message, "ru": message},
-        }
-    ).encode("utf-8")
-
-    url = "https://api.onesignal.com/notifications?c=push"
     parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.netloc != "api.onesignal.com":
-        raise RuntimeError("Refusing to send OneSignal request to non-official host")
+    if parsed.scheme not in {"https", "http"} or not parsed.netloc:
+        raise RuntimeError("Refusing to send ntfy request to invalid host")
+    base_parsed = urlparse(base_url) if base_url else None
+    should_send_token = bool(token and base_parsed and parsed.netloc == base_parsed.netloc)
 
     req = request.Request(
         url=url,
-        data=payload,
+        data=message.encode("utf-8"),
         headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Key {api_key}",
+            "Content-Type": "text/plain; charset=utf-8",
+            "Title": title,
+            "Priority": "high",
+            **({"Authorization": f"Bearer {token}"} if should_send_token else {}),
         },
         method="POST",
     )
-
-    def _response_summary(resp_json: dict[str, object]) -> dict[str, object]:
-        return {
-            "id": resp_json.get("id"),
-            "recipients": resp_json.get("recipients"),
-            "errors": resp_json.get("errors"),
-        }
 
     try:
         with request.urlopen(req, timeout=10) as resp:
             body = resp.read().decode("utf-8", errors="replace")
             if resp.status >= 400:
-                raise RuntimeError(f"OneSignal API error: HTTP {resp.status}; body={body}")
-
-            try:
-                parsed = json.loads(body)
-            except json.JSONDecodeError as exc:
-                logger.warning(
-                    "onesignal_push_delivery_failed event_id=%s player_id=%s "
-                    "status=%s reason=invalid_json body=%s",
-                    event_id,
-                    player_id,
-                    resp.status,
-                    body,
-                )
-                raise RuntimeError("OneSignal API error: invalid JSON response") from exc
-
-            if not isinstance(parsed, dict):
-                logger.warning(
-                    "onesignal_push_delivery_failed event_id=%s player_id=%s status=%s "
-                    "reason=unexpected_payload_type payload_type=%s",
-                    event_id,
-                    player_id,
-                    resp.status,
-                    type(parsed).__name__,
-                )
-                raise RuntimeError(
-                    f"OneSignal API error: unexpected JSON payload type {type(parsed).__name__}"
-                )
-
-            errors = parsed.get("errors")
-            recipients = parsed.get("recipients")
-            recipient_count = None
-            if isinstance(recipients, int):
-                recipient_count = recipients
-            elif isinstance(recipients, float):
-                recipient_count = int(recipients)
-            elif isinstance(recipients, str):
-                if recipients.isdigit():
-                    recipient_count = int(recipients)
-
-            if errors or recipient_count == 0:
-                summary = _response_summary(parsed)
-                logger.warning(
-                    "onesignal_push_delivery_failed event_id=%s player_id=%s status=%s response=%s",
-                    event_id,
-                    player_id,
-                    resp.status,
-                    summary,
-                )
-                raise RuntimeError(
-                    "OneSignal API delivery not confirmed: "
-                    f"status={resp.status}, response={summary}"
-                )
+                raise RuntimeError(f"ntfy API error: HTTP {resp.status}; body={body}")
 
             logger.info(
-                "onesignal_push_delivery_sent event_id=%s player_id=%s status=%s response=%s",
+                "ntfy_push_delivery_sent event_id=%s topic=%s status=%s response=%s",
                 event_id,
                 player_id,
                 resp.status,
-                _response_summary(parsed),
+                body,
             )
     except HTTPError as exc:
         body = ""
@@ -446,22 +387,22 @@ def _send_push(player_id: str, title: str, message: str, event_id: int | None = 
         except Exception:  # noqa: BLE001
             body = "<failed to read response body>"
         logger.warning(
-            "onesignal_push_delivery_failed event_id=%s player_id=%s "
+            "ntfy_push_delivery_failed event_id=%s topic=%s "
             "status=%s reason=http_error body=%s",
             event_id,
             player_id,
             exc.code,
             body,
         )
-        raise RuntimeError(f"OneSignal API error: HTTP {exc.code}; body={body}") from exc
+        raise RuntimeError(f"ntfy API error: HTTP {exc.code}; body={body}") from exc
     except URLError as exc:
         logger.warning(
-            "onesignal_push_delivery_failed event_id=%s player_id=%s reason=url_error error=%s",
+            "ntfy_push_delivery_failed event_id=%s topic=%s reason=url_error error=%s",
             event_id,
             player_id,
             exc,
         )
-        raise RuntimeError(f"OneSignal API connection error: {exc}") from exc
+        raise RuntimeError(f"ntfy API connection error: {exc}") from exc
 
 
 def _preferences_enabled(user_id: int, event: NotificationEvent, channel: str) -> bool:
@@ -482,6 +423,8 @@ def _preferences_enabled(user_id: int, event: NotificationEvent, channel: str) -
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def send_notification_event(self, event_id: int) -> None:
+    from .notifications import build_ntfy_topic  # noqa: E402
+
     event = (
         NotificationEvent.objects.filter(id=event_id)
         .select_related("actor", "board", "column", "card")
@@ -506,6 +449,8 @@ def send_notification_event(self, event_id: int) -> None:
         profile = profiles.get(user.id)
         if not profile:
             profile = NotificationProfile.objects.create(user=user)
+
+        NotificationInboxEntry.objects.get_or_create(event=event, user=user)
 
         for channel in [
             NotificationChannel.EMAIL,
@@ -557,7 +502,9 @@ def send_notification_event(self, event_id: int) -> None:
                     continue
 
             if channel_value == NotificationChannel.PUSH:
-                target_player_id = (profile.onesignal_player_id or "").strip()
+                target_player_id = (profile.unifiedpush_endpoint or "").strip()
+                if not target_player_id and settings.NTFY_URL:
+                    target_player_id = build_ntfy_topic(user.id)
                 if not target_player_id:
                     continue
                 delivery = NotificationDelivery.objects.create(
@@ -566,7 +513,19 @@ def send_notification_event(self, event_id: int) -> None:
                     channel=channel,
                 )
                 try:
-                    _send_push(target_player_id, subject, body, event_id=event.id)
+                    push_payload = json.dumps(
+                        {
+                            "notificationId": event.id,
+                            "eventType": event.event_type,
+                            "title": str(subject),
+                            "body": body,
+                            "link": event.link,
+                            "boardId": event.board_id,
+                            "cardId": event.card_id,
+                        },
+                        ensure_ascii=False,
+                    )
+                    _send_push(target_player_id, str(subject), push_payload, event_id=event.id)
                     delivery.status = NotificationDelivery.Status.SENT
                     delivery.sent_at = timezone.now()
                     delivery.save(update_fields=["status", "sent_at"])
@@ -707,12 +666,12 @@ def send_overdue_card_reminders(self) -> None:
     if not overdue_cards.exists():
         return
 
-    profiles = NotificationProfile.objects.exclude(onesignal_player_id="").select_related("user")
+    from .notifications import build_frontend_link, build_ntfy_topic  # noqa: E402
+
+    profiles = NotificationProfile.objects.select_related("user")
 
     if not profiles.exists():
         return
-
-    from .notifications import build_frontend_link  # noqa: E402 — avoid circular import
 
     for card in overdue_cards:
         recent_delivery = NotificationDelivery.objects.filter(
@@ -767,7 +726,11 @@ def send_overdue_card_reminders(self) -> None:
             continue
 
         for profile in profiles:
-            player_id = (profile.onesignal_player_id or "").strip()
+            NotificationInboxEntry.objects.get_or_create(event=event, user=profile.user)
+
+            player_id = (profile.unifiedpush_endpoint or "").strip()
+            if not player_id and settings.NTFY_URL:
+                player_id = build_ntfy_topic(profile.user_id)
             if not player_id:
                 continue
 
@@ -777,7 +740,19 @@ def send_overdue_card_reminders(self) -> None:
                 channel=NotificationChannel.PUSH,
             )
             try:
-                _send_push(player_id, title, body_text, event_id=event.id)
+                push_payload = json.dumps(
+                    {
+                        "notificationId": event.id,
+                        "eventType": event.event_type,
+                        "title": title,
+                        "body": body_text,
+                        "link": link,
+                        "boardId": card.board_id,
+                        "cardId": card.id,
+                    },
+                    ensure_ascii=False,
+                )
+                _send_push(player_id, title, push_payload, event_id=event.id)
                 delivery.status = NotificationDelivery.Status.SENT
                 delivery.sent_at = timezone.now()
                 delivery.save(update_fields=["status", "sent_at"])

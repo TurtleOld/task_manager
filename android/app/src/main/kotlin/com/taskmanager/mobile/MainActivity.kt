@@ -1,11 +1,16 @@
 package com.taskmanager.mobile
 
+import android.Manifest
 import android.content.Context
 import android.content.SharedPreferences
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Build
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
@@ -96,9 +101,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.onesignal.OneSignal
-import com.onesignal.user.subscriptions.IPushSubscriptionObserver
-import com.onesignal.user.subscriptions.PushSubscriptionChangedState
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -138,6 +140,7 @@ import java.time.format.DateTimeParseException
 import java.util.concurrent.TimeUnit
 import java.util.Calendar
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import com.taskmanager.mobile.notifications.TaskManagerUnifiedPushRegistrar
 
 private val LocalActivity = androidx.compose.runtime.staticCompositionLocalOf<FragmentActivity> {
     error("No FragmentActivity provided")
@@ -167,7 +170,9 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
     val boardUsers by vm.boardUsers.collectAsStateWithLifecycle()
     val securitySettings by vm.securitySettings.collectAsStateWithLifecycle()
     val timeZone = session.timeZone
+    val activity = LocalActivity.current
     val navController = rememberNavController()
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     LaunchedEffect(Unit) {
         vm.bootstrap(
@@ -176,17 +181,15 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
             timeZone = readSavedTimeZone(context)
         )
         vm.loadSecuritySettings(context)
-
-        vm.registerPushPlayerId(currentOneSignalPlayerId())
-        if (BuildConfig.ONESIGNAL_APP_ID.isNotBlank()) {
-            val accepted = OneSignal.Notifications.requestPermission(true)
-            if (accepted) {
-                OneSignal.User.pushSubscription.optIn()
-            }
-        }
     }
 
     LaunchedEffect(session.isAuthenticated) {
+        if (session.isAuthenticated && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
         val route = when {
             !session.isAuthenticated -> Route.Login
             isPinEnabled(context) -> Route.PinUnlock
@@ -200,34 +203,12 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
 
     LaunchedEffect(session.isAuthenticated) {
         if (!session.isAuthenticated) return@LaunchedEffect
-        repeat(15) {
-            val playerId = currentOneSignalPlayerId()
-            if (playerId.isNotBlank()) {
-                vm.registerPushPlayerId(playerId)
-                return@LaunchedEffect
-            }
-            delay(2000)
-        }
+        vm.registerUnifiedPush(activity, context)
     }
 
     LaunchedEffect(session.isAuthenticated, session.timeZone) {
         if (!session.isAuthenticated) return@LaunchedEffect
         saveTimeZone(context, session.timeZone)
-    }
-
-    DisposableEffect(session.isAuthenticated, session.domain, session.token) {
-        val observer = object : IPushSubscriptionObserver {
-            override fun onPushSubscriptionChange(state: PushSubscriptionChangedState) {
-                val playerId = state.current.id ?: ""
-                if (playerId.isNotBlank()) {
-                    vm.registerPushPlayerId(playerId)
-                }
-            }
-        }
-        OneSignal.User.pushSubscription.addObserver(observer)
-        onDispose {
-            OneSignal.User.pushSubscription.removeObserver(observer)
-        }
     }
 
     NavHost(
@@ -244,7 +225,6 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
                 onLoginClick = {
                     val domainToSave = session.domain
                     vm.login(
-                        playerId = currentOneSignalPlayerId(),
                         onSuccess = { token ->
                             saveDomain(context, domainToSave)
                             saveToken(context, token)
@@ -265,7 +245,7 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
                 onForgotPin = {
                     clearToken(context)
                     clearPin(context)
-                    vm.logout()
+                    vm.logout(context)
                     vm.loadSecuritySettings(context)
                 }
             )
@@ -280,7 +260,7 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
                 onRefresh = vm::refresh,
                 onLogout = {
                     clearToken(context)
-                    vm.logout()
+                    vm.logout(context)
                 },
                 onSelectBoard = vm::selectBoard,
                 onAddTask = { title, columnId -> vm.createTask(title, columnId) },
@@ -311,7 +291,7 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
                 },
                 onLogout = {
                     clearToken(context)
-                    vm.logout()
+                    vm.logout(context)
                 }
             )
         }
@@ -3804,10 +3784,10 @@ class KanbanViewModel : ViewModel() {
         if (token.isNotBlank()) refresh()
     }
 
-    private suspend fun loadNotificationProfileTimeZone(baseUrl: String, apiToken: String): String {
+    private suspend fun loadNotificationProfile(baseUrl: String, apiToken: String): NotificationProfileDto {
         val profile = repository.getNotificationProfile(baseUrl = baseUrl, apiToken = apiToken)
         if (profile.timezoneConfigured) {
-            return normalizeTimeZoneId(profile.timezone)
+            return profile.copy(timezone = normalizeTimeZoneId(profile.timezone))
         }
 
         val deviceTimeZone = normalizeTimeZoneId(ZoneId.systemDefault().id)
@@ -3815,14 +3795,15 @@ class KanbanViewModel : ViewModel() {
             repository.updateNotificationProfile(baseUrl = baseUrl, apiToken = apiToken, timeZone = deviceTimeZone)
         }.getOrNull()
 
-        return normalizeTimeZoneId(updatedProfile?.timezone ?: deviceTimeZone)
+        val effective = updatedProfile ?: profile.copy(timezone = deviceTimeZone)
+        return effective.copy(timezone = normalizeTimeZoneId(effective.timezone))
     }
 
     fun onDomainChanged(value: String) = _session.update { it.copy(domain = value) }
     fun onUsernameChanged(value: String) = _session.update { it.copy(username = value) }
     fun onPasswordChanged(value: String) = _session.update { it.copy(password = value) }
 
-    fun login(playerId: String, onSuccess: (String) -> Unit) {
+    fun login(onSuccess: (String) -> Unit) {
         val domain = normalizeBaseUrl(session.value.domain)
         if (domain.isBlank()) {
             _session.update { it.copy(errorMessage = "Введите домен backend") }
@@ -3840,9 +3821,8 @@ class KanbanViewModel : ViewModel() {
             }.onSuccess { token ->
                 onSuccess(token)
                 _session.update {
-                    it.copy(token = token, isAuthenticated = true, isBusy = false, errorMessage = null, password = "", registeredPlayerId = "")
+                    it.copy(token = token, isAuthenticated = true, isBusy = false, errorMessage = null, password = "", unifiedPushRegistered = false)
                 }
-                registerPushPlayerId(playerId)
                 refresh()
             }.onFailure { error ->
                 _session.update { it.copy(isBusy = false, errorMessage = error.message ?: "Ошибка входа") }
@@ -3850,8 +3830,9 @@ class KanbanViewModel : ViewModel() {
         }
     }
 
-    fun logout() {
+    fun logout(context: Context) {
         stopWebSocket()
+        TaskManagerUnifiedPushRegistrar.unregister(context.applicationContext)
         _session.value = SessionUiState(domain = session.value.domain)
         _boardState.value = BoardUiState.Loading
     }
@@ -3868,13 +3849,13 @@ class KanbanViewModel : ViewModel() {
             // Load boards and users in parallel
             val boardsDeferred = async { runCatching { repository.fetchBoards(baseUrl = s.domain, apiToken = s.token) } }
             val usersDeferred = async { runCatching { repository.fetchUsers(baseUrl = s.domain, apiToken = s.token) } }
-            val profileDeferred = async { runCatching { loadNotificationProfileTimeZone(baseUrl = s.domain, apiToken = s.token) } }
+            val profileDeferred = async { runCatching { loadNotificationProfile(baseUrl = s.domain, apiToken = s.token) } }
             val boardsResult = boardsDeferred.await()
             val usersResult = usersDeferred.await()
             val profileResult = profileDeferred.await()
 
             usersResult.onSuccess { users -> _boardUsers.value = users }
-            profileResult.onSuccess { tz -> _session.update { it.copy(timeZone = tz) } }
+            profileResult.onSuccess { profile -> _session.update { it.copy(timeZone = profile.timezone) } }
 
             boardsResult.onSuccess { boards ->
                 val selectedId = (prev as? BoardUiState.Content)?.selectedBoardId
@@ -4020,18 +4001,20 @@ class KanbanViewModel : ViewModel() {
         }
     }
 
-    fun registerPushPlayerId(playerId: String) {
+    fun registerUnifiedPush(activity: FragmentActivity, context: Context) {
         val s = session.value
-        Log.d(PUSH_DEBUG_TAG, "registerPushPlayerId called: playerId=$playerId isAuth=${s.isAuthenticated} domain=${s.domain}")
-        if (playerId.isBlank() || !s.isAuthenticated || s.token.isBlank() || s.domain.isBlank()) return
-        if (s.registeredPlayerId == playerId) return
+        Log.d(PUSH_DEBUG_TAG, "registerUnifiedPush called: isAuth=${s.isAuthenticated} domain=${s.domain}")
+        if (!s.isAuthenticated || s.token.isBlank() || s.domain.isBlank()) return
+        if (s.unifiedPushRegistered) return
 
         viewModelScope.launch {
             runCatching {
-                repository.updateNotificationProfile(baseUrl = s.domain, apiToken = s.token, oneSignalPlayerId = playerId)
                 repository.ensurePushNotificationPreferences(baseUrl = s.domain, apiToken = s.token, eventTypes = notificationEventTypes)
             }.onSuccess {
-                _session.update { it.copy(registeredPlayerId = playerId) }
+                TaskManagerUnifiedPushRegistrar.register(activity, context.applicationContext) { success ->
+                    if (!success) return@register
+                    _session.update { it.copy(unifiedPushRegistered = true) }
+                }
             }
         }
     }
@@ -4153,7 +4136,7 @@ data class SessionUiState(
     val timeZone: String = DEFAULT_TIME_ZONE,
     val username: String = "",
     val password: String = "",
-    val registeredPlayerId: String = "",
+    val unifiedPushRegistered: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -4359,11 +4342,10 @@ class KanbanRepository {
     suspend fun updateNotificationProfile(
         baseUrl: String,
         apiToken: String,
-        oneSignalPlayerId: String? = null,
         timeZone: String? = null
     ): NotificationProfileDto {
         val body = api(baseUrl, apiToken).updateNotificationProfile(
-            request = NotificationProfileRequest(onesignalPlayerId = oneSignalPlayerId, timezone = timeZone)
+            request = NotificationProfileRequest(timezone = timeZone)
         )
         Log.d(PUSH_DEBUG_TAG, "PATCH /notifications/profile -> $body")
         return body
@@ -4577,7 +4559,6 @@ data class BoardUser(val id: Int, val name: String)
 
 @Serializable
 private data class NotificationProfileRequest(
-    @SerialName("onesignal_player_id") val onesignalPlayerId: String? = null,
     val timezone: String? = null
 )
 
@@ -4585,7 +4566,7 @@ private data class NotificationProfileRequest(
 data class NotificationProfileDto(
     val email: String = "",
     @SerialName("telegram_chat_id") val telegramChatId: String = "",
-    @SerialName("onesignal_player_id") val oneSignalPlayerId: String? = null,
+    @SerialName("ntfy_topic") val ntfyTopic: String = "",
     val timezone: String = DEFAULT_TIME_ZONE,
     @SerialName("timezone_configured") val timezoneConfigured: Boolean = false
 )
@@ -4718,14 +4699,6 @@ private fun clearToken(context: Context) {
         .remove(KEY_TOKEN)
         .remove(KEY_TIME_ZONE)
         .apply()
-}
-
-private fun currentOneSignalPlayerId(): String {
-    return try {
-        OneSignal.User.pushSubscription.id ?: ""
-    } catch (_: Throwable) {
-        ""
-    }
 }
 
 private const val PUSH_DEBUG_TAG = "TM_PUSH_DEBUG"

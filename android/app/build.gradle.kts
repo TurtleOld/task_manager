@@ -5,7 +5,6 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
-    id("com.google.gms.google-services")
 }
 
 android {
@@ -52,18 +51,13 @@ android {
         minSdk = 24
         targetSdk = 34
         versionCode = 1
-        versionName = "1.1.0"
+        versionName = "1.1.1"
 
         val apiBaseUrl = (project.findProperty("ANDROID_API_BASE_URL") as String?)
             ?: (localProps.getProperty("ANDROID_API_BASE_URL"))
             ?: (dotEnvProps.getProperty("ANDROID_API_BASE_URL"))
             ?: System.getenv("ANDROID_API_BASE_URL")
             ?: "http://10.0.2.2:8000"
-        val oneSignalAppId = (project.findProperty("ONESIGNAL_APP_ID") as String?)
-            ?: (localProps.getProperty("ONESIGNAL_APP_ID"))
-            ?: (dotEnvProps.getProperty("ONESIGNAL_APP_ID"))
-            ?: System.getenv("ONESIGNAL_APP_ID")
-            ?: ""
         val apiToken = (project.findProperty("ANDROID_API_TOKEN") as String?)
             ?: (localProps.getProperty("ANDROID_API_TOKEN"))
             ?: (dotEnvProps.getProperty("ANDROID_API_TOKEN"))
@@ -71,9 +65,7 @@ android {
             ?: ""
 
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
-        buildConfigField("String", "ONESIGNAL_APP_ID", "\"$oneSignalAppId\"")
         buildConfigField("String", "API_TOKEN", "\"$apiToken\"")
-        manifestPlaceholders["onesignal_app_id"] = oneSignalAppId
 
         vectorDrawables {
             useSupportLibrary = true
@@ -131,6 +123,16 @@ android {
     }
 }
 
+configurations.configureEach {
+    val tink = "com.google.crypto.tink:tink-android:1.20.0"
+    resolutionStrategy {
+        force(tink)
+        dependencySubstitution {
+            substitute(module("com.google.crypto.tink:tink")).using(module(tink))
+        }
+    }
+}
+
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.09.02"))
     implementation("androidx.activity:activity-compose:1.9.3")
@@ -147,9 +149,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
-    implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
-    implementation("com.google.firebase:firebase-messaging")
-    implementation("com.onesignal:OneSignal:5.1.21")
+    implementation("org.unifiedpush.android:connector:3.0.10")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")

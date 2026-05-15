@@ -1,10 +1,8 @@
-import { Component, lazy, useEffect } from 'react'
+import { Component, lazy } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import OneSignal from 'react-onesignal'
 import { AppShell } from './app/AppShell'
 import { ProtectedRoute } from './app/ProtectedRoute'
-import { registerOneSignalPlayerId } from './app/auth'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { SettingsPage } from './pages/settings/SettingsPage'
@@ -37,21 +35,6 @@ const TodayPage = lazy(() => import('./pages/today/TodayPage').then((module) => 
 
 export default function App() {
   const { user, token, login, logout, updateUser } = useAuthState()
-
-  useEffect(() => {
-    if (!token) return
-    // Register player_id on app mount (if already logged in) and on subscription changes
-    void registerOneSignalPlayerId()
-    const handler = () => void registerOneSignalPlayerId()
-    try {
-      OneSignal.User?.PushSubscription?.addEventListener?.('change', handler)
-    } catch { /* not critical */ }
-    return () => {
-      try {
-        OneSignal.User?.PushSubscription?.removeEventListener?.('change', handler)
-      } catch { /* not critical */ }
-    }
-  }, [token])
 
   return (
     <AppErrorBoundary>

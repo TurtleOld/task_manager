@@ -16,6 +16,7 @@ from .serializers_pkg import (  # noqa: F401
     ColumnSerializer,
     CurrentUserUpdateSerializer,
     LabelSerializer,
+    NotificationInboxEntrySerializer,
     NotificationPreferenceSerializer,
     NotificationProfileSerializer,
     PasswordChangeSerializer,
