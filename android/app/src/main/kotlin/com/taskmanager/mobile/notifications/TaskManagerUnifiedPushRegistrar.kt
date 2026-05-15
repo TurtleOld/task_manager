@@ -9,7 +9,10 @@ object TaskManagerUnifiedPushRegistrar {
     private const val INSTANCE = "task-manager"
     private const val REGISTRATION_LABEL = "Task Manager notifications"
 
-    fun register(activity: Activity, context: Context, onComplete: (Boolean) -> Unit = {}) {
+    fun register(activity: Activity, context: Context, forceNewEndpoint: Boolean = false, onComplete: (Boolean) -> Unit = {}) {
+        if (forceNewEndpoint) {
+            unregister(context)
+        }
         UnifiedPush.tryUseCurrentOrDefaultDistributor(activity) { success ->
             if (!success) {
                 Log.w("TM_PUSH_DEBUG", "UnifiedPush distributor is not available")

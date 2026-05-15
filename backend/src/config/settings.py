@@ -205,6 +205,6 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     "TITLE": "Task Manager API",
     "DESCRIPTION": "Kanban API for Task Manager",
-    "VERSION": "1.1.1",
+    "VERSION": "1.1.2",
     "SERVE_INCLUDE_SCHEMA": False,
 }

@@ -101,6 +101,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -108,6 +109,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -140,6 +142,7 @@ import java.time.format.DateTimeParseException
 import java.util.concurrent.TimeUnit
 import java.util.Calendar
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import com.taskmanager.mobile.notifications.TaskManagerPushProfileSync
 import com.taskmanager.mobile.notifications.TaskManagerUnifiedPushRegistrar
 
 private val LocalActivity = androidx.compose.runtime.staticCompositionLocalOf<FragmentActivity> {
@@ -3855,7 +3858,9 @@ class KanbanViewModel : ViewModel() {
             val profileResult = profileDeferred.await()
 
             usersResult.onSuccess { users -> _boardUsers.value = users }
-            profileResult.onSuccess { profile -> _session.update { it.copy(timeZone = profile.timezone) } }
+            profileResult.onSuccess { profile ->
+                _session.update { it.copy(timeZone = profile.timezone, unifiedPushEndpoint = profile.unifiedPushEndpoint) }
+            }
 
             boardsResult.onSuccess { boards ->
                 val selectedId = (prev as? BoardUiState.Content)?.selectedBoardId
@@ -4008,10 +4013,14 @@ class KanbanViewModel : ViewModel() {
         if (s.unifiedPushRegistered) return
 
         viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                TaskManagerPushProfileSync.retryPendingEndpoint(context.applicationContext)
+            }
             runCatching {
                 repository.ensurePushNotificationPreferences(baseUrl = s.domain, apiToken = s.token, eventTypes = notificationEventTypes)
             }.onSuccess {
-                TaskManagerUnifiedPushRegistrar.register(activity, context.applicationContext) { success ->
+                val forceNewEndpoint = s.unifiedPushEndpoint.isBlank() && !TaskManagerPushProfileSync.hasPendingEndpoint(context.applicationContext)
+                TaskManagerUnifiedPushRegistrar.register(activity, context.applicationContext, forceNewEndpoint) { success ->
                     if (!success) return@register
                     _session.update { it.copy(unifiedPushRegistered = true) }
                 }
@@ -4136,6 +4145,7 @@ data class SessionUiState(
     val timeZone: String = DEFAULT_TIME_ZONE,
     val username: String = "",
     val password: String = "",
+    val unifiedPushEndpoint: String = "",
     val unifiedPushRegistered: Boolean = false,
     val errorMessage: String? = null
 )
@@ -4502,7 +4512,7 @@ private data class CardDto(
     val title: String? = null,
     val description: String? = null,
     val deadline: String? = null,
-    val priority: String? = null,
+    val priority: JsonElement? = null,
     val position: JsonElement? = null,
     val assignee: Int? = null,
     val tags: List<String> = emptyList(),
@@ -4566,6 +4576,7 @@ private data class NotificationProfileRequest(
 data class NotificationProfileDto(
     val email: String = "",
     @SerialName("telegram_chat_id") val telegramChatId: String = "",
+    @SerialName("unifiedpush_endpoint") val unifiedPushEndpoint: String = "",
     @SerialName("ntfy_topic") val ntfyTopic: String = "",
     val timezone: String = DEFAULT_TIME_ZONE,
     @SerialName("timezone_configured") val timezoneConfigured: Boolean = false
@@ -4620,14 +4631,25 @@ data class KanbanTask(
 )
 
 enum class TaskPriority(val apiValue: String, val label: String, val emoji: String) {
-    Low("🟢", "Можно когда будет время", "🟢"),
-    Medium("🟡", "Важно (до конца недели)", "🟡"),
-    High("🔥", "Срочно", "🔥");
+    Low("1", "Можно когда будет время", "🟢"),
+    Medium("2", "Важно (до конца недели)", "🟡"),
+    High("3", "Срочно", "🔥");
 
     companion object {
-        fun fromApiValue(value: String?): TaskPriority = when (value) {
-            "🟢" -> Low
-            "🔥" -> High
+        fun fromApiValue(value: JsonElement?): TaskPriority {
+            val content = (value as? JsonPrimitive)?.content?.trim()
+            return when (content) {
+                "0", "1", "🟢" -> Low
+                "3", "🔥" -> High
+                "2", "🟡" -> Medium
+                else -> Medium
+            }
+        }
+
+        fun fromApiValue(value: String?): TaskPriority = when (value?.trim()) {
+            "0", "1", "🟢" -> Low
+            "3", "🔥" -> High
+            "2", "🟡" -> Medium
             else -> Medium
         }
     }
