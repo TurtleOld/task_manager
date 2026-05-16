@@ -1,4 +1,4 @@
-package com.taskmanager.mobile
+package com.taskmanager.mobile.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

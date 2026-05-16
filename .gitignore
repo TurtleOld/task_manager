@@ -64,3 +64,4 @@ android/app/src/main/res/xml/network_security_config.xml
 task-manager*.json
 secrets/
 **/firebase-service-account.json
+android/ANDROID_IMPROVEMENT_PLAN_RU.md
