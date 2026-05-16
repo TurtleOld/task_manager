@@ -434,8 +434,16 @@ class NotificationDelivery(models.Model):
 
 
 class NotificationInboxEntry(models.Model):
-    event = models.ForeignKey(NotificationEvent, on_delete=models.CASCADE, related_name="inbox_entries")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notification_inbox")
+    event = models.ForeignKey(
+        NotificationEvent,
+        on_delete=models.CASCADE,
+        related_name="inbox_entries",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notification_inbox",
+    )
     read_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 

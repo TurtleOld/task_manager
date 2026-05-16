@@ -60,7 +60,6 @@ def migrate_json_attachments(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
         ("kanban", "0034_card_query_indexes"),

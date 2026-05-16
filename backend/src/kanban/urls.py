@@ -18,6 +18,7 @@ from .views import (
     RegistrationStatusView,
     SearchView,
     SiteSettingsView,
+    TerminateSessionsView,
     UserAdminViewSet,
 )
 
@@ -38,6 +39,7 @@ urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
     path("auth/me/", CurrentUserView.as_view(), name="current-user"),
     path("auth/registration-status/", RegistrationStatusView.as_view(), name="registration-status"),
+    path("auth/terminate-sessions/", TerminateSessionsView.as_view(), name="terminate-sessions"),
     path("inbox/", InboxView.as_view(), name="inbox"),
     path("notifications/inbox/", NotificationInboxView.as_view(), name="notification-inbox"),
     path("notifications/profile/", NotificationProfileView.as_view(), name="notification-profile"),

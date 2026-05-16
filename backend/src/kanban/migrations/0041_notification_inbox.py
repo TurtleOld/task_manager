@@ -7,26 +7,62 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('kanban', '0040_deactivate_source_rules_with_recurring_children'),
+        ("kanban", "0040_deactivate_source_rules_with_recurring_children"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='NotificationInboxEntry',
+            name="NotificationInboxEntry",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('read_at', models.DateTimeField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(default=django.utils.timezone.now, editable=False)),
-                ('event', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='inbox_entries', to='kanban.notificationevent')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='notification_inbox', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("read_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        default=django.utils.timezone.now,
+                        editable=False,
+                    ),
+                ),
+                (
+                    "event",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="inbox_entries",
+                        to="kanban.notificationevent",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="notification_inbox",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at', '-id'],
-                'indexes': [models.Index(fields=['user', 'read_at', 'created_at'], name='kanban_noti_user_id_7344bd_idx'), models.Index(fields=['event', 'user'], name='kanban_noti_event_i_011d6c_idx')],
-                'unique_together': {('event', 'user')},
+                "ordering": ["-created_at", "-id"],
+                "indexes": [
+                    models.Index(
+                        fields=["user", "read_at", "created_at"],
+                        name="kanban_noti_user_id_7344bd_idx",
+                    ),
+                    models.Index(
+                        fields=["event", "user"],
+                        name="kanban_noti_event_i_011d6c_idx",
+                    ),
+                ],
+                "unique_together": {("event", "user")},
             },
         ),
     ]

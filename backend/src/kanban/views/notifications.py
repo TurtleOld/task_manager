@@ -34,7 +34,12 @@ class NotificationInboxView(APIView):
 
     def get(self, request: Request) -> Response:
         limit_raw = request.query_params.get("limit", "20")
-        unread_only = request.query_params.get("unread_only", "false").lower() in {"1", "true", "yes", "on"}
+        unread_only = request.query_params.get("unread_only", "false").lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         try:
             limit = max(1, min(int(limit_raw), 100))
         except (TypeError, ValueError):
@@ -51,7 +56,10 @@ class NotificationInboxView(APIView):
             queryset = queryset.filter(read_at__isnull=True)
 
         items = list(queryset[:limit])
-        unread_count = NotificationInboxEntry.objects.filter(user=request.user, read_at__isnull=True).count()
+        unread_count = NotificationInboxEntry.objects.filter(
+            user=request.user,
+            read_at__isnull=True,
+        ).count()
         return Response(
             {
                 "results": NotificationInboxEntrySerializer(items, many=True).data,
@@ -70,7 +78,10 @@ class NotificationInboxView(APIView):
             return Response({"updated": updated}, status=status.HTTP_200_OK)
 
         if not isinstance(ids, list):
-            return Response({"detail": "ids must be a list or use mark_all=true"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "ids must be a list or use mark_all=true"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         int_ids = [int(item) for item in ids if str(item).isdigit()]
         if not int_ids:

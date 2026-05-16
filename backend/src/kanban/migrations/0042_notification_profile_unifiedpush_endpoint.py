@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('kanban', '0041_notification_inbox'),
+        ("kanban", "0041_notification_inbox"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='notificationprofile',
-            name='unifiedpush_endpoint',
-            field=models.URLField(blank=True, default='', max_length=1000),
+            model_name="notificationprofile",
+            name="unifiedpush_endpoint",
+            field=models.URLField(blank=True, default="", max_length=1000),
         ),
     ]

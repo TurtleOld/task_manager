@@ -7,8 +7,8 @@ from rest_framework import serializers
 from ..models import (
     CardDeadlineReminder,
     NotificationChannel,
-    NotificationInboxEntry,
     NotificationEventType,
+    NotificationInboxEntry,
     NotificationPreference,
     NotificationProfile,
 )

@@ -102,7 +102,8 @@ def _nth_weekday_of_month(base: datetime, months: int, weekday: int, pos: int) -
 
     # Collect all days in that month matching the weekday (0=Mon … 6=Sun)
     days = [
-        d for d in range(1, max_day + 1)
+        d
+        for d in range(1, max_day + 1)
         if base.replace(year=year, month=month, day=d).weekday() == weekday
     ]
     if not days:
@@ -507,7 +508,9 @@ def _send_push(
                 exc.code,
                 body,
             )
-            raise InvalidFcmTokenError(f"FCM token is invalid or unregistered: HTTP {exc.code}") from exc
+            raise InvalidFcmTokenError(
+                f"FCM token is invalid or unregistered: HTTP {exc.code}"
+            ) from exc
         logger.warning(
             "fcm_push_delivery_failed event_id=%s status=%s reason=http_error body=%s",
             event_id,
@@ -644,7 +647,13 @@ def send_notification_event(self, event_id: int) -> None:
                         board_id=event.board_id,
                         card_id=event.card_id,
                     )
-                    _send_push(target_fcm_token, str(subject), body, event_id=event.id, data=push_payload)
+                    _send_push(
+                        target_fcm_token,
+                        str(subject),
+                        body,
+                        event_id=event.id,
+                        data=push_payload,
+                    )
                     delivery.status = NotificationDelivery.Status.SENT
                     delivery.sent_at = timezone.now()
                     delivery.save(update_fields=["status", "sent_at"])

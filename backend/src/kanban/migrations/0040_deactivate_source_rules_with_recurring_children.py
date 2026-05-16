@@ -22,5 +22,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(deactivate_source_rules_with_recurring_children, migrations.RunPython.noop),
+        migrations.RunPython(
+            deactivate_source_rules_with_recurring_children,
+            migrations.RunPython.noop,
+        ),
     ]
