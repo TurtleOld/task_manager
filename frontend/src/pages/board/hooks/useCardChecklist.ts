@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
+import { toast } from 'sonner'
 import { api } from '../../../api/client'
 import type { BoardCardDraft } from '../types'
 
@@ -22,8 +23,14 @@ export function useCardChecklist({ selectedCardId, draft, setDraft }: UseCardChe
     const text = newChecklistItem.trim()
     if (!text) return
     setNewChecklistItem('')
-    const created = await api.addChecklistItem(selectedCardId, { text, done: false })
-    setDraft((prev) => (prev ? { ...prev, checklist: [...(prev.checklist ?? []), created] } : prev))
+    try {
+      const created = await api.addChecklistItem(selectedCardId, { text, done: false })
+      setDraft((prev) => (prev ? { ...prev, checklist: [...(prev.checklist ?? []), created] } : prev))
+      toast.success('Пункт чек-листа добавлен')
+    } catch {
+      toast.error('Не удалось добавить пункт чек-листа')
+      setNewChecklistItem(text)
+    }
   }
 
   const toggleChecklistItem = async (itemId: number) => {
@@ -41,6 +48,7 @@ export function useCardChecklist({ selectedCardId, draft, setDraft }: UseCardChe
       setDraft((prev) =>
         prev ? { ...prev, checklist: prev.checklist.map((i) => (i.id === itemId ? updated : i)) } : prev
       )
+      toast.success(updated.done ? 'Пункт чек-листа выполнен' : 'Пункт чек-листа снова активен')
     } catch {
       // Roll back optimistic update on failure
       setDraft((prev) =>
@@ -48,6 +56,7 @@ export function useCardChecklist({ selectedCardId, draft, setDraft }: UseCardChe
           ? { ...prev, checklist: prev.checklist.map((i) => (i.id === itemId ? item : i)) }
           : prev
       )
+      toast.error('Не удалось обновить пункт чек-листа')
     }
   }
 
@@ -57,8 +66,10 @@ export function useCardChecklist({ selectedCardId, draft, setDraft }: UseCardChe
     setDraft((prev) => (prev ? { ...prev, checklist: prev.checklist.filter((i) => i.id !== itemId) } : prev))
     try {
       await api.deleteChecklistItem(selectedCardId, itemId)
+      toast.success('Пункт чек-листа удалён')
     } catch {
       setDraft((prev) => (prev ? { ...prev, checklist: snapshot } : prev))
+      toast.error('Не удалось удалить пункт чек-листа')
     }
   }
 

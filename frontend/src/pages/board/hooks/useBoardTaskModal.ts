@@ -78,8 +78,6 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
   const {
     pendingUploadFiles,
     setPendingUploadFiles,
-    pendingUploadType,
-    setPendingUploadType,
     pendingCreateAttachments,
     setPendingCreateAttachments,
     pendingDeleteAttachmentIds,
@@ -337,6 +335,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     try {
       await deleteCardMutation.mutateAsync(cardId)
       setSelectedCard(null)
+      toast.success(`Задача «${title}» перемещена в архив`)
 
       try {
         await api.notifyCardDeleted(meta)
@@ -351,6 +350,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       return true
     } catch (e) {
       setModalError((e as Error).message)
+      toast.error('Не удалось архивировать задачу')
       return false
     } finally {
       setDeleteBusy(false)
@@ -435,15 +435,22 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       }
 
       if (pendingUploadFiles.length > 0) {
-        const uploaded = await uploadAttachmentsMutation.mutateAsync({
-          id: selectedCardId,
-          files: pendingUploadFiles,
-          type: pendingUploadType,
-        })
-        updated = uploaded
-        applyCardUpdate(uploaded)
+        const uploadsByType = pendingUploadFiles.reduce<Record<'file' | 'photo', File[]>>((groups, item) => {
+          groups[item.type].push(item.file)
+          return groups
+        }, { file: [], photo: [] })
+
+        for (const type of ['file', 'photo'] as const) {
+          if (uploadsByType[type].length === 0) continue
+          const uploaded = await uploadAttachmentsMutation.mutateAsync({
+            id: selectedCardId,
+            files: uploadsByType[type],
+            type,
+          })
+          updated = uploaded
+          applyCardUpdate(uploaded)
+        }
         setPendingUploadFiles([])
-        setPendingUploadType('file')
       }
 
       for (const attachment of pendingCreateAttachments) {
@@ -475,6 +482,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       }
 
       const finalCard = updated ?? selectedCard
+      toast.success('Задача сохранена')
       setSelectedCard(null)
 
       try {
@@ -525,6 +533,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
       return true
     } catch (e) {
       setModalError((e as Error).message)
+      toast.error('Не удалось сохранить задачу')
       return false
     } finally {
       setSaveBusy(false)

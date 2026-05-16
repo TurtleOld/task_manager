@@ -62,20 +62,23 @@ export function AttachmentsSection({
         {selectedAttachments.length === 0 ? (
           <EmptyState title="Вложения отсутствуют" className="p-4">Прикрепите файл или добавьте ссылку к задаче.</EmptyState>
         ) : (
-          selectedAttachments.map((item) => (
-            <div key={item.id} className="flex items-center justify-between gap-3 rounded-panel border border-border/70 bg-background-subtle/45 px-3 py-3">
-              <span className="inline-flex min-w-0 flex-col gap-1">
-                <span className="inline-flex items-center gap-2 break-all">{item.type === 'file' ? '📎' : item.type === 'photo' ? '🖼️' : '🔗'} {item.name}</span>
-                <span className="text-caption text-text-muted">
-                  {item.type === 'link' ? 'Ссылка' : item.type === 'photo' ? 'Фото' : 'Файл'}{item.size ? ` · ${formatFileSize(item.size)}` : ''}
+          selectedAttachments.map((item) => {
+            const isPending = item.id.startsWith('pending-')
+            return (
+              <div key={item.id} className="flex items-center justify-between gap-3 rounded-panel border border-border/70 bg-background-subtle/45 px-3 py-3">
+                <span className="inline-flex min-w-0 flex-col gap-1">
+                  <span className="inline-flex items-center gap-2 break-all">{item.type === 'file' ? '📎' : item.type === 'photo' ? '🖼️' : '🔗'} {item.name}</span>
+                  <span className="text-caption text-text-muted">
+                    {item.type === 'link' ? 'Ссылка' : item.type === 'photo' ? 'Фото' : 'Файл'}{item.size ? ` · ${formatFileSize(item.size)}` : ''}{isPending ? ' · будет загружено после сохранения' : ''}
+                  </span>
                 </span>
-              </span>
-              <div className="flex items-center gap-2 text-caption">
-                {item.url ? <a href={item.url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:text-primary-hover">Открыть</a> : null}
-                <Button type="button" variant="danger" size="sm" onClick={() => void removeAttachment(item)}>Удалить</Button>
+                <div className="flex items-center gap-2 text-caption">
+                  {item.url ? <a href={item.url} target="_blank" rel="noreferrer" className="font-semibold text-primary hover:text-primary-hover">Открыть</a> : null}
+                  <Button type="button" variant="danger" size="sm" onClick={() => void removeAttachment(item)}>Удалить</Button>
+                </div>
               </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
     </SurfaceCard>

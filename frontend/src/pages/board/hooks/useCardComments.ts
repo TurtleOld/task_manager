@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { api } from '../../../api/client'
 import type { CardComment } from '../../../api/types'
 
@@ -72,8 +73,10 @@ export function useCardComments({ selectedCardId, selectedCardIsPending }: UseCa
       const created = await api.addCardComment(selectedCardId, { text })
       setComments((prev) => (prev.some((item) => item.id === created.id) ? prev : [...prev, created]))
       setNewComment('')
+      toast.success('Комментарий добавлен')
     } catch (error) {
       setCommentsError((error as Error).message)
+      toast.error('Не удалось добавить комментарий')
     } finally {
       setCommentsBusy(false)
     }
@@ -98,8 +101,10 @@ export function useCardComments({ selectedCardId, selectedCardIsPending }: UseCa
       const updated = await api.updateCardComment(selectedCardId, commentId, { text })
       setComments((prev) => prev.map((item) => (item.id === updated.id ? updated : item)))
       cancelEditComment()
+      toast.success('Комментарий обновлён')
     } catch (error) {
       setCommentsError((error as Error).message)
+      toast.error('Не удалось обновить комментарий')
     } finally {
       setCommentsBusy(false)
     }
@@ -112,8 +117,10 @@ export function useCardComments({ selectedCardId, selectedCardIsPending }: UseCa
     try {
       await api.deleteCardComment(selectedCardId, commentId)
       setComments((prev) => prev.filter((item) => item.id !== commentId))
+      toast.success('Комментарий удалён')
     } catch (error) {
       setCommentsError((error as Error).message)
+      toast.error('Не удалось удалить комментарий')
     } finally {
       setCommentsBusy(false)
     }

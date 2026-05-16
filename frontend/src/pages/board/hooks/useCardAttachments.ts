@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
+import { toast } from 'sonner'
 import type { BoardCardDraft } from '../types'
 
 export interface PendingAttachmentCreate {
@@ -9,6 +10,12 @@ export interface PendingAttachmentCreate {
   url: string
 }
 
+export interface PendingAttachmentUpload {
+  id: string
+  file: File
+  type: 'file' | 'photo'
+}
+
 interface UseCardAttachmentsOptions {
   selectedCardId: number | null
   draft: BoardCardDraft | null
@@ -16,8 +23,7 @@ interface UseCardAttachmentsOptions {
 }
 
 export function useCardAttachments({ selectedCardId, draft, setDraft }: UseCardAttachmentsOptions) {
-  const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([])
-  const [pendingUploadType, setPendingUploadType] = useState<'file' | 'photo'>('file')
+  const [pendingUploadFiles, setPendingUploadFiles] = useState<PendingAttachmentUpload[]>([])
   const [pendingCreateAttachments, setPendingCreateAttachments] = useState<PendingAttachmentCreate[]>([])
   const [pendingDeleteAttachmentIds, setPendingDeleteAttachmentIds] = useState<string[]>([])
   const [newAttachmentName, setNewAttachmentName] = useState('')
@@ -34,7 +40,6 @@ export function useCardAttachments({ selectedCardId, draft, setDraft }: UseCardA
     setNewAttachmentFiles([])
     setAttachmentFileInputKey((key) => key + 1)
     setPendingUploadFiles([])
-    setPendingUploadType('file')
     setPendingCreateAttachments([])
     setPendingDeleteAttachmentIds([])
   }, [selectedCardId])
@@ -44,10 +49,26 @@ export function useCardAttachments({ selectedCardId, draft, setDraft }: UseCardA
 
     if (newAttachmentType === 'file' || newAttachmentType === 'photo') {
       if (newAttachmentFiles.length === 0) return
-      setPendingUploadFiles((prev) => [...prev, ...newAttachmentFiles])
-      setPendingUploadType(newAttachmentType)
+      const pending = newAttachmentFiles.map((file) => {
+        const id = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`
+        return {
+          upload: { id, file, type: newAttachmentType },
+          attachment: {
+            id,
+            name: file.name,
+            type: newAttachmentType,
+            url: '',
+            mime: file.type,
+            mimeType: file.type,
+            size: file.size,
+          },
+        }
+      })
+      setPendingUploadFiles((prev) => [...prev, ...pending.map((item) => item.upload)])
+      setDraft((prev) => (prev ? { ...prev, attachments: [...(prev.attachments ?? []), ...pending.map((item) => item.attachment)] } : prev))
       setNewAttachmentFiles([])
       setAttachmentFileInputKey((key) => key + 1)
+      toast.success(newAttachmentFiles.length === 1 ? 'Файл добавлен в очередь загрузки' : `Файлы добавлены в очередь: ${newAttachmentFiles.length}`)
       return
     }
 
@@ -64,23 +85,24 @@ export function useCardAttachments({ selectedCardId, draft, setDraft }: UseCardA
     setDraft((prev) => (prev ? { ...prev, attachments: [...(prev.attachments ?? []), attachment] } : prev))
     setNewAttachmentName('')
     setNewAttachmentUrl('')
+    toast.success('Ссылка добавлена к вложениям')
   }
 
   const removeAttachment = async (item: { id: string; type: 'file' | 'link' | 'photo' }) => {
     if (!selectedCardId || !draft) return
 
     setPendingCreateAttachments((prev) => prev.filter((attachment) => attachment.id !== item.id))
+    setPendingUploadFiles((prev) => prev.filter((attachment) => attachment.id !== item.id))
     if (!item.id.startsWith('pending-')) {
       setPendingDeleteAttachmentIds((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]))
     }
     setDraft((prev) => (prev ? { ...prev, attachments: (prev.attachments ?? []).filter((attachment) => attachment.id !== item.id) } : prev))
+    toast.success(item.id.startsWith('pending-') ? 'Вложение убрано' : 'Вложение будет удалено после сохранения')
   }
 
   return {
     pendingUploadFiles,
     setPendingUploadFiles,
-    pendingUploadType,
-    setPendingUploadType,
     pendingCreateAttachments,
     setPendingCreateAttachments,
     pendingDeleteAttachmentIds,

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
+import { toast } from 'sonner'
 import { api } from '../../../api/client'
 import { parseTaskInput } from '../../../shared/lib/parseTaskInput'
 import type { BoardCardDraft } from '../types'
@@ -30,6 +31,9 @@ export function useCardSubtasks({ selectedCardId, draft, setDraft, profileTimeZo
       })
       setDraft((prev) => (prev ? { ...prev, subtasks: [...(prev.subtasks ?? []), created] } : prev))
       setNewSubtaskTitle('')
+      toast.success(`Подзадача «${created.title}» создана`)
+    } catch {
+      toast.error('Не удалось создать подзадачу')
     } finally {
       setSubtaskBusy(false)
     }

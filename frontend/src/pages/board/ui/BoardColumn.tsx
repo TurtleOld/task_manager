@@ -3,6 +3,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { cn } from '@/lib/utils'
 import { Badge, Chip, EmptyState, IconButton, TextInput } from '@/components/ui'
 import type { Card, Column } from '../../../api/types'
+import { formatTaskCount } from '../../../shared/lib/formatTaskCount'
 import type { BoardLabel } from '../types'
 
 interface PriorityView {
@@ -114,7 +115,7 @@ export function BoardColumn({
             <h2 className={`truncate text-h3 ${accentClass}`}>{displayName}</h2>
           </div>
         </div>
-        <Badge>{cards.length} задач</Badge>
+        <Badge className="shrink-0 whitespace-nowrap">{formatTaskCount(cards.length)}</Badge>
       </div>
 
       <div className="mt-5 rounded-panel border border-border/70 bg-background-subtle/60 p-2">

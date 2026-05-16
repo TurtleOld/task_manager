@@ -34,6 +34,7 @@ export function MetaSection({ draft, setDraft, assignees, selectedCardId, profil
         >
           <TextInput
             id="task-deadline"
+            lang="ru-RU"
             type="datetime-local"
             value={draft.deadline}
             onChange={(event) => {

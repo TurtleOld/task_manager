@@ -247,8 +247,15 @@ export function BoardPage({ user }: BoardPageProps) {
   const activeFilterCount = [activeLabel !== 'Все', Boolean(searchQuery.trim())].filter(Boolean).length
 
   const onCreateColumn = async () => {
-    if (!colName.trim()) return
-    await createColumnMutation.mutateAsync({ name: colName.trim(), icon: colIcon })
+    const name = colName.trim()
+    if (!name) return
+    try {
+      await createColumnMutation.mutateAsync({ name, icon: colIcon })
+      toast.success(`Колонка «${name}» создана`)
+    } catch {
+      toast.error('Не удалось создать колонку')
+      return
+    }
     setColName('')
     setIsCreatingColumn(false)
   }
@@ -303,12 +310,14 @@ export function BoardPage({ user }: BoardPageProps) {
       const shouldOpenPersistedCard = pendingCreateCardIdRef.current === tempId
       pendingCreateCardIdRef.current = null
       setSelectedCard((prev) => (prev?.id === tempId ? card : prev))
+      toast.success(`Задача «${card.title}» создана`)
       if (shouldOpenPersistedCard) navigate(`/boards/${boardId}/cards/${card.id}`)
     } catch {
       if (pendingCreateCardIdRef.current === tempId) pendingCreateCardIdRef.current = null
       queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
         prev?.filter((c) => c.id !== tempId),
       )
+      toast.error('Не удалось создать задачу')
     }
   }
 
@@ -357,8 +366,10 @@ export function BoardPage({ user }: BoardPageProps) {
           payload: { before_id, after_id },
           optimistic,
         })
+        toast.success(dir === 'up' ? 'Задача поднята' : 'Задача опущена')
       } catch {
         // useMoveCard rolls back via onError context.
+        toast.error('Не удалось переместить задачу')
       }
     } else {
       const order = [...columns].sort((a, b) => (a.position > b.position ? 1 : -1))
@@ -372,8 +383,10 @@ export function BoardPage({ user }: BoardPageProps) {
           payload: { to_column: target.id },
           optimistic: (cs) => cs.map((c) => (c.id === card.id ? { ...c, column: target.id } : c)),
         })
+        toast.success(`Задача перемещена в «${target.name}»`)
       } catch {
         // rolled back
+        toast.error('Не удалось переместить задачу')
       }
     }
   }
@@ -450,11 +463,13 @@ export function BoardPage({ user }: BoardPageProps) {
           optimistic: (items) => items.map((item) => (
             item.id === activeColumn.id
               ? { ...item, position: positionAfterColumnDrop(items, before_id, after_id) }
-              : item
+            : item
           )),
         })
+        toast.success(`Колонка «${activeColumn.name}» перемещена`)
       } catch {
         // rollback handled by useMoveColumn onError.
+        toast.error('Не удалось переместить колонку')
       }
       return
     }
@@ -499,11 +514,14 @@ export function BoardPage({ user }: BoardPageProps) {
         optimistic: (items) => items.map((item) => (
           item.id === activeCard.id
             ? { ...item, column: targetColumnId, position: positionAfterDrop(items, targetColumnId, before_id, after_id) }
-            : item
+          : item
         )),
       })
+      const targetColumn = columns.find((column) => column.id === targetColumnId)
+      toast.success(targetColumnId !== activeCard.column && targetColumn ? `Задача перемещена в «${targetColumn.name}»` : 'Порядок задач обновлён')
     } catch {
       // rollback handled by useMoveCard onError.
+      toast.error('Не удалось переместить задачу')
     }
   }
 
