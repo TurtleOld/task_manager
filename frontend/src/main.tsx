@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { applyAppFontSize, loadAppFontSize } from './app/preferences'
+import { applyAppFontSize, applyCompactMode, loadAppFontSize, loadCompactMode } from './app/preferences'
 import { queryClient } from './app/queryClient'
 import App from './App'
 import { Toaster } from '@/components/ui/sonner'
@@ -17,6 +17,7 @@ try {
   const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches
   const shouldBeDark = saved === 'dark' || (!saved && prefersDark)
   document.documentElement.classList.toggle('dark', !!shouldBeDark)
+  applyCompactMode(loadCompactMode())
   applyAppFontSize(loadAppFontSize())
 } catch {
   // ignore: localStorage can be unavailable in private mode / blocked

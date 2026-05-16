@@ -3,6 +3,7 @@
 @config "../tailwind.config.cjs";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant compact (&:is(.compact *));
 
 /*
  * shadcn/ui tokens are stored as RGB triplets ("R G B") so that Tailwind v4's

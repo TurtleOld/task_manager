@@ -33,7 +33,7 @@ const badgeVariants: Record<BadgeVariant, string> = {
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & { variant?: BadgeVariant }
 
 export function Badge({ className, variant = 'neutral', ...props }: BadgeProps) {
-  return <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption backdrop-blur', badgeVariants[variant], className)} {...props} />
+  return <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption backdrop-blur compact:px-2 compact:py-0.5', badgeVariants[variant], className)} {...props} />
 }
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'link'
@@ -62,8 +62,8 @@ const buttonVariantOverrides: Record<ButtonVariant, string> = {
 }
 
 const buttonSizeOverrides: Record<ButtonSize, string> = {
-  sm: 'min-h-10 px-3.5 py-2 text-caption',
-  md: 'min-h-11 px-4.5 py-2.5 text-button',
+  sm: 'min-h-10 px-3.5 py-2 text-caption compact:min-h-8 compact:px-3 compact:py-1.5',
+  md: 'min-h-11 px-4.5 py-2.5 text-button compact:min-h-9 compact:px-3.5 compact:py-2',
 }
 
 const buttonShapeClasses: Record<ButtonShape, string> = {
@@ -120,7 +120,7 @@ const cardVariants: Record<CardVariant, string> = {
 type CardProps = HTMLAttributes<HTMLElement> & { as?: ElementType; variant?: CardVariant }
 
 export function Card({ as: Component = 'div', className, variant = 'default', ...props }: CardProps) {
-  return <Component className={cn('rounded-panel border p-6', cardVariants[variant], className)} {...props} />
+  return <Component className={cn('rounded-panel border p-6 compact:p-4', cardVariants[variant], className)} {...props} />
 }
 
 type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'onChange' | 'checked'> & {
@@ -171,7 +171,7 @@ const chipTones: Record<ChipTone, { active: string; idle: string }> = {
 type ChipProps = HTMLAttributes<HTMLSpanElement> & { active?: boolean; children: ReactNode; tone?: ChipTone }
 type ChipButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean; tone?: ChipTone }
 
-const chipBaseClass = 'inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 py-1 text-caption backdrop-blur transition duration-fast ease-standard'
+const chipBaseClass = 'inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 py-1 text-caption backdrop-blur transition duration-fast ease-standard compact:min-h-7 compact:px-2.5 compact:py-0.5'
 
 export function Chip({ active = false, children, className, tone = 'neutral', ...props }: ChipProps) {
   return <span className={cn(chipBaseClass, active ? chipTones[tone].active : chipTones[tone].idle, className)} {...props}>{children}</span>
@@ -209,7 +209,7 @@ type FieldProps = { children: ReactNode; className?: string; error?: ReactNode; 
 
 export function Field({ children, className, error, errorId, hint, hintId, htmlFor, label }: FieldProps) {
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className={cn('space-y-2 compact:space-y-1.5', className)}>
       <Label htmlFor={htmlFor} className="block text-label uppercase tracking-[0.08em] text-text-muted">{label}</Label>
       {children}
       {hint ? <p id={hintId} className="text-caption text-text-muted">{hint}</p> : null}
@@ -274,25 +274,25 @@ const pageShellPaddingClasses: Record<PageShellPadding, string> = { none: '', de
 type PageShellProps = HTMLAttributes<HTMLDivElement> & { children: ReactNode; contentClassName?: string; padding?: PageShellPadding; spacing?: PageShellSpacing; width?: PageShellWidth }
 
 export function PageShell({ children, className, contentClassName, padding = 'default', spacing = 'md', width = 'xl', ...props }: PageShellProps) {
-  return <div className={cn('min-h-screen bg-background/80 px-4 text-text sm:px-6', pageShellPaddingClasses[padding], className)} {...props}><div className={cn('mx-auto w-full', pageShellWidthClasses[width], pageShellSpacingClasses[spacing], contentClassName)}>{children}</div></div>
+  return <div className={cn('min-h-screen bg-background/80 px-4 text-text compact:px-3 sm:px-6 compact:sm:px-4', pageShellPaddingClasses[padding], padding !== 'none' && 'compact:py-6', className)} {...props}><div className={cn('mx-auto w-full', pageShellWidthClasses[width], pageShellSpacingClasses[spacing], spacing !== 'none' && 'compact:space-y-5', contentClassName)}>{children}</div></div>
 }
 
 type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & { fullWidth?: boolean; invalid?: boolean }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select({ className, disabled, fullWidth = true, invalid = false, ...props }, ref) {
-  return <select ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={cn('min-h-11 rounded-control border border-border/90 bg-surface/90 px-3.5 py-2.5 text-body-sm text-text shadow-surface backdrop-blur transition duration-fast ease-standard', 'placeholder:text-text-muted disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text', fullWidth && 'w-full', invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50', className)} {...props} />
+  return <select ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={cn('min-h-11 rounded-control border border-border/90 bg-surface/90 px-3.5 py-2.5 text-body-sm text-text shadow-surface backdrop-blur transition duration-fast ease-standard compact:min-h-9 compact:px-3 compact:py-2', 'placeholder:text-text-muted disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text', fullWidth && 'w-full', invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50', className)} {...props} />
 })
 
 type TextInputProps = InputHTMLAttributes<HTMLInputElement> & { fullWidth?: boolean; invalid?: boolean }
 
 export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function TextInput({ className, disabled, fullWidth = true, invalid = false, ...props }, ref) {
-  return <Input ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={cn('min-h-11 rounded-control border-border/90 bg-surface/90 px-4 py-2.5 text-body-sm text-text shadow-surface backdrop-blur transition duration-fast ease-standard', 'placeholder:text-text-muted/90 disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text', fullWidth && 'w-full', invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50', className)} {...props} />
+  return <Input ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={cn('min-h-11 rounded-control border-border/90 bg-surface/90 px-4 py-2.5 text-body-sm text-text shadow-surface backdrop-blur transition duration-fast ease-standard compact:min-h-9 compact:px-3 compact:py-2', 'placeholder:text-text-muted/90 disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text', fullWidth && 'w-full', invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50', className)} {...props} />
 })
 
 type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea({ className, disabled, invalid = false, ...props }, ref) {
-  return <RawTextarea ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={cn('w-full rounded-control border-border/90 bg-surface/90 px-4 py-3 text-body-sm text-text shadow-surface backdrop-blur transition duration-fast ease-standard', 'placeholder:text-text-muted disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text', invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50', className)} {...props} />
+  return <RawTextarea ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={cn('w-full rounded-control border-border/90 bg-surface/90 px-4 py-3 text-body-sm text-text shadow-surface backdrop-blur transition duration-fast ease-standard compact:px-3 compact:py-2', 'placeholder:text-text-muted disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text', invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50', className)} {...props} />
 })
 
 export { Skeleton }
