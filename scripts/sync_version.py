@@ -9,11 +9,6 @@ VERSION_FILE = ROOT / "version.txt"
 
 TARGETS: tuple[tuple[Path, str, str], ...] = (
     (
-        ROOT / "android/app/build.gradle.kts",
-        r'(versionName\s*=\s*")([^"]+)(")',
-        'Android versionName',
-    ),
-    (
         ROOT / "frontend/package.json",
         r'("version"\s*:\s*")([^"]+)(")',
         'Frontend package version',

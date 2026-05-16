@@ -2,13 +2,29 @@
 
 ## Release Versioning
 
-- Single source of truth for project version: `version.txt`
-- Keep Android, frontend, and backend versions synchronized via `python3 scripts/sync_version.py`
-- Preferred command to update version everywhere: `make set-version NEW_VERSION=<version>`
-- Current release tag format: `v<version>`
-- Android release workflow reads project version from `version.txt`
+- Single source of truth for backend/frontend project version: `version.txt`
+- Single source of truth for Android app version: `android/version.txt`
+- Keep frontend and backend versions synchronized via `python3 scripts/sync_version.py`
+- Keep Android version synchronized into Gradle via `python3 scripts/sync_android_version.py`
+- Preferred command to update backend/frontend version: `make set-version NEW_VERSION=<version>`
+- Preferred command to update Android version: `make set-android-version NEW_VERSION=<version>`
+- Backend/frontend release tag format: `v<version>`
+- Android release tag format: `android-v<version>`
+- Docker compose release workflow reads backend/frontend project version from `version.txt`
+- Android release workflow reads Android app version from `android/version.txt`
+
+## Release Scope Rules
+
+- If changes do not touch `android/`, update only `version.txt` with `make set-version NEW_VERSION=<version>` and use tag `v<version>`.
+- If changes touch `android/`, update only `android/version.txt` with `make set-android-version NEW_VERSION=<version>` and use tag `android-v<version>`.
+- Do not bump `version.txt` for Android-only changes.
+- Do not bump `android/version.txt` for backend/frontend-only changes.
+- The `v<version>` tag triggers Docker image build/push for backend, celery, and frontend only.
+- The `android-v<version>` tag triggers Android APK release only.
 
 ## Release Order
+
+### Backend/Frontend
 
 1. Make code changes.
 2. Run `make set-version NEW_VERSION=<version>`.
@@ -17,10 +33,20 @@
 5. Create tag `v<version>` on that commit.
 6. Push the tag to remote.
 
+### Android
+
+1. Make Android code changes under `android/`.
+2. Run `make set-android-version NEW_VERSION=<version>`.
+3. Commit Android versioned changes together with the Android code changes.
+4. Push the commit to remote.
+5. Create tag `android-v<version>` on that commit.
+6. Push the tag to remote.
+
 ## Important Constraint
 
-- Never push tag `v<version>` before the commit containing the same version is already pushed.
-- If tag version and committed `version.txt` differ, Android release workflow fails by design.
+- Never push tag `v<version>` before the commit containing the same `version.txt` value is already pushed.
+- Never push tag `android-v<version>` before the commit containing the same `android/version.txt` value is already pushed.
+- If tag version and committed version file differ, the matching release workflow fails by design.
 
 ## Android Testing
 
