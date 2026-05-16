@@ -98,7 +98,7 @@ class FlexiblePriorityField(serializers.IntegerField):
             "🔥": CardPriority.HIGH,
         }
         if isinstance(data, str) and data in legacy_values:
-            return int(legacy_values[data])
+            return legacy_values[data].value
         return super().to_internal_value(data)
 
 

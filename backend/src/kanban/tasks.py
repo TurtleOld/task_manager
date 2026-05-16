@@ -726,7 +726,7 @@ def generate_recurring_cards(self) -> None:
             byday=rule.byday,
             bysetpos=rule.bysetpos,
         )
-        copy_next_due = next_due
+        copy_next_due: datetime | None = next_due
         if rule.until is not None and next_due.date() > rule.until:
             copy_next_due = None
         if rule.count is not None and generated_count >= rule.count:
