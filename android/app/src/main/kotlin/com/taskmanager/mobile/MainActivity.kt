@@ -301,6 +301,10 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
                 onLogout = {
                     clearToken(context)
                     vm.logout(context)
+                },
+                onTerminateSessions = {
+                    clearToken(context)
+                    vm.terminateSessions(context)
                 }
             )
         }
@@ -3187,7 +3191,8 @@ private fun SettingsScreen(
     onEnablePin: (pin: String) -> Unit,
     onDisablePin: () -> Unit,
     onSetBiometric: (Boolean) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onTerminateSessions: () -> Unit,
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current
@@ -3428,6 +3433,46 @@ private fun SettingsScreen(
                                         text = "→",
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 16.sp
+                                    )
+                                }
+                            }
+
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                            )
+
+                            // Terminate all sessions
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(onClick = onTerminateSessions)
+                                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                            RoundedCornerShape(12.dp)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = "⊗", fontSize = 20.sp, color = MaterialTheme.colorScheme.error)
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Завершить все сеансы",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
+                                        text = "Выйти на всех устройствах",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -3848,6 +3893,14 @@ class KanbanViewModel : ViewModel() {
         _boardState.value = BoardUiState.Loading
     }
 
+    fun terminateSessions(context: Context) {
+        val s = session.value
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { repository.terminateSessions(s.domain, s.token) }
+        }
+        logout(context)
+    }
+
     fun refresh() {
         val s = session.value
         if (!s.isAuthenticated || s.token.isBlank()) return
@@ -4213,6 +4266,10 @@ class KanbanRepository {
         return token
     }
 
+    suspend fun terminateSessions(baseUrl: String, apiToken: String) {
+        api(baseUrl, apiToken).terminateSessions()
+    }
+
     suspend fun fetchBoards(baseUrl: String, apiToken: String): List<KanbanBoard> {
         val service = api(baseUrl, apiToken)
         val boards = service.getBoards()
@@ -4485,6 +4542,9 @@ private interface KanbanApi {
 
     @DELETE("cards/{cardId}/")
     suspend fun deleteCard(@Path("cardId") cardId: Int): ResponseBody
+
+    @POST("auth/terminate-sessions/")
+    suspend fun terminateSessions(): ResponseBody
 
     @PATCH("notifications/profile/")
     suspend fun updateNotificationProfile(@Body request: NotificationProfileRequest): NotificationProfileDto
