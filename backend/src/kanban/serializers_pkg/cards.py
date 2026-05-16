@@ -432,6 +432,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             card.labels.set(labels)
         return card
 
+
 class CardShallowSerializer(CardSerializer):
     class Meta(CardSerializer.Meta):
         fields = [field for field in CardSerializer.Meta.fields if field != "subtasks"]

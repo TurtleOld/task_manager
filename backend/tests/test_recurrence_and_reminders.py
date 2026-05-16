@@ -7,7 +7,13 @@ from django.conf import settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from kanban.models import Card, CardDeadlineReminder, NotificationProfile, RecurrenceFrequency, RecurrenceRule
+from kanban.models import (
+    Card,
+    CardDeadlineReminder,
+    NotificationProfile,
+    RecurrenceFrequency,
+    RecurrenceRule,
+)
 from kanban.tasks import generate_recurring_cards
 
 

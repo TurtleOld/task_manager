@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useCompleteTodayCard, useMyToday } from '../../api/queries/cards'
 import type { MyTodayCard } from '../../api/types'
+import { formatTaskCount } from '../../shared/lib/formatTaskCount'
 import { priorityToLabel, priorityToMarker, priorityToTone } from '../board/lib/priority'
 import { Badge, Button, Card as SurfaceCard, Chip, EmptyState, ErrorState, PageShell, Skeleton } from '@/components/ui'
 
@@ -141,7 +142,7 @@ function TodaySection({ cards, description, emptyText, onComplete, pendingCardId
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={sectionVariant[tone]}>{title}</Badge>
-            <Badge>{cards.length} задач</Badge>
+            <Badge className="whitespace-nowrap">{formatTaskCount(cards.length)}</Badge>
           </div>
           <p className="mt-2 text-body-sm text-text-muted">{description}</p>
         </div>

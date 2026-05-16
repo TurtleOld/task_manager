@@ -4,6 +4,7 @@ import { RotateCcw, Trash2 } from 'lucide-react'
 import { useBoards, useUnarchiveBoard, useForceDeleteBoard } from '../../api/queries/boards'
 import { useArchive, useRestoreArchiveCard, useRestoreArchiveColumn } from '../../api/queries/cards'
 import type { ArchivedCard, ArchivedColumn, Board } from '../../api/types'
+import { formatTaskCount } from '../../shared/lib/formatTaskCount'
 import { priorityToLabel, priorityToMarker, priorityToTone } from '../board/lib/priority'
 import { Badge, Button, Card as SurfaceCard, Chip, EmptyState, ErrorState, PageShell, Select, Skeleton } from '@/components/ui'
 import {
@@ -168,7 +169,7 @@ export function ArchivePage() {
       <SurfaceCard as="section" className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="warning">Задачи</Badge>
-          <Badge>{cards.length} items</Badge>
+          <Badge className="whitespace-nowrap">{formatTaskCount(cards.length)}</Badge>
         </div>
         {cards.length === 0 ? (
           <EmptyState title="Архивированных задач нет" className="p-4 text-left" />

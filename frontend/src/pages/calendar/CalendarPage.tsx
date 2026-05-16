@@ -222,7 +222,7 @@ export function CalendarPage() {
           </EmptyState>
         ) : null}
 
-        <div className="overflow-hidden rounded-[1.2rem] border border-border/80 bg-surface p-3 shadow-surface [&_.fc]:font-sans [&_.fc-button]:hidden [&_.fc-daygrid-day-number]:text-text-muted [&_.fc-event]:cursor-pointer [&_.fc-event]:border-0 [&_.fc-event]:px-1.5 [&_.fc-event]:py-0.5 [&_.fc-event]:text-caption [&_.fc-timegrid-slot-label]:text-text-muted [&_.fc-toolbar]:hidden">
+        <div className="overflow-hidden rounded-[1.2rem] border border-border/80 bg-surface p-3 shadow-surface [&_.fc]:font-sans [&_.fc-button]:hidden [&_.fc-col-header-cell-cushion]:font-semibold [&_.fc-col-header-cell-cushion]:text-[rgb(71_85_105)] [&_.fc-daygrid-day-number]:text-text-muted [&_.fc-event]:cursor-pointer [&_.fc-event]:border-0 [&_.fc-event]:px-1.5 [&_.fc-event]:py-0.5 [&_.fc-event]:text-caption [&_.fc-timegrid-slot-label]:text-text-muted [&_.fc-toolbar]:hidden dark:[&_.fc-col-header-cell-cushion]:text-[rgb(30_41_59)]">
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}

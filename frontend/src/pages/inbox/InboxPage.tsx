@@ -5,6 +5,7 @@ import { useBoards } from '../../api/queries/boards'
 import { useColumns } from '../../api/queries/columns'
 import { useCreateInboxCard, useInbox, useMoveInboxCard } from '../../api/queries/cards'
 import type { Card } from '../../api/types'
+import { formatTaskCount } from '../../shared/lib/formatTaskCount'
 import { priorityToLabel, priorityToMarker, priorityToTone } from '../board/lib/priority'
 import { Badge, Button, Card as SurfaceCard, Chip, EmptyState, ErrorState, Field, PageShell, Select, Skeleton, TextInput, Textarea } from '@/components/ui'
 
@@ -205,7 +206,7 @@ export function InboxPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="primary">Неразобранное</Badge>
-              <Badge>{cards.length} задач</Badge>
+              <Badge className="whitespace-nowrap">{formatTaskCount(cards.length)}</Badge>
             </div>
             <p className="mt-2 text-body-sm text-text-muted">Задачи из системной Inbox-доски не отображаются в общем списке досок.</p>
           </div>

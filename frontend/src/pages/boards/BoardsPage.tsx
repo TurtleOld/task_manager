@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useBoardTemplates, useBoards, useCreateBoard, useCreateBoardFromTemplate } from '../../api/queries/boards'
 import { Badge, Button, Card as SurfaceCard, EmptyState, Field, PageShell, Skeleton, TextInput } from '@/components/ui'
 
@@ -19,15 +20,28 @@ export function BoardsPage() {
 
   const onCreate = async () => {
     if (!name.trim()) return
-    await createBoardMutation.mutateAsync({ name: name.trim(), icon, color })
+    const boardName = name.trim()
+    try {
+      await createBoardMutation.mutateAsync({ name: boardName, icon, color })
+      toast.success(`Доска «${boardName}» создана`)
+    } catch {
+      toast.error('Не удалось создать доску')
+      return
+    }
     setName('')
   }
 
   const onCreateFromTemplate = async (templateId: string) => {
-    await createFromTemplateMutation.mutateAsync({
-      template_id: templateId,
-      name: templateName.trim() || undefined,
-    })
+    try {
+      const board = await createFromTemplateMutation.mutateAsync({
+        template_id: templateId,
+        name: templateName.trim() || undefined,
+      })
+      toast.success(`Доска «${board.name}» создана из шаблона`)
+    } catch {
+      toast.error('Не удалось создать доску из шаблона')
+      return
+    }
     setTemplateName('')
   }
 
