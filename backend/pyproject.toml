@@ -1,6 +1,6 @@
 [project]
 name = "task_manager_backend"
-version = "1.1.5"
+version = "1.1.6"
 description = "Task Manager Kanban API"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -21,6 +21,7 @@ dependencies = [
     "channels-redis>=4.2",
     "django-celery-beat>=2.6",
     "google-auth>=2.40",
+    "requests>=2.32",
 ]
 
 [project.optional-dependencies]

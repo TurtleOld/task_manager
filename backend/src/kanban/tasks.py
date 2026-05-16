@@ -397,7 +397,9 @@ def _fcm_auth_token() -> tuple[str, str]:
         from google.auth.transport.requests import Request as GoogleAuthRequest
         from google.oauth2 import service_account
     except ImportError as exc:  # pragma: no cover - deployment dependency guard
-        raise RuntimeError("google-auth is required for FCM push delivery") from exc
+        raise RuntimeError(
+            "google-auth with requests transport is required for FCM push delivery"
+        ) from exc
 
     credentials = service_account.Credentials.from_service_account_file(
         service_account_file,
