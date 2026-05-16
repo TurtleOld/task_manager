@@ -7,6 +7,11 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import org.json.JSONObject
+import com.taskmanager.mobile.util.KEY_DOMAIN
+import com.taskmanager.mobile.util.KEY_TOKEN
+import com.taskmanager.mobile.util.PREFS_NAME
+import com.taskmanager.mobile.util.clearToken
+import com.taskmanager.mobile.util.normalizeBaseUrl
 
 object TaskManagerFcmProfileSync {
     private const val PREFS_NAME = "task_manager_mobile_prefs"

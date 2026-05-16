@@ -12,9 +12,9 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import org.json.JSONObject
 import com.taskmanager.mobile.MainActivity
 import com.taskmanager.mobile.R
-import org.json.JSONObject
 
 object TaskManagerNotificationPublisher {
     private const val CHANNEL_ID = "task_events"

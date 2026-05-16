@@ -1,7 +1,6 @@
 package com.taskmanager.mobile.data.api
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import com.taskmanager.mobile.util.normalizeBaseUrl
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlinx.serialization.json.Json
@@ -9,6 +8,7 @@ import okhttp3.Interceptor
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
+import com.taskmanager.mobile.util.normalizeBaseUrl
 
 object ApiClient {
     private data class CacheKey(val baseUrl: String, val apiToken: String)
