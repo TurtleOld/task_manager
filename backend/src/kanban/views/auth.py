@@ -88,6 +88,14 @@ class CurrentUserView(APIView):
         return Response(UserSerializer(request.user).data)
 
 
+class TerminateSessionsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request: Request) -> Response:
+        Token.objects.filter(user=request.user).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class RegistrationStatusView(APIView):
     permission_classes = [permissions.AllowAny]
 
