@@ -48,8 +48,8 @@ services:
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
-      ONESIGNAL_REST_API_KEY: ${ONESIGNAL_REST_API_KEY:-}
+      FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-/run/secrets/firebase-service-account.json}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
       EMAIL_HOST: ${EMAIL_HOST:-}
       EMAIL_PORT: ${EMAIL_PORT:-587}
       EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
@@ -77,6 +77,7 @@ services:
       - ./backend/src:/app/src
       - ./backend/manage.py:/app/manage.py
       - ./media:/app/media
+      - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
 
   celery:
     build:
@@ -94,8 +95,8 @@ services:
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
-      ONESIGNAL_REST_API_KEY: ${ONESIGNAL_REST_API_KEY:-}
+      FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-/run/secrets/firebase-service-account.json}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
       EMAIL_HOST: ${EMAIL_HOST:-}
       EMAIL_PORT: ${EMAIL_PORT:-587}
       EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
@@ -113,6 +114,7 @@ services:
       - ./backend/src:/app/src
       - ./backend/manage.py:/app/manage.py
       - ./media:/app/media
+      - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
 
   celery-beat:
     build:
@@ -130,8 +132,6 @@ services:
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
-      ONESIGNAL_REST_API_KEY: ${ONESIGNAL_REST_API_KEY:-}
       TZ: Europe/Moscow
     depends_on:
       db:
@@ -156,7 +156,6 @@ services:
     environment:
       VITE_API_BASE_URL: /api
       VITE_PROXY_TARGET: http://backend:8000
-      VITE_ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
       TZ: Europe/Moscow
     ports:
       - "5173:5173"

@@ -463,11 +463,9 @@ def _send_push(
     payload = {
         "message": {
             "token": fcm_token,
-            "notification": {"title": title, "body": message},
             "data": {key: str(value) for key, value in payload_data.items()},
             "android": {
                 "priority": "HIGH",
-                "notification": {"channel_id": "task_events"},
             },
         }
     }

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Task Manager</string>
+    <string name="notification_channel_task_events_id">task_events</string>
 </resources>

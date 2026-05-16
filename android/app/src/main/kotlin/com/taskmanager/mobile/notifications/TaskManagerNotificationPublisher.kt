@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -28,6 +29,7 @@ object TaskManagerNotificationPublisher {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
+            Log.w("TM_PUSH_DEBUG", "Skipping notification: POST_NOTIFICATIONS is not granted")
             return
         }
 
@@ -52,6 +54,7 @@ object TaskManagerNotificationPublisher {
             .build()
 
         NotificationManagerCompat.from(context).notify(notificationId, notification)
+        Log.d("TM_PUSH_DEBUG", "Displayed notification id=$notificationId title=$finalTitle")
     }
 
     private fun ensureChannel(context: Context) {

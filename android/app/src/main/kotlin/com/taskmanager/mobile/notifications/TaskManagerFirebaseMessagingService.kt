@@ -1,5 +1,6 @@
 package com.taskmanager.mobile.notifications
 
+import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
@@ -9,12 +10,17 @@ import org.json.JSONObject
 
 class TaskManagerFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
+        Log.d("TM_PUSH_DEBUG", "FCM onNewToken received")
         CoroutineScope(Dispatchers.IO).launch {
             TaskManagerFcmProfileSync.updateToken(applicationContext, token)
         }
     }
 
     override fun onMessageReceived(message: RemoteMessage) {
+        Log.d(
+            "TM_PUSH_DEBUG",
+            "FCM message received dataKeys=${message.data.keys} hasNotification=${message.notification != null}"
+        )
         val payload = when {
             message.data.isNotEmpty() -> JSONObject(message.data).toString()
             message.notification != null -> JSONObject()
