@@ -51,8 +51,8 @@ android {
         applicationId = "com.taskmanager.mobile"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.1.6"
+        versionCode = 2
+        versionName = "1.1.7"
 
         val apiBaseUrl = (project.findProperty("ANDROID_API_BASE_URL") as String?)
             ?: (localProps.getProperty("ANDROID_API_BASE_URL"))
