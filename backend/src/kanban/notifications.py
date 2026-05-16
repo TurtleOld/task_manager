@@ -21,13 +21,6 @@ def build_frontend_link(board_id: int | None) -> str:
     return f"{base}/"
 
 
-def build_ntfy_topic(user_id: int) -> str:
-    pattern = (settings.NTFY_TOPIC_PATTERN or "task-manager-user-{userId}").strip()
-    if "{userId}" not in pattern:
-        pattern = f"{pattern.rstrip('-')}-{{userId}}"
-    return pattern.replace("{userId}", str(user_id))
-
-
 def create_notification_event(
     *,
     event_type: NotificationEventType | str,

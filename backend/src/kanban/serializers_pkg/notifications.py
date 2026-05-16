@@ -4,7 +4,6 @@ from typing import Any
 
 from rest_framework import serializers
 
-from ..notifications import build_ntfy_topic
 from ..models import (
     CardDeadlineReminder,
     NotificationChannel,
@@ -16,23 +15,16 @@ from ..models import (
 
 
 class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProfile]):
-    ntfy_topic = serializers.SerializerMethodField()
-
     class Meta:
         model = NotificationProfile
         fields = [
             "email",
             "telegram_chat_id",
-            "onesignal_player_id",
-            "unifiedpush_endpoint",
-            "ntfy_topic",
+            "fcm_token",
             "timezone",
             "timezone_configured",
         ]
-        read_only_fields = ["ntfy_topic", "timezone_configured"]
-
-    def get_ntfy_topic(self, obj: NotificationProfile) -> str:
-        return build_ntfy_topic(obj.user_id)
+        read_only_fields = ["timezone_configured"]
 
     def update(
         self,
@@ -48,14 +40,10 @@ class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProf
         if telegram_chat_id is not None:
             instance.telegram_chat_id = telegram_chat_id.strip()
             update_fields.append("telegram_chat_id")
-        onesignal_player_id = validated_data.get("onesignal_player_id")
-        if onesignal_player_id is not None:
-            instance.onesignal_player_id = str(onesignal_player_id).strip()
-            update_fields.append("onesignal_player_id")
-        unifiedpush_endpoint = validated_data.get("unifiedpush_endpoint")
-        if unifiedpush_endpoint is not None:
-            instance.unifiedpush_endpoint = str(unifiedpush_endpoint).strip()
-            update_fields.append("unifiedpush_endpoint")
+        fcm_token = validated_data.get("fcm_token")
+        if fcm_token is not None:
+            instance.fcm_token = str(fcm_token).strip()
+            update_fields.append("fcm_token")
         tz = validated_data.get("timezone")
         if tz is not None:
             instance.timezone = str(tz).strip() or "UTC"

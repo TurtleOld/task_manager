@@ -346,6 +346,7 @@ class NotificationProfile(models.Model):
     email = models.EmailField(blank=True, default="")
     telegram_chat_id = models.CharField(max_length=64, blank=True, default="")
     onesignal_player_id = models.CharField(max_length=200, blank=True, default="")
+    fcm_token = models.CharField(max_length=512, blank=True, default="")
     unifiedpush_endpoint = models.URLField(max_length=1000, blank=True, default="")
     timezone = models.CharField(max_length=64, blank=True, default="UTC")
     timezone_configured = models.BooleanField(default=False)

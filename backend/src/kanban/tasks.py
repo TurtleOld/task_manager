@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 from urllib import request
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlparse
+from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 from celery import shared_task
@@ -39,6 +39,12 @@ from .reminders import reminder_channel_availability, resolve_delivery_channel
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
+
+FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
+
+
+class InvalidFcmTokenError(RuntimeError):
+    pass
 
 
 def calculate_next_recurrence_due(
@@ -243,9 +249,23 @@ def send_card_deadline_reminder(self, reminder_id: int, schedule_token: str) -> 
                 raise RuntimeError("Telegram chat_id is not configured")
             _send_telegram(profile.telegram_chat_id, body)
         elif channel == NotificationChannel.PUSH:
-            if not profile.onesignal_player_id:
+            fcm_token = (profile.fcm_token or "").strip()
+            if not fcm_token:
                 raise RuntimeError("Push is not configured")
-            _send_push(profile.onesignal_player_id, subject, body)
+            push_data = _build_fcm_data_payload(
+                notification_id=None,
+                event_type=NotificationEventType.CARD_DEADLINE_REMINDER.value,
+                title=subject,
+                body=body,
+                link=link,
+                board_id=card.board_id,
+                card_id=card.id,
+            )
+            try:
+                _send_push(fcm_token, subject, body, data=push_data)
+            except InvalidFcmTokenError:
+                _clear_fcm_token(profile, fcm_token)
+                raise
         else:
             raise RuntimeError(f"Unsupported channel: {channel}")
 
@@ -257,6 +277,14 @@ def send_card_deadline_reminder(self, reminder_id: int, schedule_token: str) -> 
         reminder.sent_at = delivery.sent_at
         reminder.last_error = ""
         reminder.save(update_fields=["status", "sent_at", "last_error", "updated_at", "version"])
+    except InvalidFcmTokenError as exc:
+        delivery.status = CardDeadlineReminderDelivery.Status.FAILED
+        delivery.error = str(exc)
+        delivery.save(update_fields=["status", "error"])
+
+        reminder.status = CardDeadlineReminder.Status.FAILED
+        reminder.last_error = str(exc)
+        reminder.save(update_fields=["status", "last_error", "updated_at", "version"])
     except Exception as exc:  # noqa: BLE001
         delivery.status = CardDeadlineReminderDelivery.Status.FAILED
         delivery.error = str(exc)
@@ -339,30 +367,117 @@ def _send_telegram(chat_id: str, message: str) -> None:
         raise RuntimeError(f"Telegram API connection error: {exc}") from exc
 
 
-def _send_push(player_id: str, title: str, message: str, event_id: int | None = None) -> None:
-    base_url = settings.NTFY_URL.rstrip("/")
-    token = settings.NTFY_TOKEN
-    if player_id.startswith("https://") or player_id.startswith("http://"):
-        url = player_id
-    elif base_url:
-        url = f"{base_url}/{quote(player_id, safe='')}"
-    else:
-        raise RuntimeError("ntfy is not configured")
+def _build_fcm_data_payload(
+    *,
+    notification_id: int | None,
+    event_type: str,
+    title: str,
+    body: str,
+    link: str | None,
+    board_id: int | None,
+    card_id: int | None,
+) -> dict[str, str]:
+    return {
+        "notificationId": str(notification_id or ""),
+        "eventType": event_type,
+        "title": title,
+        "body": body,
+        "link": link or "",
+        "boardId": str(board_id or ""),
+        "cardId": str(card_id or ""),
+    }
 
+
+def _fcm_auth_token() -> tuple[str, str]:
+    service_account_file = settings.FCM_SERVICE_ACCOUNT_FILE
+    if not service_account_file:
+        raise RuntimeError("FCM_SERVICE_ACCOUNT_FILE is not configured")
+
+    try:
+        from google.auth.transport.requests import Request as GoogleAuthRequest
+        from google.oauth2 import service_account
+    except ImportError as exc:  # pragma: no cover - deployment dependency guard
+        raise RuntimeError("google-auth is required for FCM push delivery") from exc
+
+    credentials = service_account.Credentials.from_service_account_file(
+        service_account_file,
+        scopes=[FCM_SCOPE],
+    )
+    project_id = (settings.FCM_PROJECT_ID or credentials.project_id or "").strip()
+    if not project_id:
+        raise RuntimeError("FCM_PROJECT_ID is not configured and service account has no project_id")
+    credentials.refresh(GoogleAuthRequest())
+    access_token = credentials.token
+    if not access_token:
+        raise RuntimeError("Failed to obtain FCM access token")
+    return access_token, project_id
+
+
+def _is_invalid_fcm_token(status_code: int, response_body: str) -> bool:
+    if status_code not in {400, 404}:
+        return False
+    try:
+        payload = json.loads(response_body)
+    except json.JSONDecodeError:
+        payload = {}
+
+    error = payload.get("error") if isinstance(payload, dict) else None
+    details = error.get("details", []) if isinstance(error, dict) else []
+    for detail in details:
+        if not isinstance(detail, dict):
+            continue
+        error_code = detail.get("errorCode")
+        if error_code in {"UNREGISTERED", "INVALID_ARGUMENT"}:
+            return True
+
+    lowered = response_body.lower()
+    return "unregistered" in lowered or "registration token" in lowered
+
+
+def _send_push(
+    fcm_token: str,
+    title: str,
+    message: str,
+    event_id: int | None = None,
+    data: dict[str, str] | None = None,
+) -> None:
+    fcm_token = fcm_token.strip()
+    if not fcm_token:
+        raise RuntimeError("FCM token is not configured")
+
+    access_token, project_id = _fcm_auth_token()
+    url = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
     parsed = urlparse(url)
-    if parsed.scheme not in {"https", "http"} or not parsed.netloc:
-        raise RuntimeError("Refusing to send ntfy request to invalid host")
-    base_parsed = urlparse(base_url) if base_url else None
-    should_send_token = bool(token and base_parsed and parsed.netloc == base_parsed.netloc)
+    if parsed.scheme != "https" or parsed.netloc != "fcm.googleapis.com":
+        raise RuntimeError("Refusing to send FCM request to invalid host")
+
+    payload_data = data or _build_fcm_data_payload(
+        notification_id=event_id,
+        event_type="",
+        title=title,
+        body=message,
+        link="",
+        board_id=None,
+        card_id=None,
+    )
+    payload = {
+        "message": {
+            "token": fcm_token,
+            "notification": {"title": title, "body": message},
+            "data": {key: str(value) for key, value in payload_data.items()},
+            "android": {
+                "priority": "HIGH",
+                "notification": {"channel_id": "task_events"},
+            },
+        }
+    }
 
     req = request.Request(
         url=url,
-        data=message.encode("utf-8"),
+        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         headers={
-            "Content-Type": "text/plain; charset=utf-8",
-            "Title": title,
-            "Priority": "high",
-            **({"Authorization": f"Bearer {token}"} if should_send_token else {}),
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json; charset=utf-8",
         },
         method="POST",
     )
@@ -371,12 +486,11 @@ def _send_push(player_id: str, title: str, message: str, event_id: int | None = 
         with request.urlopen(req, timeout=10) as resp:
             body = resp.read().decode("utf-8", errors="replace")
             if resp.status >= 400:
-                raise RuntimeError(f"ntfy API error: HTTP {resp.status}; body={body}")
+                raise RuntimeError(f"FCM API error: HTTP {resp.status}; body={body}")
 
             logger.info(
-                "ntfy_push_delivery_sent event_id=%s topic=%s status=%s response=%s",
+                "fcm_push_delivery_sent event_id=%s status=%s response=%s",
                 event_id,
-                player_id,
                 resp.status,
                 body,
             )
@@ -386,23 +500,35 @@ def _send_push(player_id: str, title: str, message: str, event_id: int | None = 
             body = exc.read().decode("utf-8", errors="replace")
         except Exception:  # noqa: BLE001
             body = "<failed to read response body>"
+        if _is_invalid_fcm_token(exc.code, body):
+            logger.warning(
+                "fcm_push_invalid_token event_id=%s status=%s body=%s",
+                event_id,
+                exc.code,
+                body,
+            )
+            raise InvalidFcmTokenError(f"FCM token is invalid or unregistered: HTTP {exc.code}") from exc
         logger.warning(
-            "ntfy_push_delivery_failed event_id=%s topic=%s "
-            "status=%s reason=http_error body=%s",
+            "fcm_push_delivery_failed event_id=%s status=%s reason=http_error body=%s",
             event_id,
-            player_id,
             exc.code,
             body,
         )
-        raise RuntimeError(f"ntfy API error: HTTP {exc.code}; body={body}") from exc
+        raise RuntimeError(f"FCM API error: HTTP {exc.code}; body={body}") from exc
     except URLError as exc:
         logger.warning(
-            "ntfy_push_delivery_failed event_id=%s topic=%s reason=url_error error=%s",
+            "fcm_push_delivery_failed event_id=%s reason=url_error error=%s",
             event_id,
-            player_id,
             exc,
         )
-        raise RuntimeError(f"ntfy API connection error: {exc}") from exc
+        raise RuntimeError(f"FCM API connection error: {exc}") from exc
+
+
+def _clear_fcm_token(profile: NotificationProfile, token: str) -> None:
+    if profile.fcm_token != token:
+        return
+    profile.fcm_token = ""
+    profile.save(update_fields=["fcm_token"])
 
 
 def _preferences_enabled(user_id: int, event: NotificationEvent, channel: str) -> bool:
@@ -423,8 +549,6 @@ def _preferences_enabled(user_id: int, event: NotificationEvent, channel: str) -
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def send_notification_event(self, event_id: int) -> None:
-    from .notifications import build_ntfy_topic  # noqa: E402
-
     event = (
         NotificationEvent.objects.filter(id=event_id)
         .select_related("actor", "board", "column", "card")
@@ -502,10 +626,8 @@ def send_notification_event(self, event_id: int) -> None:
                     continue
 
             if channel_value == NotificationChannel.PUSH:
-                target_player_id = (profile.unifiedpush_endpoint or "").strip()
-                if not target_player_id and settings.NTFY_URL:
-                    target_player_id = build_ntfy_topic(user.id)
-                if not target_player_id:
+                target_fcm_token = (profile.fcm_token or "").strip()
+                if not target_fcm_token:
                     continue
                 delivery = NotificationDelivery.objects.create(
                     event=event,
@@ -513,22 +635,25 @@ def send_notification_event(self, event_id: int) -> None:
                     channel=channel,
                 )
                 try:
-                    push_payload = json.dumps(
-                        {
-                            "notificationId": event.id,
-                            "eventType": event.event_type,
-                            "title": str(subject),
-                            "body": body,
-                            "link": event.link,
-                            "boardId": event.board_id,
-                            "cardId": event.card_id,
-                        },
-                        ensure_ascii=False,
+                    push_payload = _build_fcm_data_payload(
+                        notification_id=event.id,
+                        event_type=event.event_type,
+                        title=str(subject),
+                        body=body,
+                        link=event.link,
+                        board_id=event.board_id,
+                        card_id=event.card_id,
                     )
-                    _send_push(target_player_id, str(subject), push_payload, event_id=event.id)
+                    _send_push(target_fcm_token, str(subject), body, event_id=event.id, data=push_payload)
                     delivery.status = NotificationDelivery.Status.SENT
                     delivery.sent_at = timezone.now()
                     delivery.save(update_fields=["status", "sent_at"])
+                except InvalidFcmTokenError as exc:
+                    _clear_fcm_token(profile, target_fcm_token)
+                    delivery.status = NotificationDelivery.Status.FAILED
+                    delivery.error = str(exc)
+                    delivery.save(update_fields=["status", "error"])
+                    continue
                 except Exception as exc:  # noqa: BLE001
                     delivery.status = NotificationDelivery.Status.FAILED
                     delivery.error = str(exc)
@@ -645,12 +770,7 @@ def prune_card_activity(self) -> None:
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
 def send_overdue_card_reminders(self) -> None:
-    """Periodic task: send push reminders for overdue cards not in 'Done' columns.
-
-    Runs every minute via Celery Beat.  Reads the configured interval from
-    SiteSettings and skips cards that were already notified within that interval.
-    Only sends to users who have onesignal_player_id configured.
-    """
+    """Periodic task: send FCM reminders for overdue cards not in 'Done' columns."""
     site_settings = SiteSettings.load()
     interval_minutes = site_settings.overdue_reminder_interval
 
@@ -666,7 +786,7 @@ def send_overdue_card_reminders(self) -> None:
     if not overdue_cards.exists():
         return
 
-    from .notifications import build_frontend_link, build_ntfy_topic  # noqa: E402
+    from .notifications import build_frontend_link  # noqa: E402
 
     profiles = NotificationProfile.objects.select_related("user")
 
@@ -728,10 +848,8 @@ def send_overdue_card_reminders(self) -> None:
         for profile in profiles:
             NotificationInboxEntry.objects.get_or_create(event=event, user=profile.user)
 
-            player_id = (profile.unifiedpush_endpoint or "").strip()
-            if not player_id and settings.NTFY_URL:
-                player_id = build_ntfy_topic(profile.user_id)
-            if not player_id:
+            fcm_token = (profile.fcm_token or "").strip()
+            if not fcm_token:
                 continue
 
             delivery = NotificationDelivery.objects.create(
@@ -740,22 +858,30 @@ def send_overdue_card_reminders(self) -> None:
                 channel=NotificationChannel.PUSH,
             )
             try:
-                push_payload = json.dumps(
-                    {
-                        "notificationId": event.id,
-                        "eventType": event.event_type,
-                        "title": title,
-                        "body": body_text,
-                        "link": link,
-                        "boardId": card.board_id,
-                        "cardId": card.id,
-                    },
-                    ensure_ascii=False,
+                push_payload = _build_fcm_data_payload(
+                    notification_id=event.id,
+                    event_type=event.event_type,
+                    title=title,
+                    body=body_text,
+                    link=link,
+                    board_id=card.board_id,
+                    card_id=card.id,
                 )
-                _send_push(player_id, title, push_payload, event_id=event.id)
+                _send_push(fcm_token, title, body_text, event_id=event.id, data=push_payload)
                 delivery.status = NotificationDelivery.Status.SENT
                 delivery.sent_at = timezone.now()
                 delivery.save(update_fields=["status", "sent_at"])
+            except InvalidFcmTokenError as exc:
+                _clear_fcm_token(profile, fcm_token)
+                delivery.status = NotificationDelivery.Status.FAILED
+                delivery.error = str(exc)
+                delivery.save(update_fields=["status", "error"])
+                logger.warning(
+                    "overdue_push_invalid_fcm_token card=%s user=%s error=%s",
+                    card.id,
+                    profile.user_id,
+                    exc,
+                )
             except Exception as exc:  # noqa: BLE001
                 delivery.status = NotificationDelivery.Status.FAILED
                 delivery.error = str(exc)

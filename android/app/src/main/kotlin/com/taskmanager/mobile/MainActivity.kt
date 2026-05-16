@@ -149,8 +149,8 @@ import java.time.format.DateTimeParseException
 import java.util.concurrent.TimeUnit
 import java.util.Calendar
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import com.taskmanager.mobile.notifications.TaskManagerPushProfileSync
-import com.taskmanager.mobile.notifications.TaskManagerUnifiedPushRegistrar
+import com.google.firebase.messaging.FirebaseMessaging
+import com.taskmanager.mobile.notifications.TaskManagerFcmProfileSync
 
 private val LocalActivity = androidx.compose.runtime.staticCompositionLocalOf<FragmentActivity> {
     error("No FragmentActivity provided")
@@ -180,7 +180,6 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
     val boardUsers by vm.boardUsers.collectAsStateWithLifecycle()
     val securitySettings by vm.securitySettings.collectAsStateWithLifecycle()
     val timeZone = session.timeZone
-    val activity = LocalActivity.current
     val navController = rememberNavController()
     val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -213,7 +212,7 @@ private fun AppRoot(vm: KanbanViewModel = viewModel()) {
 
     LaunchedEffect(session.isAuthenticated) {
         if (!session.isAuthenticated) return@LaunchedEffect
-        vm.registerUnifiedPush(activity, context)
+        vm.registerFcmPush(context)
     }
 
     LaunchedEffect(session.isAuthenticated, session.timeZone) {
@@ -3831,7 +3830,7 @@ class KanbanViewModel : ViewModel() {
             }.onSuccess { token ->
                 onSuccess(token)
                 _session.update {
-                    it.copy(token = token, isAuthenticated = true, isBusy = false, errorMessage = null, password = "", unifiedPushRegistered = false)
+                    it.copy(token = token, isAuthenticated = true, isBusy = false, errorMessage = null, password = "", fcmRegistered = false)
                 }
                 refresh()
             }.onFailure { error ->
@@ -3842,7 +3841,9 @@ class KanbanViewModel : ViewModel() {
 
     fun logout(context: Context) {
         stopWebSocket()
-        TaskManagerUnifiedPushRegistrar.unregister(context.applicationContext)
+        viewModelScope.launch(Dispatchers.IO) {
+            TaskManagerFcmProfileSync.clearToken(context.applicationContext)
+        }
         _session.value = SessionUiState(domain = session.value.domain)
         _boardState.value = BoardUiState.Loading
     }
@@ -3866,7 +3867,7 @@ class KanbanViewModel : ViewModel() {
 
             usersResult.onSuccess { users -> _boardUsers.value = users }
             profileResult.onSuccess { profile ->
-                _session.update { it.copy(timeZone = profile.timezone, unifiedPushEndpoint = profile.unifiedPushEndpoint) }
+                _session.update { it.copy(timeZone = profile.timezone, fcmToken = profile.fcmToken) }
             }
 
             boardsResult.onSuccess { boards ->
@@ -4013,23 +4014,34 @@ class KanbanViewModel : ViewModel() {
         }
     }
 
-    fun registerUnifiedPush(activity: FragmentActivity, context: Context) {
+    fun registerFcmPush(context: Context) {
         val s = session.value
-        Log.d(PUSH_DEBUG_TAG, "registerUnifiedPush called: isAuth=${s.isAuthenticated} domain=${s.domain}")
+        Log.d(PUSH_DEBUG_TAG, "registerFcmPush called: isAuth=${s.isAuthenticated} domain=${s.domain}")
         if (!s.isAuthenticated || s.token.isBlank() || s.domain.isBlank()) return
-        if (s.unifiedPushRegistered) return
+        if (s.fcmRegistered) return
 
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                TaskManagerPushProfileSync.retryPendingEndpoint(context.applicationContext)
+                TaskManagerFcmProfileSync.retryPendingToken(context.applicationContext)
             }
             runCatching {
                 repository.ensurePushNotificationPreferences(baseUrl = s.domain, apiToken = s.token, eventTypes = notificationEventTypes)
             }.onSuccess {
-                val forceNewEndpoint = s.unifiedPushEndpoint.isBlank() && !TaskManagerPushProfileSync.hasPendingEndpoint(context.applicationContext)
-                TaskManagerUnifiedPushRegistrar.register(activity, context.applicationContext, forceNewEndpoint) { success ->
-                    if (!success) return@register
-                    _session.update { it.copy(unifiedPushRegistered = true) }
+                FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                    if (!task.isSuccessful) {
+                        Log.w(PUSH_DEBUG_TAG, "FCM token fetch failed", task.exception)
+                        return@addOnCompleteListener
+                    }
+                    val fcmToken = task.result.orEmpty()
+                    if (fcmToken.isBlank()) return@addOnCompleteListener
+                    viewModelScope.launch {
+                        val synced = withContext(Dispatchers.IO) {
+                            TaskManagerFcmProfileSync.updateToken(context.applicationContext, fcmToken)
+                        }
+                        if (synced) {
+                            _session.update { it.copy(fcmToken = fcmToken, fcmRegistered = true) }
+                        }
+                    }
                 }
             }
         }
@@ -4152,8 +4164,8 @@ data class SessionUiState(
     val timeZone: String = DEFAULT_TIME_ZONE,
     val username: String = "",
     val password: String = "",
-    val unifiedPushEndpoint: String = "",
-    val unifiedPushRegistered: Boolean = false,
+    val fcmToken: String = "",
+    val fcmRegistered: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -4576,15 +4588,15 @@ data class BoardUser(val id: Int, val name: String)
 
 @Serializable
 private data class NotificationProfileRequest(
-    val timezone: String? = null
+    val timezone: String? = null,
+    @SerialName("fcm_token") val fcmToken: String? = null
 )
 
 @Serializable
 data class NotificationProfileDto(
     val email: String = "",
     @SerialName("telegram_chat_id") val telegramChatId: String = "",
-    @SerialName("unifiedpush_endpoint") val unifiedPushEndpoint: String = "",
-    @SerialName("ntfy_topic") val ntfyTopic: String = "",
+    @SerialName("fcm_token") val fcmToken: String = "",
     val timezone: String = DEFAULT_TIME_ZONE,
     @SerialName("timezone_configured") val timezoneConfigured: Boolean = false
 )

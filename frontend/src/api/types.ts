@@ -241,9 +241,7 @@ export type NotificationEventType =
 export interface NotificationProfile {
   email: string
   telegram_chat_id: string
-  onesignal_player_id?: string
-  unifiedpush_endpoint?: string
-  ntfy_topic: string
+  fcm_token?: string
   timezone: string
   timezone_configured: boolean
 }

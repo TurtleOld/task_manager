@@ -24,7 +24,7 @@ def test_overdue_reminder_skips_done_column_by_flag() -> None:
     )
 
     user = User.objects.create_user(username="user1", password="secret123")
-    NotificationProfile.objects.create(user=user, onesignal_player_id="player-1")
+    NotificationProfile.objects.create(user=user, fcm_token="fcm-token")
 
     with patch("kanban.tasks._send_push") as send_push:
         send_overdue_card_reminders.run()
@@ -43,7 +43,7 @@ def test_overdue_reminder_skips_legacy_done_column_without_flag() -> None:
     )
 
     user = User.objects.create_user(username="user1", password="secret123")
-    NotificationProfile.objects.create(user=user, onesignal_player_id="player-1")
+    NotificationProfile.objects.create(user=user, fcm_token="fcm-token")
 
     with patch("kanban.tasks._send_push") as send_push:
         send_overdue_card_reminders.run()

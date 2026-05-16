@@ -89,8 +89,8 @@ def reminder_channel_availability(
             event_type=event_type,
         ):
             return ChannelAvailability(False, "Push отключён в настройках уведомлений")
-        if not profile.unifiedpush_endpoint and not settings.NTFY_URL:
-            return ChannelAvailability(False, "UnifiedPush endpoint не зарегистрирован")
+        if not profile.fcm_token:
+            return ChannelAvailability(False, "FCM token не зарегистрирован")
         return ChannelAvailability(True, "")
 
     return {
