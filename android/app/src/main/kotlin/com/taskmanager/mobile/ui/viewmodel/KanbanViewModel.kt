@@ -42,6 +42,7 @@ import com.taskmanager.mobile.security.isPinEnabled
 import com.taskmanager.mobile.security.savePin
 import com.taskmanager.mobile.security.setBiometricEnabled
 import com.taskmanager.mobile.ui.components.normalizeTimeZoneId
+import com.taskmanager.mobile.ui.theme.ThemeMode
 import com.taskmanager.mobile.util.DEFAULT_TIME_ZONE
 import com.taskmanager.mobile.util.PUSH_DEBUG_TAG
 import com.taskmanager.mobile.util.clearToken
@@ -229,6 +230,7 @@ class KanbanViewModel : ViewModel() {
     fun onDomainChanged(value: String) = _session.update { it.copy(domain = value) }
     fun onUsernameChanged(value: String) = _session.update { it.copy(username = value) }
     fun onPasswordChanged(value: String) = _session.update { it.copy(password = value) }
+    fun onThemeModeChanged(value: ThemeMode) = _session.update { it.copy(themeMode = value) }
 
     fun login(onSuccess: (String) -> Unit) {
         val domain = normalizeBaseUrl(session.value.domain)
@@ -592,6 +594,7 @@ data class SessionUiState(
     val password: String = "",
     val fcmToken: String = "",
     val fcmRegistered: Boolean = false,
+    val themeMode: ThemeMode = ThemeMode.System,
     val errorMessage: String? = null
 )
 

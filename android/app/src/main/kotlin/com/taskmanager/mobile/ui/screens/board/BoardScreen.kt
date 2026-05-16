@@ -34,6 +34,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -45,6 +46,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -117,9 +122,11 @@ fun BoardRoute(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.padding(32.dp)
                 ) {
-                    Text(
-                        text = "⚠",
-                        fontSize = 48.sp
+                    Icon(
+                        imageVector = Icons.Outlined.ErrorOutline,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.error
                     )
                     Text(
                         text = boardState.message,
@@ -162,8 +169,7 @@ fun BoardRoute(
                         selectedBoardId = boardState.selectedBoardId,
                         onSelectBoard = onSelectBoard,
                         onRefresh = onRefresh,
-                        onOpenSettings = onOpenSettings,
-                        onLogout = onLogout
+                        onOpenSettings = onOpenSettings
                     )
 
                     // Board content
@@ -290,8 +296,7 @@ fun KanbanHeader(
     selectedBoardId: Int?,
     onSelectBoard: (Int) -> Unit,
     onRefresh: () -> Unit,
-    onOpenSettings: () -> Unit = {},
-    onLogout: () -> Unit
+    onOpenSettings: () -> Unit = {}
 ) {
     var isRefreshing by remember { mutableStateOf(false) }
 
@@ -346,10 +351,11 @@ fun KanbanHeader(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text(
-                        text = "↻",
-                        fontSize = 18.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Icon(
+                        imageVector = Icons.Outlined.Refresh,
+                        contentDescription = "Обновить",
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -365,23 +371,11 @@ fun KanbanHeader(
                     .clickable(onClick = onOpenSettings),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "⚙", fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
-                        shape = CircleShape
-                    )
-                    .clickable(onClick = onLogout),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "↩",
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.error
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = "Настройки",
+                    modifier = Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

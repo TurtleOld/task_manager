@@ -176,19 +176,32 @@ val AppTypography = Typography(
     )
 )
 
+enum class ThemeMode {
+    System,
+    Light,
+    Dark
+}
+
 @Composable
 fun TaskManagerTheme(
+    themeMode: ThemeMode = ThemeMode.System,
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    val useDarkTheme = when (themeMode) {
+        ThemeMode.System -> darkTheme
+        ThemeMode.Light -> false
+        ThemeMode.Dark -> true
+    }
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            if (useDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
 
-        darkTheme -> DarkColorScheme
+        useDarkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
 

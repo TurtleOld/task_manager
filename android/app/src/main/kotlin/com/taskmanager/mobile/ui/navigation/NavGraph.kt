@@ -29,6 +29,7 @@ import com.taskmanager.mobile.ui.screens.login.LoginScreen
 import com.taskmanager.mobile.ui.screens.pin.PinUnlockScreen
 import com.taskmanager.mobile.ui.screens.settings.SettingsScreen
 import com.taskmanager.mobile.ui.screens.taskdetail.TaskDetailScreen
+import com.taskmanager.mobile.ui.theme.TaskManagerTheme
 import com.taskmanager.mobile.ui.viewmodel.KanbanViewModel
 import com.taskmanager.mobile.util.clearToken
 import com.taskmanager.mobile.util.readSavedDomain
@@ -88,11 +89,12 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
         saveTimeZone(context, session.timeZone)
     }
 
-    NavHost(
-        navController = navController,
-        startDestination = Route.Login,
-        modifier = Modifier.fillMaxSize()
-    ) {
+    TaskManagerTheme(themeMode = session.themeMode) {
+        NavHost(
+            navController = navController,
+            startDestination = Route.Login,
+            modifier = Modifier.fillMaxSize()
+        ) {
         composable(Route.Login) {
             LoginScreen(
                 state = session,
@@ -166,6 +168,7 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
                 onSetBiometric = { enabled ->
                     vm.setBiometric(context, enabled)
                 },
+                onThemeModeChange = vm::onThemeModeChanged,
                 onLogout = {
                     clearToken(context)
                     vm.logout(context)
@@ -194,6 +197,7 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
                 }
             )
         }
+    }
     }
 }
 

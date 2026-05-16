@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -25,6 +26,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Fingerprint
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -170,7 +175,7 @@ fun PinUnlockScreen(
                     listOf("1", "2", "3"),
                     listOf("4", "5", "6"),
                     listOf("7", "8", "9"),
-                    listOf("bio", "0", "⌫")
+                    listOf("bio", "0", "backspace")
                 )
                 digits.forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -180,7 +185,7 @@ fun PinUnlockScreen(
                                 isBioVisible = biometricEnabled,
                                 onClick = {
                                     when (key) {
-                                        "⌫" -> {
+                                        "backspace" -> {
                                             if (pin.isNotEmpty()) pin = pin.dropLast(1)
                                             errorMessage = null
                                         }
@@ -249,8 +254,18 @@ fun PinKey(
     ) {
         if (!isEmpty) {
             when (label) {
-                "⌫" -> Text(text = "⌫", fontSize = 22.sp, color = MaterialTheme.colorScheme.onSurface)
-                "bio" -> Text(text = "☉", fontSize = 24.sp, color = MaterialTheme.colorScheme.primary)
+                "backspace" -> Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.Backspace,
+                    contentDescription = "Удалить",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurface
+                )
+                "bio" -> Icon(
+                    imageVector = Icons.Outlined.Fingerprint,
+                    contentDescription = "Биометрия",
+                    modifier = Modifier.size(28.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
                 else -> Text(
                     text = label,
                     fontSize = 26.sp,
@@ -302,7 +317,17 @@ fun PinSetupDialog(
                     if (step == 2) { step = 1; currentPin = ""; errorMessage = null }
                     else onDismiss()
                 }) {
-                    Text(if (step == 2) "← Назад" else "Отмена", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (step == 2) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text("Назад", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        Text("Отмена", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
                 Text(
                     text = "Шаг $step / 2",
@@ -362,7 +387,7 @@ fun PinSetupDialog(
                     listOf("1", "2", "3"),
                     listOf("4", "5", "6"),
                     listOf("7", "8", "9"),
-                    listOf("", "0", "⌫")
+                    listOf("", "0", "backspace")
                 )
                 digits.forEach { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -372,7 +397,7 @@ fun PinSetupDialog(
                                 isBioVisible = false,
                                 onClick = {
                                     when (key) {
-                                        "⌫" -> {
+                                        "backspace" -> {
                                             if (currentPin.isNotEmpty()) currentPin = currentPin.dropLast(1)
                                             errorMessage = null
                                         }
