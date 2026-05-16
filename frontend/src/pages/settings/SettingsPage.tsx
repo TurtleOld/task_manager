@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LANGUAGE_KEY, loadLanguagePreference } from '../../app/auth'
-import { applyAppFontSize, DEFAULT_FONT_SIZE_PX, loadAppFontSize, MAX_FONT_SIZE_PX, MIN_FONT_SIZE_PX } from '../../app/preferences'
+import { applyAppFontSize, applyCompactMode, DEFAULT_FONT_SIZE_PX, loadAppFontSize, loadCompactMode, MAX_FONT_SIZE_PX, MIN_FONT_SIZE_PX } from '../../app/preferences'
 import { api } from '../../api/client'
 import type { AdminUser, AuthUser, NotificationProfile, UserRole } from '../../api/types'
 import { roleLabels } from '../../shared/lib/permissions'
@@ -11,9 +11,10 @@ import { Badge, Button, Card as SurfaceCard, EmptyState, Field, Modal, PageShell
 interface SettingsPageProps {
   user: AuthUser
   onUserUpdate: (user: AuthUser) => void
+  onLogout: () => void
 }
 
-export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
+export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps) {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [usersError, setUsersError] = useState('')
@@ -22,6 +23,11 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
   const [editFullName, setEditFullName] = useState('')
   const [savingUser, setSavingUser] = useState(false)
   const [editErrors, setEditErrors] = useState<Record<string, string>>({})
+  const [terminatingSessions, setTerminatingSessions] = useState(false)
+  const [selfPasswordOpen, setSelfPasswordOpen] = useState(false)
+  const [selfPassword, setSelfPassword] = useState('')
+  const [selfPasswordError, setSelfPasswordError] = useState('')
+  const [selfPasswordSaving, setSelfPasswordSaving] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [newPassword, setNewPassword] = useState('')
@@ -38,6 +44,7 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
   const [accountTimeZone, setAccountTimeZone] = useState(deviceTimeZone)
   const [accountSaving, setAccountSaving] = useState(false)
   const [accountMessage, setAccountMessage] = useState('')
+  const [compactMode, setCompactMode] = useState(() => loadCompactMode())
   const [fontSizePx, setFontSizePx] = useState(() => loadAppFontSize())
 
   const loadUsers = async () => {
@@ -95,7 +102,12 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
 
   useEffect(() => {
     setFontSizePx(loadAppFontSize())
+    setCompactMode(loadCompactMode())
   }, [])
+
+  const onCompactModeChange = (enabled: boolean) => {
+    setCompactMode(applyCompactMode(enabled))
+  }
 
   const saveAccountSettings = async () => {
     if (accountSaving) return
@@ -180,13 +192,41 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
     }
   }
 
+  const onTerminateSessions = async () => {
+    setTerminatingSessions(true)
+    try {
+      await api.terminateSessions()
+    } finally {
+      onLogout()
+    }
+  }
+
+  const onChangeSelfPassword = async () => {
+    const trimmed = selfPassword.trim()
+    if (trimmed.length < 8) {
+      setSelfPasswordError('Минимум 8 символов')
+      return
+    }
+    setSelfPasswordError('')
+    setSelfPasswordSaving(true)
+    try {
+      await api.changeUserPassword(user.id, { new_password: trimmed })
+      setSelfPasswordOpen(false)
+      setSelfPassword('')
+    } catch (e) {
+      setSelfPasswordError((e as Error).message)
+    } finally {
+      setSelfPasswordSaving(false)
+    }
+  }
+
   const userCountLabel = user.is_admin ? `${users.length || 0} пользователей` : 'Личный профиль'
 
   return (
     <PageShell width="2xl" padding="comfortable" spacing="md">
-      <header className="rounded-[1.6rem] border border-border/80 bg-[image:var(--gradient-surface)] px-6 py-6 shadow-elevated backdrop-blur">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
+      <header className="rounded-[1.6rem] border border-border/80 bg-[image:var(--gradient-surface)] px-6 py-6 shadow-elevated backdrop-blur compact:px-5 compact:py-4">
+        <div className="flex flex-col gap-5 compact:gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-3 compact:space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="primary">Settings</Badge>
               <Badge variant="neutral">{user.is_admin ? 'Admin workspace' : 'Personal workspace'}</Badge>
@@ -210,27 +250,27 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
         </div>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <SurfaceCard className="p-5">
+      <section className="grid gap-4 compact:gap-3 md:grid-cols-3">
+        <SurfaceCard className="p-5 compact:p-4">
           <p className="text-caption uppercase text-text-muted">Профиль</p>
           <h2 className="mt-2 text-h3 text-text">{user.full_name || user.username}</h2>
           <p className="mt-1 text-body-sm text-text-muted">{user.username}</p>
         </SurfaceCard>
-        <SurfaceCard className="p-5">
+        <SurfaceCard className="p-5 compact:p-4">
           <p className="text-caption uppercase text-text-muted">Часовой пояс</p>
           <h2 className="mt-2 text-h3 text-text">{accountTimeZone}</h2>
           <p className="mt-1 text-body-sm text-text-muted">Используется в web и mobile интерфейсах</p>
         </SurfaceCard>
-        <SurfaceCard className="p-5">
+        <SurfaceCard className="p-5 compact:p-4">
           <p className="text-caption uppercase text-text-muted">Роль</p>
           <h2 className="mt-2 text-h3 text-text">{user.is_admin ? 'Администратор' : 'Участник'}</h2>
           <p className="mt-1 text-body-sm text-text-muted">{user.is_admin ? 'Расширенные права управления системой' : 'Личные настройки и уведомления'}</p>
         </SurfaceCard>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
-        <div className="space-y-6">
-          <SurfaceCard as="section" className="space-y-5">
+      <div className="grid gap-6 compact:gap-4 lg:grid-cols-[1.08fr_0.92fr]">
+        <div className="space-y-6 compact:space-y-4">
+          <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -241,7 +281,7 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
                 <p className="mt-1 text-body-sm text-text-muted">Личные данные, язык интерфейса и рабочий часовой пояс.</p>
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 compact:gap-3 sm:grid-cols-2">
               <Field label="Имя" htmlFor="account-full-name">
                 <TextInput id="account-full-name" value={accountFullName} onChange={(event) => setAccountFullName(event.target.value)} autoComplete="name" />
               </Field>
@@ -269,7 +309,7 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
             </div>
           </SurfaceCard>
 
-          <SurfaceCard as="section" className="space-y-5">
+          <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
@@ -280,24 +320,24 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
                 <p className="mt-1 text-body-sm text-text-muted">Следите за сессиями, паролем и общим состоянием доступа.</p>
               </div>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface">
+            <div className="grid gap-4 compact:gap-3 sm:grid-cols-2">
+              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
                 <p className="text-caption uppercase text-text-muted">Активные сессии</p>
                 <h3 className="mt-2 text-body font-semibold text-text">Последний вход: 10 минут назад</h3>
                 <p className="mt-1 text-body-sm text-text-muted">Завершайте все сеансы при подозрительной активности.</p>
-                <Button type="button" variant="secondary" size="sm" className="mt-4">Завершить все сеансы</Button>
+                <Button type="button" variant="secondary" size="sm" className="mt-4" loading={terminatingSessions} onClick={() => void onTerminateSessions()}>Завершить все сеансы</Button>
               </div>
-              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface">
+              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
                 <p className="text-caption uppercase text-text-muted">Пароль</p>
                 <h3 className="mt-2 text-body font-semibold text-text">Регулярное обновление</h3>
                 <p className="mt-1 text-body-sm text-text-muted">Рекомендуется менять пароль не реже одного раза в 90 дней.</p>
-                <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={() => setPasswordOpen(true)}>Сменить пароль</Button>
+                <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={() => setSelfPasswordOpen(true)}>Сменить пароль</Button>
               </div>
             </div>
           </SurfaceCard>
 
           {user.is_admin ? (
-            <SurfaceCard as="section" className="space-y-5">
+            <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
@@ -308,7 +348,7 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
                   <p className="mt-1 text-body-sm text-text-muted">Глобальные параметры push-напоминаний для мобильного приложения.</p>
                 </div>
               </div>
-              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface">
+              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
                 <p className="text-body-sm font-semibold text-text">Повторяющиеся напоминания о просроченных задачах</p>
                 <p className="mt-1 text-caption text-text-muted">Интервал отправки push-уведомлений о просроченных задачах всем пользователям.</p>
                 <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -339,26 +379,22 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
           ) : null}
         </div>
 
-        <div className="space-y-6">
-          <SurfaceCard as="section" className="space-y-5">
+        <div className="space-y-6 compact:space-y-4">
+          <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
             <div>
               <div className="flex items-center gap-2">
                 <Badge variant="info">Preferences</Badge>
                 <Badge variant="neutral">Display</Badge>
               </div>
               <h2 className="mt-3 text-h3 text-text">Персональные предпочтения</h2>
-              <p className="mt-1 text-body-sm text-text-muted">Внешний вид, подсказки и базовые параметры отображения.</p>
+              <p className="mt-1 text-body-sm text-text-muted">Внешний вид и базовые параметры отображения.</p>
             </div>
-            <div className="grid gap-4">
-              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface">
+            <div className="grid gap-4 compact:gap-3">
+              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface compact:px-3 compact:py-2">
                 Компактный режим
-                <input type="checkbox" className="h-4 w-4 rounded border-border text-primary" />
+                <input type="checkbox" checked={compactMode} onChange={(event) => onCompactModeChange(event.target.checked)} className="h-4 w-4 rounded border-border text-primary" />
               </label>
-              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface">
-                Показывать быстрые подсказки
-                <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-border text-primary" />
-              </label>
-              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface">
+              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
                 <span className="text-label uppercase text-text-muted">Формат дат</span>
                 <select className="mt-3 w-full rounded-control border border-border/90 bg-surface/90 px-3.5 py-2.5 text-body-sm text-text shadow-surface backdrop-blur">
                   <option>ДД.ММ.ГГГГ</option>
@@ -369,7 +405,7 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
             </div>
           </SurfaceCard>
 
-          <SurfaceCard as="section" className="space-y-5">
+          <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
             <div>
               <div className="flex items-center gap-2">
                 <Badge variant="info">A11y</Badge>
@@ -378,12 +414,12 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
               <h2 className="mt-3 text-h3 text-text">Доступность</h2>
               <p className="mt-1 text-body-sm text-text-muted">Контраст, размер шрифта и вспомогательные функции интерфейса.</p>
             </div>
-            <div className="space-y-4">
-              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface">
+            <div className="space-y-4 compact:space-y-3">
+              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface compact:px-3 compact:py-2">
                 Повышенный контраст
                 <input type="checkbox" className="h-4 w-4 rounded border-border text-primary" />
               </label>
-              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface">
+              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
                 <span className="text-label uppercase text-text-muted">Размер шрифта</span>
                 <input
                   type="range"
@@ -398,7 +434,7 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
                 />
                 <div className="mt-2 text-caption text-text-muted">{fontSizePx} px</div>
               </div>
-              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface">
+              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface compact:px-3 compact:py-2">
                 Озвучивание событий
                 <input type="checkbox" className="h-4 w-4 rounded border-border text-primary" />
               </label>
@@ -485,6 +521,23 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
           ) : null}
         </div>
       </div>
+
+      <Modal
+        open={selfPasswordOpen}
+        onClose={() => { setSelfPasswordOpen(false); setSelfPassword(''); setSelfPasswordError('') }}
+        title="Сменить пароль"
+        className="max-w-md"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => { setSelfPasswordOpen(false); setSelfPassword(''); setSelfPasswordError('') }}>Отмена</Button>
+            <Button type="button" onClick={() => void onChangeSelfPassword()} loading={selfPasswordSaving}>Сохранить пароль</Button>
+          </>
+        }
+      >
+        <Field label="Новый пароль" htmlFor="self-password" error={selfPasswordError} errorId="self-password-error">
+          <TextInput id="self-password" type="password" value={selfPassword} onChange={(e) => setSelfPassword(e.target.value)} invalid={Boolean(selfPasswordError)} aria-describedby={selfPasswordError ? 'self-password-error' : undefined} />
+        </Field>
+      </Modal>
 
       <Modal
         open={passwordOpen && Boolean(selectedUser)}

@@ -422,6 +422,13 @@ export const api = {
     })
     return json(res)
   },
+  terminateSessions: async (): Promise<void> => {
+    const res = await fetch(`${V1}/auth/terminate-sessions/`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    if (!res.ok) throw new Error(`${res.status}`)
+  },
   updateCurrentUser: async (payload: Partial<{ full_name: string }>): Promise<UserProfile> => {
     const res = await fetch(`${V1}/auth/me/`, {
       method: 'PATCH',

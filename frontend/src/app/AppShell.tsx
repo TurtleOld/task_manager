@@ -1,7 +1,7 @@
 import { Component, Suspense, useEffect, useMemo, useState } from 'react'
 import type { ComponentType, ErrorInfo, ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { CalendarDays, ChevronLeft, Inbox, LayoutDashboard, Menu, Search, Settings, SunMedium, TreePalm, Archive } from 'lucide-react'
+import { Archive, CalendarDays, ChevronLeft, Inbox, LayoutDashboard, Menu, Search, Settings, SunMedium } from 'lucide-react'
 import { useBoards } from '../api/queries/boards'
 import type { AuthUser } from '../api/types'
 import { CommandPalette } from './CommandPalette'
@@ -220,13 +220,12 @@ function ShellSidebar({ boards, boardsLoading, collapsed, mobile = false, onColl
       )}
       aria-label="Основная навигация"
     >
-      <div className="flex items-center gap-2 px-1">
+      <div className={cn('flex items-center gap-2 px-1', collapsed && !mobile && 'flex-col gap-1')}>
         <Link to="/" className="flex min-w-0 flex-1 items-center gap-3 rounded-control px-2 py-2 transition hover:bg-sidebar-accent">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[image:var(--gradient-primary)] font-bold text-text-inverse shadow-elevated">TM</span>
           {!collapsed || mobile ? (
             <span className="min-w-0">
               <span className="block truncate text-body font-semibold">Task Manager</span>
-              <span className="block truncate text-caption text-text-muted">Family workspace</span>
             </span>
           ) : null}
         </Link>
@@ -241,15 +240,6 @@ function ShellSidebar({ boards, boardsLoading, collapsed, mobile = false, onColl
           </button>
         ) : null}
       </div>
-
-      <div className={cn('mt-4 rounded-[1.15rem] border border-sidebar-border bg-background-subtle/50 p-3', collapsed && !mobile && 'px-2')}>
-        <div className="flex items-center gap-2">
-          <TreePalm className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          {!collapsed || mobile ? <span className="truncate text-caption font-semibold uppercase text-text-muted">Семейное пространство</span> : null}
-        </div>
-        {!collapsed || mobile ? <p className="mt-1 truncate text-body-sm text-text">Домашние задачи</p> : null}
-      </div>
-
       <nav className="mt-5 flex-1 space-y-5 overflow-y-auto pr-1" aria-label="Разделы приложения">
         <NavSection title="Views" collapsed={collapsed && !mobile}>
           <ShellNavItem to="/" label="Доски" icon={LayoutDashboard} collapsed={collapsed && !mobile} end />
