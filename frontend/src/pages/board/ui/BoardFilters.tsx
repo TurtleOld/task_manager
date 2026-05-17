@@ -23,7 +23,7 @@ export function BoardFilters({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-h3 text-text">Поиск и фильтры</h2>
-          <p className="mt-1 text-body-sm text-text-muted">Быстро находите задачи по названию, описанию или лейблу.</p>
+          <p className="mt-1 text-body-sm text-text-muted">Быстро находите задачи по названию, описанию или тегу.</p>
         </div>
         <Badge variant={activeFilterCount ? 'primary' : 'neutral'}>Активных фильтров: {activeFilterCount}</Badge>
       </div>
@@ -33,11 +33,11 @@ export function BoardFilters({
             id="board-task-search"
             value={searchQuery}
             onChange={(event) => onSearchQueryChange(event.target.value)}
-            placeholder="Найдите задачу по названию, описанию или лейблу"
+            placeholder="Найдите задачу по названию, описанию или тегу"
           />
         </Field>
         <div className="rounded-panel border border-border/70 bg-background-subtle/55 p-4">
-          <p className="text-label uppercase text-text-muted">Лейблы</p>
+          <p className="text-label uppercase text-text-muted">Теги</p>
           <div className="mt-2 flex flex-wrap gap-2">
             <ChipButton
               active={activeLabel === 'Все'}

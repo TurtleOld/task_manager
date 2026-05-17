@@ -90,7 +90,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             )
         )
         if request.user and request.user.is_authenticated:
-            base = base.filter(Q(assignee=request.user) | Q(assignee__isnull=True))
+            base = base.filter(assignee=request.user)
 
         overdue_cards = list(
             base.filter(deadline__lt=today_start).order_by("deadline", "position", "id")

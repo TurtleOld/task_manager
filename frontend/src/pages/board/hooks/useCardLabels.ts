@@ -31,7 +31,7 @@ export function useCardLabels({ selectedCardId, draft, setDraft, allKnownLabels 
       ? known
       : { name: candidate.name, color: candidate.color || hashLabelColor(candidate.name) }
     setDraft((prev) => (prev ? { ...prev, labels: [...prev.labels, resolved] } : prev))
-    toast.success(`Лейбл «${resolved.name}» добавлен`)
+    toast.success(`Тег «${resolved.name}» добавлен`)
   }
 
   const addLabel = () => {
@@ -43,7 +43,7 @@ export function useCardLabels({ selectedCardId, draft, setDraft, allKnownLabels 
   const removeLabel = (name: string) => {
     if (!selectedCardId || !draft) return
     setDraft((prev) => (prev ? { ...prev, labels: prev.labels.filter((item) => item.name !== name) } : prev))
-    toast.success(`Лейбл «${name}» удалён`)
+    toast.success(`Тег «${name}» удалён`)
   }
 
   return {

@@ -273,10 +273,10 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     const nextLabelNames = next.labels.map((label) => label.name)
     if (!sameJson(nextLabelNames, baseLabelNames)) {
       if (nextLabelNames.length > 0) {
-        changes.push(`Лейблы: ${nextLabelNames.join(', ')}`)
+        changes.push(`Теги: ${nextLabelNames.join(', ')}`)
         changesMeta.labels = nextLabelNames
       } else {
-        changes.push('Лейблы удалены')
+        changes.push('Теги удалены')
         changesMeta.labels = []
       }
     }
