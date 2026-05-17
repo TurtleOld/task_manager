@@ -214,7 +214,7 @@ def test_my_today_groups_active_cards(api_client: APIClient, board: Board) -> No
 
 
 @pytest.mark.django_db()
-def test_my_today_for_authenticated_user_includes_own_and_unassigned_cards(
+def test_my_today_for_authenticated_user_shows_only_own_cards(
     auth_client: APIClient,
     regular_user: User,
     board: Board,
@@ -230,7 +230,7 @@ def test_my_today_for_authenticated_user_includes_own_and_unassigned_cards(
     assert resp.status_code == 200
     ids = {item["id"] for item in resp.json()["important"]}
     assert own.id in ids
-    assert unassigned.id in ids
+    assert unassigned.id not in ids
     assert other.id not in ids
 
 
