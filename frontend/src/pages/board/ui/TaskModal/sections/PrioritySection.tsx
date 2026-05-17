@@ -39,8 +39,8 @@ export function PrioritySection({ setDraft, selectedCardId, selectedPriority }: 
               key={item.label}
               htmlFor={`priority-${item.value}`}
               className={cn(
-                'flex cursor-pointer items-start gap-3 rounded-control border px-3.5 py-3 text-body-sm backdrop-blur transition duration-fast ease-standard',
-                checked ? 'border-primary/35 bg-primary/10 text-text shadow-surface' : 'border-border bg-surface/90 text-text hover:border-primary/30 hover:bg-surface-hover',
+                'flex cursor-pointer items-start gap-3 rounded-control border px-3.5 py-3 text-body-sm transition duration-fast ease-standard',
+                checked ? 'border-primary/35 bg-primary/10 text-text shadow-surface' : 'border-border bg-surface text-text hover:border-primary/30 hover:bg-surface-hover',
               )}
             >
               <RadioGroupItem id={`priority-${item.value}`} value={String(item.value)} className="mt-0.5" />

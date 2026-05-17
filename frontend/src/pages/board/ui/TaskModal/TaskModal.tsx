@@ -35,7 +35,7 @@ export function TaskModal(props: TaskModalProps) {
       className="p-0 max-w-7xl w-[calc(100%-2rem)] flex flex-col max-h-[calc(100vh-2rem)]"
     >
       {/* Sticky header */}
-      <div className="shrink-0 rounded-t-overlay border-b border-border/60 bg-[image:var(--gradient-surface)] px-6 py-5">
+      <div className="shrink-0 rounded-t-overlay border-b border-border bg-surface-elevated px-6 py-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-6">
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">

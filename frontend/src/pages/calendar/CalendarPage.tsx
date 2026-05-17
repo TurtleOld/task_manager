@@ -336,8 +336,8 @@ export function CalendarPage() {
 function CalendarMetric({ label, value, tone }: { label: string; value: number; tone: 'primary' | 'success' | 'warning' }) {
   const valueClass = tone === 'success' ? 'text-success' : tone === 'warning' ? 'text-warning' : 'text-primary'
   return (
-    <div className="rounded-[1.15rem] border border-border/70 bg-background-subtle/65 p-4">
-      <p className="text-caption uppercase tracking-[0.08em] text-text-muted">{label}</p>
+    <div className="rounded-[1.15rem] border border-border bg-background-subtle p-4">
+      <p className="text-label uppercase tracking-[0.06em] text-text-muted">{label}</p>
       <p className={`mt-1 text-h2 ${valueClass}`}>{value}</p>
     </div>
   )

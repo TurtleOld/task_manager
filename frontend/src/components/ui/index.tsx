@@ -22,18 +22,18 @@ import { cn } from '@/lib/utils'
 type BadgeVariant = 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
 const badgeVariants: Record<BadgeVariant, string> = {
-  neutral: 'border-border bg-background-subtle/90 text-text-muted',
-  primary: 'border-primary/25 bg-primary/10 text-primary',
-  success: 'border-success/25 bg-success/10 text-success',
-  warning: 'border-warning/25 bg-warning/10 text-warning',
-  danger: 'border-danger/25 bg-danger/10 text-danger',
-  info: 'border-info/25 bg-info/10 text-info',
+  neutral: 'border-border bg-background-subtle text-text-muted',
+  primary: 'border-primary/35 bg-primary/12 text-primary',
+  success: 'border-success/35 bg-success/12 text-success',
+  warning: 'border-warning/35 bg-warning/12 text-warning',
+  danger: 'border-danger/35 bg-danger/12 text-danger',
+  info: 'border-info/35 bg-info/12 text-info',
 }
 
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & { variant?: BadgeVariant }
 
 export function Badge({ className, variant = 'neutral', ...props }: BadgeProps) {
-  return <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption backdrop-blur compact:px-2 compact:py-0.5', badgeVariants[variant], className)} {...props} />
+  return <span className={cn('inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-caption font-semibold tracking-wide compact:px-2 compact:py-0.5', badgeVariants[variant], className)} {...props} />
 }
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'link'
@@ -112,9 +112,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 type CardVariant = 'default' | 'elevated' | 'interactive'
 
 const cardVariants: Record<CardVariant, string> = {
-  default: 'border-border/90 bg-[image:var(--gradient-surface)] shadow-surface backdrop-blur',
-  elevated: 'border-border/80 bg-surface-elevated shadow-elevated backdrop-blur',
-  interactive: 'border-border/90 bg-[image:var(--gradient-surface)] shadow-surface backdrop-blur transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-elevated',
+  default: 'border-border/90 bg-surface shadow-surface',
+  elevated: 'border-border/80 bg-surface-elevated shadow-elevated',
+  interactive: 'border-border/90 bg-surface shadow-surface transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-elevated',
 }
 
 type CardProps = HTMLAttributes<HTMLElement> & { as?: ElementType; variant?: CardVariant }
@@ -160,12 +160,12 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(function Ch
 type ChipTone = 'neutral' | 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
 const chipTones: Record<ChipTone, { active: string; idle: string }> = {
-  neutral: { active: 'border-border-strong bg-background-subtle/90 text-text', idle: 'border-border bg-surface/90 text-text-muted hover:border-border-strong hover:text-text' },
-  primary: { active: 'border-primary/40 bg-primary/10 text-primary', idle: 'border-border bg-surface/90 text-text-muted hover:border-primary/35 hover:text-primary' },
-  success: { active: 'border-success/40 bg-success/10 text-success', idle: 'border-border bg-surface/90 text-text-muted hover:border-success/35 hover:text-success' },
-  warning: { active: 'border-warning/40 bg-warning/10 text-warning', idle: 'border-border bg-surface/90 text-text-muted hover:border-warning/35 hover:text-warning' },
-  danger: { active: 'border-danger/40 bg-danger/10 text-danger', idle: 'border-border bg-surface/90 text-text-muted hover:border-danger/35 hover:text-danger' },
-  info: { active: 'border-info/40 bg-info/10 text-info', idle: 'border-border bg-surface/90 text-text-muted hover:border-info/35 hover:text-info' },
+  neutral: { active: 'border-border-strong bg-background-subtle text-text', idle: 'border-border bg-surface text-text-muted hover:border-border-strong hover:text-text' },
+  primary: { active: 'border-primary/50 bg-primary/12 text-primary', idle: 'border-border bg-surface text-text-muted hover:border-primary/40 hover:text-primary' },
+  success: { active: 'border-success/50 bg-success/12 text-success', idle: 'border-border bg-surface text-text-muted hover:border-success/40 hover:text-success' },
+  warning: { active: 'border-warning/55 bg-warning/12 text-warning', idle: 'border-border bg-surface text-text-muted hover:border-warning/45 hover:text-warning' },
+  danger: { active: 'border-danger/50 bg-danger/12 text-danger', idle: 'border-border bg-surface text-text-muted hover:border-danger/40 hover:text-danger' },
+  info: { active: 'border-info/50 bg-info/12 text-info', idle: 'border-border bg-surface text-text-muted hover:border-info/40 hover:text-info' },
 }
 
 type ChipProps = HTMLAttributes<HTMLSpanElement> & { active?: boolean; children: ReactNode; tone?: ChipTone }
@@ -240,7 +240,7 @@ export function Modal({ children, className, footer, labelledBy, onClose, open, 
   const hasCustomPadding = className?.includes('p-0')
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
-      <DialogContent showCloseButton={false} aria-labelledby={titleId} className={cn('w-full rounded-overlay border border-border/80 bg-[image:var(--gradient-surface)] shadow-overlay backdrop-blur', 'translate-x-[-50%] translate-y-[-50%]', 'data-[state=open]:animate-modal-content', className?.includes('max-w-') ? null : 'max-w-lg', hasCustomPadding ? null : 'p-6', className)}>
+      <DialogContent showCloseButton={false} aria-labelledby={titleId} className={cn('w-full rounded-overlay border border-border/80 bg-surface shadow-overlay', 'translate-x-[-50%] translate-y-[-50%]', 'data-[state=open]:animate-modal-content', className?.includes('max-w-') ? null : 'max-w-lg', hasCustomPadding ? null : 'p-6', className)}>
         {!hasCustomPadding && (
           <>
             <div className="flex items-start justify-between gap-4">
@@ -280,19 +280,19 @@ export function PageShell({ children, className, contentClassName, padding = 'de
 type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & { fullWidth?: boolean; invalid?: boolean }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select({ className, disabled, fullWidth = true, invalid = false, ...props }, ref) {
-  return <select ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={cn('min-h-11 rounded-control border border-border/90 bg-surface/90 px-3.5 py-2.5 text-body-sm text-text shadow-surface backdrop-blur transition duration-fast ease-standard compact:min-h-9 compact:px-3 compact:py-2', 'placeholder:text-text-muted disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text', fullWidth && 'w-full', invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50', className)} {...props} />
+  return <select ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={cn('min-h-11 rounded-control border border-border/90 bg-surface px-3.5 py-2.5 text-body-sm text-text shadow-surface transition duration-fast ease-standard compact:min-h-9 compact:px-3 compact:py-2', 'placeholder:text-text-muted disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text', fullWidth && 'w-full', invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50', className)} {...props} />
 })
 
 type TextInputProps = InputHTMLAttributes<HTMLInputElement> & { fullWidth?: boolean; invalid?: boolean }
 
 export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function TextInput({ className, disabled, fullWidth = true, invalid = false, ...props }, ref) {
-  return <Input ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={cn('min-h-11 rounded-control border-border/90 bg-surface/90 px-4 py-2.5 text-body-sm text-text shadow-surface backdrop-blur transition duration-fast ease-standard compact:min-h-9 compact:px-3 compact:py-2', 'placeholder:text-text-muted/90 disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text', fullWidth && 'w-full', invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50', className)} {...props} />
+  return <Input ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={cn('min-h-11 rounded-control border-border/90 bg-surface px-4 py-2.5 text-body-sm text-text shadow-surface transition duration-fast ease-standard compact:min-h-9 compact:px-3 compact:py-2', 'placeholder:text-text-muted disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text', fullWidth && 'w-full', invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50', className)} {...props} />
 })
 
 type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea({ className, disabled, invalid = false, ...props }, ref) {
-  return <RawTextarea ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={cn('w-full rounded-control border-border/90 bg-surface/90 px-4 py-3 text-body-sm text-text shadow-surface backdrop-blur transition duration-fast ease-standard compact:px-3 compact:py-2', 'placeholder:text-text-muted disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text', invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50', className)} {...props} />
+  return <RawTextarea ref={ref} disabled={disabled} aria-invalid={invalid || undefined} className={cn('w-full rounded-control border-border/90 bg-surface px-4 py-3 text-body-sm text-text shadow-surface transition duration-fast ease-standard compact:px-3 compact:py-2', 'placeholder:text-text-muted disabled:cursor-not-allowed disabled:border-border disabled:bg-disabled-bg disabled:text-disabled-text', invalid ? 'border-danger/80 bg-danger/5' : 'hover:border-border-strong focus:border-primary/50', className)} {...props} />
 })
 
 export { Skeleton }
