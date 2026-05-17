@@ -19,6 +19,7 @@ export function useCardDraft(selectedCard: Card | null, profileTimeZone: string)
     }
 
     const base: BoardCardDraft = {
+      column: selectedCard.column,
       title: selectedCard.title || '',
       description: selectedCard.description || '',
       assignee: selectedCard.assignee ?? null,

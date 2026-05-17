@@ -5,6 +5,7 @@ import {
   useAddCardAttachment,
   useDeleteCard,
   useDeleteCardAttachment,
+  useMoveCard,
   useUpdateCard,
   useUploadCardAttachments,
 } from '../../../api/queries/cards'
@@ -32,6 +33,7 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
   const { boardId, assignees, allKnownLabels } = options
   const updateCardMutation = useUpdateCard(boardId)
   const deleteCardMutation = useDeleteCard(boardId)
+  const moveCardMutation = useMoveCard(boardId)
   const uploadAttachmentsMutation = useUploadCardAttachments(boardId)
   const addAttachmentMutation = useAddCardAttachment(boardId)
   const deleteAttachmentMutation = useDeleteCardAttachment(boardId)
@@ -425,6 +427,12 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
         }
       }
 
+      // Save deadline first so recurrence next_due is calculated from the new deadline.
+      if (hasPatch && patch.deadline !== undefined) {
+        updated = await persistSelectedCard({ deadline: patch.deadline })
+        delete patch.deadline
+      }
+
       if (recurrenceChanged) {
         const recurrenceOk = await saveRecurrence()
         if (!recurrenceOk) {
@@ -627,5 +635,18 @@ export function useBoardTaskModal(options: UseBoardTaskModalOptions) {
     addLabel,
     onSaveCard,
     deleteSelectedCard,
+    onMoveToColumn,
+  }
+
+  async function onMoveToColumn(columnId: number) {
+    if (!selectedCard) return
+    await moveCardMutation.mutateAsync({
+      id: selectedCard.id,
+      payload: { to_column: columnId },
+      optimistic: (cards) => cards.map((c) => (c.id === selectedCard.id ? { ...c, column: columnId } : c)),
+    })
+    setSelectedCard((prev) => (prev ? { ...prev, column: columnId } : prev))
+    setDraft((prev) => (prev ? { ...prev, column: columnId } : prev))
+    toast.success('Задача перемещена')
   }
 }

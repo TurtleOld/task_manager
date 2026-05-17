@@ -1,5 +1,5 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
-import type { Card, CardActivity, CardComment, CardDeadlineReminder, CardDeadlineReminderResponse, RecurrenceRule } from '../../../../api/types'
+import type { Card, CardActivity, CardComment, CardDeadlineReminder, CardDeadlineReminderResponse, Column, RecurrenceRule } from '../../../../api/types'
 import type { AssigneeOption, BoardAttachment, BoardCardDraft, BoardChecklistItem, BoardLabel, BoardPriority, BoardSubtask } from '../../types'
 
 export interface TaskModalProps {
@@ -78,6 +78,8 @@ export interface TaskModalProps {
   setNewAttachmentUrl: (value: string) => void
   addAttachment: () => void
   removeAttachment: (item: { id: string; type: 'file' | 'link' | 'photo' }) => Promise<void>
+  columns: Column[]
+  onMoveToColumn: (columnId: number) => Promise<void>
   assignees: AssigneeOption[]
   selectedCardId: number | null
   profileTimeZone: string
@@ -180,7 +182,7 @@ export type AttachmentsSectionProps = Pick<
 
 export type MetaSectionProps = Pick<
   TaskModalProps,
-  'draft' | 'setDraft' | 'assignees' | 'selectedCardId' | 'profileTimeZone' | 'getTimeZoneLabel' | 'scheduleDeadlineSave'
+  'draft' | 'setDraft' | 'assignees' | 'selectedCardId' | 'profileTimeZone' | 'getTimeZoneLabel' | 'scheduleDeadlineSave' | 'columns' | 'onMoveToColumn'
 >
 
 export type PrioritySectionProps = Pick<TaskModalProps, 'setDraft' | 'selectedCardId' | 'selectedPriority'>

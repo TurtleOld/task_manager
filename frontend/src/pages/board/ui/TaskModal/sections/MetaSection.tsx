@@ -1,7 +1,22 @@
-import { Badge, Card as SurfaceCard, Field, Select, TextInput } from '@/components/ui'
+import { useState } from 'react'
+import { Badge, Button, Card as SurfaceCard, Field, Select, TextInput } from '@/components/ui'
 import type { MetaSectionProps } from '../TaskModal.types'
 
-export function MetaSection({ draft, setDraft, assignees, selectedCardId, profileTimeZone, getTimeZoneLabel, scheduleDeadlineSave }: MetaSectionProps) {
+export function MetaSection({ draft, setDraft, assignees, selectedCardId, profileTimeZone, getTimeZoneLabel, scheduleDeadlineSave, columns, onMoveToColumn }: MetaSectionProps) {
+  const [moveBusy, setMoveBusy] = useState(false)
+  const [pendingColumnId, setPendingColumnId] = useState<number | null>(null)
+
+  const handleMove = async () => {
+    if (!pendingColumnId || moveBusy) return
+    setMoveBusy(true)
+    try {
+      await onMoveToColumn(pendingColumnId)
+      setPendingColumnId(null)
+    } finally {
+      setMoveBusy(false)
+    }
+  }
+
   return (
     <SurfaceCard as="section" className="space-y-4">
       <div>
@@ -45,6 +60,33 @@ export function MetaSection({ draft, setDraft, assignees, selectedCardId, profil
             aria-describedby="task-deadline-hint"
           />
         </Field>
+        {columns.length > 1 ? (
+          <Field label="Переместить в колонку" htmlFor="task-move-column">
+            <div className="flex gap-2">
+              <Select
+                id="task-move-column"
+                value={pendingColumnId ?? draft.column}
+                onChange={(event) => setPendingColumnId(Number(event.target.value))}
+                disabled={moveBusy}
+              >
+                {columns.map((col) => (
+                  <option key={col.id} value={col.id}>{col.name}</option>
+                ))}
+              </Select>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleMove}
+                loading={moveBusy}
+                disabled={!pendingColumnId || pendingColumnId === draft.column || moveBusy}
+                className="shrink-0"
+              >
+                Переместить
+              </Button>
+            </div>
+          </Field>
+        ) : null}
       </div>
     </SurfaceCard>
   )

@@ -738,6 +738,8 @@ export function BoardPage({ user }: BoardPageProps) {
           setNewAttachmentUrl={taskModal.setNewAttachmentUrl}
           addAttachment={taskModal.addAttachment}
           removeAttachment={taskModal.removeAttachment}
+          columns={columns}
+          onMoveToColumn={(columnId) => taskModal.onMoveToColumn(columnId)}
           assignees={assignees}
           selectedCardId={taskModal.selectedCardId}
           profileTimeZone={taskModal.profileTimeZone}

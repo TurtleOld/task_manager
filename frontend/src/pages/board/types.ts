@@ -7,6 +7,7 @@ export type BoardLabel = Card['labels'][number]
 export type BoardPriority = 0 | 1 | 2 | 3
 
 export interface BoardCardDraft {
+  column: number
   title: string
   description: string
   assignee: number | null
