@@ -284,6 +284,8 @@ class KanbanViewModel : ViewModel() {
             val prev = _boardState.value
             if (prev !is BoardUiState.Content) {
                 _boardState.value = BoardUiState.Loading
+            } else {
+                _boardState.value = prev.copy(isRefreshing = true)
             }
             // Load boards and users in parallel
             val boardsDeferred = async { runCatching { repository.fetchBoards(baseUrl = s.domain, apiToken = s.token) } }
@@ -302,13 +304,19 @@ class KanbanViewModel : ViewModel() {
                 val selectedId = (prev as? BoardUiState.Content)?.selectedBoardId
                     ?.takeIf { candidate -> boards.any { it.id == candidate } }
                     ?: boards.firstOrNull()?.id
-                _boardState.value = BoardUiState.Content(boards = boards, selectedBoardId = selectedId)
+                _boardState.value = BoardUiState.Content(
+                    boards = boards,
+                    selectedBoardId = selectedId,
+                    isRefreshing = false
+                )
                 if (selectedId != null) {
                     startWebSocket(domain = s.domain, token = s.token, boardId = selectedId)
                 }
             }.onFailure { error ->
                 if (prev !is BoardUiState.Content) {
                     _boardState.value = BoardUiState.Error(error.message ?: "Ошибка загрузки")
+                } else {
+                    _boardState.value = prev.copy(isRefreshing = false)
                 }
             }
         }
@@ -601,7 +609,11 @@ data class SessionUiState(
 sealed interface BoardUiState {
     data object Loading : BoardUiState
     data class Error(val message: String) : BoardUiState
-    data class Content(val boards: List<KanbanBoard>, val selectedBoardId: Int?) : BoardUiState
+    data class Content(
+        val boards: List<KanbanBoard>,
+        val selectedBoardId: Int?,
+        val isRefreshing: Boolean = false
+    ) : BoardUiState
 }
 
 sealed interface TaskDetailState {

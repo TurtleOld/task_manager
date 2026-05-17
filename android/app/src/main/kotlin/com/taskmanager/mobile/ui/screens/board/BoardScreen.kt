@@ -49,7 +49,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,7 +75,6 @@ import com.taskmanager.mobile.ui.components.formatTaskCount
 import com.taskmanager.mobile.ui.components.priorityColor
 import com.taskmanager.mobile.ui.components.priorityLabel
 import com.taskmanager.mobile.ui.viewmodel.BoardUiState
-import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
@@ -94,19 +92,10 @@ fun BoardRoute(
     onTaskClick: (Int) -> Unit,
     onOpenSettings: () -> Unit = {}
 ) {
-    var isRefreshing by remember { mutableStateOf(false) }
-    LaunchedEffect(boardState) {
-        if (isRefreshing) {
-            delay(300)
-            isRefreshing = false
-        }
-    }
+    val isRefreshing = (boardState as? BoardUiState.Content)?.isRefreshing == true
     val pullRefreshState = rememberPullRefreshState(
         refreshing = isRefreshing,
-        onRefresh = {
-            isRefreshing = true
-            onRefresh()
-        }
+        onRefresh = onRefresh
     )
 
     when (boardState) {
