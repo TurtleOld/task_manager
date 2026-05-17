@@ -27,8 +27,13 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.taskmanager.mobile.BuildConfig
+import com.taskmanager.mobile.security.clearToken
 import com.taskmanager.mobile.security.clearPin
 import com.taskmanager.mobile.security.isPinEnabled
+import com.taskmanager.mobile.security.readSavedSecureTimeZone
+import com.taskmanager.mobile.security.readSavedToken
+import com.taskmanager.mobile.security.saveSecureTimeZone
+import com.taskmanager.mobile.security.saveToken
 import com.taskmanager.mobile.ui.screens.board.BoardRoute
 import com.taskmanager.mobile.ui.screens.login.LoginScreen
 import com.taskmanager.mobile.ui.screens.pin.PinUnlockScreen
@@ -38,13 +43,8 @@ import com.taskmanager.mobile.ui.screens.taskdetail.TaskDetailScreen
 import com.taskmanager.mobile.ui.screens.today.TodayScreen
 import com.taskmanager.mobile.ui.theme.TaskManagerTheme
 import com.taskmanager.mobile.ui.viewmodel.KanbanViewModel
-import com.taskmanager.mobile.util.clearToken
 import com.taskmanager.mobile.util.readSavedDomain
-import com.taskmanager.mobile.util.readSavedTimeZone
-import com.taskmanager.mobile.util.readSavedToken
 import com.taskmanager.mobile.util.saveDomain
-import com.taskmanager.mobile.util.saveTimeZone
-import com.taskmanager.mobile.util.saveToken
 
 @Composable
 fun AppRoot(vm: KanbanViewModel = viewModel()) {
@@ -57,6 +57,7 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
     val todayState by vm.todayState.collectAsStateWithLifecycle()
     val searchState by vm.searchState.collectAsStateWithLifecycle()
     val boardFilterAssignee by vm.boardFilterAssignee.collectAsStateWithLifecycle()
+    val notificationPreferences by vm.notificationPreferences.collectAsStateWithLifecycle()
     val timeZone = session.timeZone
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -68,7 +69,7 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
         vm.bootstrap(
             domain = readSavedDomain(context).ifBlank { BuildConfig.API_BASE_URL },
             token = readSavedToken(context),
-            timeZone = readSavedTimeZone(context)
+            timeZone = readSavedSecureTimeZone(context)
         )
         vm.loadSecuritySettings(context)
     }
@@ -98,7 +99,7 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
 
     LaunchedEffect(session.isAuthenticated, session.timeZone) {
         if (!session.isAuthenticated) return@LaunchedEffect
-        saveTimeZone(context, session.timeZone)
+        saveSecureTimeZone(context, session.timeZone)
     }
 
     TaskManagerTheme(themeMode = session.themeMode) {
@@ -205,11 +206,14 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
                     SettingsScreen(
                         session = session,
                         securitySettings = securitySettings,
+                        notificationPreferences = notificationPreferences,
                         onBack = { navController.popBackStack() },
                         onEnablePin = { pin -> vm.enablePin(context, pin) },
                         onDisablePin = { vm.disablePin(context) },
                         onSetBiometric = { enabled -> vm.setBiometric(context, enabled) },
                         onThemeModeChange = vm::onThemeModeChanged,
+                        onNotificationPreferenceChange = vm::setNotificationPreference,
+                        onLoadNotificationPreferences = vm::loadNotificationPreferences,
                         onLogout = {
                             clearToken(context)
                             vm.logout(context)

@@ -1,7 +1,6 @@
 package com.taskmanager.mobile.ui.screens.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,21 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Logout
@@ -39,8 +26,25 @@ import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.material.icons.outlined.SettingsBrightness
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -49,6 +53,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.taskmanager.mobile.data.api.dto.NotificationPreferenceDto
+import com.taskmanager.mobile.security.isPinEnabled
 import com.taskmanager.mobile.security.triggerBiometricPrompt
 import com.taskmanager.mobile.ui.navigation.LocalActivity
 import com.taskmanager.mobile.ui.screens.pin.PinSetupDialog
@@ -56,25 +62,30 @@ import com.taskmanager.mobile.ui.theme.ThemeMode
 import com.taskmanager.mobile.ui.viewmodel.SecuritySettings
 import com.taskmanager.mobile.ui.viewmodel.SessionUiState
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Settings Screen
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun SettingsScreen(
     session: SessionUiState,
     securitySettings: SecuritySettings,
+    notificationPreferences: List<NotificationPreferenceDto>,
     onBack: () -> Unit,
     onEnablePin: (pin: String) -> Unit,
     onDisablePin: () -> Unit,
     onSetBiometric: (Boolean) -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
+    onNotificationPreferenceChange: (id: Int, enabled: Boolean) -> Unit,
+    onLoadNotificationPreferences: () -> Unit,
     onLogout: () -> Unit,
     onTerminateSessions: () -> Unit,
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current
     var showPinSetup by remember { mutableStateOf(false) }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
+    var showTerminateConfirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        onLoadNotificationPreferences()
+    }
 
     Box(
         modifier = Modifier
@@ -85,7 +96,6 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 40.dp)
         ) {
-            // Header
             item {
                 Box(
                     modifier = Modifier
@@ -106,19 +116,9 @@ fun SettingsScreen(
                                 .clickable(onClick = onBack),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                                contentDescription = "Назад",
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Назад", modifier = Modifier.size(20.dp))
                         }
-                        Text(
-                            text = "Настройки",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Text("Настройки", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     }
                     HorizontalDivider(
                         modifier = Modifier.align(Alignment.BottomCenter),
@@ -128,494 +128,231 @@ fun SettingsScreen(
                 }
             }
 
-            // Appearance section
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "ОФОРМЛЕНИЕ",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
-                    )
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(0.dp),
-                        border = CardDefaults.outlinedCardBorder()
-                    ) {
-                        Column {
-                            ThemeModeRow(
-                                title = "Системная",
-                                subtitle = "Как в настройках устройства",
-                                icon = Icons.Outlined.SettingsBrightness,
-                                selected = session.themeMode == ThemeMode.System,
-                                onClick = { onThemeModeChange(ThemeMode.System) }
-                            )
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                            )
-                            ThemeModeRow(
-                                title = "Светлая",
-                                subtitle = "Всегда светлая тема",
-                                icon = Icons.Outlined.LightMode,
-                                selected = session.themeMode == ThemeMode.Light,
-                                onClick = { onThemeModeChange(ThemeMode.Light) }
-                            )
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                            )
-                            ThemeModeRow(
-                                title = "Тёмная",
-                                subtitle = "Всегда тёмная тема",
-                                icon = Icons.Outlined.DarkMode,
-                                selected = session.themeMode == ThemeMode.Dark,
-                                onClick = { onThemeModeChange(ThemeMode.Dark) }
-                            )
-                        }
-                    }
+                SectionTitle("ОФОРМЛЕНИЕ")
+                CardContainer {
+                    ThemeModeRow("Системная", "Как в настройках устройства", Icons.Outlined.SettingsBrightness, session.themeMode == ThemeMode.System) { onThemeModeChange(ThemeMode.System) }
+                    DividerInset()
+                    ThemeModeRow("Светлая", "Всегда светлая тема", Icons.Outlined.LightMode, session.themeMode == ThemeMode.Light) { onThemeModeChange(ThemeMode.Light) }
+                    DividerInset()
+                    ThemeModeRow("Тёмная", "Всегда тёмная тема", Icons.Outlined.DarkMode, session.themeMode == ThemeMode.Dark) { onThemeModeChange(ThemeMode.Dark) }
                 }
             }
 
-            // Security section
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "БЕЗОПАСНОСТЬ",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
-                    )
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(0.dp),
-                        border = CardDefaults.outlinedCardBorder()
-                    ) {
-                        Column {
-                            // PIN toggle
+                SectionTitle("УВЕДОМЛЕНИЯ")
+                CardContainer {
+                    if (notificationPreferences.isEmpty()) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Outlined.Notifications, contentDescription = null)
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Настройки уведомлений загружаются", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                Text("Push-переключатели появятся после синхронизации профиля", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    } else {
+                        notificationPreferences.forEachIndexed { index, preference ->
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        if (securitySettings.pinEnabled) onDisablePin()
-                                        else showPinSetup = true
-                                    }
-                                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .background(
-                                            MaterialTheme.colorScheme.primaryContainer,
-                                            RoundedCornerShape(12.dp)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Lock,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(22.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
+                                Box(modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Outlined.Notifications, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.secondary)
                                 }
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Вход по PIN-коду",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = if (securitySettings.pinEnabled) "Включён" else "Выключен",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                    Text(preference.eventType, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                    Text("Push-уведомления", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Switch(
-                                    checked = securitySettings.pinEnabled,
-                                    onCheckedChange = {
-                                        if (securitySettings.pinEnabled) onDisablePin()
-                                        else showPinSetup = true
-                                    },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                        checkedTrackColor = MaterialTheme.colorScheme.primary
-                                    )
+                                    checked = preference.enabled,
+                                    onCheckedChange = { onNotificationPreferenceChange(preference.id, it) },
+                                    colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.onSecondary, checkedTrackColor = MaterialTheme.colorScheme.secondary)
                                 )
                             }
-
-                            // Biometric toggle (only when PIN enabled)
-                            if (securitySettings.pinEnabled) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = 16.dp),
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                                )
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .then(
-                                            if (securitySettings.biometricAvailable)
-                                                Modifier.clickable {
-                                                    if (!securitySettings.biometricEnabled) {
-                                                        triggerBiometricPrompt(
-                                                            activity,
-                                                            onSuccess = { onSetBiometric(true) },
-                                                            onError = {}
-                                                        )
-                                                    } else {
-                                                        onSetBiometric(false)
-                                                    }
-                                                }
-                                            else Modifier
-                                        )
-                                        .padding(horizontal = 20.dp, vertical = 16.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .background(
-                                                MaterialTheme.colorScheme.secondaryContainer,
-                                                RoundedCornerShape(12.dp)
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Fingerprint,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(24.dp),
-                                            tint = MaterialTheme.colorScheme.secondary
-                                        )
-                                    }
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "Биометрия",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium,
-                                            color = if (securitySettings.biometricAvailable)
-                                                MaterialTheme.colorScheme.onSurface
-                                            else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Text(
-                                            text = when {
-                                                !securitySettings.biometricAvailable -> "Недоступна на этом устройстве"
-                                                securitySettings.biometricEnabled -> "Включена"
-                                                else -> "Выключена"
-                                            },
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    Switch(
-                                        checked = securitySettings.biometricEnabled,
-                                        onCheckedChange = { enabled ->
-                                            if (enabled) {
-                                                triggerBiometricPrompt(
-                                                    activity,
-                                                    onSuccess = { onSetBiometric(true) },
-                                                    onError = {}
-                                                )
-                                            } else {
-                                                onSetBiometric(false)
-                                            }
-                                        },
-                                        enabled = securitySettings.biometricAvailable,
-                                        colors = SwitchDefaults.colors(
-                                            checkedThumbColor = MaterialTheme.colorScheme.onSecondary,
-                                            checkedTrackColor = MaterialTheme.colorScheme.secondary
-                                        )
-                                    )
-                                }
-
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(horizontal = 16.dp),
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                                )
-
-                                // Change PIN button
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { showPinSetup = true }
-                                        .padding(horizontal = 20.dp, vertical = 16.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .background(
-                                                MaterialTheme.colorScheme.tertiaryContainer,
-                                                RoundedCornerShape(12.dp)
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Edit,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(22.dp),
-                                            tint = MaterialTheme.colorScheme.tertiary
-                                        )
-                                    }
-                                    Text(
-                                        text = "Сменить PIN",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Text(
-                                        text = "→",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 16.sp
-                                    )
-                                }
-                            }
-
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                            )
-
-                            // Terminate all sessions
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(onClick = onTerminateSessions)
-                                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .background(
-                                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                                            RoundedCornerShape(12.dp)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.PowerSettingsNew,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(22.dp),
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Завершить все сеансы",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                    Text(
-                                        text = "Выйти на всех устройствах",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
+                            if (index < notificationPreferences.lastIndex) DividerInset()
                         }
                     }
                 }
             }
 
-            // Account section
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "АККАУНТ",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
-                    )
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(0.dp),
-                        border = CardDefaults.outlinedCardBorder()
-                    ) {
-                        Column {
-                            // Server domain
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .background(
-                                            MaterialTheme.colorScheme.surfaceVariant,
-                                            RoundedCornerShape(12.dp)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Language,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(22.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Сервер",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = session.domain.ifBlank { "Не указан" },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                            )
-
-                            // Logout
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(onClick = onLogout)
-                                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(40.dp)
-                                        .background(
-                                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                                            RoundedCornerShape(12.dp)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Outlined.Logout,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(22.dp),
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                                Text(
-                                    text = "Выйти из аккаунта",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
+                SectionTitle("БЕЗОПАСНОСТЬ")
+                CardContainer {
+                    Row(modifier = Modifier.fillMaxWidth().clickable { if (securitySettings.pinEnabled) onDisablePin() else showPinSetup = true }.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        IconBox(Icons.Outlined.Lock, true)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Вход по PIN-коду", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(if (securitySettings.pinEnabled) "Включён" else "Выключен", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        Switch(checked = securitySettings.pinEnabled, onCheckedChange = { if (securitySettings.pinEnabled) onDisablePin() else showPinSetup = true })
+                    }
+                    if (securitySettings.pinEnabled) {
+                        DividerInset()
+                        Row(modifier = Modifier.fillMaxWidth().clickable(enabled = securitySettings.biometricAvailable) {
+                            if (!securitySettings.biometricEnabled) {
+                                triggerBiometricPrompt(activity, onSuccess = { onSetBiometric(true) }, onError = {})
+                            } else onSetBiometric(false)
+                        }.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            IconBox(Icons.Outlined.Fingerprint, false)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Биометрия", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                                Text(when {
+                                    !securitySettings.biometricAvailable -> "Недоступна на этом устройстве"
+                                    securitySettings.biometricEnabled -> "Включена"
+                                    else -> "Выключена"
+                                }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(
+                                checked = securitySettings.biometricEnabled,
+                                onCheckedChange = { enabled ->
+                                    if (enabled) triggerBiometricPrompt(activity, onSuccess = { onSetBiometric(true) }, onError = {}) else onSetBiometric(false)
+                                },
+                                enabled = securitySettings.biometricAvailable
+                            )
+                        }
+                        DividerInset()
+                        Row(modifier = Modifier.fillMaxWidth().clickable { showPinSetup = true }.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            IconBox(Icons.Outlined.Edit, false)
+                            Text("Сменить PIN", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                            Text("→", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp)
+                        }
+                    }
+                    DividerInset()
+                    Row(modifier = Modifier.fillMaxWidth().clickable { showTerminateConfirm = true }.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        IconBox(Icons.Outlined.PowerSettingsNew, false, isError = true)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Завершить все сеансы", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error)
+                            Text("Выйти на всех устройствах", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
+            item {
+                SectionTitle("АККАУНТ")
+                CardContainer {
+                    InfoRow("Пользователь", session.username.ifBlank { "Неизвестно" }, Icons.Outlined.Edit)
+                    DividerInset()
+                    InfoRow("Email", session.email.ifBlank { "Не указан" }, Icons.Outlined.Notifications)
+                    DividerInset()
+                    InfoRow("Сервер", session.domain.ifBlank { "Не указан" }, Icons.Outlined.Language)
+                    DividerInset()
+                    Row(modifier = Modifier.fillMaxWidth().clickable { showLogoutConfirm = true }.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        IconBox(Icons.AutoMirrored.Outlined.Logout, false, isError = true)
+                        Text("Выйти из аккаунта", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
                     }
                 }
             }
         }
 
-        // PIN setup overlay
         if (showPinSetup) {
-            PinSetupDialog(
-                onConfirmed = { pin ->
-                    onEnablePin(pin)
-                    showPinSetup = false
-                },
-                onDismiss = { showPinSetup = false }
+            PinSetupDialog(onConfirmed = { pin -> onEnablePin(pin); showPinSetup = false }, onDismiss = { showPinSetup = false })
+        }
+
+        if (showTerminateConfirm) {
+            AlertDialog(
+                onDismissRequest = { showTerminateConfirm = false },
+                title = { Text("Завершить все сеансы?") },
+                text = { Text("Это действие завершит активные сеансы на всех устройствах.") },
+                confirmButton = { TextButton(onClick = { showTerminateConfirm = false; onTerminateSessions() }) { Text("Подтвердить") } },
+                dismissButton = { TextButton(onClick = { showTerminateConfirm = false }) { Text("Отмена") } }
+            )
+        }
+
+        if (showLogoutConfirm) {
+            AlertDialog(
+                onDismissRequest = { showLogoutConfirm = false },
+                title = { Text("Выйти из аккаунта?") },
+                text = { Text(if (isPinEnabled(context)) "Сессия будет завершена на этом устройстве." else "Сессия будет завершена, для входа потребуется снова ввести логин и пароль.") },
+                confirmButton = { TextButton(onClick = { showLogoutConfirm = false; onLogout() }) { Text("Выйти") } },
+                dismissButton = { TextButton(onClick = { showLogoutConfirm = false }) { Text("Отмена") } }
             )
         }
     }
 }
 
 @Composable
-private fun ThemeModeRow(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
+private fun SectionTitle(title: String) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp, start = 4.dp))
+    }
+}
+
+@Composable
+private fun CardContainer(content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(0.dp),
+        border = CardDefaults.outlinedCardBorder()
+    ) { Column { content() } }
+}
+
+@Composable
+private fun DividerInset() {
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+}
+
+@Composable
+private fun IconBox(icon: ImageVector, primary: Boolean, isError: Boolean = false) {
+    Box(
+        modifier = Modifier.size(40.dp).background(
+            when {
+                isError -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                primary -> MaterialTheme.colorScheme.primaryContainer
+                else -> MaterialTheme.colorScheme.secondaryContainer
+            },
+            RoundedCornerShape(12.dp)
+        ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = when {
+            isError -> MaterialTheme.colorScheme.error
+            primary -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.secondary
+        })
+    }
+}
+
+@Composable
+private fun InfoRow(title: String, value: String, icon: ImageVector) {
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Box(modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun ThemeModeRow(title: String, subtitle: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(
-                    if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                    RoundedCornerShape(12.dp)
-                ),
+            modifier = Modifier.size(40.dp).background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                RoundedCornerShape(12.dp)
+            ),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(22.dp),
-                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Icon(icon, contentDescription = null, modifier = Modifier.size(22.dp), tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (selected) {
-            Icon(
-                imageVector = Icons.Outlined.Check,
-                contentDescription = "Выбрано",
-                modifier = Modifier.size(22.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Icon(Icons.Outlined.Check, contentDescription = "Выбрано", modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
         }
     }
 }

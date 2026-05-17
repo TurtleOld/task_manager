@@ -246,6 +246,13 @@ class KanbanRepository {
         return api(baseUrl, apiToken).getNotificationProfile()
     }
 
+    suspend fun getNotificationPreferences(baseUrl: String, apiToken: String) =
+        api(baseUrl, apiToken).listNotificationPreferences()
+
+    suspend fun updateNotificationPreference(baseUrl: String, apiToken: String, id: Int, enabled: Boolean) {
+        api(baseUrl, apiToken).updateNotificationPreference(id, NotificationPreferencePatch(enabled = enabled))
+    }
+
     suspend fun ensurePushNotificationPreferences(baseUrl: String, apiToken: String, eventTypes: List<String>) {
         val service = api(baseUrl, apiToken)
         val preferences = service.listNotificationPreferences()

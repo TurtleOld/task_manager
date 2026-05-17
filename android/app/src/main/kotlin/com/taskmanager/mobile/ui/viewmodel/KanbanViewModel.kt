@@ -29,6 +29,7 @@ import com.taskmanager.mobile.data.api.dto.ChecklistItemDto
 import com.taskmanager.mobile.data.api.dto.ColumnDto
 import com.taskmanager.mobile.data.api.dto.CommentDto
 import com.taskmanager.mobile.data.api.dto.CreateCardRequest
+import com.taskmanager.mobile.data.api.dto.NotificationPreferenceDto
 import com.taskmanager.mobile.data.api.dto.NotificationProfileDto
 import com.taskmanager.mobile.data.model.BoardUser
 import com.taskmanager.mobile.data.model.KanbanBoard
@@ -38,6 +39,7 @@ import com.taskmanager.mobile.data.model.TaskPriority
 import com.taskmanager.mobile.data.repository.KanbanRepository
 import com.taskmanager.mobile.data.repository.TodayCardsResult
 import com.taskmanager.mobile.notifications.TaskManagerFcmProfileSync
+import com.taskmanager.mobile.security.clearToken
 import com.taskmanager.mobile.security.clearPin
 import com.taskmanager.mobile.security.isBiometricEnabled
 import com.taskmanager.mobile.security.isPinEnabled
@@ -47,7 +49,6 @@ import com.taskmanager.mobile.ui.components.normalizeTimeZoneId
 import com.taskmanager.mobile.ui.theme.ThemeMode
 import com.taskmanager.mobile.util.DEFAULT_TIME_ZONE
 import com.taskmanager.mobile.util.PUSH_DEBUG_TAG
-import com.taskmanager.mobile.util.clearToken
 import com.taskmanager.mobile.util.currentIsoTimestamp
 import com.taskmanager.mobile.util.normalizeBaseUrl
 import com.taskmanager.mobile.util.sortTasksNewestFirst
@@ -81,6 +82,9 @@ class KanbanViewModel : ViewModel() {
 
     private val _boardFilterAssignee = MutableStateFlow<Int?>(null)
     val boardFilterAssignee: StateFlow<Int?> = _boardFilterAssignee.asStateFlow()
+
+    private val _notificationPreferences = MutableStateFlow<List<NotificationPreferenceDto>>(emptyList())
+    val notificationPreferences: StateFlow<List<NotificationPreferenceDto>> = _notificationPreferences.asStateFlow()
 
     private val _securitySettings = MutableStateFlow(SecuritySettings())
     val securitySettings: StateFlow<SecuritySettings> = _securitySettings.asStateFlow()
@@ -248,6 +252,32 @@ class KanbanViewModel : ViewModel() {
     fun onThemeModeChanged(value: ThemeMode) = _session.update { it.copy(themeMode = value) }
     fun setBoardAssigneeFilter(assigneeId: Int?) { _boardFilterAssignee.value = assigneeId }
 
+    fun loadNotificationPreferences() {
+        val s = session.value
+        if (!s.isAuthenticated || s.token.isBlank()) return
+        viewModelScope.launch {
+            runCatching {
+                repository.getNotificationPreferences(baseUrl = s.domain, apiToken = s.token)
+            }.onSuccess { prefs ->
+                _notificationPreferences.value = prefs.filter { it.channel == "push" }
+            }
+        }
+    }
+
+    fun setNotificationPreference(id: Int, enabled: Boolean) {
+        val s = session.value
+        if (!s.isAuthenticated || s.token.isBlank()) return
+        val snapshot = _notificationPreferences.value
+        _notificationPreferences.value = snapshot.map { if (it.id == id) it.copy(enabled = enabled) else it }
+        viewModelScope.launch {
+            runCatching {
+                repository.updateNotificationPreference(baseUrl = s.domain, apiToken = s.token, id = id, enabled = enabled)
+            }.onFailure {
+                _notificationPreferences.value = snapshot
+            }
+        }
+    }
+
     fun login(onSuccess: (String) -> Unit) {
         val domain = normalizeBaseUrl(session.value.domain)
         if (domain.isBlank()) {
@@ -285,6 +315,7 @@ class KanbanViewModel : ViewModel() {
         _todayState.value = TodayUiState.Loading
         _searchState.value = SearchUiState.Idle
         _boardFilterAssignee.value = null
+        _notificationPreferences.value = emptyList()
     }
 
     fun terminateSessions(context: Context) {
@@ -316,7 +347,7 @@ class KanbanViewModel : ViewModel() {
 
             usersResult.onSuccess { users -> _boardUsers.value = users }
             profileResult.onSuccess { profile ->
-                _session.update { it.copy(timeZone = profile.timezone, fcmToken = profile.fcmToken) }
+                _session.update { it.copy(timeZone = profile.timezone, fcmToken = profile.fcmToken, email = profile.email) }
             }
 
             boardsResult.onSuccess { boards ->
@@ -691,6 +722,7 @@ data class SessionUiState(
     val token: String = "",
     val timeZone: String = DEFAULT_TIME_ZONE,
     val username: String = "",
+    val email: String = "",
     val password: String = "",
     val fcmToken: String = "",
     val fcmRegistered: Boolean = false,
