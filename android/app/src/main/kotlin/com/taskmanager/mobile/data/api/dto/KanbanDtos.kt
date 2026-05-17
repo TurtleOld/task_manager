@@ -30,6 +30,7 @@ data class ColumnDto(val id: Int, val board: Int, val name: String, val icon: St
 @Serializable
 data class CardDto(
     val id: Int,
+    val board: Int? = null,
     val column: Int,
     val title: String? = null,
     val description: String? = null,
@@ -41,6 +42,8 @@ data class CardDto(
     val categories: List<String> = emptyList(),
     val checklist: List<ChecklistItemDto> = emptyList(),
     val attachments: List<AttachmentDto> = emptyList(),
+    @SerialName("board_name") val boardName: String? = null,
+    @SerialName("column_name") val columnName: String? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
     val version: Int = 1
@@ -153,6 +156,12 @@ data class CommentDto(
 
 @Serializable
 data class CreateCommentRequest(val text: String)
+
+@Serializable
+data class SearchResponseDto(
+    val cards: List<CardDto> = emptyList(),
+    val boards: List<BoardDto> = emptyList()
+)
 
 object FlexibleStringSerializer : KSerializer<String> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("FlexibleString", PrimitiveKind.STRING)

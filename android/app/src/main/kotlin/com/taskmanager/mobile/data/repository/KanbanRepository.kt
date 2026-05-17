@@ -107,6 +107,19 @@ class KanbanRepository {
         return api(baseUrl, apiToken).listUsers().map { BoardUser(id = it.id, name = it.fullName.ifBlank { it.username }) }
     }
 
+    suspend fun fetchTodayCards(baseUrl: String, apiToken: String): TodayCardsResult {
+        val response = api(baseUrl, apiToken).getTodayCards()
+        return TodayCardsResult(
+            overdue = response["overdue"].orEmpty().map(::dtoToTask),
+            today = response["today"].orEmpty().map(::dtoToTask),
+            important = response["important"].orEmpty().map(::dtoToTask)
+        )
+    }
+
+    suspend fun searchCards(baseUrl: String, apiToken: String, query: String): List<KanbanTask> {
+        return api(baseUrl, apiToken).search(query).cards.map(::dtoToTask)
+    }
+
     suspend fun updateCard(
         baseUrl: String,
         apiToken: String,
@@ -157,6 +170,9 @@ class KanbanRepository {
 
     private fun dtoToTask(dto: CardDto) = KanbanTask(
         id = dto.id,
+        boardId = dto.board,
+        boardName = dto.boardName,
+        columnName = dto.columnName,
         title = dto.title.orEmpty().ifBlank { "Без названия" },
         description = dto.description.orEmpty(),
         columnId = dto.column,
@@ -274,3 +290,9 @@ class KanbanRepository {
     private fun api(baseUrl: String, apiToken: String): KanbanApi =
         ApiClient.kanbanApi(baseUrl = baseUrl, apiToken = apiToken, json = json)
 }
+
+data class TodayCardsResult(
+    val overdue: List<KanbanTask> = emptyList(),
+    val today: List<KanbanTask> = emptyList(),
+    val important: List<KanbanTask> = emptyList()
+)

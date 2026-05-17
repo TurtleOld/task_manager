@@ -13,6 +13,9 @@ data class KanbanColumn(val id: Int, val boardId: Int, val title: String, val ic
 
 data class KanbanTask(
     val id: Int,
+    val boardId: Int? = null,
+    val boardName: String? = null,
+    val columnName: String? = null,
     val title: String,
     val description: String,
     val columnId: Int,

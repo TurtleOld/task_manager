@@ -6,9 +6,13 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -19,6 +23,7 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.taskmanager.mobile.BuildConfig
@@ -27,8 +32,10 @@ import com.taskmanager.mobile.security.isPinEnabled
 import com.taskmanager.mobile.ui.screens.board.BoardRoute
 import com.taskmanager.mobile.ui.screens.login.LoginScreen
 import com.taskmanager.mobile.ui.screens.pin.PinUnlockScreen
+import com.taskmanager.mobile.ui.screens.search.SearchScreen
 import com.taskmanager.mobile.ui.screens.settings.SettingsScreen
 import com.taskmanager.mobile.ui.screens.taskdetail.TaskDetailScreen
+import com.taskmanager.mobile.ui.screens.today.TodayScreen
 import com.taskmanager.mobile.ui.theme.TaskManagerTheme
 import com.taskmanager.mobile.ui.viewmodel.KanbanViewModel
 import com.taskmanager.mobile.util.clearToken
@@ -38,7 +45,6 @@ import com.taskmanager.mobile.util.readSavedToken
 import com.taskmanager.mobile.util.saveDomain
 import com.taskmanager.mobile.util.saveTimeZone
 import com.taskmanager.mobile.util.saveToken
-import kotlinx.coroutines.launch
 
 @Composable
 fun AppRoot(vm: KanbanViewModel = viewModel()) {
@@ -48,9 +54,15 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
     val taskDetailState by vm.taskDetailState.collectAsStateWithLifecycle()
     val boardUsers by vm.boardUsers.collectAsStateWithLifecycle()
     val securitySettings by vm.securitySettings.collectAsStateWithLifecycle()
+    val todayState by vm.todayState.collectAsStateWithLifecycle()
+    val searchState by vm.searchState.collectAsStateWithLifecycle()
+    val boardFilterAssignee by vm.boardFilterAssignee.collectAsStateWithLifecycle()
     val timeZone = session.timeZone
     val navController = rememberNavController()
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route?.substringBefore('/')
     val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         vm.bootstrap(
@@ -90,117 +102,147 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
     }
 
     TaskManagerTheme(themeMode = session.themeMode) {
-        NavHost(
-            navController = navController,
-            startDestination = Route.Login,
-            modifier = Modifier.fillMaxSize()
-        ) {
-        composable(Route.Login) {
-            LoginScreen(
-                state = session,
-                onDomainChange = vm::onDomainChanged,
-                onUsernameChange = vm::onUsernameChanged,
-                onPasswordChange = vm::onPasswordChanged,
-                onLoginClick = {
-                    val domainToSave = session.domain
-                    vm.login(
-                        onSuccess = { token ->
-                            saveDomain(context, domainToSave)
-                            saveToken(context, token)
+        Scaffold(
+            bottomBar = {
+                val showBottomBar = session.isAuthenticated && currentRoute in setOf(Route.Board, Route.Today, Route.Search, Route.Settings)
+                if (showBottomBar) {
+                    BottomNavBar(currentRoute = currentRoute) { route ->
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                }
+            }
+        ) { innerPadding ->
+            NavHost(
+                navController = navController,
+                startDestination = Route.Login,
+                modifier = Modifier.fillMaxSize().padding(innerPadding)
+            ) {
+                composable(Route.Login) {
+                    LoginScreen(
+                        state = session,
+                        onDomainChange = vm::onDomainChanged,
+                        onUsernameChange = vm::onUsernameChanged,
+                        onPasswordChange = vm::onPasswordChanged,
+                        onLoginClick = {
+                            val domainToSave = session.domain
+                            vm.login(
+                                onSuccess = { token ->
+                                    saveDomain(context, domainToSave)
+                                    saveToken(context, token)
+                                }
+                            )
                         }
                     )
                 }
-            )
-        }
 
-        composable(Route.PinUnlock) {
-            PinUnlockScreen(
-                biometricEnabled = securitySettings.biometricEnabled,
-                onUnlocked = {
-                    navController.navigate(Route.Board) {
-                        popUpTo(Route.PinUnlock) { inclusive = true }
-                    }
-                },
-                onForgotPin = {
-                    clearToken(context)
-                    clearPin(context)
-                    vm.logout(context)
-                    vm.loadSecuritySettings(context)
+                composable(Route.PinUnlock) {
+                    PinUnlockScreen(
+                        biometricEnabled = securitySettings.biometricEnabled,
+                        onUnlocked = {
+                            navController.navigate(Route.Board) {
+                                popUpTo(Route.PinUnlock) { inclusive = true }
+                            }
+                        },
+                        onForgotPin = {
+                            clearToken(context)
+                            clearPin(context)
+                            vm.logout(context)
+                            vm.loadSecuritySettings(context)
+                        }
+                    )
                 }
-            )
-        }
 
-        composable(Route.Board) {
-            BoardRoute(
-                boardState = boardState,
-                boardUsers = boardUsers,
-                timeZone = timeZone,
-                onRetry = vm::refresh,
-                onRefresh = vm::refresh,
-                onLogout = {
-                    clearToken(context)
-                    vm.logout(context)
-                },
-                onSelectBoard = vm::selectBoard,
-                onAddTask = { title, columnId -> vm.createTask(title, columnId) },
-                onMoveTask = vm::moveTask,
-                onDeleteTask = vm::archiveTask,
-                onTaskClick = { taskId ->
-                    navController.navigate(Route.taskDetail(taskId))
-                },
-                onOpenSettings = {
-                    navController.navigate(Route.Settings)
+                composable(Route.Board) {
+                    BoardRoute(
+                        boardState = boardState,
+                        boardUsers = boardUsers,
+                        timeZone = timeZone,
+                        onRetry = vm::refresh,
+                        onRefresh = vm::refresh,
+                        onLogout = {
+                            clearToken(context)
+                            vm.logout(context)
+                        },
+                        onSelectBoard = vm::selectBoard,
+                        onAddTask = { title, columnId -> vm.createTask(title, columnId) },
+                        onMoveTask = vm::moveTask,
+                        onDeleteTask = vm::archiveTask,
+                        onTaskClick = { taskId -> navController.navigate(Route.taskDetail(taskId)) },
+                        onOpenSettings = { navController.navigate(Route.Settings) },
+                        selectedAssigneeFilter = boardFilterAssignee,
+                        onAssigneeFilterChange = vm::setBoardAssigneeFilter
+                    )
                 }
-            )
-        }
 
-        composable(Route.Settings) {
-            SettingsScreen(
-                session = session,
-                securitySettings = securitySettings,
-                onBack = { navController.popBackStack() },
-                onEnablePin = { pin ->
-                    vm.enablePin(context, pin)
-                },
-                onDisablePin = {
-                    vm.disablePin(context)
-                },
-                onSetBiometric = { enabled ->
-                    vm.setBiometric(context, enabled)
-                },
-                onThemeModeChange = vm::onThemeModeChanged,
-                onLogout = {
-                    clearToken(context)
-                    vm.logout(context)
-                },
-                onTerminateSessions = {
-                    clearToken(context)
-                    vm.terminateSessions(context)
+                composable(Route.Today) {
+                    TodayScreen(
+                        state = todayState,
+                        timeZone = timeZone,
+                        onRetry = vm::loadTodayCards,
+                        onTaskClick = { taskId -> navController.navigate(Route.taskDetail(taskId)) }
+                    )
                 }
-            )
-        }
 
-        composable(
-            route = "${Route.TaskDetail}/{taskId}",
-            arguments = listOf(navArgument("taskId") { type = NavType.IntType })
-        ) { backStackEntry ->
-            val taskId = backStackEntry.arguments?.getInt("taskId") ?: return@composable
-            TaskDetailScreen(
-                taskId = taskId,
-                taskDetailState = taskDetailState,
-                timeZone = timeZone,
-                onLoadTask = vm::loadTaskDetail,
-                onBack = { navController.popBackStack() },
-                onClearDetail = vm::clearTaskDetail,
-                onSaveCard = { draft, onSuccess, onError ->
-                    vm.saveCard(taskId, draft, onSuccess, onError)
-                },
-                onPostComment = { text, onSuccess, onError ->
-                    vm.postComment(taskId, text, onSuccess, onError)
+                composable(Route.Search) {
+                    SearchScreen(
+                        query = searchQuery,
+                        state = searchState,
+                        onQueryChange = {
+                            searchQuery = it
+                            vm.search(it)
+                        },
+                        onTaskClick = { taskId -> navController.navigate(Route.taskDetail(taskId)) }
+                    )
                 }
-            )
+
+                composable(Route.Settings) {
+                    SettingsScreen(
+                        session = session,
+                        securitySettings = securitySettings,
+                        onBack = { navController.popBackStack() },
+                        onEnablePin = { pin -> vm.enablePin(context, pin) },
+                        onDisablePin = { vm.disablePin(context) },
+                        onSetBiometric = { enabled -> vm.setBiometric(context, enabled) },
+                        onThemeModeChange = vm::onThemeModeChanged,
+                        onLogout = {
+                            clearToken(context)
+                            vm.logout(context)
+                        },
+                        onTerminateSessions = {
+                            clearToken(context)
+                            vm.terminateSessions(context)
+                        }
+                    )
+                }
+
+                composable(
+                    route = "${Route.TaskDetail}/{taskId}",
+                    arguments = listOf(navArgument("taskId") { type = NavType.IntType })
+                ) { backStackEntryInner ->
+                    val taskId = backStackEntryInner.arguments?.getInt("taskId") ?: return@composable
+                    TaskDetailScreen(
+                        taskId = taskId,
+                        taskDetailState = taskDetailState,
+                        timeZone = timeZone,
+                        onLoadTask = vm::loadTaskDetail,
+                        onBack = { navController.popBackStack() },
+                        onClearDetail = vm::clearTaskDetail,
+                        onSaveCard = { draft, onSuccess, onError ->
+                            vm.saveCard(taskId, draft, onSuccess, onError)
+                        },
+                        onPostComment = { text, onSuccess, onError ->
+                            vm.postComment(taskId, text, onSuccess, onError)
+                        }
+                    )
+                }
+            }
         }
-    }
     }
 }
 
@@ -208,6 +250,8 @@ object Route {
     const val Login = "login"
     const val PinUnlock = "pin_unlock"
     const val Board = "board"
+    const val Today = "today"
+    const val Search = "search"
     const val TaskDetail = "task_detail"
     const val Settings = "settings"
 

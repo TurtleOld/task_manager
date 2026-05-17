@@ -7,6 +7,7 @@ import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 import com.taskmanager.mobile.data.api.dto.BoardDto
 import com.taskmanager.mobile.data.api.dto.CardDto
 import com.taskmanager.mobile.data.api.dto.ColumnDto
@@ -23,6 +24,7 @@ import com.taskmanager.mobile.data.api.dto.NotificationProfileDto
 import com.taskmanager.mobile.data.api.dto.NotificationProfileRequest
 import com.taskmanager.mobile.data.api.dto.NotifyCardUpdatedRequest
 import com.taskmanager.mobile.data.api.dto.PatchCardRequest
+import com.taskmanager.mobile.data.api.dto.SearchResponseDto
 import com.taskmanager.mobile.data.api.dto.UserDto
 
 interface KanbanApi {
@@ -40,6 +42,9 @@ interface KanbanApi {
 
     @GET("cards/{cardId}/")
     suspend fun getCard(@Path("cardId") cardId: Int): CardDto
+
+    @GET("cards/my-today/")
+    suspend fun getTodayCards(): Map<String, List<CardDto>>
 
     @GET("cards/{cardId}/comments/")
     suspend fun getComments(@Path("cardId") cardId: Int): List<CommentDto>
@@ -73,6 +78,9 @@ interface KanbanApi {
 
     @GET("users/")
     suspend fun listUsers(): List<UserDto>
+
+    @GET("search/")
+    suspend fun search(@Query("q") query: String): SearchResponseDto
 
     @GET("notification-preferences/")
     suspend fun listNotificationPreferences(): List<NotificationPreferenceDto>

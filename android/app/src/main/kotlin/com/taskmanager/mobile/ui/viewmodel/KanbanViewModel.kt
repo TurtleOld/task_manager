@@ -36,6 +36,7 @@ import com.taskmanager.mobile.data.model.KanbanColumn
 import com.taskmanager.mobile.data.model.KanbanTask
 import com.taskmanager.mobile.data.model.TaskPriority
 import com.taskmanager.mobile.data.repository.KanbanRepository
+import com.taskmanager.mobile.data.repository.TodayCardsResult
 import com.taskmanager.mobile.notifications.TaskManagerFcmProfileSync
 import com.taskmanager.mobile.security.clearPin
 import com.taskmanager.mobile.security.isBiometricEnabled
@@ -72,6 +73,15 @@ class KanbanViewModel : ViewModel() {
     private val _boardUsers = MutableStateFlow<List<BoardUser>>(emptyList())
     val boardUsers: StateFlow<List<BoardUser>> = _boardUsers.asStateFlow()
 
+    private val _todayState = MutableStateFlow<TodayUiState>(TodayUiState.Loading)
+    val todayState: StateFlow<TodayUiState> = _todayState.asStateFlow()
+
+    private val _searchState = MutableStateFlow<SearchUiState>(SearchUiState.Idle)
+    val searchState: StateFlow<SearchUiState> = _searchState.asStateFlow()
+
+    private val _boardFilterAssignee = MutableStateFlow<Int?>(null)
+    val boardFilterAssignee: StateFlow<Int?> = _boardFilterAssignee.asStateFlow()
+
     private val _securitySettings = MutableStateFlow(SecuritySettings())
     val securitySettings: StateFlow<SecuritySettings> = _securitySettings.asStateFlow()
 
@@ -81,6 +91,7 @@ class KanbanViewModel : ViewModel() {
         .build()
     private var activeWebSocket: WebSocket? = null
     private var wsReconnectJob: kotlinx.coroutines.Job? = null
+    private var searchJob: kotlinx.coroutines.Job? = null
 
     private val wsJson = Json { ignoreUnknownKeys = true; explicitNulls = false; coerceInputValues = true }
 
@@ -235,6 +246,7 @@ class KanbanViewModel : ViewModel() {
     fun onUsernameChanged(value: String) = _session.update { it.copy(username = value) }
     fun onPasswordChanged(value: String) = _session.update { it.copy(password = value) }
     fun onThemeModeChanged(value: ThemeMode) = _session.update { it.copy(themeMode = value) }
+    fun setBoardAssigneeFilter(assigneeId: Int?) { _boardFilterAssignee.value = assigneeId }
 
     fun login(onSuccess: (String) -> Unit) {
         val domain = normalizeBaseUrl(session.value.domain)
@@ -270,6 +282,9 @@ class KanbanViewModel : ViewModel() {
         }
         _session.value = SessionUiState(domain = session.value.domain)
         _boardState.value = BoardUiState.Loading
+        _todayState.value = TodayUiState.Loading
+        _searchState.value = SearchUiState.Idle
+        _boardFilterAssignee.value = null
     }
 
     fun terminateSessions(context: Context) {
@@ -316,6 +331,7 @@ class KanbanViewModel : ViewModel() {
                 if (selectedId != null) {
                     startWebSocket(domain = s.domain, token = s.token, boardId = selectedId)
                 }
+                loadTodayCards()
             }.onFailure { error ->
                 if (prev !is BoardUiState.Content) {
                     _boardState.value = BoardUiState.Error(error.message ?: "Ошибка загрузки")
@@ -451,6 +467,47 @@ class KanbanViewModel : ViewModel() {
                 repository.deleteCard(baseUrl = s.domain, apiToken = s.token, cardId = taskId)
             }.onFailure {
                 _boardState.value = current
+            }
+        }
+    }
+
+    fun loadTodayCards() {
+        val s = session.value
+        if (!s.isAuthenticated || s.token.isBlank()) return
+
+        viewModelScope.launch {
+            _todayState.value = TodayUiState.Loading
+            runCatching {
+                repository.fetchTodayCards(baseUrl = s.domain, apiToken = s.token)
+            }.onSuccess { result ->
+                _todayState.value = TodayUiState.Content(result)
+            }.onFailure { error ->
+                _todayState.value = TodayUiState.Error(error.message ?: "Ошибка загрузки")
+            }
+        }
+    }
+
+    fun search(query: String) {
+        val s = session.value
+        if (!s.isAuthenticated || s.token.isBlank()) return
+
+        val trimmed = query.trim()
+        searchJob?.cancel()
+
+        if (trimmed.length < 2) {
+            _searchState.value = SearchUiState.Idle
+            return
+        }
+
+        searchJob = viewModelScope.launch {
+            delay(300)
+            _searchState.value = SearchUiState.Loading(query = trimmed)
+            runCatching {
+                repository.searchCards(baseUrl = s.domain, apiToken = s.token, query = trimmed)
+            }.onSuccess { cards ->
+                _searchState.value = SearchUiState.Content(query = trimmed, results = cards)
+            }.onFailure { error ->
+                _searchState.value = SearchUiState.Error(query = trimmed, message = error.message ?: "Ошибка поиска")
             }
         }
     }
@@ -666,3 +723,16 @@ data class SecuritySettings(
     val biometricEnabled: Boolean = false,
     val biometricAvailable: Boolean = false
 )
+
+sealed interface TodayUiState {
+    data object Loading : TodayUiState
+    data class Error(val message: String) : TodayUiState
+    data class Content(val data: TodayCardsResult) : TodayUiState
+}
+
+sealed interface SearchUiState {
+    data object Idle : SearchUiState
+    data class Loading(val query: String) : SearchUiState
+    data class Error(val query: String, val message: String) : SearchUiState
+    data class Content(val query: String, val results: List<KanbanTask>) : SearchUiState
+}

@@ -32,6 +32,7 @@ import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -90,7 +91,9 @@ fun BoardRoute(
     onMoveTask: (taskId: Int, toColumnId: Int) -> Unit,
     onDeleteTask: (taskId: Int) -> Unit,
     onTaskClick: (Int) -> Unit,
-    onOpenSettings: () -> Unit = {}
+    onOpenSettings: () -> Unit = {},
+    selectedAssigneeFilter: Int? = null,
+    onAssigneeFilterChange: (Int?) -> Unit = {}
 ) {
     val isRefreshing = (boardState as? BoardUiState.Content)?.isRefreshing == true
     val pullRefreshState = rememberPullRefreshState(
@@ -144,6 +147,15 @@ fun BoardRoute(
         is BoardUiState.Content -> {
             val selectedBoard = boardState.boards.firstOrNull { it.id == boardState.selectedBoardId }
                 ?: boardState.boards.firstOrNull()
+            val filteredBoard = selectedBoard?.copy(
+                columns = selectedBoard.columns.map { column ->
+                    column.copy(
+                        tasks = column.tasks.filter { task ->
+                            selectedAssigneeFilter == null || task.assignee == selectedAssigneeFilter
+                        }
+                    )
+                }
+            )
             var addTaskSheetVisible by remember { mutableStateOf(false) }
             var moveTask by remember { mutableStateOf<KanbanTask?>(null) }
             var deleteTask by remember { mutableStateOf<KanbanTask?>(null) }
@@ -157,11 +169,14 @@ fun BoardRoute(
                     KanbanHeader(
                         boards = boardState.boards,
                         selectedBoardId = boardState.selectedBoardId,
+                        boardUsers = boardUsers,
+                        selectedAssigneeFilter = selectedAssigneeFilter,
                         onSelectBoard = onSelectBoard,
-                        onOpenSettings = onOpenSettings
+                        onOpenSettings = onOpenSettings,
+                        onAssigneeFilterChange = onAssigneeFilterChange
                     )
 
-                    if (selectedBoard == null) {
+                    if (filteredBoard == null) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -190,7 +205,7 @@ fun BoardRoute(
                                 ),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(selectedBoard.columns, key = { it.id }) { column ->
+                                items(filteredBoard.columns, key = { it.id }) { column ->
                                     ColumnView(
                                         column = column,
                                         timeZone = timeZone,
@@ -290,13 +305,18 @@ fun BoardRoute(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KanbanHeader(
     boards: List<KanbanBoard>,
     selectedBoardId: Int?,
+    boardUsers: List<BoardUser>,
+    selectedAssigneeFilter: Int?,
     onSelectBoard: (Int) -> Unit,
-    onOpenSettings: () -> Unit = {}
+    onOpenSettings: () -> Unit = {},
+    onAssigneeFilterChange: (Int?) -> Unit = {}
 ) {
+    var showFilterSheet by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -322,6 +342,24 @@ fun KanbanHeader(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = CircleShape
+                    )
+                    .clickable { showFilterSheet = true },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.FilterList,
+                    contentDescription = "Фильтр",
+                    modifier = Modifier.size(20.dp),
+                    tint = if (selectedAssigneeFilter != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
                     .size(36.dp)
@@ -361,6 +399,40 @@ fun KanbanHeader(
             color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
             thickness = 0.5.dp
         )
+    }
+
+    if (showFilterSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Фильтр по исполнителю", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                TextButton(onClick = {
+                    onAssigneeFilterChange(null)
+                    showFilterSheet = false
+                }) {
+                    Text("Все задачи")
+                }
+                boardUsers.forEach { user ->
+                    TextButton(onClick = {
+                        onAssigneeFilterChange(user.id)
+                        showFilterSheet = false
+                    }) {
+                        Text(if (selectedAssigneeFilter == user.id) "${user.name} ✓" else user.name)
+                    }
+                }
+            }
+        }
     }
 }
 
