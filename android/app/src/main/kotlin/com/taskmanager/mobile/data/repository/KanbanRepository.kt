@@ -14,6 +14,7 @@ import com.taskmanager.mobile.data.api.KanbanApi
 import com.taskmanager.mobile.data.api.dto.CardDto
 import com.taskmanager.mobile.data.api.dto.ChecklistItemDto
 import com.taskmanager.mobile.data.api.dto.CommentDto
+import com.taskmanager.mobile.data.api.dto.CreateAttachmentRequest
 import com.taskmanager.mobile.data.api.dto.CreateCommentRequest
 import com.taskmanager.mobile.data.api.dto.CreateCardRequest
 import com.taskmanager.mobile.data.api.dto.LoginRequest
@@ -116,6 +117,20 @@ class KanbanRepository {
 
     suspend fun deleteAttachment(baseUrl: String, apiToken: String, cardId: Int, attachmentId: String): KanbanTask =
         dtoToTask(api(baseUrl, apiToken).deleteAttachment(cardId, attachmentId))
+
+    suspend fun createAttachment(
+        baseUrl: String,
+        apiToken: String,
+        cardId: Int,
+        name: String,
+        type: String,
+        url: String
+    ): KanbanTask = dtoToTask(
+        api(baseUrl, apiToken).createAttachment(
+            cardId,
+            CreateAttachmentRequest(name = name.trim(), type = type, url = url.trim())
+        )
+    )
 
     suspend fun createCard(baseUrl: String, apiToken: String, request: CreateCardRequest): KanbanTask {
         val dto = api(baseUrl, apiToken).createCard(request)

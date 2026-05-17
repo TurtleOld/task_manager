@@ -61,6 +61,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -433,6 +435,7 @@ fun BoardTab(
             .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
             .clickable(onClick = onClick)
+            .semantics { contentDescription = title }
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -475,14 +478,15 @@ fun ColumnView(
     onTaskClick: (Int) -> Unit,
     onAddTask: (title: String, columnId: Int) -> Unit
 ) {
+    val cs = MaterialTheme.colorScheme
     val columnColors = listOf(
-        Color(0xFF8B5CF6),
-        Color(0xFF06B6D4),
-        Color(0xFF10B981),
-        Color(0xFFF59E0B),
-        Color(0xFFEF4444),
-        Color(0xFFEC4899),
-        Color(0xFF6366F1)
+        cs.primary,
+        cs.secondary,
+        cs.tertiary,
+        cs.error,
+        cs.primaryContainer,
+        cs.secondaryContainer,
+        cs.tertiaryContainer
     )
     val accentColor = columnColors[column.id % columnColors.size]
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
@@ -693,7 +697,8 @@ fun TaskCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = task.title },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -739,7 +744,8 @@ fun TaskCard(
                             modifier = Modifier
                                 .size(28.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .clickable { menuExpanded = true },
+                                .clickable { menuExpanded = true }
+                                .semantics { contentDescription = "Действия с задачей" },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -991,6 +997,7 @@ fun AddTaskSheet(
                                     shape = RoundedCornerShape(10.dp)
                                 )
                                 .clickable { selectedColumnId = column.id }
+                                .semantics { contentDescription = "Колонка: ${column.title}" }
                                 .padding(horizontal = 14.dp, vertical = 8.dp)
                         ) {
                             Text(
@@ -1108,6 +1115,7 @@ fun MoveTaskSheet(
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .clickable { selectedColumnId = column.id }
+                                .semantics { contentDescription = "Переместить в: ${column.title}" }
                                 .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)

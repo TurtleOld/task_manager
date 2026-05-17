@@ -726,6 +726,35 @@ class KanbanViewModel : ViewModel() {
         }
     }
 
+    fun createAttachment(cardId: Int, name: String, type: String, url: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val s = session.value
+        if (!s.isAuthenticated || s.token.isBlank()) return
+
+        viewModelScope.launch {
+            runCatching {
+                repository.createAttachment(
+                    baseUrl = s.domain,
+                    apiToken = s.token,
+                    cardId = cardId,
+                    name = name,
+                    type = type,
+                    url = url
+                )
+            }.onSuccess { updatedTask ->
+                val current = _taskDetailState.value as? TaskDetailState.Content
+                _taskDetailState.value = TaskDetailState.Content(
+                    task = updatedTask,
+                    users = current?.users ?: emptyList(),
+                    comments = current?.comments ?: emptyList()
+                )
+                refresh()
+                onSuccess()
+            }.onFailure { error ->
+                onError(errorMessage(error, "Ошибка создания вложения"))
+            }
+        }
+    }
+
     fun saveTaskChecklist(taskId: Int, newChecklist: List<ChecklistItemDto>, onSuccess: () -> Unit, onError: (String) -> Unit) {
         val s = session.value
         if (!s.isAuthenticated || s.token.isBlank()) return

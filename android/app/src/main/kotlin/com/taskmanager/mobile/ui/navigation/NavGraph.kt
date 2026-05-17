@@ -5,6 +5,10 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -133,7 +137,11 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
             NavHost(
                 navController = navController,
                 startDestination = Route.Login,
-                modifier = Modifier.fillMaxSize().padding(innerPadding)
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                enterTransition = { slideInHorizontally(initialOffsetX = { it }) + fadeIn() },
+                exitTransition = { slideOutHorizontally(targetOffsetX = { -it / 3 }) + fadeOut() },
+                popEnterTransition = { slideInHorizontally(initialOffsetX = { -it / 3 }) + fadeIn() },
+                popExitTransition = { slideOutHorizontally(targetOffsetX = { it }) + fadeOut() }
             ) {
                 composable(Route.Login) {
                     LoginScreen(
@@ -259,6 +267,9 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
                         },
                         onDeleteAttachment = { attachmentId, onSuccess, onError ->
                             vm.deleteAttachment(taskId, attachmentId, onSuccess, onError)
+                        },
+                        onCreateAttachment = { name, type, url, onSuccess, onError ->
+                            vm.createAttachment(taskId, name, type, url, onSuccess, onError)
                         }
                     )
                 }

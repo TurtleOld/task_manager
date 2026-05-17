@@ -37,10 +37,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +60,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,6 +77,7 @@ import com.taskmanager.mobile.ui.components.EmptyStateView
 import com.taskmanager.mobile.ui.components.ErrorView
 import com.taskmanager.mobile.ui.components.ListSkeletonLoader
 import com.taskmanager.mobile.ui.components.MetaRow
+import com.taskmanager.mobile.ui.components.ModernTextField
 import com.taskmanager.mobile.ui.components.deadlineDisplayText
 import com.taskmanager.mobile.ui.components.deadlineDraftStateOf
 import com.taskmanager.mobile.ui.components.formatFileSize
@@ -94,7 +99,8 @@ fun TaskDetailScreen(
     onSaveCard: (draft: KanbanTask, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
     onPostComment: (text: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
     onUploadAttachments: (uris: List<Uri>, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
-    onDeleteAttachment: (attachmentId: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
+    onDeleteAttachment: (attachmentId: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
+    onCreateAttachment: (name: String, type: String, url: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
 ) {
     LaunchedEffect(taskId) {
         onLoadTask(taskId)
@@ -154,7 +160,8 @@ fun TaskDetailScreen(
                     onSaveCard = onSaveCard,
                     onPostComment = onPostComment,
                     onUploadAttachments = onUploadAttachments,
-                    onDeleteAttachment = onDeleteAttachment
+                    onDeleteAttachment = onDeleteAttachment,
+                    onCreateAttachment = onCreateAttachment
                 )
             }
         }
@@ -172,7 +179,8 @@ fun TaskDetailContent(
     onSaveCard: (draft: KanbanTask, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
     onPostComment: (text: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
     onUploadAttachments: (uris: List<Uri>, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
-    onDeleteAttachment: (attachmentId: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
+    onDeleteAttachment: (attachmentId: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
+    onCreateAttachment: (name: String, type: String, url: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     // Editable local draft state — reset when task changes from server
@@ -207,6 +215,10 @@ fun TaskDetailContent(
     var attachmentError by remember(task.id) { mutableStateOf<String?>(null) }
     var isUploadingAttachment by remember(task.id) { mutableStateOf(false) }
     var deletingAttachmentId by remember(task.id) { mutableStateOf<String?>(null) }
+    var showAttachmentForm by remember(task.id) { mutableStateOf(false) }
+    var attachmentType by remember(task.id) { mutableStateOf("link") }
+    var attachmentName by remember(task.id) { mutableStateOf("") }
+    var attachmentUrl by remember(task.id) { mutableStateOf("") }
     var showDeadlinePicker by remember(task.id) { mutableStateOf(false) }
     var showAssigneeDropdown by remember { mutableStateOf(false) }
     val currentDeadlineState = deadlineDraftStateOf(draftDeadline, timeZone)
@@ -284,7 +296,7 @@ fun TaskDetailContent(
                         }
 
                         Text(
-                            text = "Редактирование задачи",
+                            text = task.title.take(40).let { if (task.title.length > 40) "$it…" else it }.ifBlank { "Задача #${task.id}" },
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -535,7 +547,8 @@ fun TaskDetailContent(
                                                 .clickable {
                                                     draftTags = draftTags - tag
                                                     saveError = null
-                                                },
+                                                }
+                                                .semantics { contentDescription = "Удалить тег $tag" },
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
@@ -596,6 +609,11 @@ fun TaskDetailContent(
             item {
                 DetailSection(title = "Категории") {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(
+                            text = "Теги — для поиска и фильтрации. Категории — для структурного разделения проектов.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         if (draftCategories.isNotEmpty()) {
                             androidx.compose.foundation.layout.FlowRow(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -624,7 +642,8 @@ fun TaskDetailContent(
                                                 .clickable {
                                                     draftCategories = draftCategories - category
                                                     saveError = null
-                                                },
+                                                }
+                                                .semantics { contentDescription = "Удалить категорию $category" },
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
@@ -742,7 +761,8 @@ fun TaskDetailContent(
                                                 it[index] = item.copy(done = !item.done)
                                             }
                                             saveError = null
-                                        },
+                                        }
+                                        .semantics { contentDescription = if (item.done) "Отметить «${item.text}» как невыполненное" else "Отметить «${item.text}» как выполненное" },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (item.done) {
@@ -771,7 +791,8 @@ fun TaskDetailContent(
                                         .clickable {
                                             draftChecklist = draftChecklist.toMutableList().also { it.removeAt(index) }
                                             saveError = null
-                                        },
+                                        }
+                                        .semantics { contentDescription = "Удалить пункт «${item.text}»" },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
@@ -876,6 +897,14 @@ fun TaskDetailContent(
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text(if (isUploadingAttachment) "Загрузка..." else "Добавить файл")
+                            }
+                            Button(
+                                onClick = { showAttachmentForm = true },
+                                enabled = !isUploadingAttachment,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Ссылка/фото")
                             }
                         }
 
@@ -1001,6 +1030,74 @@ fun TaskDetailContent(
                     showDeadlinePicker = false
                 }
             )
+        }
+
+        if (showAttachmentForm) {
+            ModalBottomSheet(
+                onDismissRequest = { showAttachmentForm = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("Новое вложение", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("link" to "Ссылка", "photo" to "Фото").forEach { (type, label) ->
+                            TextButton(onClick = { attachmentType = type }) {
+                                Text(if (attachmentType == type) "$label ✓" else label)
+                            }
+                        }
+                    }
+                    ModernTextField(
+                        value = attachmentName,
+                        onValueChange = { attachmentName = it },
+                        label = "Название",
+                        placeholder = "Например, Макет или Скриншот"
+                    )
+                    ModernTextField(
+                        value = attachmentUrl,
+                        onValueChange = { attachmentUrl = it },
+                        label = "URL",
+                        placeholder = "https://..."
+                    )
+                    if (!attachmentError.isNullOrBlank()) {
+                        Text(attachmentError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Button(
+                        onClick = {
+                            isUploadingAttachment = true
+                            attachmentError = null
+                            onCreateAttachment(
+                                attachmentName,
+                                attachmentType,
+                                attachmentUrl,
+                                {
+                                    isUploadingAttachment = false
+                                    showAttachmentForm = false
+                                    attachmentName = ""
+                                    attachmentUrl = ""
+                                    attachmentType = "link"
+                                },
+                                { error ->
+                                    isUploadingAttachment = false
+                                    attachmentError = error
+                                }
+                            )
+                        },
+                        enabled = attachmentName.isNotBlank() && attachmentUrl.isNotBlank() && !isUploadingAttachment,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(if (isUploadingAttachment) "Создание..." else "Создать вложение")
+                    }
+                }
+            }
         }
 
         // ── Floating Save bar ────────────────────────────────────────────────

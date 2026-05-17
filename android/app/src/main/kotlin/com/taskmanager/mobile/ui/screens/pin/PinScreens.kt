@@ -34,7 +34,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,6 +52,7 @@ fun PinUnlockScreen(
 ) {
     val context = LocalContext.current
     val activity = LocalActivity.current
+    val haptic = LocalHapticFeedback.current
     var pin by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var attempts by remember { mutableStateOf(0) }
@@ -200,8 +203,10 @@ fun PinUnlockScreen(
                                                 errorMessage = null
                                                 if (pin.length == 4) {
                                                     if (verifyPin(context, pin)) {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                                         onUnlocked()
                                                     } else {
+                                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                                         attempts++
                                                         if (attempts >= maxAttempts) {
                                                             onForgotPin()
