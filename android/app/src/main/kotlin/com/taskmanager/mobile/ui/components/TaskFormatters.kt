@@ -139,3 +139,15 @@ fun formatFileSize(bytes: Long): String {
         else -> "${bytes / (1024 * 1024)} MB"
     }
 }
+
+fun formatTaskCount(count: Int): String {
+    val mod100 = count % 100
+    val mod10 = count % 10
+    val suffix = when {
+        mod100 in 11..14 -> "задач"
+        mod10 == 1 -> "задача"
+        mod10 in 2..4 -> "задачи"
+        else -> "задач"
+    }
+    return "$count $suffix"
+}

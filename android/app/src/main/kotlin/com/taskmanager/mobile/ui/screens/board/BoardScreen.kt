@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,12 +26,18 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -46,15 +54,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,13 +68,17 @@ import com.taskmanager.mobile.data.model.BoardUser
 import com.taskmanager.mobile.data.model.KanbanBoard
 import com.taskmanager.mobile.data.model.KanbanColumn
 import com.taskmanager.mobile.data.model.KanbanTask
+import com.taskmanager.mobile.ui.components.BoardSkeletonLoader
+import com.taskmanager.mobile.ui.components.EmptyStateView
 import com.taskmanager.mobile.ui.components.ModernTextField
 import com.taskmanager.mobile.ui.components.formatShortDate
+import com.taskmanager.mobile.ui.components.formatTaskCount
 import com.taskmanager.mobile.ui.components.priorityColor
 import com.taskmanager.mobile.ui.components.priorityLabel
 import com.taskmanager.mobile.ui.viewmodel.BoardUiState
+import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun BoardRoute(
     boardState: BoardUiState,
@@ -85,29 +94,28 @@ fun BoardRoute(
     onTaskClick: (Int) -> Unit,
     onOpenSettings: () -> Unit = {}
 ) {
+    var isRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(boardState) {
+        if (isRefreshing) {
+            delay(300)
+            isRefreshing = false
+        }
+    }
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = {
+            isRefreshing = true
+            onRefresh()
+        }
+    )
+
     when (boardState) {
         BoardUiState.Loading -> {
-            Box(
+            BoardSkeletonLoader(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.background),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = 3.dp
-                    )
-                    Text(
-                        text = "Загрузка...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+                    .background(MaterialTheme.colorScheme.background)
+            )
         }
 
         is BoardUiState.Error -> {
@@ -131,8 +139,7 @@ fun BoardRoute(
                     Text(
                         text = boardState.message,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        color = MaterialTheme.colorScheme.error
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Button(
@@ -140,9 +147,6 @@ fun BoardRoute(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text("Повторить")
-                    }
-                    TextButton(onClick = onLogout) {
-                        Text("Выйти из аккаунта")
                     }
                 }
             }
@@ -160,58 +164,67 @@ fun BoardRoute(
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.background)
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    // Top header
+                Column(modifier = Modifier.fillMaxSize()) {
                     KanbanHeader(
                         boards = boardState.boards,
                         selectedBoardId = boardState.selectedBoardId,
                         onSelectBoard = onSelectBoard,
-                        onRefresh = onRefresh,
                         onOpenSettings = onOpenSettings
                     )
 
-                    // Board content
                     if (selectedBoard == null) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "Нет доступных досок",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            EmptyStateView(
+                                title = "Нет доступных досок",
+                                message = "Проверьте подключение или обновите данные, чтобы загрузить список досок.",
+                                actionLabel = "Обновить",
+                                onAction = onRefresh
                             )
                         }
                     } else {
-                        LazyRow(
+                        Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .weight(1f),
-                            contentPadding = PaddingValues(
-                                start = 16.dp,
-                                end = 16.dp,
-                                top = 8.dp,
-                                bottom = 88.dp
-                            ),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                .weight(1f)
+                                .pullRefresh(pullRefreshState)
                         ) {
-                            items(selectedBoard.columns) { column ->
-                                ColumnView(
-                                    column = column,
-                                    timeZone = timeZone,
-                                    boardUsers = boardUsers,
-                                    onMoveClick = { moveTask = it },
-                                    onDeleteClick = { deleteTask = it },
-                                    onTaskClick = onTaskClick
-                                )
+                            LazyRow(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(
+                                    start = 16.dp,
+                                    end = 16.dp,
+                                    top = 8.dp,
+                                    bottom = 88.dp
+                                ),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(selectedBoard.columns, key = { it.id }) { column ->
+                                    ColumnView(
+                                        column = column,
+                                        timeZone = timeZone,
+                                        boardUsers = boardUsers,
+                                        onMoveClick = { moveTask = it },
+                                        onDeleteClick = { deleteTask = it },
+                                        onTaskClick = onTaskClick,
+                                        onAddTask = onAddTask
+                                    )
+                                }
                             }
+
+                            PullRefreshIndicator(
+                                refreshing = isRefreshing,
+                                state = pullRefreshState,
+                                modifier = Modifier.align(Alignment.TopCenter),
+                                backgroundColor = MaterialTheme.colorScheme.surface,
+                                contentColor = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
                 }
 
-                // FAB
                 if (selectedBoard != null) {
                     FloatingActionButton(
                         onClick = { addTaskSheetVisible = true },
@@ -220,9 +233,7 @@ fun BoardRoute(
                             .navigationBarsPadding()
                             .padding(20.dp),
                         containerColor = MaterialTheme.colorScheme.primary,
-                        elevation = FloatingActionButtonDefaults.elevation(
-                            defaultElevation = 6.dp
-                        ),
+                        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp),
                         shape = RoundedCornerShape(18.dp)
                     ) {
                         Text(
@@ -295,16 +306,8 @@ fun KanbanHeader(
     boards: List<KanbanBoard>,
     selectedBoardId: Int?,
     onSelectBoard: (Int) -> Unit,
-    onRefresh: () -> Unit,
     onOpenSettings: () -> Unit = {}
 ) {
-    var isRefreshing by remember { mutableStateOf(false) }
-
-    // When boards data changes (refresh completed), reset spinner
-    LaunchedEffect(boards) {
-        isRefreshing = false
-    }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -325,42 +328,11 @@ fun KanbanHeader(
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "${boards.sumOf { b -> b.columns.sumOf { it.tasks.size } }} задач",
+                    text = formatTaskCount(boards.sumOf { board -> board.columns.sumOf { it.tasks.size } }),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            // Refresh button
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = CircleShape
-                    )
-                    .clickable(enabled = !isRefreshing) {
-                        isRefreshing = true
-                        onRefresh()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                if (isRefreshing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Outlined.Refresh,
-                        contentDescription = "Обновить",
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            // Settings button
             Box(
                 modifier = Modifier
                     .size(36.dp)
@@ -452,10 +424,6 @@ fun BoardTab(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Column View
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun ColumnView(
     column: KanbanColumn,
@@ -463,7 +431,8 @@ fun ColumnView(
     boardUsers: List<BoardUser>,
     onMoveClick: (KanbanTask) -> Unit,
     onDeleteClick: (KanbanTask) -> Unit,
-    onTaskClick: (Int) -> Unit
+    onTaskClick: (Int) -> Unit,
+    onAddTask: (title: String, columnId: Int) -> Unit
 ) {
     val columnColors = listOf(
         Color(0xFF8B5CF6),
@@ -475,13 +444,15 @@ fun ColumnView(
         Color(0xFF6366F1)
     )
     val accentColor = columnColors[column.id % columnColors.size]
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val columnWidth = (screenWidth * 0.82f).coerceIn(280.dp, 420.dp)
 
     Column(
         modifier = Modifier
-            .width(300.dp)
+            .width(columnWidth)
             .fillMaxHeight()
     ) {
-        // Column header
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -493,7 +464,6 @@ fun ColumnView(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Color indicator dot
                 Box(
                     modifier = Modifier
                         .size(10.dp)
@@ -508,7 +478,6 @@ fun ColumnView(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                // Task count badge
                 Box(
                     modifier = Modifier
                         .background(
@@ -525,9 +494,14 @@ fun ColumnView(
                     )
                 }
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            InlineAddTask(
+                accentColor = accentColor,
+                columnTitle = column.title,
+                onSubmit = { title -> onAddTask(title, column.id) }
+            )
         }
 
-        // Top accent line
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -535,15 +509,13 @@ fun ColumnView(
                 .background(accentColor.copy(alpha = 0.7f))
         )
 
-        // Tasks list
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f, fill = false)
-                .heightIn(max = 600.dp)
+                .weight(1f)
                 .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f))
                 .padding(horizontal = 10.dp),
-            contentPadding = PaddingValues(vertical = 10.dp),
+            contentPadding = PaddingValues(top = 10.dp, bottom = 10.dp + bottomPadding),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(column.tasks, key = { it.id }) { task ->
@@ -580,7 +552,6 @@ fun ColumnView(
             }
         }
 
-        // Bottom cap
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -591,9 +562,80 @@ fun ColumnView(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Task Card
-// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun InlineAddTask(
+    accentColor: Color,
+    columnTitle: String,
+    onSubmit: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var title by remember { mutableStateOf("") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!expanded) {
+            TextButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "+ Быстрая задача",
+                    color = accentColor,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "Новая задача в колонке \"$columnTitle\"",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                ModernTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = "Название задачи",
+                    placeholder = "Что нужно сделать?"
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TextButton(
+                        onClick = {
+                            expanded = false
+                            title = ""
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Отмена")
+                    }
+                    Button(
+                        onClick = {
+                            val trimmed = title.trim()
+                            if (trimmed.isNotEmpty()) {
+                                onSubmit(trimmed)
+                                title = ""
+                                expanded = false
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Создать")
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun TaskCard(
@@ -618,7 +660,6 @@ fun TaskCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Priority accent stripe
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -639,7 +680,6 @@ fun TaskCard(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Title row
                 Row(
                     verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -699,7 +739,6 @@ fun TaskCard(
                     }
                 }
 
-                // Description
                 if (task.description.isNotBlank()) {
                     Text(
                         text = task.description,
@@ -710,11 +749,8 @@ fun TaskCard(
                     )
                 }
 
-                // Tags
                 if (task.tags.isNotEmpty()) {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         items(task.tags.take(3)) { tag ->
                             Box(
                                 modifier = Modifier
@@ -735,7 +771,6 @@ fun TaskCard(
                     }
                 }
 
-                // Assignee
                 val assigneeName = task.assignee?.let { id -> boardUsers.find { it.id == id }?.name }
                 if (assigneeName != null) {
                     Row(
@@ -769,12 +804,10 @@ fun TaskCard(
                     }
                 }
 
-                // Bottom row: priority + due date
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Priority pill
                     Row(
                         modifier = Modifier
                             .background(
@@ -823,19 +856,19 @@ fun TaskCard(
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    // Checklist progress if any
                     if (task.checklist.isNotEmpty()) {
                         val done = task.checklist.count { it.done }
                         Text(
                             text = "✓ $done/${task.checklist.size}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (done == task.checklist.size)
+                            color = if (done == task.checklist.size) {
                                 MaterialTheme.colorScheme.tertiary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
                         )
                     }
 
-                    // Attachment indicator
                     if (task.attachments.isNotEmpty()) {
                         Text(
                             text = "📎 ${task.attachments.size}",
@@ -848,10 +881,6 @@ fun TaskCard(
         }
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Add Task Sheet
-// ─────────────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -878,7 +907,6 @@ fun AddTaskSheet(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Handle + title
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "Новая задача",
@@ -906,9 +934,7 @@ fun AddTaskSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium
                 )
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(columns, key = { it.id }) { column ->
                         val isSelected = selectedColumnId == column.id
                         Box(
@@ -920,16 +946,14 @@ fun AddTaskSheet(
                                 )
                                 .border(
                                     width = if (isSelected) 1.5.dp else 0.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.primary
-                                    else Color.Transparent,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
                                     shape = RoundedCornerShape(10.dp)
                                 )
                                 .clickable { selectedColumnId = column.id }
                                 .padding(horizontal = 14.dp, vertical = 8.dp)
                         ) {
                             Text(
-                                text = if (column.icon.isBlank()) column.title
-                                else "${column.icon} ${column.title}",
+                                text = if (column.icon.isBlank()) column.title else "${column.icon} ${column.title}",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                 color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
@@ -963,10 +987,6 @@ fun AddTaskSheet(
         }
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Move Task Sheet
-// ─────────────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1075,7 +1095,7 @@ fun MoveTaskSheet(
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
-                                text = "${column.tasks.size} задач",
+                                text = formatTaskCount(column.tasks.size),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
