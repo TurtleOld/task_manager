@@ -5,7 +5,6 @@ import java.time.Instant
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import com.taskmanager.mobile.data.model.KanbanTask
-import com.taskmanager.mobile.ui.components.normalizeTimeZoneId
 
 const val DEFAULT_TIME_ZONE = "UTC"
 
@@ -15,7 +14,7 @@ fun JsonElement?.asPosition(): Float {
 }
 
 fun sortTasksNewestFirst(tasks: List<KanbanTask>): List<KanbanTask> =
-    tasks.sortedWith(compareByDescending<KanbanTask> { it.createdAt.orEmpty() }.thenByDescending { it.id })
+    tasks.sortedWith(compareBy<KanbanTask> { it.createdAt.orEmpty() }.thenBy { it.id })
 
 fun currentIsoTimestamp(): String {
     return Instant.now().toString()
@@ -38,7 +37,6 @@ fun normalizeBaseUrl(value: String): String {
 const val PREFS_NAME = "task_manager_mobile_prefs"
 const val KEY_DOMAIN = "domain"
 const val KEY_TOKEN = "token"
-const val KEY_TIME_ZONE = "time_zone"
 
 fun readSavedDomain(context: Context): String =
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_DOMAIN, "") ?: ""
@@ -46,31 +44,6 @@ fun readSavedDomain(context: Context): String =
 fun saveDomain(context: Context, domain: String) {
     context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         .edit().putString(KEY_DOMAIN, normalizeBaseUrl(domain)).apply()
-}
-
-fun readSavedToken(context: Context): String =
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_TOKEN, "") ?: ""
-
-fun saveToken(context: Context, token: String) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        .edit().putString(KEY_TOKEN, token).apply()
-}
-
-fun readSavedTimeZone(context: Context): String =
-    normalizeTimeZoneId(
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_TIME_ZONE, DEFAULT_TIME_ZONE)
-    )
-
-fun saveTimeZone(context: Context, timeZone: String) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        .edit().putString(KEY_TIME_ZONE, normalizeTimeZoneId(timeZone)).apply()
-}
-
-fun clearToken(context: Context) {
-    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
-        .remove(KEY_TOKEN)
-        .remove(KEY_TIME_ZONE)
-        .apply()
 }
 
 const val PUSH_DEBUG_TAG = "TM_PUSH_DEBUG"

@@ -59,14 +59,7 @@ android {
             ?: (dotEnvProps.getProperty("ANDROID_API_BASE_URL"))
             ?: System.getenv("ANDROID_API_BASE_URL")
             ?: "http://10.0.2.2:8000"
-        val apiToken = (project.findProperty("ANDROID_API_TOKEN") as String?)
-            ?: (localProps.getProperty("ANDROID_API_TOKEN"))
-            ?: (dotEnvProps.getProperty("ANDROID_API_TOKEN"))
-            ?: System.getenv("ANDROID_API_TOKEN")
-            ?: ""
-
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
-        buildConfigField("String", "API_TOKEN", "\"$apiToken\"")
 
         vectorDrawables {
             useSupportLibrary = true
