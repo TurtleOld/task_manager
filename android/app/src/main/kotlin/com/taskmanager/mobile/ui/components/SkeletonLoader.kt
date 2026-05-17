@@ -36,17 +36,7 @@ fun BoardSkeletonLoader(
     modifier: Modifier = Modifier,
     columnCount: Int = 3
 ) {
-    val transition = rememberInfiniteTransition(label = "board_skeleton")
-    val alpha by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.75f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 900),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "board_skeleton_alpha"
-    )
-    val placeholderColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
+    val placeholderColor = skeletonPlaceholderColor()
 
     Column(
         modifier = modifier.fillMaxSize()
@@ -64,6 +54,45 @@ fun BoardSkeletonLoader(
             }
         }
     }
+}
+
+@Composable
+fun ListSkeletonLoader(
+    modifier: Modifier = Modifier,
+    rows: Int = 5
+) {
+    val placeholderColor = skeletonPlaceholderColor()
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        repeat(rows) {
+            SkeletonBox(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(88.dp),
+                color = placeholderColor,
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun skeletonPlaceholderColor(): Color {
+    val transition = rememberInfiniteTransition(label = "skeleton")
+    val alpha by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "skeleton_alpha"
+    )
+    return MaterialTheme.colorScheme.surfaceVariant.copy(alpha = alpha)
 }
 
 @Composable

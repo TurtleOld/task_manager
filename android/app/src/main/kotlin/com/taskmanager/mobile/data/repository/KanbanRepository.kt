@@ -1,7 +1,13 @@
 package com.taskmanager.mobile.data.repository
 
 import android.util.Log
+import android.net.Uri
+import android.content.Context
 import kotlinx.serialization.json.Json
+import okhttp3.MultipartBody
+import okhttp3.MediaType
+import okhttp3.RequestBody
+import java.io.File
 import retrofit2.HttpException
 import com.taskmanager.mobile.data.api.ApiClient
 import com.taskmanager.mobile.data.api.KanbanApi
@@ -88,6 +94,28 @@ class KanbanRepository {
 
     suspend fun postComment(baseUrl: String, apiToken: String, cardId: Int, text: String): CommentDto =
         api(baseUrl, apiToken).postComment(cardId, CreateCommentRequest(text = text.trim()))
+
+    suspend fun uploadAttachments(
+        context: Context,
+        baseUrl: String,
+        apiToken: String,
+        cardId: Int,
+        uris: List<Uri>
+    ): KanbanTask {
+        val parts = uris.mapNotNull { uri ->
+            val fileData = context.contentResolver.openInputStream(uri)?.use { input -> input.readBytes() } ?: return@mapNotNull null
+            val name = resolveDisplayName(context, uri) ?: "attachment"
+            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
+            val tempFile = File.createTempFile("upload_", name, context.cacheDir).apply { writeBytes(fileData) }
+            MultipartBody.Part.createFormData("files", name, RequestBody.create(MediaType.parse(mime), tempFile))
+        }
+        require(parts.isNotEmpty()) { "Не удалось подготовить вложения" }
+        val type = RequestBody.create(MediaType.parse("text/plain"), "file")
+        return dtoToTask(api(baseUrl, apiToken).uploadAttachments(cardId = cardId, files = parts, type = type))
+    }
+
+    suspend fun deleteAttachment(baseUrl: String, apiToken: String, cardId: Int, attachmentId: String): KanbanTask =
+        dtoToTask(api(baseUrl, apiToken).deleteAttachment(cardId, attachmentId))
 
     suspend fun createCard(baseUrl: String, apiToken: String, request: CreateCardRequest): KanbanTask {
         val dto = api(baseUrl, apiToken).createCard(request)
@@ -296,6 +324,16 @@ class KanbanRepository {
 
     private fun api(baseUrl: String, apiToken: String): KanbanApi =
         ApiClient.kanbanApi(baseUrl = baseUrl, apiToken = apiToken, json = json)
+
+    private fun resolveDisplayName(context: Context, uri: Uri): String? {
+        context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            if (index >= 0 && cursor.moveToFirst()) {
+                return cursor.getString(index)
+            }
+        }
+        return uri.lastPathSegment?.substringAfterLast('/')
+    }
 }
 
 data class TodayCardsResult(

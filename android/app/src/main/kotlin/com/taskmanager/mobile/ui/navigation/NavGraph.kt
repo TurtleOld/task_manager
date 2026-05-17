@@ -42,6 +42,7 @@ import com.taskmanager.mobile.ui.screens.settings.SettingsScreen
 import com.taskmanager.mobile.ui.screens.taskdetail.TaskDetailScreen
 import com.taskmanager.mobile.ui.screens.today.TodayScreen
 import com.taskmanager.mobile.ui.theme.TaskManagerTheme
+import com.taskmanager.mobile.ui.viewmodel.AuthEvent
 import com.taskmanager.mobile.ui.viewmodel.KanbanViewModel
 import com.taskmanager.mobile.util.readSavedDomain
 import com.taskmanager.mobile.util.saveDomain
@@ -100,6 +101,16 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
     LaunchedEffect(session.isAuthenticated, session.timeZone) {
         if (!session.isAuthenticated) return@LaunchedEffect
         saveSecureTimeZone(context, session.timeZone)
+    }
+
+    LaunchedEffect(Unit) {
+        vm.authEvents.collect { event ->
+            when (event) {
+                AuthEvent.Unauthorized -> {
+                    clearToken(context)
+                }
+            }
+        }
     }
 
     TaskManagerTheme(themeMode = session.themeMode) {
@@ -242,6 +253,12 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
                         },
                         onPostComment = { text, onSuccess, onError ->
                             vm.postComment(taskId, text, onSuccess, onError)
+                        },
+                        onUploadAttachments = { uris, onSuccess, onError ->
+                            vm.uploadAttachments(context, taskId, uris, onSuccess, onError)
+                        },
+                        onDeleteAttachment = { attachmentId, onSuccess, onError ->
+                            vm.deleteAttachment(taskId, attachmentId, onSuccess, onError)
                         }
                     )
                 }

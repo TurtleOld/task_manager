@@ -1,17 +1,22 @@
 package com.taskmanager.mobile.data.api
 
 import okhttp3.ResponseBody
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Part
 import com.taskmanager.mobile.data.api.dto.BoardDto
 import com.taskmanager.mobile.data.api.dto.CardDto
 import com.taskmanager.mobile.data.api.dto.ColumnDto
 import com.taskmanager.mobile.data.api.dto.CommentDto
+import com.taskmanager.mobile.data.api.dto.CreateAttachmentRequest
 import com.taskmanager.mobile.data.api.dto.CreateCommentRequest
 import com.taskmanager.mobile.data.api.dto.CreateCardRequest
 import com.taskmanager.mobile.data.api.dto.LoginRequest
@@ -49,11 +54,25 @@ interface KanbanApi {
     @GET("cards/{cardId}/comments/")
     suspend fun getComments(@Path("cardId") cardId: Int): List<CommentDto>
 
+    @Multipart
+    @POST("cards/{cardId}/attachments/")
+    suspend fun uploadAttachments(
+        @Path("cardId") cardId: Int,
+        @Part files: List<MultipartBody.Part>,
+        @Part("type") type: RequestBody
+    ): CardDto
+
+    @POST("cards/{cardId}/attachments/")
+    suspend fun createAttachment(@Path("cardId") cardId: Int, @Body request: CreateAttachmentRequest): CardDto
+
     @POST("cards/")
     suspend fun createCard(@Body request: CreateCardRequest): CardDto
 
     @POST("cards/{cardId}/comments/")
     suspend fun postComment(@Path("cardId") cardId: Int, @Body request: CreateCommentRequest): CommentDto
+
+    @DELETE("cards/{cardId}/attachments/{attachmentId}/")
+    suspend fun deleteAttachment(@Path("cardId") cardId: Int, @Path("attachmentId") attachmentId: String): CardDto
 
     @PATCH("cards/{cardId}/")
     suspend fun patchCard(@Path("cardId") cardId: Int, @Body request: PatchCardRequest): CardDto

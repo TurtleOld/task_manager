@@ -1,6 +1,7 @@
 package com.taskmanager.mobile.ui.viewmodel
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.biometric.BiometricManager
 import androidx.lifecycle.ViewModel
@@ -10,20 +11,26 @@ import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
+import java.io.IOException
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import retrofit2.HttpException
+import com.taskmanager.mobile.data.api.ApiClient
 import com.taskmanager.mobile.data.api.dto.BoardDto
 import com.taskmanager.mobile.data.api.dto.ChecklistItemDto
 import com.taskmanager.mobile.data.api.dto.ColumnDto
@@ -86,6 +93,9 @@ class KanbanViewModel : ViewModel() {
     private val _notificationPreferences = MutableStateFlow<List<NotificationPreferenceDto>>(emptyList())
     val notificationPreferences: StateFlow<List<NotificationPreferenceDto>> = _notificationPreferences.asStateFlow()
 
+    private val _authEvents = MutableSharedFlow<AuthEvent>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    val authEvents = _authEvents.asSharedFlow()
+
     private val _securitySettings = MutableStateFlow(SecuritySettings())
     val securitySettings: StateFlow<SecuritySettings> = _securitySettings.asStateFlow()
 
@@ -98,6 +108,14 @@ class KanbanViewModel : ViewModel() {
     private var searchJob: kotlinx.coroutines.Job? = null
 
     private val wsJson = Json { ignoreUnknownKeys = true; explicitNulls = false; coerceInputValues = true }
+
+    init {
+        ApiClient.setUnauthorizedHandler {
+            viewModelScope.launch {
+                handleUnauthorized()
+            }
+        }
+    }
 
     private fun startWebSocket(domain: String, token: String, boardId: Int) {
         stopWebSocket()
@@ -215,6 +233,7 @@ class KanbanViewModel : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         stopWebSocket()
+        ApiClient.setUnauthorizedHandler(null)
     }
 
     fun bootstrap(domain: String, token: String, timeZone: String = DEFAULT_TIME_ZONE) {
@@ -229,6 +248,26 @@ class KanbanViewModel : ViewModel() {
             )
         }
         if (token.isNotBlank()) refresh()
+    }
+
+    private suspend fun handleUnauthorized() {
+        stopWebSocket()
+        ApiClient.clearCache()
+        _session.value = SessionUiState(domain = session.value.domain)
+        _boardState.value = BoardUiState.Loading
+        _todayState.value = TodayUiState.Loading
+        _searchState.value = SearchUiState.Idle
+        _boardFilterAssignee.value = null
+        _notificationPreferences.value = emptyList()
+        _authEvents.emit(AuthEvent.Unauthorized)
+    }
+
+    private fun errorMessage(error: Throwable, fallback: String): String {
+        return when (error) {
+            is IOException -> "Нет подключения к сети"
+            is HttpException -> if (error.code() >= 500) "Ошибка сервера" else (error.message ?: fallback)
+            else -> error.message ?: fallback
+        }
     }
 
     private suspend fun loadNotificationProfile(baseUrl: String, apiToken: String): NotificationProfileDto {
@@ -300,7 +339,7 @@ class KanbanViewModel : ViewModel() {
                 }
                 refresh()
             }.onFailure { error ->
-                _session.update { it.copy(isBusy = false, errorMessage = error.message ?: "Ошибка входа") }
+                _session.update { it.copy(isBusy = false, errorMessage = errorMessage(error, "Ошибка входа")) }
             }
         }
     }
@@ -365,7 +404,7 @@ class KanbanViewModel : ViewModel() {
                 loadTodayCards()
             }.onFailure { error ->
                 if (prev !is BoardUiState.Content) {
-                    _boardState.value = BoardUiState.Error(error.message ?: "Ошибка загрузки")
+                    _boardState.value = BoardUiState.Error(errorMessage(error, "Ошибка загрузки"))
                 } else {
                     _boardState.value = prev.copy(isRefreshing = false)
                 }
@@ -513,7 +552,7 @@ class KanbanViewModel : ViewModel() {
             }.onSuccess { result ->
                 _todayState.value = TodayUiState.Content(result)
             }.onFailure { error ->
-                _todayState.value = TodayUiState.Error(error.message ?: "Ошибка загрузки")
+                _todayState.value = TodayUiState.Error(errorMessage(error, "Ошибка загрузки"))
             }
         }
     }
@@ -538,7 +577,7 @@ class KanbanViewModel : ViewModel() {
             }.onSuccess { cards ->
                 _searchState.value = SearchUiState.Content(query = trimmed, results = cards)
             }.onFailure { error ->
-                _searchState.value = SearchUiState.Error(query = trimmed, message = error.message ?: "Ошибка поиска")
+                _searchState.value = SearchUiState.Error(query = trimmed, message = errorMessage(error, "Ошибка поиска"))
             }
         }
     }
@@ -590,7 +629,7 @@ class KanbanViewModel : ViewModel() {
             }.onSuccess { (task, users, comments) ->
                 _taskDetailState.value = TaskDetailState.Content(task = task, users = users, comments = comments)
             }.onFailure { error ->
-                _taskDetailState.value = TaskDetailState.Error(error.message ?: "Ошибка загрузки")
+                _taskDetailState.value = TaskDetailState.Error(errorMessage(error, "Ошибка загрузки"))
             }
         }
     }
@@ -619,7 +658,7 @@ class KanbanViewModel : ViewModel() {
                 refresh()
                 onSuccess()
             }.onFailure { error ->
-                onError(error.message ?: "Ошибка сохранения")
+                onError(errorMessage(error, "Ошибка сохранения"))
             }
         }
     }
@@ -638,7 +677,51 @@ class KanbanViewModel : ViewModel() {
                 _taskDetailState.value = current.copy(comments = current.comments + comment)
                 onSuccess()
             }.onFailure { error ->
-                onError(error.message ?: "Ошибка отправки комментария")
+                onError(errorMessage(error, "Ошибка отправки комментария"))
+            }
+        }
+    }
+
+    fun uploadAttachments(context: Context, cardId: Int, uris: List<Uri>, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val s = session.value
+        if (!s.isAuthenticated || s.token.isBlank() || uris.isEmpty()) return
+
+        viewModelScope.launch {
+            runCatching {
+                repository.uploadAttachments(context = context.applicationContext, baseUrl = s.domain, apiToken = s.token, cardId = cardId, uris = uris)
+            }.onSuccess { updatedTask ->
+                val current = _taskDetailState.value as? TaskDetailState.Content
+                _taskDetailState.value = TaskDetailState.Content(
+                    task = updatedTask,
+                    users = current?.users ?: emptyList(),
+                    comments = current?.comments ?: emptyList()
+                )
+                refresh()
+                onSuccess()
+            }.onFailure { error ->
+                onError(errorMessage(error, "Ошибка загрузки вложений"))
+            }
+        }
+    }
+
+    fun deleteAttachment(cardId: Int, attachmentId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val s = session.value
+        if (!s.isAuthenticated || s.token.isBlank()) return
+
+        viewModelScope.launch {
+            runCatching {
+                repository.deleteAttachment(baseUrl = s.domain, apiToken = s.token, cardId = cardId, attachmentId = attachmentId)
+            }.onSuccess { updatedTask ->
+                val current = _taskDetailState.value as? TaskDetailState.Content
+                _taskDetailState.value = TaskDetailState.Content(
+                    task = updatedTask,
+                    users = current?.users ?: emptyList(),
+                    comments = current?.comments ?: emptyList()
+                )
+                refresh()
+                onSuccess()
+            }.onFailure { error ->
+                onError(errorMessage(error, "Ошибка удаления вложения"))
             }
         }
     }
@@ -672,7 +755,7 @@ class KanbanViewModel : ViewModel() {
                 refresh()
                 onSuccess()
             }.onFailure { error ->
-                onError(error.message ?: "Ошибка сохранения")
+                onError(errorMessage(error, "Ошибка сохранения"))
             }
         }
     }
@@ -767,4 +850,8 @@ sealed interface SearchUiState {
     data class Loading(val query: String) : SearchUiState
     data class Error(val query: String, val message: String) : SearchUiState
     data class Content(val query: String, val results: List<KanbanTask>) : SearchUiState
+}
+
+sealed interface AuthEvent {
+    data object Unauthorized : AuthEvent
 }

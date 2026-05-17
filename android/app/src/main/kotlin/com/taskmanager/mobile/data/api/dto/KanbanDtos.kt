@@ -139,6 +139,13 @@ data class AttachmentDto(
 )
 
 @Serializable
+data class CreateAttachmentRequest(
+    val name: String,
+    val type: String,
+    val url: String
+)
+
+@Serializable
 data class ChecklistItemDto(@Serializable(with = FlexibleStringSerializer::class) val id: String, val text: String, val done: Boolean)
 
 @Serializable

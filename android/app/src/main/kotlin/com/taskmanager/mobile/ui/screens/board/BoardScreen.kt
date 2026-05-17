@@ -32,6 +32,7 @@ import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
@@ -70,6 +71,7 @@ import com.taskmanager.mobile.data.model.KanbanColumn
 import com.taskmanager.mobile.data.model.KanbanTask
 import com.taskmanager.mobile.ui.components.BoardSkeletonLoader
 import com.taskmanager.mobile.ui.components.EmptyStateView
+import com.taskmanager.mobile.ui.components.ErrorView
 import com.taskmanager.mobile.ui.components.ModernTextField
 import com.taskmanager.mobile.ui.components.formatShortDate
 import com.taskmanager.mobile.ui.components.formatTaskCount
@@ -117,30 +119,7 @@ fun BoardRoute(
                     .background(MaterialTheme.colorScheme.background),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.padding(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.ErrorOutline,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                    Text(
-                        text = boardState.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Button(
-                        onClick = onRetry,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Повторить")
-                    }
-                }
+                ErrorView(message = boardState.message, onRetry = onRetry)
             }
         }
 
@@ -185,7 +164,8 @@ fun BoardRoute(
                                 title = "Нет доступных досок",
                                 message = "Проверьте подключение или обновите данные, чтобы загрузить список досок.",
                                 actionLabel = "Обновить",
-                                onAction = onRefresh
+                                onAction = onRefresh,
+                                icon = Icons.Outlined.Inbox
                             )
                         }
                     } else {
@@ -603,10 +583,10 @@ fun ColumnView(
                             .padding(vertical = 24.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "Нет задач",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        EmptyStateView(
+                            title = "Пустая колонка",
+                            message = "Добавьте задачу или измените фильтр, чтобы увидеть карточки в этой колонке.",
+                            modifier = Modifier.padding(0.dp)
                         )
                     }
                 }

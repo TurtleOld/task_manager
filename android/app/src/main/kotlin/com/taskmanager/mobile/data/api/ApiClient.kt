@@ -14,6 +14,16 @@ object ApiClient {
     private data class CacheKey(val baseUrl: String, val apiToken: String)
 
     private val services = ConcurrentHashMap<CacheKey, KanbanApi>()
+    @Volatile
+    private var unauthorizedHandler: (() -> Unit)? = null
+
+    fun setUnauthorizedHandler(handler: (() -> Unit)?) {
+        unauthorizedHandler = handler
+    }
+
+    fun clearCache() {
+        services.clear()
+    }
 
     fun kanbanApi(baseUrl: String, apiToken: String, json: Json): KanbanApi {
         val normalizedBaseUrl = normalizeBaseUrl(baseUrl)
@@ -31,7 +41,11 @@ object ApiClient {
             if (apiToken.isNotBlank()) {
                 requestBuilder.header("Authorization", "Token $apiToken")
             }
-            chain.proceed(requestBuilder.build())
+            val response = chain.proceed(requestBuilder.build())
+            if (response.code() == 401) {
+                unauthorizedHandler?.invoke()
+            }
+            response
         }
 
         val client = OkHttpClient.Builder()

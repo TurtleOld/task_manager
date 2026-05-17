@@ -16,9 +16,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,7 +31,9 @@ import androidx.compose.ui.unit.dp
 import com.taskmanager.mobile.data.model.KanbanTask
 import com.taskmanager.mobile.data.repository.TodayCardsResult
 import com.taskmanager.mobile.ui.components.EmptyStateView
+import com.taskmanager.mobile.ui.components.ErrorView
 import com.taskmanager.mobile.ui.components.formatReadableDateTime
+import com.taskmanager.mobile.ui.components.ListSkeletonLoader
 import com.taskmanager.mobile.ui.components.priorityColor
 import com.taskmanager.mobile.ui.components.priorityLabel
 import com.taskmanager.mobile.ui.viewmodel.TodayUiState
@@ -44,17 +47,12 @@ fun TodayScreen(
 ) {
     when (state) {
         TodayUiState.Loading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            ListSkeletonLoader(modifier = Modifier.fillMaxSize())
         }
 
         is TodayUiState.Error -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(state.message, color = MaterialTheme.colorScheme.error)
-                    Button(onClick = onRetry) { Text("Повторить") }
-                }
+                ErrorView(message = state.message, onRetry = onRetry)
             }
         }
 
@@ -78,7 +76,8 @@ private fun TodayContent(
                 title = "На сегодня задач нет",
                 message = "Когда появятся просроченные, сегодняшние или важные задачи, они будут показаны здесь.",
                 actionLabel = "Обновить",
-                onAction = onRetry
+                onAction = onRetry,
+                icon = Icons.Outlined.EventBusy
             )
         }
         return

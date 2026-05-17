@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBar
@@ -27,6 +26,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.taskmanager.mobile.ui.components.EmptyStateView
+import com.taskmanager.mobile.ui.components.ErrorView
+import com.taskmanager.mobile.ui.components.ListSkeletonLoader
 import com.taskmanager.mobile.ui.viewmodel.SearchUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,14 +74,12 @@ fun SearchScreen(
             }
 
             is SearchUiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                ListSkeletonLoader(modifier = Modifier.fillMaxSize())
             }
 
             is SearchUiState.Error -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(state.message, color = MaterialTheme.colorScheme.error)
+                    ErrorView(message = state.message, onRetry = { onQueryChange(state.query) })
                 }
             }
 

@@ -2,6 +2,8 @@ package com.taskmanager.mobile.ui.screens.taskdetail
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -67,6 +69,9 @@ import com.taskmanager.mobile.data.model.KanbanTask
 import com.taskmanager.mobile.data.model.TaskPriority
 import com.taskmanager.mobile.ui.components.DetailSection
 import com.taskmanager.mobile.ui.components.DeadlinePicker
+import com.taskmanager.mobile.ui.components.EmptyStateView
+import com.taskmanager.mobile.ui.components.ErrorView
+import com.taskmanager.mobile.ui.components.ListSkeletonLoader
 import com.taskmanager.mobile.ui.components.MetaRow
 import com.taskmanager.mobile.ui.components.deadlineDisplayText
 import com.taskmanager.mobile.ui.components.deadlineDraftStateOf
@@ -87,7 +92,9 @@ fun TaskDetailScreen(
     onBack: () -> Unit,
     onClearDetail: () -> Unit,
     onSaveCard: (draft: KanbanTask, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
-    onPostComment: (text: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
+    onPostComment: (text: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
+    onUploadAttachments: (uris: List<Uri>, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
+    onDeleteAttachment: (attachmentId: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
 ) {
     LaunchedEffect(taskId) {
         onLoadTask(taskId)
@@ -106,12 +113,7 @@ fun TaskDetailScreen(
     ) {
         when (taskDetailState) {
             null, TaskDetailState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
+                ListSkeletonLoader(modifier = Modifier.fillMaxSize())
                 Box(
                     modifier = Modifier
                         .statusBarsPadding()
@@ -138,28 +140,7 @@ fun TaskDetailScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.padding(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.ErrorOutline,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                        Text(
-                            text = taskDetailState.message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        Button(onClick = { onLoadTask(taskId) }, shape = RoundedCornerShape(12.dp)) {
-                            Text("Повторить")
-                        }
-                        TextButton(onClick = onBack) { Text("Назад") }
-                    }
+                    ErrorView(message = taskDetailState.message, onRetry = { onLoadTask(taskId) })
                 }
             }
 
@@ -171,7 +152,9 @@ fun TaskDetailScreen(
                     timeZone = timeZone,
                     onBack = onBack,
                     onSaveCard = onSaveCard,
-                    onPostComment = onPostComment
+                    onPostComment = onPostComment,
+                    onUploadAttachments = onUploadAttachments,
+                    onDeleteAttachment = onDeleteAttachment
                 )
             }
         }
@@ -187,7 +170,9 @@ fun TaskDetailContent(
     timeZone: String,
     onBack: () -> Unit,
     onSaveCard: (draft: KanbanTask, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
-    onPostComment: (text: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
+    onPostComment: (text: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
+    onUploadAttachments: (uris: List<Uri>, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
+    onDeleteAttachment: (attachmentId: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     // Editable local draft state — reset when task changes from server
@@ -219,9 +204,25 @@ fun TaskDetailContent(
     var newCommentInput by remember(task.id) { mutableStateOf("") }
     var commentError by remember(task.id) { mutableStateOf<String?>(null) }
     var isPostingComment by remember(task.id) { mutableStateOf(false) }
+    var attachmentError by remember(task.id) { mutableStateOf<String?>(null) }
+    var isUploadingAttachment by remember(task.id) { mutableStateOf(false) }
+    var deletingAttachmentId by remember(task.id) { mutableStateOf<String?>(null) }
     var showDeadlinePicker by remember(task.id) { mutableStateOf(false) }
     var showAssigneeDropdown by remember { mutableStateOf(false) }
     val currentDeadlineState = deadlineDraftStateOf(draftDeadline, timeZone)
+    val attachmentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        isUploadingAttachment = true
+        attachmentError = null
+        onUploadAttachments(
+            uris,
+            { isUploadingAttachment = false },
+            { error ->
+                isUploadingAttachment = false
+                attachmentError = error
+            }
+        )
+    }
 
     fun resetDraft() {
         draftTitle = task.title
@@ -861,66 +862,111 @@ fun TaskDetailContent(
             }
 
             // ── Attachments ──────────────────────────────────────────────────
-            if (task.attachments.isNotEmpty()) {
-                item {
-                    DetailSection(title = "Вложения") {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            task.attachments.forEach { attachment ->
-                                val attachmentIcon = when (attachment.type) {
-                                    "link" -> "🔗"
-                                    "photo" -> "🖼"
-                                    else -> "📎"
-                                }
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(
-                                            MaterialTheme.colorScheme.surfaceVariant,
-                                            RoundedCornerShape(10.dp)
-                                        )
-                                        .clickable {
-                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(attachment.url))
-                                            context.startActivity(intent)
-                                        }
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .background(
-                                                MaterialTheme.colorScheme.secondaryContainer,
-                                                RoundedCornerShape(8.dp)
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(text = attachmentIcon, fontSize = 18.sp)
+            item {
+                DetailSection(title = "Вложения", badge = task.attachments.size.takeIf { it > 0 }?.toString()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { attachmentPicker.launch(arrayOf("*/*")) },
+                                enabled = !isUploadingAttachment,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(if (isUploadingAttachment) "Загрузка..." else "Добавить файл")
+                            }
+                        }
+
+                        if (!attachmentError.isNullOrBlank()) {
+                            Text(
+                                text = attachmentError!!,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+
+                        if (task.attachments.isEmpty()) {
+                            EmptyStateView(
+                                title = "Нет вложений",
+                                message = "Добавьте файл к задаче, чтобы он появился в карточке.",
+                                modifier = Modifier.padding(0.dp)
+                            )
+                        }
+
+                        task.attachments.forEach { attachment ->
+                            val attachmentIcon = when (attachment.type) {
+                                "link" -> "🔗"
+                                "photo" -> "🖼"
+                                else -> "📎"
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        MaterialTheme.colorScheme.surfaceVariant,
+                                        RoundedCornerShape(10.dp)
+                                    )
+                                    .clickable {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(attachment.url))
+                                        context.startActivity(intent)
                                     }
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.secondaryContainer,
+                                            RoundedCornerShape(8.dp)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(text = attachmentIcon, fontSize = 18.sp)
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = attachment.name,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    if (attachment.size != null) {
                                         Text(
-                                            text = attachment.name,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium,
+                                            text = formatFileSize(attachment.size),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    } else {
+                                        Text(
+                                            text = attachment.url,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
-                                        if (attachment.size != null) {
-                                            Text(
-                                                text = formatFileSize(attachment.size),
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        } else {
-                                            Text(
-                                                text = attachment.url,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
                                     }
+                                }
+                                TextButton(
+                                    onClick = {
+                                        deletingAttachmentId = attachment.id
+                                        attachmentError = null
+                                        onDeleteAttachment(
+                                            attachment.id,
+                                            { deletingAttachmentId = null },
+                                            { error ->
+                                                deletingAttachmentId = null
+                                                attachmentError = error
+                                            }
+                                        )
+                                    },
+                                    enabled = deletingAttachmentId != attachment.id
+                                ) {
+                                    Text(if (deletingAttachmentId == attachment.id) "..." else "Удалить")
                                 }
                             }
                         }
