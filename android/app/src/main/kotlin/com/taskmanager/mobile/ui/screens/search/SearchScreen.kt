@@ -18,6 +18,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBar
+import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -44,12 +45,18 @@ fun SearchScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         SearchBar(
-            query = query,
-            onQueryChange = onQueryChange,
-            onSearch = onQueryChange,
-            active = false,
-            onActiveChange = {},
-            placeholder = { Text("Поиск задач") },
+            inputField = {
+                SearchBarDefaults.InputField(
+                    query = query,
+                    onQueryChange = onQueryChange,
+                    onSearch = onQueryChange,
+                    expanded = false,
+                    onExpandedChange = {},
+                    placeholder = { Text("Поиск задач") }
+                )
+            },
+            expanded = false,
+            onExpandedChange = {},
             modifier = Modifier.fillMaxWidth()
         ) {}
 
