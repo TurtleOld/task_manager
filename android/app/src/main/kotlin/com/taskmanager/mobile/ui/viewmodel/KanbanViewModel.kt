@@ -50,7 +50,9 @@ import com.taskmanager.mobile.security.clearToken
 import com.taskmanager.mobile.security.clearPin
 import com.taskmanager.mobile.security.isBiometricEnabled
 import com.taskmanager.mobile.security.isPinEnabled
+import com.taskmanager.mobile.security.readSavedThemeMode
 import com.taskmanager.mobile.security.savePin
+import com.taskmanager.mobile.security.saveThemeMode
 import com.taskmanager.mobile.security.setBiometricEnabled
 import com.taskmanager.mobile.ui.components.normalizeTimeZoneId
 import com.taskmanager.mobile.ui.theme.ThemeMode
@@ -89,9 +91,6 @@ class KanbanViewModel : ViewModel() {
 
     private val _boardFilterAssignee = MutableStateFlow<Int?>(null)
     val boardFilterAssignee: StateFlow<Int?> = _boardFilterAssignee.asStateFlow()
-
-    private val _notificationPreferences = MutableStateFlow<List<NotificationPreferenceDto>>(emptyList())
-    val notificationPreferences: StateFlow<List<NotificationPreferenceDto>> = _notificationPreferences.asStateFlow()
 
     private val _authEvents = MutableSharedFlow<AuthEvent>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val authEvents = _authEvents.asSharedFlow()
@@ -236,13 +235,14 @@ class KanbanViewModel : ViewModel() {
         ApiClient.setUnauthorizedHandler(null)
     }
 
-    fun bootstrap(domain: String, token: String, timeZone: String = DEFAULT_TIME_ZONE) {
+    fun bootstrap(context: Context, domain: String, token: String, timeZone: String = DEFAULT_TIME_ZONE) {
         val normalizedDomain = normalizeBaseUrl(domain)
         _session.update {
             it.copy(
                 domain = normalizedDomain,
                 token = token,
                 timeZone = normalizeTimeZoneId(timeZone),
+                themeMode = readSavedThemeMode(context),
                 isAuthenticated = token.isNotBlank(),
                 isBusy = false
             )
@@ -258,7 +258,6 @@ class KanbanViewModel : ViewModel() {
         _todayState.value = TodayUiState.Loading
         _searchState.value = SearchUiState.Idle
         _boardFilterAssignee.value = null
-        _notificationPreferences.value = emptyList()
         _authEvents.emit(AuthEvent.Unauthorized)
     }
 
@@ -288,34 +287,11 @@ class KanbanViewModel : ViewModel() {
     fun onDomainChanged(value: String) = _session.update { it.copy(domain = value) }
     fun onUsernameChanged(value: String) = _session.update { it.copy(username = value) }
     fun onPasswordChanged(value: String) = _session.update { it.copy(password = value) }
-    fun onThemeModeChanged(value: ThemeMode) = _session.update { it.copy(themeMode = value) }
+    fun onThemeModeChanged(context: Context, value: ThemeMode) {
+        saveThemeMode(context, value)
+        _session.update { it.copy(themeMode = value) }
+    }
     fun setBoardAssigneeFilter(assigneeId: Int?) { _boardFilterAssignee.value = assigneeId }
-
-    fun loadNotificationPreferences() {
-        val s = session.value
-        if (!s.isAuthenticated || s.token.isBlank()) return
-        viewModelScope.launch {
-            runCatching {
-                repository.getNotificationPreferences(baseUrl = s.domain, apiToken = s.token)
-            }.onSuccess { prefs ->
-                _notificationPreferences.value = prefs.filter { it.channel == "push" }
-            }
-        }
-    }
-
-    fun setNotificationPreference(id: Int, enabled: Boolean) {
-        val s = session.value
-        if (!s.isAuthenticated || s.token.isBlank()) return
-        val snapshot = _notificationPreferences.value
-        _notificationPreferences.value = snapshot.map { if (it.id == id) it.copy(enabled = enabled) else it }
-        viewModelScope.launch {
-            runCatching {
-                repository.updateNotificationPreference(baseUrl = s.domain, apiToken = s.token, id = id, enabled = enabled)
-            }.onFailure {
-                _notificationPreferences.value = snapshot
-            }
-        }
-    }
 
     fun login(onSuccess: (String) -> Unit) {
         val domain = normalizeBaseUrl(session.value.domain)
@@ -354,7 +330,6 @@ class KanbanViewModel : ViewModel() {
         _todayState.value = TodayUiState.Loading
         _searchState.value = SearchUiState.Idle
         _boardFilterAssignee.value = null
-        _notificationPreferences.value = emptyList()
     }
 
     fun terminateSessions(context: Context) {
@@ -380,13 +355,18 @@ class KanbanViewModel : ViewModel() {
             val boardsDeferred = async { runCatching { repository.fetchBoards(baseUrl = s.domain, apiToken = s.token) } }
             val usersDeferred = async { runCatching { repository.fetchUsers(baseUrl = s.domain, apiToken = s.token) } }
             val profileDeferred = async { runCatching { loadNotificationProfile(baseUrl = s.domain, apiToken = s.token) } }
+            val meDeferred = async { runCatching { repository.fetchMe(baseUrl = s.domain, apiToken = s.token) } }
             val boardsResult = boardsDeferred.await()
             val usersResult = usersDeferred.await()
             val profileResult = profileDeferred.await()
+            val meResult = meDeferred.await()
 
             usersResult.onSuccess { users -> _boardUsers.value = users }
             profileResult.onSuccess { profile ->
                 _session.update { it.copy(timeZone = profile.timezone, fcmToken = profile.fcmToken, email = profile.email) }
+            }
+            meResult.onSuccess { me ->
+                _session.update { it.copy(username = me.username) }
             }
 
             boardsResult.onSuccess { boards ->

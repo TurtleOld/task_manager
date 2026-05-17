@@ -18,6 +18,7 @@ import com.taskmanager.mobile.data.api.dto.CreateAttachmentRequest
 import com.taskmanager.mobile.data.api.dto.CreateCommentRequest
 import com.taskmanager.mobile.data.api.dto.CreateCardRequest
 import com.taskmanager.mobile.data.api.dto.LoginRequest
+import com.taskmanager.mobile.data.api.dto.MeDto
 import com.taskmanager.mobile.data.api.dto.MoveCardRequest
 import com.taskmanager.mobile.data.api.dto.NotificationPreferencePatch
 import com.taskmanager.mobile.data.api.dto.NotificationPreferenceRequest
@@ -55,6 +56,9 @@ class KanbanRepository {
         if (token.isBlank()) error("Токен не получен")
         return token
     }
+
+    suspend fun fetchMe(baseUrl: String, apiToken: String): MeDto =
+        api(baseUrl, apiToken).getMe()
 
     suspend fun terminateSessions(baseUrl: String, apiToken: String) {
         api(baseUrl, apiToken).terminateSessions()

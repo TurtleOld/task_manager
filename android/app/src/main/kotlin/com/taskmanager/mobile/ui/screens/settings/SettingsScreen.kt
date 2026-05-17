@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,11 +35,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,7 +50,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.taskmanager.mobile.data.api.dto.NotificationPreferenceDto
 import com.taskmanager.mobile.security.isPinEnabled
 import com.taskmanager.mobile.security.triggerBiometricPrompt
 import com.taskmanager.mobile.ui.navigation.LocalActivity
@@ -66,14 +62,11 @@ import com.taskmanager.mobile.ui.viewmodel.SessionUiState
 fun SettingsScreen(
     session: SessionUiState,
     securitySettings: SecuritySettings,
-    notificationPreferences: List<NotificationPreferenceDto>,
     onBack: () -> Unit,
     onEnablePin: (pin: String) -> Unit,
     onDisablePin: () -> Unit,
     onSetBiometric: (Boolean) -> Unit,
     onThemeModeChange: (ThemeMode) -> Unit,
-    onNotificationPreferenceChange: (id: Int, enabled: Boolean) -> Unit,
-    onLoadNotificationPreferences: () -> Unit,
     onLogout: () -> Unit,
     onTerminateSessions: () -> Unit,
 ) {
@@ -82,10 +75,6 @@ fun SettingsScreen(
     var showPinSetup by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
     var showTerminateConfirm by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        onLoadNotificationPreferences()
-    }
 
     Box(
         modifier = Modifier
@@ -136,45 +125,6 @@ fun SettingsScreen(
                     ThemeModeRow("Светлая", "Всегда светлая тема", Icons.Outlined.LightMode, session.themeMode == ThemeMode.Light) { onThemeModeChange(ThemeMode.Light) }
                     DividerInset()
                     ThemeModeRow("Тёмная", "Всегда тёмная тема", Icons.Outlined.DarkMode, session.themeMode == ThemeMode.Dark) { onThemeModeChange(ThemeMode.Dark) }
-                }
-            }
-
-            item {
-                SectionTitle("УВЕДОМЛЕНИЯ")
-                CardContainer {
-                    if (notificationPreferences.isEmpty()) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Outlined.Notifications, contentDescription = null)
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Настройки уведомлений загружаются", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                Text("Push-переключатели появятся после синхронизации профиля", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    } else {
-                        notificationPreferences.forEachIndexed { index, preference ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Box(modifier = Modifier.size(40.dp).background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Outlined.Notifications, contentDescription = null, modifier = Modifier.size(22.dp), tint = MaterialTheme.colorScheme.secondary)
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(preference.eventType, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                                    Text("Push-уведомления", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Switch(
-                                    checked = preference.enabled,
-                                    onCheckedChange = { onNotificationPreferenceChange(preference.id, it) },
-                                    colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.onSecondary, checkedTrackColor = MaterialTheme.colorScheme.secondary)
-                                )
-                            }
-                            if (index < notificationPreferences.lastIndex) DividerInset()
-                        }
-                    }
                 }
             }
 

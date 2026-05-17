@@ -19,7 +19,18 @@ import com.taskmanager.mobile.util.DEFAULT_TIME_ZONE
 data class LoginRequest(val username: String, val password: String)
 
 @Serializable
-data class LoginResponse(val token: String = "")
+data class LoginResponse(
+    val token: String = "",
+    val username: String = "",
+    @SerialName("full_name") val fullName: String = ""
+)
+
+@Serializable
+data class MeDto(
+    val id: Int = 0,
+    val username: String = "",
+    @SerialName("full_name") val fullName: String = ""
+)
 
 @Serializable
 data class BoardDto(val id: Int, val name: String)

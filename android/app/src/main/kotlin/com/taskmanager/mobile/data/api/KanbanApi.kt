@@ -21,6 +21,7 @@ import com.taskmanager.mobile.data.api.dto.CreateCommentRequest
 import com.taskmanager.mobile.data.api.dto.CreateCardRequest
 import com.taskmanager.mobile.data.api.dto.LoginRequest
 import com.taskmanager.mobile.data.api.dto.LoginResponse
+import com.taskmanager.mobile.data.api.dto.MeDto
 import com.taskmanager.mobile.data.api.dto.MoveCardRequest
 import com.taskmanager.mobile.data.api.dto.NotificationPreferenceDto
 import com.taskmanager.mobile.data.api.dto.NotificationPreferencePatch
@@ -35,6 +36,9 @@ import com.taskmanager.mobile.data.api.dto.UserDto
 interface KanbanApi {
     @POST("auth/login/")
     suspend fun login(@Body request: LoginRequest): LoginResponse
+
+    @GET("auth/me/")
+    suspend fun getMe(): MeDto
 
     @GET("boards/")
     suspend fun getBoards(): List<BoardDto>

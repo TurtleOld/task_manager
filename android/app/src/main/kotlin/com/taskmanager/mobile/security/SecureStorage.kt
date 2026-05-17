@@ -2,10 +2,12 @@ package com.taskmanager.mobile.security
 
 import android.content.Context
 import com.taskmanager.mobile.ui.components.normalizeTimeZoneId
+import com.taskmanager.mobile.ui.theme.ThemeMode
 import com.taskmanager.mobile.util.DEFAULT_TIME_ZONE
 
 private const val KEY_TOKEN = "token"
 private const val KEY_TIME_ZONE = "time_zone"
+private const val KEY_THEME_MODE = "theme_mode"
 
 fun readSavedToken(context: Context): String =
     readSecureString(context, KEY_TOKEN).orEmpty()
@@ -23,4 +25,11 @@ fun saveSecureTimeZone(context: Context, timeZone: String) {
 
 fun clearToken(context: Context) {
     clearSecureKeys(context, KEY_TOKEN, KEY_TIME_ZONE)
+}
+
+fun readSavedThemeMode(context: Context): ThemeMode =
+    ThemeMode.entries.find { it.name == readSecureString(context, KEY_THEME_MODE) } ?: ThemeMode.System
+
+fun saveThemeMode(context: Context, themeMode: ThemeMode) {
+    saveSecureString(context, KEY_THEME_MODE, themeMode.name)
 }

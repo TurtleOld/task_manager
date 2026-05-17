@@ -62,7 +62,6 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
     val todayState by vm.todayState.collectAsStateWithLifecycle()
     val searchState by vm.searchState.collectAsStateWithLifecycle()
     val boardFilterAssignee by vm.boardFilterAssignee.collectAsStateWithLifecycle()
-    val notificationPreferences by vm.notificationPreferences.collectAsStateWithLifecycle()
     val timeZone = session.timeZone
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -72,6 +71,7 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
 
     LaunchedEffect(Unit) {
         vm.bootstrap(
+            context = context,
             domain = readSavedDomain(context).ifBlank { BuildConfig.API_BASE_URL },
             token = readSavedToken(context),
             timeZone = readSavedSecureTimeZone(context)
@@ -225,14 +225,11 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
                     SettingsScreen(
                         session = session,
                         securitySettings = securitySettings,
-                        notificationPreferences = notificationPreferences,
                         onBack = { navController.popBackStack() },
                         onEnablePin = { pin -> vm.enablePin(context, pin) },
                         onDisablePin = { vm.disablePin(context) },
                         onSetBiometric = { enabled -> vm.setBiometric(context, enabled) },
-                        onThemeModeChange = vm::onThemeModeChanged,
-                        onNotificationPreferenceChange = vm::setNotificationPreference,
-                        onLoadNotificationPreferences = vm::loadNotificationPreferences,
+                        onThemeModeChange = { mode -> vm.onThemeModeChanged(context, mode) },
                         onLogout = {
                             clearToken(context)
                             vm.logout(context)
