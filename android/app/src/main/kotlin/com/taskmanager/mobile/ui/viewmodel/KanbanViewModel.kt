@@ -27,6 +27,7 @@ import okhttp3.WebSocketListener
 import com.taskmanager.mobile.data.api.dto.BoardDto
 import com.taskmanager.mobile.data.api.dto.ChecklistItemDto
 import com.taskmanager.mobile.data.api.dto.ColumnDto
+import com.taskmanager.mobile.data.api.dto.CommentDto
 import com.taskmanager.mobile.data.api.dto.CreateCardRequest
 import com.taskmanager.mobile.data.api.dto.NotificationProfileDto
 import com.taskmanager.mobile.data.model.BoardUser
@@ -490,10 +491,12 @@ class KanbanViewModel : ViewModel() {
         viewModelScope.launch {
             _taskDetailState.value = TaskDetailState.Loading
             runCatching {
-                repository.getCard(baseUrl = s.domain, apiToken = s.token, cardId = taskId)
-            }.onSuccess { task ->
-                val users = runCatching { repository.fetchUsers(baseUrl = s.domain, apiToken = s.token) }.getOrDefault(emptyList())
-                _taskDetailState.value = TaskDetailState.Content(task = task, users = users)
+                val taskDeferred = async { repository.getCard(baseUrl = s.domain, apiToken = s.token, cardId = taskId) }
+                val usersDeferred = async { runCatching { repository.fetchUsers(baseUrl = s.domain, apiToken = s.token) }.getOrDefault(emptyList()) }
+                val commentsDeferred = async { runCatching { repository.getComments(baseUrl = s.domain, apiToken = s.token, cardId = taskId) }.getOrDefault(emptyList()) }
+                Triple(taskDeferred.await(), usersDeferred.await(), commentsDeferred.await())
+            }.onSuccess { (task, users, comments) ->
+                _taskDetailState.value = TaskDetailState.Content(task = task, users = users, comments = comments)
             }.onFailure { error ->
                 _taskDetailState.value = TaskDetailState.Error(error.message ?: "Ошибка загрузки")
             }
@@ -515,12 +518,35 @@ class KanbanViewModel : ViewModel() {
                     newTask = draft
                 )
             }.onSuccess { updatedTask ->
-                val users = (_taskDetailState.value as? TaskDetailState.Content)?.users ?: emptyList()
-                _taskDetailState.value = TaskDetailState.Content(task = updatedTask, users = users)
+                val current = _taskDetailState.value as? TaskDetailState.Content
+                _taskDetailState.value = TaskDetailState.Content(
+                    task = updatedTask,
+                    users = current?.users ?: emptyList(),
+                    comments = current?.comments ?: emptyList()
+                )
                 refresh()
                 onSuccess()
             }.onFailure { error ->
                 onError(error.message ?: "Ошибка сохранения")
+            }
+        }
+    }
+
+    fun postComment(cardId: Int, text: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val s = session.value
+        if (!s.isAuthenticated || s.token.isBlank()) return
+        val trimmed = text.trim()
+        if (trimmed.isBlank()) return
+
+        viewModelScope.launch {
+            runCatching {
+                repository.postComment(baseUrl = s.domain, apiToken = s.token, cardId = cardId, text = trimmed)
+            }.onSuccess { comment ->
+                val current = _taskDetailState.value as? TaskDetailState.Content ?: return@onSuccess
+                _taskDetailState.value = current.copy(comments = current.comments + comment)
+                onSuccess()
+            }.onFailure { error ->
+                onError(error.message ?: "Ошибка отправки комментария")
             }
         }
     }
@@ -544,7 +570,12 @@ class KanbanViewModel : ViewModel() {
                 )
             }.onSuccess { updatedTask ->
                 // Update detail screen with server-confirmed state (including new version)
-                _taskDetailState.value = TaskDetailState.Content(updatedTask)
+                val current = _taskDetailState.value as? TaskDetailState.Content
+                _taskDetailState.value = TaskDetailState.Content(
+                    task = updatedTask,
+                    users = current?.users ?: emptyList(),
+                    comments = current?.comments ?: emptyList()
+                )
                 // Refresh board so card list is up-to-date
                 refresh()
                 onSuccess()
@@ -619,7 +650,11 @@ sealed interface BoardUiState {
 sealed interface TaskDetailState {
     data object Loading : TaskDetailState
     data class Error(val message: String) : TaskDetailState
-    data class Content(val task: KanbanTask, val users: List<BoardUser> = emptyList()) : TaskDetailState
+    data class Content(
+        val task: KanbanTask,
+        val users: List<BoardUser> = emptyList(),
+        val comments: List<CommentDto> = emptyList()
+    ) : TaskDetailState
 }
 
 data class SecuritySettings(

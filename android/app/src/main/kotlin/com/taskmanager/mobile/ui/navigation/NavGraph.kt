@@ -194,6 +194,9 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
                 onClearDetail = vm::clearTaskDetail,
                 onSaveCard = { draft, onSuccess, onError ->
                     vm.saveCard(taskId, draft, onSuccess, onError)
+                },
+                onPostComment = { text, onSuccess, onError ->
+                    vm.postComment(taskId, text, onSuccess, onError)
                 }
             )
         }

@@ -10,6 +10,8 @@ import retrofit2.http.Path
 import com.taskmanager.mobile.data.api.dto.BoardDto
 import com.taskmanager.mobile.data.api.dto.CardDto
 import com.taskmanager.mobile.data.api.dto.ColumnDto
+import com.taskmanager.mobile.data.api.dto.CommentDto
+import com.taskmanager.mobile.data.api.dto.CreateCommentRequest
 import com.taskmanager.mobile.data.api.dto.CreateCardRequest
 import com.taskmanager.mobile.data.api.dto.LoginRequest
 import com.taskmanager.mobile.data.api.dto.LoginResponse
@@ -39,8 +41,14 @@ interface KanbanApi {
     @GET("cards/{cardId}/")
     suspend fun getCard(@Path("cardId") cardId: Int): CardDto
 
+    @GET("cards/{cardId}/comments/")
+    suspend fun getComments(@Path("cardId") cardId: Int): List<CommentDto>
+
     @POST("cards/")
     suspend fun createCard(@Body request: CreateCardRequest): CardDto
+
+    @POST("cards/{cardId}/comments/")
+    suspend fun postComment(@Path("cardId") cardId: Int, @Body request: CreateCommentRequest): CommentDto
 
     @PATCH("cards/{cardId}/")
     suspend fun patchCard(@Path("cardId") cardId: Int, @Body request: PatchCardRequest): CardDto

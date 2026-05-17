@@ -123,10 +123,36 @@ data class NotificationPreferenceRequest(
 data class NotificationPreferencePatch(val enabled: Boolean)
 
 @Serializable
-data class AttachmentDto(@Serializable(with = FlexibleStringSerializer::class) val id: String, val name: String, val url: String, val size: Long? = null)
+data class AttachmentDto(
+    @Serializable(with = FlexibleStringSerializer::class) val id: String,
+    val name: String,
+    val type: String = "file",
+    val url: String,
+    val size: Long? = null,
+    val mime: String? = null,
+    val mimeType: String? = null,
+    @SerialName("uploaded_by") val uploadedBy: Int? = null,
+    @SerialName("created_at") val createdAt: String? = null
+)
 
 @Serializable
 data class ChecklistItemDto(@Serializable(with = FlexibleStringSerializer::class) val id: String, val text: String, val done: Boolean)
+
+@Serializable
+data class CommentDto(
+    val id: Int,
+    val card: Int,
+    val author: Int,
+    @SerialName("author_name") val authorName: String,
+    @SerialName("author_username") val authorUsername: String,
+    val text: String,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("edited_at") val editedAt: String? = null,
+    @SerialName("can_edit") val canEdit: Boolean = false
+)
+
+@Serializable
+data class CreateCommentRequest(val text: String)
 
 object FlexibleStringSerializer : KSerializer<String> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("FlexibleString", PrimitiveKind.STRING)

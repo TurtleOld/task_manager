@@ -1,18 +1,14 @@
 package com.taskmanager.mobile.data.repository
 
 import android.util.Log
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.items
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
 import retrofit2.HttpException
-import retrofit2.http.GET
-import retrofit2.http.PATCH
-import retrofit2.http.POST
 import com.taskmanager.mobile.data.api.ApiClient
 import com.taskmanager.mobile.data.api.KanbanApi
 import com.taskmanager.mobile.data.api.dto.CardDto
 import com.taskmanager.mobile.data.api.dto.ChecklistItemDto
+import com.taskmanager.mobile.data.api.dto.CommentDto
+import com.taskmanager.mobile.data.api.dto.CreateCommentRequest
 import com.taskmanager.mobile.data.api.dto.CreateCardRequest
 import com.taskmanager.mobile.data.api.dto.LoginRequest
 import com.taskmanager.mobile.data.api.dto.MoveCardRequest
@@ -86,6 +82,12 @@ class KanbanRepository {
 
     suspend fun getCard(baseUrl: String, apiToken: String, cardId: Int): KanbanTask =
         dtoToTask(api(baseUrl, apiToken).getCard(cardId))
+
+    suspend fun getComments(baseUrl: String, apiToken: String, cardId: Int): List<CommentDto> =
+        api(baseUrl, apiToken).getComments(cardId)
+
+    suspend fun postComment(baseUrl: String, apiToken: String, cardId: Int, text: String): CommentDto =
+        api(baseUrl, apiToken).postComment(cardId, CreateCommentRequest(text = text.trim()))
 
     suspend fun createCard(baseUrl: String, apiToken: String, request: CreateCardRequest): KanbanTask {
         val dto = api(baseUrl, apiToken).createCard(request)

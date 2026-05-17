@@ -1,7 +1,7 @@
 package com.taskmanager.mobile.ui.screens.taskdetail
 
-import android.app.DatePickerDialog
-import android.app.TimePickerDialog
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -48,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,19 +66,16 @@ import com.taskmanager.mobile.data.model.BoardUser
 import com.taskmanager.mobile.data.model.KanbanTask
 import com.taskmanager.mobile.data.model.TaskPriority
 import com.taskmanager.mobile.ui.components.DetailSection
+import com.taskmanager.mobile.ui.components.DeadlinePicker
 import com.taskmanager.mobile.ui.components.MetaRow
-import com.taskmanager.mobile.ui.components.calendarFromDeadline
 import com.taskmanager.mobile.ui.components.deadlineDisplayText
 import com.taskmanager.mobile.ui.components.deadlineDraftStateOf
-import com.taskmanager.mobile.ui.components.deadlineStorageFormatter
 import com.taskmanager.mobile.ui.components.formatFileSize
 import com.taskmanager.mobile.ui.components.formatReadableDateTime
 import com.taskmanager.mobile.ui.components.normalizeDeadlineForInput
 import com.taskmanager.mobile.ui.components.normalizeDeadlineForSave
 import com.taskmanager.mobile.ui.components.priorityColor
 import com.taskmanager.mobile.ui.viewmodel.TaskDetailState
-import java.time.LocalDateTime
-import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,7 +86,8 @@ fun TaskDetailScreen(
     onLoadTask: (Int) -> Unit,
     onBack: () -> Unit,
     onClearDetail: () -> Unit,
-    onSaveCard: (draft: KanbanTask, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
+    onSaveCard: (draft: KanbanTask, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
+    onPostComment: (text: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
 ) {
     LaunchedEffect(taskId) {
         onLoadTask(taskId)
@@ -168,9 +167,11 @@ fun TaskDetailScreen(
                 TaskDetailContent(
                     task = taskDetailState.task,
                     users = taskDetailState.users,
+                    comments = taskDetailState.comments,
                     timeZone = timeZone,
                     onBack = onBack,
-                    onSaveCard = onSaveCard
+                    onSaveCard = onSaveCard,
+                    onPostComment = onPostComment
                 )
             }
         }
@@ -182,9 +183,11 @@ fun TaskDetailScreen(
 fun TaskDetailContent(
     task: KanbanTask,
     users: List<BoardUser>,
+    comments: List<com.taskmanager.mobile.data.api.dto.CommentDto>,
     timeZone: String,
     onBack: () -> Unit,
-    onSaveCard: (draft: KanbanTask, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
+    onSaveCard: (draft: KanbanTask, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit,
+    onPostComment: (text: String, onSuccess: () -> Unit, onError: (String) -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     // Editable local draft state — reset when task changes from server
@@ -213,7 +216,24 @@ fun TaskDetailContent(
     var newTagInput by remember { mutableStateOf("") }
     var newCategoryInput by remember { mutableStateOf("") }
     var newChecklistInput by remember { mutableStateOf("") }
+    var newCommentInput by remember(task.id) { mutableStateOf("") }
+    var commentError by remember(task.id) { mutableStateOf<String?>(null) }
+    var isPostingComment by remember(task.id) { mutableStateOf(false) }
+    var showDeadlinePicker by remember(task.id) { mutableStateOf(false) }
     var showAssigneeDropdown by remember { mutableStateOf(false) }
+    val currentDeadlineState = deadlineDraftStateOf(draftDeadline, timeZone)
+
+    fun resetDraft() {
+        draftTitle = task.title
+        draftDescription = task.description
+        draftPriority = task.priority
+        draftDeadline = normalizeDeadlineForInput(task.dueDate, timeZone).orEmpty()
+        draftAssignee = task.assignee
+        draftTags = task.tags
+        draftCategories = task.categories
+        draftChecklist = task.checklist
+        saveError = null
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -241,7 +261,7 @@ fun TaskDetailContent(
                             .padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Back button
+                        // Back or discard button
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
@@ -249,12 +269,14 @@ fun TaskDetailContent(
                                     MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
                                     CircleShape
                                 )
-                                .clickable(onClick = onBack),
+                                .clickable(onClick = {
+                                    if (hasChanges) resetDraft() else onBack()
+                                }),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                                contentDescription = "Назад",
+                                imageVector = if (hasChanges) Icons.Outlined.Close else Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = if (hasChanges) "Отменить изменения" else "Назад",
                                 modifier = Modifier.size(20.dp),
                                 tint = MaterialTheme.colorScheme.onSurface
                             )
@@ -380,54 +402,13 @@ fun TaskDetailContent(
             // ── Deadline ─────────────────────────────────────────────────────
             item {
                 DetailSection(title = "Срок выполнения") {
-                    val currentDeadlineState = deadlineDraftStateOf(draftDeadline, timeZone)
-
-                    fun openTimePicker(baseDate: Calendar) {
-                        TimePickerDialog(
-                            context,
-                            { _, hour, minute ->
-                                baseDate.set(Calendar.HOUR_OF_DAY, hour)
-                                baseDate.set(Calendar.MINUTE, minute)
-                                baseDate.set(Calendar.SECOND, 0)
-                                baseDate.set(Calendar.MILLISECOND, 0)
-                                val next = LocalDateTime.of(
-                                    baseDate.get(Calendar.YEAR),
-                                    baseDate.get(Calendar.MONTH) + 1,
-                                    baseDate.get(Calendar.DAY_OF_MONTH),
-                                    hour,
-                                    minute,
-                                    0
-                                )
-                                draftDeadline = next.format(deadlineStorageFormatter)
-                                saveError = null
-                            },
-                            baseDate.get(Calendar.HOUR_OF_DAY),
-                            baseDate.get(Calendar.MINUTE),
-                            true
-                        ).show()
-                    }
-
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                .clickable {
-                                    val baseDate = calendarFromDeadline(currentDeadlineState.value, timeZone)
-                                    DatePickerDialog(
-                                        context,
-                                        { _, year, month, dayOfMonth ->
-                                            baseDate.set(Calendar.YEAR, year)
-                                            baseDate.set(Calendar.MONTH, month)
-                                            baseDate.set(Calendar.DAY_OF_MONTH, dayOfMonth)
-                                            openTimePicker(baseDate)
-                                        },
-                                        baseDate.get(Calendar.YEAR),
-                                        baseDate.get(Calendar.MONTH),
-                                        baseDate.get(Calendar.DAY_OF_MONTH)
-                                    ).show()
-                                }
+                                .clickable { showDeadlinePicker = true }
                                 .padding(horizontal = 14.dp, vertical = 14.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -440,7 +421,7 @@ fun TaskDetailContent(
                                     color = if (currentDeadlineState.value.isNullOrBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = if (currentDeadlineState.value.isNullOrBlank()) "Откроется системный выбор даты и времени" else "Дата и время выбираются по очереди",
+                                    text = if (currentDeadlineState.value.isNullOrBlank()) "Откроется Material выбор даты и времени" else "Дата и время выбираются последовательно",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -449,18 +430,6 @@ fun TaskDetailContent(
                                 TextButton(onClick = { draftDeadline = ""; saveError = null }) {
                                     Text("Очистить")
                                 }
-                            }
-                        }
-
-                        if (!currentDeadlineState.value.isNullOrBlank()) {
-                            TextButton(
-                                onClick = {
-                                    val baseDate = calendarFromDeadline(currentDeadlineState.value, timeZone)
-                                    openTimePicker(baseDate)
-                                },
-                                contentPadding = PaddingValues(0.dp)
-                            ) {
-                                Text("Изменить только время")
                             }
                         }
                     }
@@ -862,12 +831,46 @@ fun TaskDetailContent(
                 }
             }
 
-            // ── Attachments (read-only) ───────────────────────────────────────
+            item {
+                CommentsSection(
+                    comments = comments,
+                    newComment = newCommentInput,
+                    isPosting = isPostingComment,
+                    postError = commentError,
+                    timeZone = timeZone,
+                    onCommentChange = {
+                        newCommentInput = it
+                        commentError = null
+                    },
+                    onPostComment = {
+                        isPostingComment = true
+                        commentError = null
+                        onPostComment(
+                            newCommentInput,
+                            {
+                                isPostingComment = false
+                                newCommentInput = ""
+                            },
+                            { error ->
+                                isPostingComment = false
+                                commentError = error
+                            }
+                        )
+                    }
+                )
+            }
+
+            // ── Attachments ──────────────────────────────────────────────────
             if (task.attachments.isNotEmpty()) {
                 item {
                     DetailSection(title = "Вложения") {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             task.attachments.forEach { attachment ->
+                                val attachmentIcon = when (attachment.type) {
+                                    "link" -> "🔗"
+                                    "photo" -> "🖼"
+                                    else -> "📎"
+                                }
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -875,6 +878,10 @@ fun TaskDetailContent(
                                             MaterialTheme.colorScheme.surfaceVariant,
                                             RoundedCornerShape(10.dp)
                                         )
+                                        .clickable {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(attachment.url))
+                                            context.startActivity(intent)
+                                        }
                                         .padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -888,7 +895,7 @@ fun TaskDetailContent(
                                             ),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(text = "📄", fontSize = 18.sp)
+                                        Text(text = attachmentIcon, fontSize = 18.sp)
                                     }
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
@@ -903,6 +910,14 @@ fun TaskDetailContent(
                                                 text = formatFileSize(attachment.size),
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        } else {
+                                            Text(
+                                                text = attachment.url,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
@@ -929,7 +944,20 @@ fun TaskDetailContent(
             }
         }
 
-        // ── Floating Save/Discard bar ────────────────────────────────────────
+        if (showDeadlinePicker) {
+            DeadlinePicker(
+                initialValue = currentDeadlineState.value,
+                timeZone = timeZone,
+                onDismiss = { showDeadlinePicker = false },
+                onConfirm = { value ->
+                    draftDeadline = normalizeDeadlineForInput(value, timeZone).orEmpty()
+                    saveError = null
+                    showDeadlinePicker = false
+                }
+            )
+        }
+
+        // ── Floating Save bar ────────────────────────────────────────────────
         AnimatedVisibility(
             visible = hasChanges,
             enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
@@ -962,84 +990,49 @@ fun TaskDetailContent(
                     }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                Button(
+                    onClick = {
+                        isSaving = true
+                        saveError = null
+                        val draft = task.copy(
+                            title = draftTitle.trim().ifBlank { task.title },
+                            description = draftDescription,
+                            priority = draftPriority,
+                            dueDate = normalizeDeadlineForSave(draftDeadline, timeZone),
+                            assignee = draftAssignee,
+                            tags = draftTags,
+                            categories = draftCategories,
+                            checklist = draftChecklist
+                        )
+                        onSaveCard(
+                            draft,
+                            { isSaving = false },
+                            { err -> isSaving = false; saveError = err }
+                        )
+                    },
+                    enabled = !isSaving,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
                 ) {
-                    // Discard
-                    TextButton(
-                        onClick = {
-                            draftTitle = task.title
-                            draftDescription = task.description
-                            draftPriority = task.priority
-                            draftDeadline = normalizeDeadlineForInput(task.dueDate, timeZone).orEmpty()
-                            draftAssignee = task.assignee
-                            draftTags = task.tags
-                            draftCategories = task.categories
-                            draftChecklist = task.checklist
-                            saveError = null
-                        },
-                        enabled = !isSaving,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(50.dp)
-                            .background(
-                                MaterialTheme.colorScheme.surfaceVariant,
-                                RoundedCornerShape(14.dp)
-                            )
-                    ) {
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Сохранение...", style = MaterialTheme.typography.labelLarge)
+                    } else {
                         Text(
-                            text = "Отменить",
+                            text = "Сохранить",
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            fontWeight = FontWeight.SemiBold
                         )
-                    }
-
-                    // Save
-                    Button(
-                        onClick = {
-                            isSaving = true
-                            saveError = null
-                            val draft = task.copy(
-                                title = draftTitle.trim().ifBlank { task.title },
-                                description = draftDescription,
-                                priority = draftPriority,
-                                dueDate = normalizeDeadlineForSave(draftDeadline, timeZone),
-                                assignee = draftAssignee,
-                                tags = draftTags,
-                                categories = draftCategories,
-                                checklist = draftChecklist
-                            )
-                            onSaveCard(
-                                draft,
-                                { isSaving = false },
-                                { err -> isSaving = false; saveError = err }
-                            )
-                        },
-                        enabled = !isSaving,
-                        modifier = Modifier
-                            .weight(2f)
-                            .height(50.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        if (isSaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Сохранение...", style = MaterialTheme.typography.labelLarge)
-                        } else {
-                            Text(
-                                text = "Сохранить",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
                     }
                 }
             }
