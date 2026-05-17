@@ -18,7 +18,6 @@ import androidx.compose.runtime.setValue
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.time.ZoneOffset
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,7 +84,7 @@ fun DeadlinePicker(
                             timePickerState.minute,
                             0
                         )
-                        onConfirm(result.atZone(zoneId).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime().format(deadlineStorageFormatter))
+                        onConfirm(result.format(deadlineStorageFormatter))
                     }
                 ) {
                     Text("Готово")

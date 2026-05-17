@@ -144,7 +144,7 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
                 onSelectBoard = vm::selectBoard,
                 onAddTask = { title, columnId -> vm.createTask(title, columnId) },
                 onMoveTask = vm::moveTask,
-                onDeleteTask = vm::deleteTask,
+                onDeleteTask = vm::archiveTask,
                 onTaskClick = { taskId ->
                     navController.navigate(Route.taskDetail(taskId))
                 },

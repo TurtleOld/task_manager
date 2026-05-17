@@ -133,7 +133,10 @@ class KanbanViewModel : ViewModel() {
                     val updatedBoards = current.boards.map { board ->
                         board.copy(columns = board.columns.map { col ->
                             if (col.id == task.columnId) {
-                                val tasks = col.tasks.filter { it.id != task.id } + task
+                                val tasks = col.tasks.filterNot {
+                                    it.id == task.id ||
+                                        (type == "card.created" && it.id < 0 && it.columnId == task.columnId && it.title == task.title)
+                                } + task
                                 col.copy(tasks = sortTasksNewestFirst(tasks))
                             } else {
                                 col.copy(tasks = col.tasks.filter { it.id != task.id })
@@ -371,10 +374,11 @@ class KanbanViewModel : ViewModel() {
                 val updatedBoards = state.boards.map { board ->
                     board.copy(columns = board.columns.map { col ->
                         if (col.id == columnId) {
+                            val deduplicated = col.tasks.filterNot { task ->
+                                task.id == tempId || task.id == createdTask.id
+                            }
                             col.copy(
-                                tasks = sortTasksNewestFirst(col.tasks.map { task ->
-                                    if (task.id == tempId) createdTask else task
-                                })
+                                tasks = sortTasksNewestFirst(deduplicated + createdTask)
                             )
                         } else {
                             col
@@ -432,7 +436,7 @@ class KanbanViewModel : ViewModel() {
         }
     }
 
-    fun deleteTask(taskId: Int) {
+    fun archiveTask(taskId: Int) {
         val s = session.value
         val current = _boardState.value as? BoardUiState.Content ?: return
         val updatedBoards = current.boards.map { board ->

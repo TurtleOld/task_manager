@@ -261,9 +261,9 @@ fun BoardRoute(
             if (deleteTask != null) {
                 AlertDialog(
                     onDismissRequest = { deleteTask = null },
-                    title = { Text("Удалить задачу?") },
+                    title = { Text("Архивировать задачу?") },
                     text = {
-                        Text("Задача «${deleteTask!!.title}» будет удалена без возможности быстрого восстановления.")
+                        Text("Задача «${deleteTask!!.title}» будет убрана с доски и перенесена в архив.")
                     },
                     confirmButton = {
                         Button(
@@ -272,11 +272,11 @@ fun BoardRoute(
                                 deleteTask = null
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             )
                         ) {
-                            Text("Удалить")
+                            Text("Архивировать")
                         }
                     },
                     dismissButton = {
@@ -715,8 +715,8 @@ fun TaskCard(
                             androidx.compose.material3.DropdownMenuItem(
                                 text = {
                                     Text(
-                                        text = "Удалить задачу",
-                                        color = MaterialTheme.colorScheme.error
+                                        text = "Архивировать",
+                                        color = MaterialTheme.colorScheme.primary
                                     )
                                 },
                                 onClick = {
