@@ -77,9 +77,12 @@ import com.taskmanager.mobile.ui.components.ErrorView
 import com.taskmanager.mobile.ui.components.ModernTextField
 import com.taskmanager.mobile.ui.components.formatShortDate
 import com.taskmanager.mobile.ui.components.formatTaskCount
+import com.taskmanager.mobile.ui.components.parseDeadlineInstant
 import com.taskmanager.mobile.ui.components.priorityColor
 import com.taskmanager.mobile.ui.components.priorityLabel
 import com.taskmanager.mobile.ui.viewmodel.BoardUiState
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
@@ -128,11 +131,19 @@ fun BoardRoute(
         is BoardUiState.Content -> {
             val selectedBoard = boardState.boards.firstOrNull { it.id == boardState.selectedBoardId }
                 ?: boardState.boards.firstOrNull()
+            var showFutureTasks by remember { mutableStateOf(false) }
+            val hiddenFutureTasksCount = selectedBoard?.columns.orEmpty()
+                .flatMap { it.tasks }
+                .count { it.isHiddenFutureTask(timeZone) }
             val filteredBoard = selectedBoard?.copy(
                 columns = selectedBoard.columns.map { column ->
                     column.copy(
                         tasks = column.tasks.filter { task ->
-                            selectedAssigneeFilter == null || task.assignee == selectedAssigneeFilter
+                            val matchesAssignee = selectedAssigneeFilter == null ||
+                                task.assignee == selectedAssigneeFilter
+                            val matchesFutureVisibility = showFutureTasks ||
+                                !task.isHiddenFutureTask(timeZone)
+                            matchesAssignee && matchesFutureVisibility
                         }
                     )
                 }
@@ -152,8 +163,11 @@ fun BoardRoute(
                         selectedBoardId = boardState.selectedBoardId,
                         boardUsers = boardUsers,
                         selectedAssigneeFilter = selectedAssigneeFilter,
+                        showFutureTasks = showFutureTasks,
+                        hiddenFutureTasksCount = hiddenFutureTasksCount,
                         onSelectBoard = onSelectBoard,
                         onOpenSettings = onOpenSettings,
+                        onShowFutureTasksChange = { showFutureTasks = it },
                         onAssigneeFilterChange = onAssigneeFilterChange
                     )
 
@@ -294,8 +308,11 @@ fun KanbanHeader(
     selectedBoardId: Int?,
     boardUsers: List<BoardUser>,
     selectedAssigneeFilter: Int?,
+    showFutureTasks: Boolean,
+    hiddenFutureTasksCount: Int,
     onSelectBoard: (Int) -> Unit,
     onOpenSettings: () -> Unit = {},
+    onShowFutureTasksChange: (Boolean) -> Unit = {},
     onAssigneeFilterChange: (Int?) -> Unit = {}
 ) {
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -338,7 +355,11 @@ fun KanbanHeader(
                     imageVector = Icons.Outlined.FilterList,
                     contentDescription = "Фильтр",
                     modifier = Modifier.size(20.dp),
-                    tint = if (selectedAssigneeFilter != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (selectedAssigneeFilter != null || showFutureTasks) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -398,7 +419,24 @@ fun KanbanHeader(
                     .padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Фильтр по исполнителю", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    "Фильтры доски",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+
+                FutureTasksToggle(
+                    checked = showFutureTasks,
+                    hiddenFutureTasksCount = hiddenFutureTasksCount,
+                    onCheckedChange = onShowFutureTasksChange
+                )
+
+                Text(
+                    "Исполнитель",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
                 TextButton(onClick = {
                     onAssigneeFilterChange(null)
                     showFilterSheet = false
@@ -414,6 +452,78 @@ fun KanbanHeader(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun FutureTasksToggle(
+    checked: Boolean,
+    hiddenFutureTasksCount: Int,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    val bgColor = if (checked) {
+        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(bgColor)
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(18.dp)
+                .border(
+                    width = 1.5.dp,
+                    color = if (checked) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.outline
+                    },
+                    shape = RoundedCornerShape(5.dp)
+                )
+                .background(
+                    color = if (checked) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        Color.Transparent
+                    },
+                    shape = RoundedCornerShape(5.dp)
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (checked) {
+                Text(
+                    text = "✓",
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Показывать дальние задачи",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = if (hiddenFutureTasksCount > 0) {
+                    "Скрыто до недели перед дедлайном: $hiddenFutureTasksCount"
+                } else {
+                    "Дедлайны дальше недели скрываются по умолчанию"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -466,6 +576,11 @@ fun BoardTab(
             }
         }
     }
+}
+
+private fun KanbanTask.isHiddenFutureTask(timeZone: String): Boolean {
+    val deadline = dueDate?.let { parseDeadlineInstant(it, timeZone) } ?: return false
+    return deadline.isAfter(Instant.now().plus(7, ChronoUnit.DAYS))
 }
 
 @Composable
