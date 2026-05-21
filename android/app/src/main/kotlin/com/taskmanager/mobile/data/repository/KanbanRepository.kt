@@ -310,30 +310,12 @@ class KanbanRepository {
         for (eventType in eventTypes) {
             val eventPrefs = grouped[eventType].orEmpty()
             val hasGlobalPush = eventPrefs.any { it.board == null && it.channel == "push" }
-            val hasGlobalTelegram = eventPrefs.any { it.board == null && it.channel == "telegram" }
 
             if (!hasGlobalPush) {
                 val r = service.createNotificationPreference(
                     NotificationPreferenceRequest(board = null, channel = "push", eventType = eventType, enabled = true)
                 ).string()
                 Log.d(PUSH_DEBUG_TAG, "POST /notification-preferences push event=$eventType -> $r")
-            }
-            if (!hasGlobalTelegram) {
-                val r = service.createNotificationPreference(
-                    NotificationPreferenceRequest(board = null, channel = "telegram", eventType = eventType, enabled = false)
-                ).string()
-                Log.d(PUSH_DEBUG_TAG, "POST /notification-preferences telegram event=$eventType -> $r")
-            }
-
-            for (pref in eventPrefs) {
-                if (pref.channel == "push" && !pref.enabled) {
-                    val r = service.updateNotificationPreference(pref.id, NotificationPreferencePatch(enabled = true)).string()
-                    Log.d(PUSH_DEBUG_TAG, "PATCH /notification-preferences/${pref.id} push->true event=$eventType -> $r")
-                }
-                if (pref.channel == "telegram" && pref.enabled) {
-                    val r = service.updateNotificationPreference(pref.id, NotificationPreferencePatch(enabled = false)).string()
-                    Log.d(PUSH_DEBUG_TAG, "PATCH /notification-preferences/${pref.id} telegram->false event=$eventType -> $r")
-                }
             }
         }
 

@@ -7,12 +7,13 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import org.json.JSONObject
+import com.taskmanager.mobile.security.readSavedToken
+import com.taskmanager.mobile.util.PREFS_NAME
+import com.taskmanager.mobile.util.PUSH_DEBUG_TAG
 import com.taskmanager.mobile.util.normalizeBaseUrl
+import com.taskmanager.mobile.util.readSavedDomain
 
 object TaskManagerFcmProfileSync {
-    private const val PREFS_NAME = "task_manager_mobile_prefs"
-    private const val KEY_DOMAIN = "domain"
-    private const val KEY_TOKEN = "token"
     private const val KEY_FCM_TOKEN = "fcm_token"
     private const val KEY_PENDING_FCM_TOKEN = "pending_fcm_token"
 
@@ -20,42 +21,73 @@ object TaskManagerFcmProfileSync {
     private val jsonMediaType = MediaType.parse("application/json; charset=utf-8")
 
     fun updateToken(context: Context, fcmToken: String): Boolean {
+        return updateToken(
+            context = context,
+            domain = readSavedDomain(context),
+            apiToken = readSavedToken(context),
+            fcmToken = fcmToken,
+        )
+    }
+
+    fun updateToken(context: Context, domain: String, apiToken: String, fcmToken: String): Boolean {
         val tokenToSync = fcmToken.trim()
+        if (tokenToSync.isBlank()) {
+            Log.w(PUSH_DEBUG_TAG, "Cannot sync FCM token: empty fcmToken")
+            return false
+        }
+
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit()
             .putString(KEY_FCM_TOKEN, tokenToSync)
             .putString(KEY_PENDING_FCM_TOKEN, tokenToSync)
             .apply()
 
-        val domain = normalizeBaseUrl(prefs.getString(KEY_DOMAIN, "").orEmpty())
-        val apiToken = prefs.getString(KEY_TOKEN, "").orEmpty()
-        if (domain.isBlank() || apiToken.isBlank() || tokenToSync.isBlank()) {
-            Log.w("TM_PUSH_DEBUG", "Cannot sync FCM token: missing domain/token/fcmToken")
+        val normalizedDomain = normalizeBaseUrl(domain)
+        val authToken = apiToken.trim()
+        if (normalizedDomain.isBlank() || authToken.isBlank()) {
+            Log.w(PUSH_DEBUG_TAG, "Cannot sync FCM token: missing domain/token")
             return false
         }
 
-        return patchFcmToken(domain, apiToken, tokenToSync).also { synced ->
+        return patchFcmToken(normalizedDomain, authToken, tokenToSync).also { synced ->
             if (synced) {
                 prefs.edit().remove(KEY_PENDING_FCM_TOKEN).apply()
-                Log.d("TM_PUSH_DEBUG", "FCM token synced")
+                Log.d(PUSH_DEBUG_TAG, "FCM token synced")
             }
         }
     }
 
     fun retryPendingToken(context: Context): Boolean {
+        return retryPendingToken(
+            context = context,
+            domain = readSavedDomain(context),
+            apiToken = readSavedToken(context),
+        )
+    }
+
+    fun retryPendingToken(context: Context, domain: String, apiToken: String): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val token = prefs.getString(KEY_PENDING_FCM_TOKEN, "").orEmpty()
             .ifBlank { prefs.getString(KEY_FCM_TOKEN, "").orEmpty() }
-        return token.isNotBlank() && updateToken(context, token)
+        return token.isNotBlank() && updateToken(context, domain, apiToken, token)
     }
 
     fun clearToken(context: Context): Boolean {
+        return clearToken(
+            context = context,
+            domain = readSavedDomain(context),
+            apiToken = readSavedToken(context),
+        )
+    }
+
+    fun clearToken(context: Context, domain: String, apiToken: String): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val domain = normalizeBaseUrl(prefs.getString(KEY_DOMAIN, "").orEmpty())
-        val apiToken = prefs.getString(KEY_TOKEN, "").orEmpty()
+        val normalizedDomain = normalizeBaseUrl(domain)
+        val authToken = apiToken.trim()
+        val canSync = normalizedDomain.isNotBlank() && authToken.isNotBlank()
+        val synced = if (canSync) patchFcmToken(normalizedDomain, authToken, "") else false
         prefs.edit().remove(KEY_FCM_TOKEN).remove(KEY_PENDING_FCM_TOKEN).apply()
-        if (domain.isBlank() || apiToken.isBlank()) return false
-        return patchFcmToken(domain, apiToken, "")
+        return synced
     }
 
     private fun patchFcmToken(domain: String, apiToken: String, fcmToken: String): Boolean {
@@ -73,28 +105,14 @@ object TaskManagerFcmProfileSync {
         return try {
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    Log.w("TM_PUSH_DEBUG", "FCM token sync failed: HTTP ${response.code()}")
+                    Log.w(PUSH_DEBUG_TAG, "FCM token sync failed: HTTP ${response.code()}")
                     return false
                 }
                 true
             }
         } catch (error: Exception) {
-            Log.e("TM_PUSH_DEBUG", "FCM token sync failed", error)
+            Log.e(PUSH_DEBUG_TAG, "FCM token sync failed", error)
             false
         }
-    }
-
-    private fun normalizeBaseUrl(value: String): String {
-        var base = value.trim().trimEnd('/')
-        if (base.isBlank()) return ""
-        if (!base.startsWith("http://") && !base.startsWith("https://")) {
-            base = "https://$base"
-        }
-        if (base.endsWith("/api/v1")) {
-            base = base.removeSuffix("/api/v1")
-        } else if (base.endsWith("/api")) {
-            base = base.removeSuffix("/api")
-        }
-        return base
     }
 }

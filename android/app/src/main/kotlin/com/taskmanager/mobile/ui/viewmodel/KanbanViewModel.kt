@@ -322,8 +322,10 @@ class KanbanViewModel : ViewModel() {
 
     fun logout(context: Context) {
         stopWebSocket()
+        val s = session.value
         viewModelScope.launch(Dispatchers.IO) {
-            TaskManagerFcmProfileSync.clearToken(context.applicationContext)
+            TaskManagerFcmProfileSync.clearToken(context.applicationContext, s.domain, s.token)
+            clearToken(context.applicationContext)
         }
         _session.value = SessionUiState(domain = session.value.domain)
         _boardState.value = BoardUiState.Loading
@@ -335,9 +337,16 @@ class KanbanViewModel : ViewModel() {
     fun terminateSessions(context: Context) {
         val s = session.value
         viewModelScope.launch(Dispatchers.IO) {
+            TaskManagerFcmProfileSync.clearToken(context.applicationContext, s.domain, s.token)
             runCatching { repository.terminateSessions(s.domain, s.token) }
+            clearToken(context.applicationContext)
         }
-        logout(context)
+        stopWebSocket()
+        _session.value = SessionUiState(domain = session.value.domain)
+        _boardState.value = BoardUiState.Loading
+        _todayState.value = TodayUiState.Loading
+        _searchState.value = SearchUiState.Idle
+        _boardFilterAssignee.value = null
     }
 
     fun refresh() {
@@ -569,29 +578,39 @@ class KanbanViewModel : ViewModel() {
         if (s.fcmRegistered) return
 
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                TaskManagerFcmProfileSync.retryPendingToken(context.applicationContext)
+            val pendingSynced = withContext(Dispatchers.IO) {
+                TaskManagerFcmProfileSync.retryPendingToken(context.applicationContext, s.domain, s.token)
             }
-            runCatching {
-                repository.ensurePushNotificationPreferences(baseUrl = s.domain, apiToken = s.token, eventTypes = notificationEventTypes)
-            }.onSuccess {
-                FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-                    if (!task.isSuccessful) {
-                        Log.w(PUSH_DEBUG_TAG, "FCM token fetch failed", task.exception)
-                        return@addOnCompleteListener
+            if (pendingSynced) {
+                _session.update { it.copy(fcmRegistered = true) }
+                ensurePushPreferences(s.domain, s.token)
+            }
+
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (!task.isSuccessful) {
+                    Log.w(PUSH_DEBUG_TAG, "FCM token fetch failed", task.exception)
+                    return@addOnCompleteListener
+                }
+                val fcmToken = task.result.orEmpty()
+                if (fcmToken.isBlank()) return@addOnCompleteListener
+                viewModelScope.launch {
+                    val synced = withContext(Dispatchers.IO) {
+                        TaskManagerFcmProfileSync.updateToken(context.applicationContext, s.domain, s.token, fcmToken)
                     }
-                    val fcmToken = task.result.orEmpty()
-                    if (fcmToken.isBlank()) return@addOnCompleteListener
-                    viewModelScope.launch {
-                        val synced = withContext(Dispatchers.IO) {
-                            TaskManagerFcmProfileSync.updateToken(context.applicationContext, fcmToken)
-                        }
-                        if (synced) {
-                            _session.update { it.copy(fcmToken = fcmToken, fcmRegistered = true) }
-                        }
+                    if (synced) {
+                        _session.update { it.copy(fcmToken = fcmToken, fcmRegistered = true) }
+                        ensurePushPreferences(s.domain, s.token)
                     }
                 }
             }
+        }
+    }
+
+    private suspend fun ensurePushPreferences(domain: String, apiToken: String) {
+        runCatching {
+            repository.ensurePushNotificationPreferences(baseUrl = domain, apiToken = apiToken, eventTypes = notificationEventTypes)
+        }.onFailure { error ->
+            Log.w(PUSH_DEBUG_TAG, "Push preferences sync failed", error)
         }
     }
 

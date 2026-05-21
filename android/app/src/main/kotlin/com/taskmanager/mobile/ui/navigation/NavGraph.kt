@@ -66,7 +66,11 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route?.substringBefore('/')
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            vm.registerFcmPush(context)
+        }
+    }
     var searchQuery by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
@@ -99,7 +103,11 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
 
     LaunchedEffect(session.isAuthenticated) {
         if (!session.isAuthenticated) return@LaunchedEffect
-        vm.registerFcmPush(context)
+        val notificationsAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        if (notificationsAllowed) {
+            vm.registerFcmPush(context)
+        }
     }
 
     LaunchedEffect(session.isAuthenticated, session.timeZone) {
@@ -170,7 +178,6 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
                             }
                         },
                         onForgotPin = {
-                            clearToken(context)
                             clearPin(context)
                             vm.logout(context)
                             vm.loadSecuritySettings(context)
@@ -186,7 +193,6 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
                         onRetry = vm::refresh,
                         onRefresh = vm::refresh,
                         onLogout = {
-                            clearToken(context)
                             vm.logout(context)
                         },
                         onSelectBoard = vm::selectBoard,
@@ -231,11 +237,9 @@ fun AppRoot(vm: KanbanViewModel = viewModel()) {
                         onSetBiometric = { enabled -> vm.setBiometric(context, enabled) },
                         onThemeModeChange = { mode -> vm.onThemeModeChanged(context, mode) },
                         onLogout = {
-                            clearToken(context)
                             vm.logout(context)
                         },
                         onTerminateSessions = {
-                            clearToken(context)
                             vm.terminateSessions(context)
                         }
                     )
