@@ -14,7 +14,7 @@ fun JsonElement?.asPosition(): Float {
 }
 
 fun sortTasksNewestFirst(tasks: List<KanbanTask>): List<KanbanTask> =
-    tasks.sortedWith(compareBy<KanbanTask> { it.createdAt.orEmpty() }.thenBy { it.id })
+    tasks.sortedWith(compareByDescending<KanbanTask> { it.createdAt.orEmpty() }.thenByDescending { it.id })
 
 fun currentIsoTimestamp(): String {
     return Instant.now().toString()
