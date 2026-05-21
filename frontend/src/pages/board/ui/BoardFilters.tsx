@@ -1,4 +1,4 @@
-import { Badge, Card as SurfaceCard, ChipButton, Field, TextInput } from '@/components/ui'
+import { Badge, Card as SurfaceCard, Checkbox, ChipButton, Field, TextInput } from '@/components/ui'
 import type { BoardLabel } from '../types'
 
 interface BoardFiltersProps {
@@ -8,6 +8,9 @@ interface BoardFiltersProps {
   labelOptions: BoardLabel[]
   activeLabel: string
   onActiveLabelChange: (value: string) => void
+  showFutureCards: boolean
+  onShowFutureCardsChange: (value: boolean) => void
+  hiddenFutureCardsCount: number
 }
 
 export function BoardFilters({
@@ -17,6 +20,9 @@ export function BoardFilters({
   labelOptions,
   activeLabel,
   onActiveLabelChange,
+  showFutureCards,
+  onShowFutureCardsChange,
+  hiddenFutureCardsCount,
 }: BoardFiltersProps) {
   return (
     <SurfaceCard as="section" className="overflow-hidden border-primary/10">
@@ -36,6 +42,14 @@ export function BoardFilters({
             placeholder="Найдите задачу по названию, описанию или тегу"
           />
         </Field>
+        <Checkbox
+          id="board-show-future-cards"
+          checked={showFutureCards}
+          onChange={(event) => onShowFutureCardsChange(event.currentTarget.checked)}
+          label="Показывать дальние задачи"
+          description={hiddenFutureCardsCount > 0 ? `Скрыто до недели перед дедлайном: ${hiddenFutureCardsCount}` : 'Задачи с дедлайном дальше недели скрываются по умолчанию.'}
+          className="border-border/70 bg-background-subtle/55"
+        />
         <div className="rounded-panel border border-border/70 bg-background-subtle/55 p-4">
           <p className="text-label uppercase text-text-muted">Теги</p>
           <div className="mt-2 flex flex-wrap gap-2">

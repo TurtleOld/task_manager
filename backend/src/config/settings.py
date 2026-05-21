@@ -164,6 +164,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "kanban.tasks.generate_recurring_cards",
         "schedule": 60.0,
     },
+    "process-inbox-schedules": {
+        "task": "kanban.tasks.process_inbox_schedules",
+        "schedule": 60.0,
+    },
     "prune-card-activity": {
         "task": "kanban.tasks.prune_card_activity",
         "schedule": crontab(hour=0, minute=30, day_of_month="1"),
@@ -202,6 +206,6 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     "TITLE": "Task Manager API",
     "DESCRIPTION": "Kanban API for Task Manager",
-    "VERSION": "1.2.2",
+    "VERSION": "1.2.3",
     "SERVE_INCLUDE_SCHEMA": False,
 }

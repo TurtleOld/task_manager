@@ -138,6 +138,26 @@ export function useMoveInboxCard() {
   })
 }
 
+export function useCreateInboxSchedule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof api.createInboxSchedule>[0]) => api.createInboxSchedule(payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.inbox() })
+    },
+  })
+}
+
+export function useCancelInboxSchedule() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.cancelInboxSchedule(id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.inbox() })
+    },
+  })
+}
+
 export function useMyToday() {
   return useQuery<MyTodayResponse>({
     queryKey: queryKeys.myToday(),

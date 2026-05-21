@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useBoards } from '../../api/queries/boards'
 import { useColumns } from '../../api/queries/columns'
-import { useCreateInboxCard, useInbox, useMoveInboxCard } from '../../api/queries/cards'
+import { useCancelInboxSchedule, useCreateInboxCard, useCreateInboxSchedule, useInbox, useMoveInboxCard } from '../../api/queries/cards'
 import type { Card } from '../../api/types'
 import { formatTaskCount } from '../../shared/lib/formatTaskCount'
 import { priorityToLabel, priorityToMarker, priorityToTone } from '../board/lib/priority'
@@ -14,15 +14,19 @@ export function InboxPage() {
   const { data: boards = [], isLoading: boardsLoading } = useBoards()
   const createInboxCard = useCreateInboxCard()
   const moveInboxCard = useMoveInboxCard()
+  const createInboxSchedule = useCreateInboxSchedule()
+  const cancelInboxSchedule = useCancelInboxSchedule()
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [targetBoardId, setTargetBoardId] = useState(0)
   const [targetColumnId, setTargetColumnId] = useState(0)
+  const [scheduleMoveAt, setScheduleMoveAt] = useState('')
   const [movingCardId, setMovingCardId] = useState<number | null>(null)
   const { data: targetColumns = [], isLoading: columnsLoading } = useColumns(targetBoardId)
 
   const cards = inbox?.cards ?? []
+  const schedules = inbox?.schedules ?? []
   const isLoading = inboxLoading || boardsLoading
 
   useEffect(() => {
@@ -82,6 +86,34 @@ export function InboxPage() {
       toast.error('Не удалось перенести задачу')
     } finally {
       setMovingCardId(null)
+    }
+  }
+
+  const createSchedule = async () => {
+    if (!targetColumnId) {
+      toast.error('Выберите колонку для расписания')
+      return
+    }
+    if (!scheduleMoveAt) {
+      toast.error('Укажите дату и время переноса')
+      return
+    }
+
+    try {
+      await createInboxSchedule.mutateAsync({ target_column: targetColumnId, move_at: new Date(scheduleMoveAt).toISOString() })
+      setScheduleMoveAt('')
+      toast.success('Расписание переноса создано')
+    } catch {
+      toast.error('Не удалось создать расписание')
+    }
+  }
+
+  const cancelSchedule = async (id: number) => {
+    try {
+      await cancelInboxSchedule.mutateAsync(id)
+      toast.success('Расписание отменено')
+    } catch {
+      toast.error('Не удалось отменить расписание')
     }
   }
 
@@ -198,6 +230,41 @@ export function InboxPage() {
               Текущая цель: <span className="font-semibold text-text">{targetBoard.name}</span> → <span className="font-semibold text-text">{targetColumn.name}</span>
             </div>
           ) : null}
+
+          <div className="rounded-[1.15rem] border border-border/70 bg-background-subtle/65 p-4">
+            <Field label="Автоперенос по расписанию" htmlFor="inbox-schedule-move-at" hint="В выбранное время все текущие задачи из Inbox будут перенесены в целевую колонку.">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <TextInput
+                  id="inbox-schedule-move-at"
+                  type="datetime-local"
+                  value={scheduleMoveAt}
+                  onChange={(event) => setScheduleMoveAt(event.target.value)}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={createSchedule}
+                  loading={createInboxSchedule.isPending}
+                  disabled={!targetColumnId || !scheduleMoveAt || createInboxSchedule.isPending}
+                >
+                  Запланировать
+                </Button>
+              </div>
+            </Field>
+          </div>
+
+          {schedules.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-label uppercase text-text-muted">Активные расписания</p>
+              {schedules.map((schedule) => (
+                <div key={schedule.id} className="flex flex-col gap-2 rounded-control border border-border/70 bg-surface/80 px-3 py-2 text-body-sm text-text-muted sm:flex-row sm:items-center sm:justify-between">
+                  <span>{formatDateTime(schedule.move_at)} → <span className="font-semibold text-text">{schedule.target_board_name}</span> / <span className="font-semibold text-text">{schedule.target_column_name}</span></span>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => void cancelSchedule(schedule.id)} loading={cancelInboxSchedule.isPending}>Отменить</Button>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </SurfaceCard>
       </section>
 
@@ -263,6 +330,18 @@ function InboxTaskCard({ card, canMove, moving, onMove }: { card: Card; canMove:
       </div>
     </article>
   )
+}
+
+function formatDateTime(value: string) {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return parsed.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function InboxMetric({ label, value, tone }: { label: string; value: number; tone: 'primary' | 'success' }) {

@@ -16,6 +16,7 @@ import type {
   SiteSettings,
   MyTodayResponse,
   InboxResponse,
+  InboxSchedule,
   ArchiveResponse,
   SearchResponse,
   ChecklistItem,
@@ -381,6 +382,21 @@ export const api = {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+  createInboxSchedule: async (payload: { target_column: number; move_at: string }): Promise<InboxSchedule> => {
+    const res = await fetch(`${V1}/inbox/schedules/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+  cancelInboxSchedule: async (id: number): Promise<InboxSchedule> => {
+    const res = await fetch(`${V1}/inbox/schedules/${id}/`, {
+      method: 'DELETE',
+      headers: authHeaders(),
     })
     return json(res)
   },

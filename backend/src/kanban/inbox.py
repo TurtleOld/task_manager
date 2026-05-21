@@ -6,7 +6,7 @@ from typing import Any
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
-from .models import Board, Card, Column
+from .models import Board, Card, Column, InboxSchedule
 from .serializers import BoardSerializer, CardSerializer, ColumnSerializer
 
 User = get_user_model()
@@ -62,8 +62,31 @@ def serialize_inbox(user: Any) -> dict[str, Any]:
         .filter(column=column)
         .order_by("position", "id")
     )
+    schedules = (
+        InboxSchedule.objects.select_related("target_column", "target_column__board")
+        .filter(user=user, status=InboxSchedule.Status.SCHEDULED)
+        .order_by("move_at", "id")
+    )
     return {
         "board": BoardSerializer(board).data,
         "column": ColumnSerializer(column).data,
         "cards": CardSerializer(cards, many=True).data,
+        "schedules": [serialize_inbox_schedule(schedule) for schedule in schedules],
+    }
+
+
+def serialize_inbox_schedule(schedule: InboxSchedule) -> dict[str, Any]:
+    target_column = schedule.target_column
+    target_board = target_column.board
+    return {
+        "id": schedule.id,
+        "target_column": target_column.id,
+        "target_board": target_board.id,
+        "target_board_name": target_board.name,
+        "target_column_name": target_column.name,
+        "move_at": schedule.move_at,
+        "status": schedule.status,
+        "moved_count": schedule.moved_count,
+        "created_at": schedule.created_at,
+        "updated_at": schedule.updated_at,
     }

@@ -133,6 +133,20 @@ export interface InboxResponse {
   board: Board
   column: Column
   cards: Card[]
+  schedules: InboxSchedule[]
+}
+
+export interface InboxSchedule {
+  id: number
+  target_column: number
+  target_board: number
+  target_board_name: string
+  target_column_name: string
+  move_at: string
+  status: 'scheduled' | 'completed' | 'cancelled'
+  moved_count: number
+  created_at: string
+  updated_at: string
 }
 
 export interface ArchivedCard extends Card {

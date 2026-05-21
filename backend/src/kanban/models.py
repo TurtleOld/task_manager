@@ -199,6 +199,30 @@ class Card(TimestampedModel):
             raise ValidationError({"parent": "Only two subtask levels are allowed."})
 
 
+class InboxSchedule(TimestampedModel):
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="inbox_schedules",
+    )
+    target_column = models.ForeignKey(Column, on_delete=models.CASCADE, related_name="inbox_schedules")
+    move_at = models.DateTimeField()
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
+    moved_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["move_at", "id"]
+        indexes = [
+            models.Index(fields=["status", "move_at"]),
+            models.Index(fields=["user", "status", "move_at"]),
+        ]
+
+
 class RecurrenceRule(TimestampedModel):
     card = models.OneToOneField(Card, on_delete=models.CASCADE, related_name="recurrence_rule")
     freq = models.CharField(max_length=12, choices=RecurrenceFrequency.choices)

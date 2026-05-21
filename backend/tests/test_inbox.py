@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from kanban.models import Board, Card, Column
+from kanban.models import Board, Card, Column, InboxSchedule
+from kanban.tasks import process_inbox_schedules
 
 
 @pytest.mark.django_db()
@@ -58,6 +60,35 @@ def test_inbox_cards_can_move_to_regular_board(
     card.refresh_from_db()
     assert card.board_id == board.id
     assert card.column_id == target_column.id
+
+
+@pytest.mark.django_db()
+def test_inbox_schedule_moves_current_inbox_cards(auth_client: APIClient, regular_user: object) -> None:
+    inbox_board = Board.objects.get(owner=regular_user, is_inbox=True)
+    inbox_column = Column.objects.get(board=inbox_board, name="Inbox")
+    card = Card.objects.create(column=inbox_column, title="Scheduled sort")
+    board = Board.objects.create(name="Work")
+    target_column = Column.objects.create(board=board, name="To Do")
+
+    resp = auth_client.post(
+        "/api/v1/inbox/schedules/",
+        data={"target_column": target_column.id, "move_at": (timezone.now() + timezone.timedelta(minutes=5)).isoformat()},
+        format="json",
+    )
+
+    assert resp.status_code == 201
+    schedule = InboxSchedule.objects.get(pk=resp.json()["id"])
+    schedule.move_at = timezone.now() - timezone.timedelta(minutes=1)
+    schedule.save(update_fields=["move_at", "updated_at", "version"])
+
+    process_inbox_schedules()
+
+    card.refresh_from_db()
+    schedule.refresh_from_db()
+    assert card.column_id == target_column.id
+    assert card.board_id == board.id
+    assert schedule.status == InboxSchedule.Status.COMPLETED
+    assert schedule.moved_count == 1
 
 
 @pytest.mark.django_db()

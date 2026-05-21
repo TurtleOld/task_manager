@@ -75,6 +75,7 @@ export function BoardPage({ user }: BoardPageProps) {
   const [activeDragCardId, setActiveDragCardId] = useState<number | null>(null)
   const [activeLabel, setActiveLabel] = useState('Все')
   const [searchQuery, setSearchQuery] = useState('')
+  const [showFutureCards, setShowFutureCards] = useState(false)
   const [assignees, setAssignees] = useState<AssigneeOption[]>([])
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -187,6 +188,13 @@ export function BoardPage({ user }: BoardPageProps) {
     return assigneeId != null ? (assignees.find((u) => u.id === assigneeId)?.name ?? null) : null
   }
 
+  const isFutureCardHidden = (card: Card) => {
+    if (!card.deadline) return false
+    const deadlineTime = new Date(card.deadline).getTime()
+    if (Number.isNaN(deadlineTime)) return false
+    return deadlineTime - Date.now() > 7 * 24 * 60 * 60 * 1000
+  }
+
   const filteredCards = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     return cards.filter((card) => {
@@ -195,9 +203,14 @@ export function BoardPage({ user }: BoardPageProps) {
       const matchesLabel = activeLabel === 'Все' || labelNames.includes(activeLabel)
       const searchable = [card.title, card.description, ...labelNames].join(' ').toLowerCase()
       const matchesSearch = !query || searchable.includes(query)
-      return matchesLabel && matchesSearch
+      return matchesLabel && matchesSearch && (showFutureCards || !isFutureCardHidden(card))
     })
-  }, [activeLabel, cards, searchQuery])
+  }, [activeLabel, cards, searchQuery, showFutureCards])
+
+  const hiddenFutureCardsCount = useMemo(
+    () => cards.filter((card) => isFutureCardHidden(card)).length,
+    [cards],
+  )
 
   const grouped = useMemo(() => {
     const g: Record<number, Card[]> = {}
@@ -244,7 +257,7 @@ export function BoardPage({ user }: BoardPageProps) {
 
   const urgentCardsCount = cards.filter((card) => card.priority === PRIORITY_HIGH).length
   const datedCardsCount = cards.filter((card) => Boolean(deadlineFor(card))).length
-  const activeFilterCount = [activeLabel !== 'Все', Boolean(searchQuery.trim())].filter(Boolean).length
+  const activeFilterCount = [activeLabel !== 'Все', Boolean(searchQuery.trim()), showFutureCards].filter(Boolean).length
 
   const onCreateColumn = async () => {
     const name = colName.trim()
@@ -610,6 +623,9 @@ export function BoardPage({ user }: BoardPageProps) {
           labelOptions={allKnownLabels}
           activeLabel={activeLabel}
           onActiveLabelChange={setActiveLabel}
+          showFutureCards={showFutureCards}
+          onShowFutureCardsChange={setShowFutureCards}
+          hiddenFutureCardsCount={hiddenFutureCardsCount}
         />
 
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>

@@ -23,6 +23,7 @@ from .models import (
     CardActivity,
     CardDeadlineReminder,
     CardDeadlineReminderDelivery,
+    InboxSchedule,
     NotificationChannel,
     NotificationDelivery,
     NotificationEvent,
@@ -34,6 +35,7 @@ from .models import (
     RecurrenceRule,
     SiteSettings,
 )
+from .inbox import get_or_create_user_inbox
 from .reminders import reminder_channel_availability, resolve_delivery_channel
 
 User = get_user_model()
@@ -763,6 +765,40 @@ def generate_recurring_cards(self) -> None:
         from .serializers import CardSerializer  # noqa: E402
 
         broadcast_board_event(copy.board_id, "card.created", {"card": CardSerializer(copy).data})
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=30)
+def process_inbox_schedules(self) -> None:
+    now = timezone.now()
+    schedules = (
+        InboxSchedule.objects.select_related("user", "target_column", "target_column__board")
+        .filter(status=InboxSchedule.Status.SCHEDULED, move_at__lte=now)
+        .order_by("move_at", "id")
+    )
+
+    from .broadcast import broadcast_board_event  # noqa: E402
+    from .serializers import CardSerializer  # noqa: E402
+
+    for schedule in schedules:
+        _board, inbox_column = get_or_create_user_inbox(schedule.user)
+        cards = list(
+            Card.objects.select_related("board", "column")
+            .prefetch_related("labels", "checklist_items", "subtasks__labels", "subtasks__checklist_items", "attachments", "recurrence_rule")
+            .filter(column=inbox_column, parent__isnull=True)
+            .order_by("position", "id")
+        )
+        moved_count = 0
+        for card in cards:
+            source_board_id = card.board_id
+            card.column = schedule.target_column
+            card.save(update_fields=["column", "board", "updated_at", "version"])
+            moved_count += 1
+            broadcast_board_event(source_board_id, "card.deleted", {"card_id": card.id})
+            broadcast_board_event(card.board_id, "card.created", {"card": CardSerializer(card).data})
+
+        schedule.status = InboxSchedule.Status.COMPLETED
+        schedule.moved_count = moved_count
+        schedule.save(update_fields=["status", "moved_count", "updated_at", "version"])
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
