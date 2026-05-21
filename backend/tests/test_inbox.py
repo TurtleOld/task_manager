@@ -63,7 +63,10 @@ def test_inbox_cards_can_move_to_regular_board(
 
 
 @pytest.mark.django_db()
-def test_inbox_schedule_moves_current_inbox_cards(auth_client: APIClient, regular_user: object) -> None:
+def test_inbox_schedule_moves_current_inbox_cards(
+    auth_client: APIClient,
+    regular_user: object,
+) -> None:
     inbox_board = Board.objects.get(owner=regular_user, is_inbox=True)
     inbox_column = Column.objects.get(board=inbox_board, name="Inbox")
     card = Card.objects.create(column=inbox_column, title="Scheduled sort")
@@ -72,7 +75,12 @@ def test_inbox_schedule_moves_current_inbox_cards(auth_client: APIClient, regula
 
     resp = auth_client.post(
         "/api/v1/inbox/schedules/",
-        data={"target_column": target_column.id, "move_at": (timezone.now() + timezone.timedelta(minutes=5)).isoformat()},
+        data={
+            "target_column": target_column.id,
+            "move_at": (
+                timezone.now() + timezone.timedelta(minutes=5)
+            ).isoformat(),
+        },
         format="json",
     )
 

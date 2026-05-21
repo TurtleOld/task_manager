@@ -49,22 +49,44 @@ class InboxScheduleView(APIView):
         target_column_id = request.data.get("target_column")
         move_at = request.data.get("move_at")
         if not target_column_id or not move_at:
-            return Response({"detail": "target_column and move_at are required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "target_column and move_at are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        target_column = Column.objects.select_related("board").filter(pk=target_column_id, board__is_inbox=False).first()
+        target_column = (
+            Column.objects.select_related("board")
+            .filter(pk=target_column_id, board__is_inbox=False)
+            .first()
+        )
         if target_column is None:
-            return Response({"detail": "Target column not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Target column not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         try:
-            parsed_move_at = timezone.datetime.fromisoformat(str(move_at).replace("Z", "+00:00"))
+            parsed_move_at = timezone.datetime.fromisoformat(
+                str(move_at).replace("Z", "+00:00"),
+            )
         except ValueError:
-            return Response({"detail": "move_at must be a valid datetime."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "move_at must be a valid datetime."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if timezone.is_naive(parsed_move_at):
             parsed_move_at = timezone.make_aware(parsed_move_at, timezone.get_current_timezone())
         if parsed_move_at <= timezone.now():
-            return Response({"detail": "move_at must be in the future."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "move_at must be in the future."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        schedule = InboxSchedule.objects.create(user=request.user, target_column=target_column, move_at=parsed_move_at)
+        schedule = InboxSchedule.objects.create(
+            user=request.user,
+            target_column=target_column,
+            move_at=parsed_move_at,
+        )
         return Response(serialize_inbox_schedule(schedule), status=status.HTTP_201_CREATED)
 
 
@@ -72,13 +94,20 @@ class InboxScheduleDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request: Request, pk: int) -> Response:
-        schedule = InboxSchedule.objects.select_related("target_column", "target_column__board").filter(
-            pk=pk,
-            user=request.user,
-            status=InboxSchedule.Status.SCHEDULED,
-        ).first()
+        schedule = (
+            InboxSchedule.objects.select_related("target_column", "target_column__board")
+            .filter(
+                pk=pk,
+                user=request.user,
+                status=InboxSchedule.Status.SCHEDULED,
+            )
+            .first()
+        )
         if schedule is None:
-            return Response({"detail": "Schedule not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Schedule not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         schedule.status = InboxSchedule.Status.CANCELLED
         schedule.save(update_fields=["status", "updated_at", "version"])

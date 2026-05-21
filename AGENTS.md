@@ -48,6 +48,10 @@
 - Never push tag `android-v<version>` before the commit containing the same `android/version.txt` value is already pushed.
 - If tag version and committed version file differ, the matching release workflow fails by design.
 
+## Code Style
+
+- Keep Python lines at 80 characters when practical; the lint limit is 81 characters.
+
 ## Android Testing
 
 - Before Android verification, ensure backend API is running and the mobile app points to the same environment as the backend used for manual testing.

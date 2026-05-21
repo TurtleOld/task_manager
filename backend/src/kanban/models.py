@@ -210,7 +210,11 @@ class InboxSchedule(TimestampedModel):
         on_delete=models.CASCADE,
         related_name="inbox_schedules",
     )
-    target_column = models.ForeignKey(Column, on_delete=models.CASCADE, related_name="inbox_schedules")
+    target_column = models.ForeignKey(
+        Column,
+        on_delete=models.CASCADE,
+        related_name="inbox_schedules",
+    )
     move_at = models.DateTimeField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SCHEDULED)
     moved_count = models.PositiveIntegerField(default=0)

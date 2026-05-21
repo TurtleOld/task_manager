@@ -17,6 +17,7 @@ from django.db.utils import IntegrityError
 from django.utils import timezone
 from django.utils.text import Truncator
 
+from .inbox import get_or_create_user_inbox
 from .models import (
     Attachment,
     Card,
@@ -35,7 +36,6 @@ from .models import (
     RecurrenceRule,
     SiteSettings,
 )
-from .inbox import get_or_create_user_inbox
 from .reminders import reminder_channel_availability, resolve_delivery_channel
 
 User = get_user_model()
@@ -783,7 +783,14 @@ def process_inbox_schedules(self) -> None:
         _board, inbox_column = get_or_create_user_inbox(schedule.user)
         cards = list(
             Card.objects.select_related("board", "column")
-            .prefetch_related("labels", "checklist_items", "subtasks__labels", "subtasks__checklist_items", "attachments", "recurrence_rule")
+            .prefetch_related(
+                "labels",
+                "checklist_items",
+                "subtasks__labels",
+                "subtasks__checklist_items",
+                "attachments",
+                "recurrence_rule",
+            )
             .filter(column=inbox_column, parent__isnull=True)
             .order_by("position", "id")
         )
@@ -794,7 +801,11 @@ def process_inbox_schedules(self) -> None:
             card.save(update_fields=["column", "board", "updated_at", "version"])
             moved_count += 1
             broadcast_board_event(source_board_id, "card.deleted", {"card_id": card.id})
-            broadcast_board_event(card.board_id, "card.created", {"card": CardSerializer(card).data})
+            broadcast_board_event(
+                card.board_id,
+                "card.created",
+                {"card": CardSerializer(card).data},
+            )
 
         schedule.status = InboxSchedule.Status.COMPLETED
         schedule.moved_count = moved_count
