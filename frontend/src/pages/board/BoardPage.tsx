@@ -407,10 +407,10 @@ export function BoardPage({ user }: BoardPageProps) {
       const after = items.find((item) => item.id === afterId)
       return String(Number(after?.position ?? 0) - 1)
     }
-    const last = items
+    const first = items
       .filter((item) => item.column === targetColumnId)
-      .sort((a, b) => Number(b.position) - Number(a.position))[0]
-    return String(Number(last?.position ?? 0) + 1)
+      .sort((a, b) => Number(a.position) - Number(b.position))[0]
+    return String(Number(first?.position ?? 0) - 1)
   }
 
   const positionAfterColumnDrop = (items: Column[], beforeId?: number, afterId?: number) => {
