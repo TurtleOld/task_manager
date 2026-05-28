@@ -23,7 +23,6 @@ function describeMonthlyRule(byweekday: number[], bysetpos: number | null): stri
 
 export function RecurrenceSection({
   draft,
-  recurrenceRule,
   recurrenceDraft,
   setRecurrenceDraft,
   recurrencePreset,
