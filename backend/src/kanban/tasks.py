@@ -24,6 +24,7 @@ from .models import (
     CardActivity,
     CardDeadlineReminder,
     CardDeadlineReminderDelivery,
+    Column,
     InboxSchedule,
     NotificationChannel,
     NotificationDelivery,
@@ -691,14 +692,29 @@ def generate_recurring_cards(self) -> None:
             continue
 
         due = rule.next_due or now
+        # The copy's deadline is the NEXT occurrence after the trigger time.
+        # This guarantees the generated task always starts with a future deadline.
+        copy_deadline = calculate_next_recurrence_due(
+            base=due,
+            freq=rule.freq,
+            interval=rule.interval,
+            byweekday=rule.byweekday,
+            byday=rule.byday,
+            bysetpos=rule.bysetpos,
+        )
+        todo_column = (
+            Column.objects.filter(board=card.board, archived_at__isnull=True, is_done=False)
+            .order_by('position', 'id')
+            .first()
+        ) or card.column
         copy = Card.objects.create(
             board=card.board,
-            column=card.column,
+            column=todo_column,
             parent=card.parent,
             assignee=card.assignee,
             title=card.title,
             description=card.description,
-            deadline=due if card.deadline else None,
+            deadline=copy_deadline if card.deadline else None,
             priority=card.priority,
             parent_recurrence=rule,
         )
@@ -720,16 +736,9 @@ def generate_recurring_cards(self) -> None:
         )
 
         generated_count = rule.generated_count + 1
-        next_due = calculate_next_recurrence_due(
-            base=due,
-            freq=rule.freq,
-            interval=rule.interval,
-            byweekday=rule.byweekday,
-            byday=rule.byday,
-            bysetpos=rule.bysetpos,
-        )
-        copy_next_due: datetime | None = next_due
-        if rule.until is not None and next_due.date() > rule.until:
+        # The copy's recurrence triggers when its own deadline arrives (same pattern).
+        copy_next_due: datetime | None = copy_deadline
+        if rule.until is not None and copy_deadline.date() > rule.until:
             copy_next_due = None
         if rule.count is not None and generated_count >= rule.count:
             copy_next_due = None

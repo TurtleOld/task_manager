@@ -97,7 +97,9 @@ export function RecurrenceSection({
       </div>
 
       {monthlyDescription ? <p className="text-caption text-text-muted">Расписание: {monthlyDescription}.</p> : null}
-      {recurrenceRule?.next_due ? <p className="text-caption text-text-muted">Следующая задача будет создана: {formatDateTime(recurrenceRule.next_due)}</p> : null}
+      {enabled
+        ? <p className="text-caption text-text-muted">Следующая задача будет создана примерно: {formatDateTime(estimateNextDue(recurrenceDraft, draft.deadline).toISOString())}</p>
+        : null}
       <p className="text-caption text-text-muted">Изменения сохраняются общей кнопкой «Сохранить».</p>
     </SurfaceCard>
   )
@@ -113,4 +115,45 @@ function formatDateTime(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function estimateNextDue(
+  draft: { freq: string; interval: number; byweekday: number[] },
+  deadline: string | null | undefined,
+): Date {
+  const base = deadline ? new Date(deadline) : new Date()
+  const d = Number.isNaN(base.getTime()) ? new Date() : base
+  const interval = Math.max(1, draft.interval || 1)
+
+  if (draft.freq === 'daily') {
+    const next = new Date(d)
+    next.setDate(next.getDate() + interval)
+    return next
+  }
+  if (draft.freq === 'weekly') {
+    if (draft.byweekday.length > 0) {
+      for (let offset = 1; offset <= 8 * interval; offset++) {
+        const candidate = new Date(d)
+        candidate.setDate(candidate.getDate() + offset)
+        const mondayBased = (candidate.getDay() + 6) % 7
+        if (draft.byweekday.includes(mondayBased)) return candidate
+      }
+    }
+    const next = new Date(d)
+    next.setDate(next.getDate() + 7 * interval)
+    return next
+  }
+  if (draft.freq === 'monthly') {
+    const next = new Date(d)
+    next.setMonth(next.getMonth() + interval)
+    return next
+  }
+  if (draft.freq === 'yearly') {
+    const next = new Date(d)
+    next.setFullYear(next.getFullYear() + interval)
+    return next
+  }
+  const next = new Date(d)
+  next.setDate(next.getDate() + interval)
+  return next
 }

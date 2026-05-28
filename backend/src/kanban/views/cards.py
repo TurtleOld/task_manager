@@ -332,19 +332,12 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             self._broadcast_card_with_parent(card, "card.updated")
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-        from ..tasks import calculate_next_recurrence_due  # noqa: E402
-
         rule = getattr(card, "recurrence_rule", None)
         serializer = RecurrenceRuleSerializer(rule, data=request.data)
         serializer.is_valid(raise_exception=True)
-        next_due = calculate_next_recurrence_due(
-            base=card.deadline or timezone.now(),
-            freq=serializer.validated_data["freq"],
-            interval=serializer.validated_data.get("interval", 1),
-            byweekday=serializer.validated_data.get("byweekday", []),
-            byday=serializer.validated_data.get("byday"),
-            bysetpos=serializer.validated_data.get("bysetpos"),
-        )
+        # next_due = the current task's deadline (trigger fires when this deadline passes,
+        # and the generated copy gets deadline = next_due + interval — always in the future).
+        next_due = card.deadline or timezone.now()
         saved = serializer.save(card=card, next_due=next_due)
         self._broadcast_card_with_parent(card, "card.updated")
         return Response(RecurrenceRuleSerializer(saved).data)
