@@ -11,6 +11,13 @@
 - The `v<version>` tag triggers Docker image build/push for backend, celery, and frontend; the `android-v<version>` tag triggers the Android APK release.
 - `versionCode` in `android/app/build.gradle.kts` is derived from `versionName` (`major*10000 + minor*100 + patch`), so every release-please version bump automatically produces an increasing `versionCode`.
 
+## Commit Style
+
+- Use Conventional Commits for all commits and PR titles that may become merge commits on `main`: `type(scope): summary`.
+- Prefer `fix:` for bug fixes, `feat:` for user-facing features, `docs:` for documentation-only changes, `refactor:` for behavior-preserving code changes, `test:` for tests, `ci:` for CI/workflow-only changes, and `chore:` for maintenance.
+- Use `fix(android): ...` or `feat(android): ...` for Android changes that should trigger an Android release; use `fix:` or `feat:` without the `android` scope for root backend/frontend releases.
+- When using squash merge, ensure the final PR title is a valid Conventional Commit, because it becomes the commit message on `main`.
+
 ## Code Style
 
 - Keep Python lines at 80 characters when practical; the lint limit is 81 characters.
