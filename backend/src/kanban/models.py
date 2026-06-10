@@ -395,7 +395,18 @@ class NotificationPreference(models.Model):
 
     class Meta:
         ordering = ["user_id", "board_id", "channel", "event_type"]
-        unique_together = ["user", "board", "channel", "event_type"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "board", "channel", "event_type"],
+                condition=models.Q(board__isnull=False),
+                name="uniq_notification_pref_board",
+            ),
+            models.UniqueConstraint(
+                fields=["user", "channel", "event_type"],
+                condition=models.Q(board__isnull=True),
+                name="uniq_notification_pref_global",
+            ),
+        ]
         indexes = [
             models.Index(fields=["user", "board"]),
             models.Index(fields=["event_type", "channel"]),

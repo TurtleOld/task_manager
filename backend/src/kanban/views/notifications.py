@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.request import Request
@@ -102,5 +103,24 @@ class NotificationPreferenceViewSet(viewsets.ModelViewSet[NotificationPreference
             queryset = queryset.filter(board_id=board)
         return queryset
 
-    def perform_create(self, serializer: NotificationPreferenceSerializer) -> None:
-        serializer.save(user=self.request.user)
+    def create(self, request: Request, *args: object, **kwargs: object) -> Response:
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        lookup = {
+            "user": request.user,
+            "board": data.get("board"),
+            "channel": data["channel"],
+            "event_type": data["event_type"],
+        }
+        try:
+            with transaction.atomic():
+                instance = serializer.save(user=request.user)
+        except IntegrityError:
+            instance = NotificationPreference.objects.get(**lookup)
+            enabled = data.get("enabled")
+            if enabled is not None and instance.enabled != enabled:
+                instance.enabled = enabled
+                instance.save(update_fields=["enabled"])
+            return Response(self.get_serializer(instance).data, status=status.HTTP_200_OK)
+        return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
