@@ -9,7 +9,7 @@
   - Root (backend/frontend): version in `version.txt`, mirrored into `frontend/package.json`, `backend/pyproject.toml`, and `backend/src/config/settings.py` (line annotated with `x-release-please-version`). Tag format: `v<version>`. Commits under `android/` are excluded.
   - Android: version in `android/version.txt`, mirrored into `android/app/build.gradle.kts` `versionName` (line annotated with `x-release-please-version`). Tag format: `android-v<version>`. Only commits under `android/` count.
 - The `v<version>` tag triggers Docker image build/push for backend, celery, and frontend; the `android-v<version>` tag triggers the Android APK release.
-- `versionCode` in `android/app/build.gradle.kts` is not managed by release-please and must be bumped manually when a Play Store upload requires it.
+- `versionCode` in `android/app/build.gradle.kts` is derived from `versionName` (`major*10000 + minor*100 + patch`), so every release-please version bump automatically produces an increasing `versionCode`.
 
 ## Code Style
 
