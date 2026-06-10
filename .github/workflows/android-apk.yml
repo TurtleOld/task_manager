@@ -82,11 +82,16 @@ jobs:
           name: app-release-apk-${{ env.APP_VERSION_NAME }}
           path: app/build/outputs/apk/release/app-release.apk
 
-      - name: Create GitHub release
+      - name: Upload APK to GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$RELEASE_TAG" \
-            --title "Android APK $APP_VERSION_NAME" \
-            --notes "Release generated from Android version $APP_VERSION_NAME." \
-            app/build/outputs/apk/release/app-release.apk
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" \
+              app/build/outputs/apk/release/app-release.apk --clobber
+          else
+            gh release create "$RELEASE_TAG" \
+              --title "Android APK $APP_VERSION_NAME" \
+              --notes "Release generated from Android version $APP_VERSION_NAME." \
+              app/build/outputs/apk/release/app-release.apk
+          fi
