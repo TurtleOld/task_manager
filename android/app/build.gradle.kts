@@ -51,7 +51,7 @@ android {
         applicationId = "com.taskmanager.mobile"
         minSdk = 24
         targetSdk = 35
-        val appVersionName = "1.3.4" // x-release-please-version
+        val appVersionName = "1.3.5" // x-release-please-version
         versionName = appVersionName
         versionCode = appVersionName.split(".").let { (major, minor, patch) ->
             major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt()
