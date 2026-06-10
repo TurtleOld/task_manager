@@ -1,0 +1,31 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "separate-pull-requests": true,
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "component": "task-manager",
+      "include-component-in-tag": false,
+      "exclude-paths": ["android"],
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "frontend/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "toml",
+          "path": "backend/pyproject.toml",
+          "jsonpath": "$.project.version"
+        },
+        "backend/src/config/settings.py"
+      ]
+    },
+    "android": {
+      "release-type": "simple",
+      "component": "android",
+      "include-component-in-tag": true,
+      "extra-files": ["app/build.gradle.kts"]
+    }
+  }
+}

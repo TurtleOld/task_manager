@@ -2,51 +2,14 @@
 
 ## Release Versioning
 
-- Single source of truth for backend/frontend project version: `version.txt`
-- Single source of truth for Android app version: `android/version.txt`
-- Keep frontend and backend versions synchronized via `python3 scripts/sync_version.py`
-- Keep Android version synchronized into Gradle via `python3 scripts/sync_android_version.py`
-- Preferred command to update backend/frontend version: `make set-version NEW_VERSION=<version>`
-- Preferred command to update Android version: `make set-android-version NEW_VERSION=<version>`
-- Backend/frontend release tag format: `v<version>`
-- Android release tag format: `android-v<version>`
-- Docker compose release workflow reads backend/frontend project version from `version.txt`
-- Android release workflow reads Android app version from `android/version.txt`
-
-## Release Scope Rules
-
-- If changes do not touch `android/`, update only `version.txt` with `make set-version NEW_VERSION=<version>` and use tag `v<version>`.
-- If changes touch `android/`, update only `android/version.txt` with `make set-android-version NEW_VERSION=<version>` and use tag `android-v<version>`.
-- Do not bump `version.txt` for Android-only changes.
-- Do not bump `android/version.txt` for backend/frontend-only changes.
-- The `v<version>` tag triggers Docker image build/push for backend, celery, and frontend only.
-- The `android-v<version>` tag triggers Android APK release only.
-
-## Release Order
-
-### Backend/Frontend
-
-1. Make code changes.
-2. Run `make set-version NEW_VERSION=<version>`.
-3. Commit versioned changes together with the code changes.
-4. Push the commit to remote.
-5. Create tag `v<version>` on that commit.
-6. Push the tag to remote.
-
-### Android
-
-1. Make Android code changes under `android/`.
-2. Run `make set-android-version NEW_VERSION=<version>`.
-3. Commit Android versioned changes together with the Android code changes.
-4. Push the commit to remote.
-5. Create tag `android-v<version>` on that commit.
-6. Push the tag to remote.
-
-## Important Constraint
-
-- Never push tag `v<version>` before the commit containing the same `version.txt` value is already pushed.
-- Never push tag `android-v<version>` before the commit containing the same `android/version.txt` value is already pushed.
-- If tag version and committed version file differ, the matching release workflow fails by design.
+- Releases are fully automated by release-please (`.github/workflows/release-please.yml`, `release-please-config.json`, `.release-please-manifest.json`).
+- Never bump versions or create release tags manually: release-please opens a release PR per component; merging it updates version files, CHANGELOG.md, and creates the tag.
+- Versions are derived from conventional commit messages on `main`: `fix:` bumps patch, `feat:` bumps minor, `feat!:`/`BREAKING CHANGE:` bumps major. Commits of other types (`chore:`, `refactor:`, `docs:`, ...) do not trigger a release.
+- Components:
+  - Root (backend/frontend): version in `version.txt`, mirrored into `frontend/package.json`, `backend/pyproject.toml`, and `backend/src/config/settings.py` (line annotated with `x-release-please-version`). Tag format: `v<version>`. Commits under `android/` are excluded.
+  - Android: version in `android/version.txt`, mirrored into `android/app/build.gradle.kts` `versionName` (line annotated with `x-release-please-version`). Tag format: `android-v<version>`. Only commits under `android/` count.
+- The `v<version>` tag triggers Docker image build/push for backend, celery, and frontend; the `android-v<version>` tag triggers the Android APK release.
+- `versionCode` in `android/app/build.gradle.kts` is not managed by release-please and must be bumped manually when a Play Store upload requires it.
 
 ## Code Style
 
@@ -73,10 +36,10 @@ Use and preserve this format when environment context is provided by the user:
 ```xml
 <environment_details>
 Current time: 2026-04-06T21:48:31+03:00
-Active file: scripts/sync_version.py
+Active file: backend/src/kanban/models.py
 Visible files:
-  scripts/sync_version.py
+  backend/src/kanban/models.py
 Open tabs:
-  scripts/sync_version.py
+  backend/src/kanban/models.py
 </environment_details>
 ```
