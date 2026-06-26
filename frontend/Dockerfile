@@ -11,7 +11,7 @@ RUN npm config set strict-ssl false
 COPY package.json package-lock.json ./
 RUN npm cache clean --force \
   && npm ci --include=optional \
-  && node -e "require('@rollup/rollup-linux-x64-gnu'); console.log('rollup native ok')"
+  && node -e "require('@rolldown/binding-linux-x64-gnu'); console.log('rolldown native ok')"
 
 COPY . ./
 
