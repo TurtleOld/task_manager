@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import socket
 import sys
 from pathlib import Path
 
@@ -137,17 +138,47 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "notifications@task-manager
 
 REDIS_URL = os.getenv("REDIS_URL") or os.getenv("CELERY_BROKER_URL") or "redis://localhost:6379/0"
 
+# Detect dead/half-open Redis sockets after a network blip so clients reconnect
+# instead of silently hanging on a stale connection (e.g. pub/sub subscriptions
+# used for real-time notifications, which otherwise stay broken until restart).
+_REDIS_SOCKET_KEEPALIVE_OPTIONS = {
+    socket.TCP_KEEPIDLE: 60,
+    socket.TCP_KEEPINTVL: 10,
+    socket.TCP_KEEPCNT: 5,
+}
+REDIS_HEALTH_CHECK_INTERVAL = int(os.getenv("REDIS_HEALTH_CHECK_INTERVAL", "30"))
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [REDIS_URL],
+            "hosts": [
+                {
+                    "address": REDIS_URL,
+                    "socket_keepalive": True,
+                    "socket_keepalive_options": _REDIS_SOCKET_KEEPALIVE_OPTIONS,
+                    "health_check_interval": REDIS_HEALTH_CHECK_INTERVAL,
+                }
+            ],
         },
     }
 }
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
+
+# Keep the broker/result Redis connections resilient to network blips so the
+# worker reconnects automatically instead of hanging on a stale socket.
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "socket_keepalive": True,
+    "socket_keepalive_options": _REDIS_SOCKET_KEEPALIVE_OPTIONS,
+    "health_check_interval": REDIS_HEALTH_CHECK_INTERVAL,
+    "retry_on_timeout": True,
+}
+CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = CELERY_BROKER_TRANSPORT_OPTIONS
+CELERY_REDIS_BACKEND_HEALTH_CHECK_INTERVAL = REDIS_HEALTH_CHECK_INTERVAL
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_CONNECTION_MAX_RETRIES = None
 CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "false").lower() in {
     "1",
     "true",
