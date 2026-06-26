@@ -14,8 +14,39 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      # A PAT (not GITHUB_TOKEN) is required: tags pushed with GITHUB_TOKEN do
+      # not trigger other workflows, so the v* tag would never start the docker
+      # build. Fail fast here instead of producing a silently un-built release.
+      - name: Ensure release token is configured
+        env:
+          RELEASE_PLEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_PLEASE_TOKEN" ]; then
+            echo "RELEASE_PLEASE_TOKEN secret is not set; release tags would" \
+                 "not trigger the docker build." >&2
+            exit 1
+          fi
+
       - uses: googleapis/release-please-action@v5.0.0
+        id: release
         with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      - name: Report release outcome
+        env:
+          OUTPUTS: ${{ toJSON(steps.release.outputs) }}
+        run: |
+          created=$(echo "$OUTPUTS" | jq -r \
+            '[to_entries[] | select(.key | endswith("release_created"))
+              | .value] | any(. == "true")')
+          if [ "$created" = "true" ]; then
+            tags=$(echo "$OUTPUTS" | jq -r \
+              'to_entries[] | select(.key | endswith("tag_name")) | .value')
+            echo "Release created; tags pushed: $tags"
+            echo "Docker build starts from the tag push event."
+          else
+            echo "No release created on this run (release PR pending or" \
+                 "no releasable changes)."
+          fi
