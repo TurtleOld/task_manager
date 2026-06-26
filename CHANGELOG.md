@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.8](https://github.com/TurtleOld/task_manager/compare/v1.2.7...v1.2.8) (2026-06-26)
+
+
+### Bug Fixes
+
+* keep redis connections alive to restore stale pub/sub ([#35](https://github.com/TurtleOld/task_manager/issues/35)) ([8e89252](https://github.com/TurtleOld/task_manager/commit/8e89252751a2ac5ab491bd8e4312ec970593aed3))
+
 ## [1.2.7](https://github.com/TurtleOld/task_manager/compare/v1.2.6...v1.2.7) (2026-06-10)
 
 
