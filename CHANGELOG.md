@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.9](https://github.com/TurtleOld/task_manager/compare/v1.2.8...v1.2.9) (2026-06-26)
+
+
+### Bug Fixes
+
+* check rolldown native binary instead of rollup in frontend image ([#37](https://github.com/TurtleOld/task_manager/issues/37)) ([2d067a7](https://github.com/TurtleOld/task_manager/commit/2d067a73096317f368f6736777f46c91ddd54c7f))
+
 ## [1.2.8](https://github.com/TurtleOld/task_manager/compare/v1.2.7...v1.2.8) (2026-06-26)
 
 
