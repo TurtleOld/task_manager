@@ -30,14 +30,17 @@ interface Options {
   boardId: number
   token: string | null
   onEvent: (event: BoardEvent) => void
+  onOpen?: () => void
 }
 
 const RECONNECT_DELAY_MS = 3000
 
-export function useBoardWebSocket({ boardId, token, onEvent }: Options) {
+export function useBoardWebSocket({ boardId, token, onEvent, onOpen }: Options) {
   const wsRef = useRef<WebSocket | null>(null)
   const onEventRef = useRef(onEvent)
   onEventRef.current = onEvent
+  const onOpenRef = useRef(onOpen)
+  onOpenRef.current = onOpen
 
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const unmountedRef = useRef(false)
@@ -52,6 +55,10 @@ export function useBoardWebSocket({ boardId, token, onEvent }: Options) {
       const url = `${getWsBase()}/ws/boards/${boardId}/?token=${token}`
       const ws = new WebSocket(url)
       wsRef.current = ws
+
+      ws.onopen = () => {
+        onOpenRef.current?.()
+      }
 
       ws.onmessage = (e) => {
         try {
