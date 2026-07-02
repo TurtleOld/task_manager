@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.11](https://github.com/TurtleOld/task_manager/compare/v1.2.10...v1.2.11) (2026-07-02)
+
+
+### Bug Fixes
+
+* устранить рассинхрон component в конфиге release-please ([#43](https://github.com/TurtleOld/task_manager/issues/43)) ([fce1398](https://github.com/TurtleOld/task_manager/commit/fce1398647a4ad9ef356f1107bfccb88853fabe8))
+
 ## [1.2.10](https://github.com/TurtleOld/task_manager/compare/v1.2.9...v1.2.10) (2026-07-02)
 
 
