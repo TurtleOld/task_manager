@@ -4,7 +4,6 @@
   "packages": {
     ".": {
       "release-type": "simple",
-      "component": "task-manager",
       "include-component-in-tag": false,
       "exclude-paths": ["android"],
       "extra-files": [
