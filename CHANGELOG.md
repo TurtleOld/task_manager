@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.10](https://github.com/TurtleOld/task_manager/compare/v1.2.9...v1.2.10) (2026-07-02)
+
+
+### Bug Fixes
+
+* пропадающий push при перемещении карточки из-за таймаутов redis ([#40](https://github.com/TurtleOld/task_manager/issues/40)) ([2abac69](https://github.com/TurtleOld/task_manager/commit/2abac692c7a37f2a950b026b1e8a40eca164fd23))
+
 ## [1.2.9](https://github.com/TurtleOld/task_manager/compare/v1.2.8...v1.2.9) (2026-06-26)
 
 
