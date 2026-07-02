@@ -100,6 +100,10 @@ export function BoardPage({ user }: BoardPageProps) {
   useBoardWebSocket({
     boardId,
     token: wsToken,
+    onOpen: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.cards(boardId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.columns(boardId) })
+    },
     onEvent: (event: BoardEvent) => {
       if (event.type === 'card.created') {
         queryClient.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) => {
