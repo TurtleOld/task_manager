@@ -147,6 +147,7 @@ _REDIS_SOCKET_KEEPALIVE_OPTIONS = {
     socket.TCP_KEEPCNT: 5,
 }
 REDIS_HEALTH_CHECK_INTERVAL = int(os.getenv("REDIS_HEALTH_CHECK_INTERVAL", "30"))
+REDIS_SOCKET_TIMEOUT = int(os.getenv("REDIS_SOCKET_TIMEOUT", "20"))
 
 CHANNEL_LAYERS = {
     "default": {
@@ -157,6 +158,8 @@ CHANNEL_LAYERS = {
                     "address": REDIS_URL,
                     "socket_keepalive": True,
                     "socket_keepalive_options": _REDIS_SOCKET_KEEPALIVE_OPTIONS,
+                    "socket_timeout": REDIS_SOCKET_TIMEOUT,
+                    "socket_connect_timeout": REDIS_SOCKET_TIMEOUT,
                     "health_check_interval": REDIS_HEALTH_CHECK_INTERVAL,
                 }
             ],
