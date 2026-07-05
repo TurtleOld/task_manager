@@ -17,14 +17,12 @@ export interface TaskModalProps {
   reminderData: CardDeadlineReminderResponse | null
   reminderLoading: boolean
   reminderError: string
-  reminderFieldError: string
   newReminderValue: number
   setNewReminderValue: (value: number) => void
   newReminderUnit: 'minutes' | 'hours'
   setNewReminderUnit: (value: 'minutes' | 'hours') => void
   applyReminderValue: (id: number, value: number) => void
   applyReminderUnit: (id: number, unit: 'minutes' | 'hours') => void
-  applyReminderChannel: (channel: 'email' | 'telegram' | 'push' | null) => void
   toggleReminder: (id: number, enabled: boolean) => void
   addReminderInterval: (value: number, unit: 'minutes' | 'hours') => void
   removeReminderInterval: (id: number) => void
@@ -104,14 +102,12 @@ export type RemindersSectionProps = Pick<
   | 'reminderData'
   | 'reminderLoading'
   | 'reminderError'
-  | 'reminderFieldError'
   | 'newReminderValue'
   | 'setNewReminderValue'
   | 'newReminderUnit'
   | 'setNewReminderUnit'
   | 'applyReminderValue'
   | 'applyReminderUnit'
-  | 'applyReminderChannel'
   | 'toggleReminder'
   | 'addReminderInterval'
   | 'removeReminderInterval'

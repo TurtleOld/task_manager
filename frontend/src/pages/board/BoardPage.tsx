@@ -697,14 +697,12 @@ export function BoardPage({ user }: BoardPageProps) {
           reminderData={taskModal.reminderData}
           reminderLoading={taskModal.reminderLoading}
           reminderError={taskModal.reminderError}
-          reminderFieldError={taskModal.reminderFieldError}
           newReminderValue={taskModal.newReminderValue}
           setNewReminderValue={taskModal.setNewReminderValue}
           newReminderUnit={taskModal.newReminderUnit}
           setNewReminderUnit={taskModal.setNewReminderUnit}
           applyReminderValue={taskModal.applyReminderValue}
           applyReminderUnit={taskModal.applyReminderUnit}
-          applyReminderChannel={taskModal.applyReminderChannel}
           toggleReminder={taskModal.toggleReminder}
           addReminderInterval={taskModal.addReminderInterval}
           removeReminderInterval={taskModal.removeReminderInterval}
