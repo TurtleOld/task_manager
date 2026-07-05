@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.12](https://github.com/TurtleOld/task_manager/compare/v1.2.11...v1.2.12) (2026-07-05)
+
+
+### Bug Fixes
+
+* show reminder interval form when no reminders exist yet ([2f80d8b](https://github.com/TurtleOld/task_manager/commit/2f80d8bae21389d134053bcdee1504a245e6a88f))
+
 ## [1.2.11](https://github.com/TurtleOld/task_manager/compare/v1.2.10...v1.2.11) (2026-07-02)
 
 
