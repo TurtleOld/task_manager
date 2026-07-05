@@ -1,6 +1,3 @@
-import { Label as RadixLabel } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { cn } from '@/lib/utils'
 import { Badge, Button, Card as SurfaceCard, Checkbox, Select, Skeleton, TextInput } from '@/components/ui'
 import type { RemindersSectionProps } from '../TaskModal.types'
 
@@ -10,14 +7,12 @@ export function RemindersSection({
   reminderData,
   reminderLoading,
   reminderError,
-  reminderFieldError,
   newReminderValue,
   setNewReminderValue,
   newReminderUnit,
   setNewReminderUnit,
   applyReminderValue,
   applyReminderUnit,
-  applyReminderChannel,
   toggleReminder,
   addReminderInterval,
   removeReminderInterval,
@@ -34,7 +29,7 @@ export function RemindersSection({
             <Badge variant={enabledReminderCount > 0 ? 'primary' : 'neutral'}>Активно: {enabledReminderCount}</Badge>
           </div>
           <h3 className="mt-3 text-h3 text-text">Напоминания о дедлайне</h3>
-          <p className="mt-1 text-body-sm text-text-muted">Настройте интервалы и канал отправки перед сроком выполнения.</p>
+          <p className="mt-1 text-body-sm text-text-muted">Настройте интервалы push-уведомлений перед сроком выполнения.</p>
         </div>
         <Checkbox
           label="Включено"
@@ -55,16 +50,10 @@ export function RemindersSection({
           Установите срок выполнения, чтобы настроить напоминание.
         </div>
       ) : null}
-      {reminderDrafts.length === 0 && hasDeadline ? (
-        <div className="rounded-panel border border-dashed border-border bg-background-subtle/55 px-4 py-3 text-caption text-text-muted">
-          Добавьте один или несколько интервалов напоминания.
-        </div>
-      ) : null}
-
-      {reminderDrafts.length > 0 && hasDeadline ? (
+      {hasDeadline ? (
         <div className="space-y-4">
           <div className="space-y-3">
-            <p className="text-label uppercase text-text-muted">Интервалы до дедлайна</p>
+            {reminderDrafts.length > 0 ? <p className="text-label uppercase text-text-muted">Интервалы до дедлайна</p> : null}
             {reminderDrafts.map((item) => (
               <div key={item.id} className="flex flex-wrap items-center gap-2 rounded-panel border border-border/70 bg-background-subtle/55 p-3">
                 <TextInput
@@ -102,68 +91,15 @@ export function RemindersSection({
             <p className="text-caption text-text-muted">Изменения сохраняются вместе с общей кнопкой «Сохранить».</p>
           </div>
 
-          <ReminderChannelPicker
-            reminderDrafts={reminderDrafts}
-            reminderData={reminderData}
-            reminderFieldError={reminderFieldError}
-            applyReminderChannel={applyReminderChannel}
-          />
-
           {reminderDrafts.some((item) => item.status === 'invalid.past') ? (
             <div className="rounded-panel border border-warning/30 bg-warning/10 px-4 py-3 text-caption text-warning">Время напоминания уже прошло. Скорректируйте интервал или срок выполнения.</div>
           ) : null}
           {reminderDrafts.some((item) => item.status === 'invalid.channel') ? (
-            <div className="rounded-panel border border-danger/30 bg-danger/10 px-4 py-3 text-caption text-danger">Канал доставки недоступен. Проверьте настройки уведомлений.</div>
+            <div className="rounded-panel border border-danger/30 bg-danger/10 px-4 py-3 text-caption text-danger">Push-уведомления не настроены на этом устройстве. Проверьте разрешения на уведомления в браузере.</div>
           ) : null}
         </div>
       ) : null}
     </SurfaceCard>
-  )
-}
-
-function ReminderChannelPicker({ reminderDrafts, reminderData, reminderFieldError, applyReminderChannel }: Pick<RemindersSectionProps, 'reminderDrafts' | 'reminderData' | 'reminderFieldError' | 'applyReminderChannel'>) {
-  const availableCount = reminderData?.channels ? Object.values(reminderData.channels).filter((channel) => channel.available).length : 0
-  const autoChannel = availableCount === 1 ? (['email', 'telegram', 'push'] as const).find((channel) => reminderData?.channels?.[channel]?.available) : undefined
-  const value = reminderDrafts.every((item) => item.channel === 'email') || (reminderDrafts.every((item) => item.channel === null) && autoChannel === 'email')
-    ? 'email'
-    : reminderDrafts.every((item) => item.channel === 'telegram') || (reminderDrafts.every((item) => item.channel === null) && autoChannel === 'telegram')
-      ? 'telegram'
-      : reminderDrafts.every((item) => item.channel === 'push') || (reminderDrafts.every((item) => item.channel === null) && autoChannel === 'push')
-        ? 'push'
-      : undefined
-
-  return (
-    <div className="rounded-panel border border-border/70 bg-background-subtle/55 p-4 text-caption text-text-muted">
-      <p className="font-semibold text-text">Канал доставки</p>
-      <RadioGroup className="mt-3 grid gap-2" value={value} onValueChange={(next) => applyReminderChannel(next as 'email' | 'telegram' | 'push')}>
-        {(['email', 'telegram', 'push'] as const).map((channel) => {
-          const info = reminderData?.channels?.[channel]
-          const available = info?.available ?? false
-          const isOnlyAvailable = availableCount === 1
-          const isAuto = reminderDrafts.every((item) => item.channel === null) && isOnlyAvailable && available
-          const checked = reminderDrafts.every((item) => item.channel === channel) || isAuto
-          const description = !available ? info?.reason || 'Недоступен' : isAuto ? 'Единственный доступный канал' : undefined
-          return (
-            <RadixLabel
-              key={channel}
-              htmlFor={`reminder-channel-${channel}`}
-              className={cn(
-                'flex cursor-pointer items-start gap-3 rounded-control border px-3.5 py-3 text-body-sm backdrop-blur transition duration-fast ease-standard',
-                checked ? 'border-primary/35 bg-primary/10 text-text shadow-surface' : 'border-border bg-surface/90 text-text',
-                !available ? 'cursor-not-allowed border-danger/25 bg-danger/10 opacity-60' : 'hover:border-primary/30 hover:bg-surface-hover',
-              )}
-            >
-              <RadioGroupItem id={`reminder-channel-${channel}`} value={channel} disabled={!available} className="mt-0.5" />
-              <span>
-                <span className="block font-semibold">{channel === 'email' ? 'Email' : channel === 'telegram' ? 'Telegram' : 'Push'}</span>
-                {description ? <span className="mt-1 block text-caption text-text-muted">{description}</span> : null}
-              </span>
-            </RadixLabel>
-          )
-        })}
-      </RadioGroup>
-      {reminderFieldError ? <p className="mt-3 text-caption text-danger" role="alert">{reminderFieldError}</p> : null}
-    </div>
   )
 }
 

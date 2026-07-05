@@ -8,7 +8,6 @@ export function useCardReminders(selectedCardId: number | null, selectedCardIsPe
   const [reminderLoading, setReminderLoading] = useState(false)
   const [reminderSaving, setReminderSaving] = useState(false)
   const [reminderError, setReminderError] = useState('')
-  const [reminderFieldError, setReminderFieldError] = useState('')
   const [newReminderValue, setNewReminderValue] = useState(10)
   const [newReminderUnit, setNewReminderUnit] = useState<'minutes' | 'hours'>('minutes')
 
@@ -18,7 +17,6 @@ export function useCardReminders(selectedCardId: number | null, selectedCardIsPe
     setReminderLoading(false)
     setReminderSaving(false)
     setReminderError('')
-    setReminderFieldError('')
 
     if (!selectedCardId || selectedCardIsPending) return
 
@@ -38,15 +36,7 @@ export function useCardReminders(selectedCardId: number | null, selectedCardIsPe
     if (reminderSaving) return false
     setReminderSaving(true)
     setReminderError('')
-    setReminderFieldError('')
     try {
-      const availableCount = reminderData?.channels ? Object.values(reminderData.channels).filter((channel) => channel.available).length : 0
-      const invalidChannel = reminderDrafts.some((item) => item.enabled && !item.channel && availableCount !== 1)
-      if (invalidChannel) {
-        setReminderFieldError('Выберите доступный канал доставки')
-        setReminderSaving(false)
-        return false
-      }
       const updated = await api.saveCardDeadlineReminder(selectedCardId, {
         reminders: reminderDrafts.map((item) => ({
           enabled: item.enabled,
@@ -83,17 +73,13 @@ export function useCardReminders(selectedCardId: number | null, selectedCardIsPe
     setReminderDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, offset_unit: unit } : item)))
   }
 
-  const applyReminderChannel = (channel: 'email' | 'telegram' | 'push' | null) => {
-    setReminderDrafts((prev) => prev.map((item) => ({ ...item, channel })))
-  }
-
   const toggleReminder = (id: number, enabled: boolean) => {
     setReminderDrafts((prev) => prev.map((item) => (item.id === id ? { ...item, enabled } : item)))
   }
 
   const addReminderInterval = (value: number, unit: 'minutes' | 'hours') => {
     const nextId = Math.max(0, ...reminderDrafts.map((item) => item.id)) + 1
-    setReminderDrafts((prev) => [...prev, { id: nextId, order: prev.length + 1, enabled: true, offset_value: value, offset_unit: unit, channel: prev[0]?.channel ?? null, scheduled_at: null, status: 'disabled', last_error: '', sent_at: null }])
+    setReminderDrafts((prev) => [...prev, { id: nextId, order: prev.length + 1, enabled: true, offset_value: value, offset_unit: unit, channel: 'push', scheduled_at: null, status: 'disabled', last_error: '', sent_at: null }])
   }
 
   const removeReminderInterval = (id: number) => {
@@ -105,14 +91,12 @@ export function useCardReminders(selectedCardId: number | null, selectedCardIsPe
     reminderDrafts,
     reminderLoading,
     reminderError,
-    reminderFieldError,
     newReminderValue,
     setNewReminderValue,
     newReminderUnit,
     setNewReminderUnit,
     applyReminderValue,
     applyReminderUnit,
-    applyReminderChannel,
     toggleReminder,
     addReminderInterval,
     removeReminderInterval,
