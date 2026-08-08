@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from django.conf import settings
-from django.db import transaction
 from django.utils import timezone
 
 from .models import (
@@ -249,12 +248,9 @@ def upsert_and_schedule_reminder(
         ]
     )
 
-    # Enqueue after commit so the task doesn't fire before DB state is visible.
-    # Local import to avoid circular imports.
-    from .tasks import send_card_deadline_reminder
-
-    task = send_card_deadline_reminder
-    transaction.on_commit(
-        lambda: task.apply_async(args=[reminder.id, str(token)], eta=scheduled_at)
-    )
+    # No broker-side ETA here on purpose. Celery's `eta` keeps the message in
+    # the worker's memory until it fires, which occupies a prefetch slot for
+    # the whole wait and loses the reminder whenever the worker restarts.
+    # The DB row above is the source of truth; `dispatch_due_reminders` polls
+    # it every minute and enqueues an immediate task once it comes due.
     return reminder

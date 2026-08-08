@@ -12,6 +12,7 @@ from celery import shared_task
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
+from django.db import transaction
 from django.db.models import Q
 from django.db.utils import IntegrityError
 from django.utils import timezone
@@ -704,7 +705,7 @@ def generate_recurring_cards(self) -> None:
         )
         todo_column = (
             Column.objects.filter(board=card.board, archived_at__isnull=True, is_done=False)
-            .order_by('position', 'id')
+            .order_by("position", "id")
             .first()
         ) or card.column
         copy = Card.objects.create(
@@ -957,3 +958,105 @@ def send_overdue_card_reminders(self) -> None:
                     profile.user_id,
                     exc,
                 )
+
+
+# Reminders due within this window before "now" are still delivered. Anything
+# older is considered stale (e.g. after a long outage) and marked SKIPPED so a
+# restart does not flood users with a burst of obsolete notifications.
+REMINDER_CATCHUP_GRACE_MINUTES = 60
+
+# Upper bound on reminders dispatched per beat tick, so one backlog burst
+# cannot monopolise the worker pool.
+REMINDER_DISPATCH_BATCH_SIZE = 200
+
+# A reminder left in DISPATCHED longer than this lost its worker mid-flight
+# and is returned to SCHEDULED to be retried.
+REMINDER_DISPATCH_STUCK_MINUTES = 15
+
+
+@shared_task(bind=True, max_retries=2, default_retry_delay=30)
+def dispatch_due_reminders(self) -> None:
+    """Enqueue deadline reminders that have come due.
+
+    The DB row is the source of truth for *when* a reminder fires; this task
+    is the only thing that turns it into an actual queue message. Because it
+    re-reads state every tick, reminders survive worker restarts and are
+    caught up automatically after downtime.
+    """
+
+    now = timezone.now()
+    stale_before = now - timezone.timedelta(minutes=REMINDER_CATCHUP_GRACE_MINUTES)
+
+    # Recover rows stuck in DISPATCHED: the send task was enqueued but the
+    # worker died before reaching a terminal status. Returning them to
+    # SCHEDULED lets this task retry them on the next tick. The delivery
+    # dedupe_key still guarantees the user is not notified twice.
+    stuck_cutoff = now - timezone.timedelta(minutes=REMINDER_DISPATCH_STUCK_MINUTES)
+    recovered = CardDeadlineReminder.objects.filter(
+        status=CardDeadlineReminder.Status.DISPATCHED,
+        updated_at__lt=stuck_cutoff,
+    ).update(status=CardDeadlineReminder.Status.SCHEDULED)
+    if recovered:
+        logger.warning("reminder_dispatch_recovered count=%s", recovered)
+
+    due_ids = list(
+        CardDeadlineReminder.objects.filter(
+            enabled=True,
+            status=CardDeadlineReminder.Status.SCHEDULED,
+            scheduled_at__isnull=False,
+            scheduled_at__lte=now,
+        )
+        .order_by("scheduled_at", "id")
+        .values_list("id", flat=True)[:REMINDER_DISPATCH_BATCH_SIZE]
+    )
+    if not due_ids:
+        return
+
+    for reminder_id in due_ids:
+        # Lock each row individually so a concurrent beat run (or a second
+        # worker) cannot dispatch the same reminder twice. skip_locked means
+        # the loser of the race moves on instead of blocking.
+        with transaction.atomic():
+            reminder = (
+                CardDeadlineReminder.objects.select_for_update(skip_locked=True)
+                .filter(
+                    id=reminder_id,
+                    status=CardDeadlineReminder.Status.SCHEDULED,
+                )
+                .first()
+            )
+            if not reminder or not reminder.scheduled_at:
+                continue
+
+            if reminder.scheduled_at < stale_before:
+                reminder.status = CardDeadlineReminder.Status.SKIPPED
+                reminder.last_error = "Пропущено: время напоминания давно прошло"
+                reminder.save(
+                    update_fields=[
+                        "status",
+                        "last_error",
+                        "updated_at",
+                        "version",
+                    ]
+                )
+                logger.warning(
+                    "reminder_skipped_stale reminder=%s scheduled_at=%s",
+                    reminder.id,
+                    reminder.scheduled_at,
+                )
+                continue
+
+            token = reminder.schedule_token
+            if not token:
+                continue
+
+            # Flip out of SCHEDULED inside the lock so the next tick will not
+            # pick this row up again while the send task is still in flight.
+            reminder.status = CardDeadlineReminder.Status.DISPATCHED
+            reminder.save(update_fields=["status", "updated_at", "version"])
+
+            reminder_pk = reminder.id
+            token_value = str(token)
+            transaction.on_commit(
+                lambda pk=reminder_pk, tok=token_value: send_card_deadline_reminder.delay(pk, tok)
+            )
