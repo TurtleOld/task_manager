@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from django.conf import settings
-from django.db import transaction
 from django.utils import timezone
 
 from .models import (
@@ -30,9 +29,11 @@ def preferences_enabled_for_event_type(
     channel: str,
     event_type: str,
 ) -> bool:
-    """Match behavior of [`kanban.tasks._preferences_enabled()`](backend/src/kanban/tasks.py:94).
+    """Resolve one channel's preference without requiring a NotificationEvent.
 
-    Keeps the same checks but without requiring a NotificationEvent.
+    Same precedence as [`kanban.tasks._enabled_channels()`](backend/src/kanban/tasks.py:541):
+    a board-scoped preference wins over a global one, and no preference at
+    all means enabled.
     """
 
     qs = NotificationPreference.objects.filter(
@@ -249,12 +250,9 @@ def upsert_and_schedule_reminder(
         ]
     )
 
-    # Enqueue after commit so the task doesn't fire before DB state is visible.
-    # Local import to avoid circular imports.
-    from .tasks import send_card_deadline_reminder
-
-    task = send_card_deadline_reminder
-    transaction.on_commit(
-        lambda: task.apply_async(args=[reminder.id, str(token)], eta=scheduled_at)
-    )
+    # No broker-side ETA here on purpose. Celery's `eta` keeps the message in
+    # the worker's memory until it fires, which occupies a prefetch slot for
+    # the whole wait and loses the reminder whenever the worker restarts.
+    # The DB row above is the source of truth; `dispatch_due_reminders` polls
+    # it every minute and enqueues an immediate task once it comes due.
     return reminder

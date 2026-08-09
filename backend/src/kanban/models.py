@@ -511,6 +511,7 @@ class CardDeadlineReminder(TimestampedModel):
     class Status(models.TextChoices):
         DISABLED = "disabled", "Disabled"
         SCHEDULED = "scheduled", "Scheduled"
+        DISPATCHED = "dispatched", "Dispatched"
         SENT = "sent", "Sent"
         SKIPPED = "skipped", "Skipped"
         FAILED = "failed", "Failed"
@@ -561,6 +562,7 @@ class CardDeadlineReminder(TimestampedModel):
             models.Index(fields=["status"]),
             models.Index(fields=["scheduled_at"]),
             models.Index(fields=["card", "user"]),
+            models.Index(fields=["status", "scheduled_at"]),
         ]
 
     def offset_minutes(self) -> int:
