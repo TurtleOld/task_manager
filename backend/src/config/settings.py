@@ -182,6 +182,30 @@ CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = CELERY_BROKER_TRANSPORT_OPTIONS
 CELERY_REDIS_BACKEND_HEALTH_CHECK_INTERVAL = REDIS_HEALTH_CHECK_INTERVAL
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BROKER_CONNECTION_MAX_RETRIES = None
+
+# Acknowledge a task only after it finishes, so a task in flight when the
+# worker dies is redelivered instead of silently lost.
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+
+# Reserve one task at a time per process. Prevents a slow task from parking
+# a batch of unrelated messages in a worker's local buffer.
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+
+# Keep user-facing delivery off the same queue as long housekeeping jobs, so
+# a slow sweep (e.g. prune_card_activity over a large table) cannot delay a
+# push notification. The `notifications` worker also consumes `celery`, so
+# anything not routed here still gets picked up.
+CELERY_TASK_DEFAULT_QUEUE = "celery"
+CELERY_TASK_ROUTES = {
+    "kanban.tasks.send_card_deadline_reminder": {"queue": "notifications"},
+    "kanban.tasks.send_notification_event": {"queue": "notifications"},
+    "kanban.tasks.send_overdue_card_reminders": {"queue": "notifications"},
+    "kanban.tasks.dispatch_due_reminders": {"queue": "notifications"},
+    "kanban.tasks.generate_recurring_cards": {"queue": "maintenance"},
+    "kanban.tasks.process_inbox_schedules": {"queue": "maintenance"},
+    "kanban.tasks.prune_card_activity": {"queue": "maintenance"},
+}
 CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "false").lower() in {
     "1",
     "true",
@@ -200,6 +224,10 @@ CELERY_BEAT_SCHEDULE = {
     },
     "process-inbox-schedules": {
         "task": "kanban.tasks.process_inbox_schedules",
+        "schedule": 60.0,
+    },
+    "dispatch-due-reminders": {
+        "task": "kanban.tasks.dispatch_due_reminders",
         "schedule": 60.0,
     },
     "prune-card-activity": {
