@@ -107,6 +107,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     restart: unless-stopped
     volumes:
       - ./media:/app/media
@@ -140,6 +142,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     restart: unless-stopped
     volumes:
       - ./media:/app/media
@@ -164,6 +168,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     restart: unless-stopped
 
   frontend:

@@ -110,6 +110,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     volumes:
       - ./backend/src:/app/src
       - ./backend/manage.py:/app/manage.py
@@ -147,6 +149,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     volumes:
       - ./backend/src:/app/src
       - ./backend/manage.py:/app/manage.py
@@ -175,6 +179,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      backend:
+        condition: service_started
     volumes:
       - ./backend/src:/app/src
       - ./backend/manage.py:/app/manage.py
