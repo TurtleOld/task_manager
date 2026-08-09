@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.13](https://github.com/TurtleOld/task_manager/compare/v1.2.12...v1.2.13) (2026-08-09)
+
+
+### Bug Fixes
+
+* не терять напоминания о дедлайнах при перезапуске воркера ([#52](https://github.com/TurtleOld/task_manager/issues/52)) ([f27ee95](https://github.com/TurtleOld/task_manager/commit/f27ee95434dedfd10a390abba765fa5e6fe3570a))
+
 ## [1.2.12](https://github.com/TurtleOld/task_manager/compare/v1.2.11...v1.2.12) (2026-07-05)
 
 
