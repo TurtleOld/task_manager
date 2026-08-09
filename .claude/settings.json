@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/pytest tests/test_notification_fanout.py -q)",
+      "Bash(.venv/bin/mypy src/kanban/tasks.py)",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}

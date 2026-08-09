@@ -65,3 +65,5 @@ task-manager*.json
 secrets/
 **/firebase-service-account.json
 android/ANDROID_IMPROVEMENT_PLAN_RU.md
+
+.claude/*
