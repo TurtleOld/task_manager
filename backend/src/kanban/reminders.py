@@ -29,9 +29,11 @@ def preferences_enabled_for_event_type(
     channel: str,
     event_type: str,
 ) -> bool:
-    """Match behavior of [`kanban.tasks._preferences_enabled()`](backend/src/kanban/tasks.py:94).
+    """Resolve one channel's preference without requiring a NotificationEvent.
 
-    Keeps the same checks but without requiring a NotificationEvent.
+    Same precedence as [`kanban.tasks._enabled_channels()`](backend/src/kanban/tasks.py:541):
+    a board-scoped preference wins over a global one, and no preference at
+    all means enabled.
     """
 
     qs = NotificationPreference.objects.filter(

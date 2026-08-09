@@ -538,24 +538,87 @@ def _clear_fcm_token(profile: NotificationProfile, token: str) -> None:
     profile.save(update_fields=["fcm_token"])
 
 
-def _preferences_enabled(user_id: int, event: NotificationEvent, channel: str) -> bool:
-    qs = NotificationPreference.objects.filter(
+def _enabled_channels(*, user_id: int, event: NotificationEvent) -> set[str]:
+    """Channels enabled for this user, resolved in a single query.
+
+    A board-scoped preference wins over a global one, and a channel with no
+    preference at all defaults to enabled.
+    """
+
+    rows = NotificationPreference.objects.filter(
         user_id=user_id,
-        channel=channel,
         event_type=event.event_type,
+    ).values_list("channel", "board_id", "enabled")
+
+    board_scoped: dict[str, bool] = {}
+    global_scoped: dict[str, bool] = {}
+    for channel, board_id, enabled in rows:
+        if board_id is None:
+            global_scoped[channel] = bool(enabled)
+        elif event.board_id and board_id == event.board_id:
+            board_scoped[channel] = bool(enabled)
+
+    enabled_channels: set[str] = set()
+    for channel in (
+        NotificationChannel.EMAIL,
+        NotificationChannel.TELEGRAM,
+        NotificationChannel.PUSH,
+    ):
+        value = channel[0] if isinstance(channel, tuple) else channel
+        if value in board_scoped:
+            if board_scoped[value]:
+                enabled_channels.add(value)
+            continue
+        if value in global_scoped:
+            if global_scoped[value]:
+                enabled_channels.add(value)
+            continue
+        enabled_channels.add(value)
+    return enabled_channels
+
+
+def _event_recipient_ids(event: NotificationEvent) -> list[int]:
+    """Users this event is addressed to (mentions narrow it down)."""
+    mention_user_ids = (
+        event.payload.get("mention_user_ids") if isinstance(event.payload, dict) else None
     )
-    if event.board_id:
-        board_qs = qs.filter(board_id=event.board_id)
-        if board_qs.exists():
-            return bool(board_qs.filter(enabled=True).exists())
-    global_qs = qs.filter(board__isnull=True)
-    if global_qs.exists():
-        return bool(global_qs.filter(enabled=True).exists())
-    return True
+    qs = User.objects.all().order_by("id")
+    if isinstance(mention_user_ids, list) and mention_user_ids:
+        mentioned = {int(item) for item in mention_user_ids if str(item).isdigit()}
+        if not mentioned:
+            return []
+        qs = qs.filter(id__in=mentioned)
+    return list(qs.values_list("id", flat=True))
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
 def send_notification_event(self, event_id: int) -> None:
+    """Fan out one event into a per-recipient delivery task.
+
+    Delivery is split per user on purpose: a failing SMTP/FCM call for one
+    recipient used to retry this whole task, re-sending to everyone who had
+    already received the event. Now a retry only affects that one recipient.
+    """
+
+    event = NotificationEvent.objects.filter(id=event_id).first()
+    if not event:
+        return
+
+    recipient_ids = _event_recipient_ids(event)
+
+    # The in-app inbox is written here rather than in the delivery task: it
+    # touches nothing external, so it must not depend on email/push succeeding.
+    NotificationInboxEntry.objects.bulk_create(
+        [NotificationInboxEntry(event=event, user_id=uid) for uid in recipient_ids],
+        ignore_conflicts=True,
+    )
+
+    for user_id in recipient_ids:
+        transaction.on_commit(lambda uid=user_id: deliver_notification_event.delay(event_id, uid))
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+def deliver_notification_event(self, event_id: int, user_id: int) -> None:
     event = (
         NotificationEvent.objects.filter(id=event_id)
         .select_related("actor", "board", "column", "card")
@@ -564,114 +627,107 @@ def send_notification_event(self, event_id: int) -> None:
     if not event:
         return
 
-    users = User.objects.all().order_by("id")
-    profiles = {p.user_id: p for p in NotificationProfile.objects.filter(user__in=users)}
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return
 
     subject = Truncator(_event_title(event)).chars(120)
     body = _event_body(event)
-    mention_user_ids = (
-        event.payload.get("mention_user_ids") if isinstance(event.payload, dict) else None
-    )
 
-    for user in users:
-        if isinstance(mention_user_ids, list) and mention_user_ids:
-            if user.id not in {int(item) for item in mention_user_ids if str(item).isdigit()}:
+    profile, _ = NotificationProfile.objects.get_or_create(user=user)
+
+    # Preferences for this user in one query instead of two per channel.
+    enabled_channels = _enabled_channels(user_id=user.id, event=event)
+
+    for channel in [
+        NotificationChannel.EMAIL,
+        NotificationChannel.TELEGRAM,
+        NotificationChannel.PUSH,
+    ]:
+        channel_value = channel[0] if isinstance(channel, tuple) else channel
+        if channel_value not in enabled_channels:
+            continue
+
+        if channel_value == NotificationChannel.EMAIL:
+            target_email = profile.email
+            if not target_email:
                 continue
-        profile = profiles.get(user.id)
-        if not profile:
-            profile = NotificationProfile.objects.create(user=user)
-
-        NotificationInboxEntry.objects.get_or_create(event=event, user=user)
-
-        for channel in [
-            NotificationChannel.EMAIL,
-            NotificationChannel.TELEGRAM,
-            NotificationChannel.PUSH,
-        ]:
-            channel_value = channel[0] if isinstance(channel, tuple) else channel
-            if not _preferences_enabled(user.id, event, channel_value):
+            delivery = NotificationDelivery.objects.create(
+                event=event,
+                user=user,
+                channel=channel,
+            )
+            try:
+                _send_email(target_email, subject, body)
+                delivery.status = NotificationDelivery.Status.SENT
+                delivery.sent_at = timezone.now()
+                delivery.save(update_fields=["status", "sent_at"])
+            except Exception as exc:  # noqa: BLE001
+                delivery.status = NotificationDelivery.Status.FAILED
+                delivery.error = str(exc)
+                delivery.save(update_fields=["status", "error"])
                 continue
 
-            if channel_value == NotificationChannel.EMAIL:
-                target_email = profile.email
-                if not target_email:
-                    continue
-                delivery = NotificationDelivery.objects.create(
-                    event=event,
-                    user=user,
-                    channel=channel,
-                )
-                try:
-                    _send_email(target_email, subject, body)
-                    delivery.status = NotificationDelivery.Status.SENT
-                    delivery.sent_at = timezone.now()
-                    delivery.save(update_fields=["status", "sent_at"])
-                except Exception as exc:  # noqa: BLE001
-                    delivery.status = NotificationDelivery.Status.FAILED
-                    delivery.error = str(exc)
-                    delivery.save(update_fields=["status", "error"])
-                    continue
+        if channel_value == NotificationChannel.TELEGRAM:
+            target_chat = profile.telegram_chat_id
+            if not target_chat:
+                continue
+            delivery = NotificationDelivery.objects.create(
+                event=event,
+                user=user,
+                channel=channel,
+            )
+            try:
+                _send_telegram(target_chat, body)
+                delivery.status = NotificationDelivery.Status.SENT
+                delivery.sent_at = timezone.now()
+                delivery.save(update_fields=["status", "sent_at"])
+            except Exception as exc:  # noqa: BLE001
+                delivery.status = NotificationDelivery.Status.FAILED
+                delivery.error = str(exc)
+                delivery.save(update_fields=["status", "error"])
+                continue
 
-            if channel_value == NotificationChannel.TELEGRAM:
-                target_chat = profile.telegram_chat_id
-                if not target_chat:
-                    continue
-                delivery = NotificationDelivery.objects.create(
-                    event=event,
-                    user=user,
-                    channel=channel,
+        if channel_value == NotificationChannel.PUSH:
+            target_fcm_token = (profile.fcm_token or "").strip()
+            if not target_fcm_token:
+                continue
+            delivery = NotificationDelivery.objects.create(
+                event=event,
+                user=user,
+                channel=channel,
+            )
+            try:
+                push_payload = _build_fcm_data_payload(
+                    notification_id=event.id,
+                    event_type=event.event_type,
+                    title=str(subject),
+                    body=body,
+                    link=event.link,
+                    board_id=event.board_id,
+                    card_id=event.card_id,
                 )
-                try:
-                    _send_telegram(target_chat, body)
-                    delivery.status = NotificationDelivery.Status.SENT
-                    delivery.sent_at = timezone.now()
-                    delivery.save(update_fields=["status", "sent_at"])
-                except Exception as exc:  # noqa: BLE001
-                    delivery.status = NotificationDelivery.Status.FAILED
-                    delivery.error = str(exc)
-                    delivery.save(update_fields=["status", "error"])
-                    continue
-
-            if channel_value == NotificationChannel.PUSH:
-                target_fcm_token = (profile.fcm_token or "").strip()
-                if not target_fcm_token:
-                    continue
-                delivery = NotificationDelivery.objects.create(
-                    event=event,
-                    user=user,
-                    channel=channel,
+                _send_push(
+                    target_fcm_token,
+                    str(subject),
+                    body,
+                    event_id=event.id,
+                    data=push_payload,
                 )
-                try:
-                    push_payload = _build_fcm_data_payload(
-                        notification_id=event.id,
-                        event_type=event.event_type,
-                        title=str(subject),
-                        body=body,
-                        link=event.link,
-                        board_id=event.board_id,
-                        card_id=event.card_id,
-                    )
-                    _send_push(
-                        target_fcm_token,
-                        str(subject),
-                        body,
-                        event_id=event.id,
-                        data=push_payload,
-                    )
-                    delivery.status = NotificationDelivery.Status.SENT
-                    delivery.sent_at = timezone.now()
-                    delivery.save(update_fields=["status", "sent_at"])
-                except InvalidFcmTokenError as exc:
-                    _clear_fcm_token(profile, target_fcm_token)
-                    delivery.status = NotificationDelivery.Status.FAILED
-                    delivery.error = str(exc)
-                    delivery.save(update_fields=["status", "error"])
-                    continue
-                except Exception as exc:  # noqa: BLE001
-                    delivery.status = NotificationDelivery.Status.FAILED
-                    delivery.error = str(exc)
-                    delivery.save(update_fields=["status", "error"])
-                    continue
+                delivery.status = NotificationDelivery.Status.SENT
+                delivery.sent_at = timezone.now()
+                delivery.save(update_fields=["status", "sent_at"])
+            except InvalidFcmTokenError as exc:
+                _clear_fcm_token(profile, target_fcm_token)
+                delivery.status = NotificationDelivery.Status.FAILED
+                delivery.error = str(exc)
+                delivery.save(update_fields=["status", "error"])
+                continue
+            except Exception as exc:  # noqa: BLE001
+                delivery.status = NotificationDelivery.Status.FAILED
+                delivery.error = str(exc)
+                delivery.save(update_fields=["status", "error"])
+                continue
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
