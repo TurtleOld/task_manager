@@ -80,7 +80,40 @@ services:
 
   celery:
     image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/celery:${IMAGE_TAG:-latest}
-    command: ["sh", "-lc", "/app/.venv/bin/celery -A config worker -l info"]
+    command: ["sh", "-lc", "/app/.venv/bin/celery -A config worker -l info -Q notifications,celery"]
+    environment:
+      PYTHONPATH: /app/src
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-task_manager}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
+      ONESIGNAL_REST_API_KEY: ${ONESIGNAL_REST_API_KEY:-}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
+      EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-notifications@task-manager.local}
+      TZ: Europe/Moscow
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./media:/app/media
+
+  celery-maintenance:
+    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/celery:${IMAGE_TAG:-latest}
+    command: ["sh", "-lc", "/app/.venv/bin/celery -A config worker -l info -Q maintenance"]
     environment:
       PYTHONPATH: /app/src
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}

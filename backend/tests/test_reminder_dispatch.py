@@ -244,3 +244,24 @@ def test_disabled_reminder_is_not_dispatched(
     reminder.refresh_from_db()
     assert reminder.status == CardDeadlineReminder.Status.SCHEDULED
     assert _capture_dispatch == []
+
+
+@pytest.mark.django_db()
+def test_delivery_tasks_are_isolated_from_housekeeping() -> None:
+    """User-facing sends must not share a queue with long sweeps."""
+    routes = settings.CELERY_TASK_ROUTES
+
+    for task in (
+        "kanban.tasks.send_card_deadline_reminder",
+        "kanban.tasks.send_notification_event",
+        "kanban.tasks.send_overdue_card_reminders",
+        "kanban.tasks.dispatch_due_reminders",
+    ):
+        assert routes[task]["queue"] == "notifications"
+
+    for task in (
+        "kanban.tasks.generate_recurring_cards",
+        "kanban.tasks.process_inbox_schedules",
+        "kanban.tasks.prune_card_activity",
+    ):
+        assert routes[task]["queue"] == "maintenance"

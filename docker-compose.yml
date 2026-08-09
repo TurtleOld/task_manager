@@ -84,7 +84,44 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/celery:${IMAGE_TAG:-main}
-    command: ["sh", "-lc", "/app/.venv/bin/celery -A config worker -l info"]
+    command: ["sh", "-lc", "/app/.venv/bin/celery -A config worker -l info -Q notifications,celery"]
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-task_manager}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-/run/secrets/firebase-service-account.json}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
+      EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-notifications@task-manager.local}
+      TZ: Europe/Moscow
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/manage.py:/app/manage.py
+      - ./media:/app/media
+      - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
+
+  celery-maintenance:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/celery:${IMAGE_TAG:-main}
+    command: ["sh", "-lc", "/app/.venv/bin/celery -A config worker -l info -Q maintenance"]
     environment:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
