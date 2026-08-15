@@ -192,14 +192,13 @@ CELERY_TASK_REJECT_ON_WORKER_LOST = True
 # a batch of unrelated messages in a worker's local buffer.
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 
-# Keep user-facing delivery off the same queue as long housekeeping jobs, so
-# a slow sweep (e.g. prune_card_activity over a large table) cannot delay a
-# push notification. The `notifications` worker also consumes `celery`, so
-# anything not routed here still gets picked up.
+# Route every user-facing task explicitly: an unrouted one falls back to the
+# default queue, which a deployment is not guaranteed to consume.
 CELERY_TASK_DEFAULT_QUEUE = "celery"
 CELERY_TASK_ROUTES = {
     "kanban.tasks.send_card_deadline_reminder": {"queue": "notifications"},
     "kanban.tasks.send_notification_event": {"queue": "notifications"},
+    "kanban.tasks.deliver_notification_event": {"queue": "notifications"},
     "kanban.tasks.send_overdue_card_reminders": {"queue": "notifications"},
     "kanban.tasks.dispatch_due_reminders": {"queue": "notifications"},
     "kanban.tasks.generate_recurring_cards": {"queue": "maintenance"},
