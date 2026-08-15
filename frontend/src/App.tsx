@@ -27,6 +27,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error
 }
 
 const ArchivePage = lazy(() => import('./pages/archive/ArchivePage').then((module) => ({ default: module.ArchivePage })))
+const AgendaPage = lazy(() => import('./pages/agenda/AgendaPage').then((module) => ({ default: module.AgendaPage })))
 const BoardPage = lazy(() => import('./pages/board/BoardPage').then((module) => ({ default: module.BoardPage })))
 const BoardsPage = lazy(() => import('./pages/boards/BoardsPage').then((module) => ({ default: module.BoardsPage })))
 const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage').then((module) => ({ default: module.CalendarPage })))
@@ -50,6 +51,8 @@ export default function App() {
       >
         <Route path="/" element={<BoardsPage />} />
         <Route path="/settings" element={user ? <SettingsPage user={user} onUserUpdate={updateUser} onLogout={logout} /> : null} />
+        <Route path="/agenda" element={user ? <AgendaPage user={user} /> : null} />
+        <Route path="/agenda/:listId" element={user ? <AgendaPage user={user} /> : null} />
         <Route path="/boards/:id" element={user ? <BoardPage user={user} /> : null} />
         <Route path="/boards/:id/cards/:cardId" element={user ? <BoardPage user={user} /> : null} />
         <Route path="/today" element={<TodayPage />} />
