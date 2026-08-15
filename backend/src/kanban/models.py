@@ -166,6 +166,14 @@ class Card(TimestampedModel):
         null=True,
         blank=True,
     )
+    completed_at = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="completed_cards",
+        null=True,
+        blank=True,
+    )
 
     objects = ActiveCardManager()
     with_archived = models.Manager()
@@ -179,6 +187,10 @@ class Card(TimestampedModel):
             models.Index(fields=["assignee", "deadline"], name="card_assignee_deadline_idx"),
             models.Index(fields=["column", "archived_at"], name="card_column_archived_idx"),
             models.Index(fields=["priority", "deadline"], name="card_priority_deadline_idx"),
+            models.Index(
+                fields=["board", "completed_at", "deadline"],
+                name="card_completed_deadline_idx",
+            ),
         ]
 
     def save(self, *args: Any, **kwargs: Any) -> None:
