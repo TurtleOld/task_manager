@@ -339,6 +339,8 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "is_done",
             "parent_recurrence",
             "recurrence",
+            "completed_at",
+            "completed_by",
         ]
         read_only_fields = [
             "id",
@@ -354,6 +356,8 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "is_done",
             "parent_recurrence",
             "recurrence",
+            "completed_at",
+            "completed_by",
         ]
 
     def get_checklist(self, obj: Card) -> list[dict[str, Any]]:
