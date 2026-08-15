@@ -89,7 +89,7 @@ export function CalendarPage() {
       backgroundColor: color,
       borderColor: color,
       extendedProps: {
-        boardName: board?.name ?? `Доска #${card.board}`,
+        boardName: board?.name ?? `Список #${card.board}`,
         card,
       },
     }
@@ -142,7 +142,7 @@ export function CalendarPage() {
       toast.success('Задача добавлена в календарь')
       setSelectedSlot(null)
       setNewCardTitle('')
-      navigate(`/boards/${card.board}/cards/${card.id}`)
+      navigate(`/lists/${card.board}/tasks/${card.id}`)
     } catch {
       toast.error('Не удалось создать задачу')
     }
@@ -171,7 +171,7 @@ export function CalendarPage() {
             <div>
               <h1 className="text-h1 text-text">Календарь задач</h1>
               <p className="mt-2 max-w-3xl text-body-sm text-text-muted">
-                Дедлайны по всем доскам в месячном, недельном и дневном виде. Перетаскивание меняет день дедлайна, сохраняя исходное время задачи.
+                Дедлайны по всем спискам в месячном, недельном и дневном виде. Перетаскивание меняет день дедлайна, сохраняя исходное время задачи.
               </p>
             </div>
           </div>
@@ -179,7 +179,7 @@ export function CalendarPage() {
           <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[28rem]">
             <CalendarMetric label="С дедлайном" value={datedCardsCount} tone="primary" />
             <CalendarMetric label="Сегодня" value={todayCardsCount} tone="warning" />
-            <CalendarMetric label="Досок" value={activeBoardCount} tone="success" />
+            <CalendarMetric label="Списков" value={activeBoardCount} tone="success" />
           </div>
         </div>
       </header>
@@ -195,9 +195,9 @@ export function CalendarPage() {
 
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <label className="min-w-48">
-              <span className="sr-only">Фильтр по доске</span>
+              <span className="sr-only">Фильтр по списку</span>
               <Select value={boardFilter} onChange={(event) => setBoardFilter(event.target.value)}>
-                <option value="all">Все доски</option>
+                <option value="all">Все списки</option>
                 {boards.map((board) => <option key={board.id} value={board.id}>{board.name}</option>)}
               </Select>
             </label>
@@ -218,7 +218,7 @@ export function CalendarPage() {
 
         {datedCardsCount === 0 ? (
           <EmptyState title="В календаре пока нет задач">
-            Добавьте дедлайн в карточке или кликните по дню, чтобы создать задачу сразу с датой.
+            Добавьте дедлайн в задаче или кликните по дню, чтобы создать задачу сразу с датой.
           </EmptyState>
         ) : null}
 
@@ -245,7 +245,7 @@ export function CalendarPage() {
             }}
             eventClick={(info) => {
               const card = info.event.extendedProps.card as Card | undefined
-              if (card) navigate(`/boards/${card.board}/cards/${card.id}`)
+              if (card) navigate(`/lists/${card.board}/tasks/${card.id}`)
             }}
             eventDrop={(info) => {
               const card = info.event.extendedProps.card as Card | undefined
@@ -267,7 +267,7 @@ export function CalendarPage() {
             <div>
               <Badge variant="primary">Новая задача</Badge>
               <h2 className="mt-3 text-h3 text-text">Создать задачу на {formatDateTime(deadlineForSlot(selectedSlot))}</h2>
-              <p className="mt-1 text-body-sm text-text-muted">Выберите доску и колонку, куда добавить задачу.</p>
+              <p className="mt-1 text-body-sm text-text-muted">Выберите список и колонку, куда добавить задачу.</p>
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedSlot(null)}>Закрыть</Button>
           </div>
@@ -281,7 +281,7 @@ export function CalendarPage() {
                 placeholder="Например: оплатить счёт"
               />
             </Field>
-            <Field label="Доска" htmlFor="calendar-board">
+            <Field label="Список" htmlFor="calendar-board">
               <Select
                 id="calendar-board"
                 value={newCardBoardId || ''}
@@ -315,14 +315,14 @@ export function CalendarPage() {
       <SurfaceCard as="section" className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-h3 text-text">Легенда досок</h2>
-            <p className="mt-1 text-body-sm text-text-muted">Цвет события вычисляется по доске и остаётся стабильным.</p>
+            <h2 className="text-h3 text-text">Легенда списков</h2>
+            <p className="mt-1 text-body-sm text-text-muted">Цвет события вычисляется по списку и остаётся стабильным.</p>
           </div>
-          <Badge>{boards.length} досок</Badge>
+          <Badge>{boards.length} списков</Badge>
         </div>
         <div className="flex flex-wrap gap-2">
           {boards.map((board) => (
-            <Link key={board.id} to={`/boards/${board.id}`} className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-2 text-caption text-text-muted transition hover:border-primary/35 hover:text-primary">
+            <Link key={board.id} to={`/lists/${board.id}`} className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-2 text-caption text-text-muted transition hover:border-primary/35 hover:text-primary">
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorForBoard(board.id) }} aria-hidden="true" />
               {board.name}
             </Link>

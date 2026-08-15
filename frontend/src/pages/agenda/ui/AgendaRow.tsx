@@ -56,7 +56,7 @@ export function AgendaRow({ boundaries, busy, card, deadlineBusy, group, onCompl
       </Checkbox>
 
       <Link
-        to={`/boards/${card.list}/cards/${card.id}`}
+        to={`/lists/${card.list}/tasks/${card.id}`}
         className={cn(
           'min-w-0 flex-1 truncate rounded-sm text-body-sm text-text transition hover:text-primary',
           completed && 'text-text-muted line-through decoration-text-muted/60',

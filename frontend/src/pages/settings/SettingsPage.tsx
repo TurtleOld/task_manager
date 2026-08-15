@@ -244,7 +244,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
               to="/"
               className="inline-flex min-h-11 items-center gap-2 rounded-control border border-border bg-surface/90 px-4 py-2 text-button text-text shadow-surface backdrop-blur transition duration-fast ease-standard hover:border-border-strong hover:bg-surface-hover"
             >
-              Назад к доскам
+              Назад к спискам
             </Link>
           </div>
         </div>
@@ -589,7 +589,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
             </div>
 
             <div className="rounded-panel border border-dashed border-border bg-background-subtle/55 px-4 py-3 text-caption text-text-muted">
-              Владелец имеет полный доступ. Участник видит и редактирует доски, но не может менять роли и удалять рабочее пространство.
+              Владелец имеет полный доступ. Участник видит и редактирует списки, но не может менять роли и удалять рабочее пространство.
             </div>
           </div>
         ) : null}

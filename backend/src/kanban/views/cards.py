@@ -480,7 +480,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             board=card.board,
             column=card.column,
             card=card,
-            summary=f"Создана карточка «{card.title}»",
+            summary=f"Создана задача «{card.title}»",
             payload={"board": card.board.name, "column": card.column.name, "card": card.title},
         )
         card = (
@@ -633,7 +633,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         description = payload.get("description")
         changes = payload.get("changes")
 
-        summary_parts = [f'Обновлена карточка "{card.title}"']
+        summary_parts = [f'Обновлена задача "{card.title}"']
         if isinstance(description, str) and description.strip():
             summary_parts.append(f"\nОписание: {description.strip()}")
         if isinstance(changes, list):
@@ -712,7 +712,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             actor=actor,
             board=board,
             column=column,
-            summary=f"Удалена карточка «{title}»",
+            summary=f"Удалена задача «{title}»",
             payload={
                 "board": getattr(board, "name", ""),
                 "column": getattr(column, "name", ""),

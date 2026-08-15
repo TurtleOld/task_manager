@@ -49,7 +49,7 @@ export function NotificationInboxButton() {
 
           <div className="overflow-y-auto px-3 py-3">
             {isLoading ? <p className="px-2 py-8 text-center text-body-sm text-text-muted">Загрузка уведомлений...</p> : null}
-            {!isLoading && !items.length ? <EmptyState title="Пока пусто">Новые события по задачам и доскам появятся здесь.</EmptyState> : null}
+            {!isLoading && !items.length ? <EmptyState title="Пока пусто">Новые события по задачам и спискам появятся здесь.</EmptyState> : null}
             {!isLoading ? (
               <div className="space-y-2">
                 {items.map((item) => (

@@ -23,9 +23,9 @@ export function BoardsPage() {
     const boardName = name.trim()
     try {
       await createBoardMutation.mutateAsync({ name: boardName, icon, color })
-      toast.success(`Доска «${boardName}» создана`)
+      toast.success(`Список «${boardName}» создан`)
     } catch {
-      toast.error('Не удалось создать доску')
+      toast.error('Не удалось создать список')
       return
     }
     setName('')
@@ -37,9 +37,9 @@ export function BoardsPage() {
         template_id: templateId,
         name: templateName.trim() || undefined,
       })
-      toast.success(`Доска «${board.name}» создана из шаблона`)
+      toast.success(`Список «${board.name}» создан из шаблона`)
     } catch {
-      toast.error('Не удалось создать доску из шаблона')
+      toast.error('Не удалось создать список из шаблона')
       return
     }
     setTemplateName('')
@@ -54,10 +54,10 @@ export function BoardsPage() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="primary">Task Manager</Badge>
-              <Badge variant="success">Boards</Badge>
+              <Badge variant="success">Списки</Badge>
             </div>
             <div>
-              <h1 className="text-h1 text-text">Доски</h1>
+              <h1 className="text-h1 text-text">Списки</h1>
               <p className="mt-2 max-w-3xl text-body-sm text-text-muted">Создавайте рабочие пространства, выбирайте визуальные маркеры и стартуйте быстрее с семейными шаблонами.</p>
             </div>
           </div>
@@ -72,11 +72,11 @@ export function BoardsPage() {
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:hidden [&::-webkit-details-marker]:hidden">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="primary">Create board</Badge>
+              <Badge variant="primary">Создать список</Badge>
               <Badge variant="info">Templates</Badge>
             </div>
-            <h2 className="mt-2 text-h3 text-text">Создать доску</h2>
-            <p className="mt-1 text-body-sm text-text-muted">Пустая доска или готовый шаблон скрыты здесь, чтобы список досок был выше.</p>
+            <h2 className="mt-2 text-h3 text-text">Создать список</h2>
+            <p className="mt-1 text-body-sm text-text-muted">Пустой список или готовый шаблон скрыты здесь, чтобы перечень списков был выше.</p>
           </div>
           <span className="shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-caption font-semibold text-text-muted transition group-open:rotate-180" aria-hidden="true">⌄</span>
         </summary>
@@ -85,10 +85,10 @@ export function BoardsPage() {
           <SurfaceCard as="section" className="space-y-4 border-primary/10">
           <div>
             <div className="flex items-center gap-2">
-              <Badge variant="primary">Create board</Badge>
+              <Badge variant="primary">Создать список</Badge>
             </div>
-            <h2 className="mt-3 text-h3 text-text">Создать пустую доску</h2>
-            <p className="mt-1 text-body-sm text-text-muted">Выберите иконку и цвет, чтобы доска легко отличалась в sidebar и списке.</p>
+            <h2 className="mt-3 text-h3 text-text">Создать пустой список</h2>
+            <p className="mt-1 text-body-sm text-text-muted">Выберите иконку и цвет, чтобы список легко отличался в sidebar и перечне.</p>
           </div>
           <Field label="Название" htmlFor="new-board-name">
             <TextInput id="new-board-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Например: Семья, Ремонт, Отпуск" />
@@ -128,11 +128,11 @@ export function BoardsPage() {
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl text-white shadow-surface" style={{ backgroundColor: color }}>{icon}</span>
               <div className="min-w-0">
-                <p className="truncate text-body font-semibold text-text">{name.trim() || 'Новая доска'}</p>
+                <p className="truncate text-body font-semibold text-text">{name.trim() || 'Новый список'}</p>
                 <p className="text-caption text-text-muted">Предпросмотр</p>
               </div>
             </div>
-            <Button onClick={onCreate} loading={createBoardMutation.isPending} disabled={!name.trim() || createBoardMutation.isPending} aria-label="Создать доску">Создать</Button>
+            <Button onClick={onCreate} loading={createBoardMutation.isPending} disabled={!name.trim() || createBoardMutation.isPending} aria-label="Создать список">Создать</Button>
           </div>
           </SurfaceCard>
 
@@ -142,7 +142,7 @@ export function BoardsPage() {
               <Badge variant="primary">Templates</Badge>
             </div>
             <h2 className="mt-3 text-h3 text-text">Создать из шаблона</h2>
-            <p className="mt-1 text-body-sm text-text-muted">Шаблон создаёт доску с колонками и стартовыми карточками.</p>
+            <p className="mt-1 text-body-sm text-text-muted">Шаблон создаёт список с колонками и стартовыми задачами.</p>
           </div>
           <Field label="Свое название (необязательно)" htmlFor="template-board-name">
             <TextInput id="template-board-name" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Оставьте пустым, чтобы взять название шаблона" />
@@ -179,26 +179,26 @@ export function BoardsPage() {
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-h3 text-text">Список досок</h2>
-            <p className="mt-1 text-body-sm text-text-muted">Выберите рабочее пространство для перехода к задачам.</p>
+            <h2 className="text-h3 text-text">Все списки</h2>
+            <p className="mt-1 text-body-sm text-text-muted">Выберите список для перехода к задачам.</p>
           </div>
           <Badge variant="neutral">{boards.length} items</Badge>
         </div>
         {boards.length === 0 ? (
-          <EmptyState title="Пока нет ни одной доски">Создайте первую доску, чтобы начать работу с задачами и колонками.</EmptyState>
+          <EmptyState title="Пока нет ни одного списка">Создайте первый список, чтобы начать работу с задачами.</EmptyState>
         ) : (
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {boards.map((board) => (
-              <Link key={board.id} to={`/boards/${board.id}`} className="group rounded-[1.35rem] border border-border/80 bg-[image:var(--gradient-surface)] p-5 shadow-surface backdrop-blur transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated">
+              <Link key={board.id} to={`/lists/${board.id}`} className="group rounded-[1.35rem] border border-border/80 bg-[image:var(--gradient-surface)] p-5 shadow-surface backdrop-blur transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 space-y-3">
                     <div className="flex items-center gap-2">
-                      <Badge variant="primary">Board</Badge>
+                      <Badge variant="primary">Список</Badge>
                       <Badge>#{board.id}</Badge>
                     </div>
                     <div>
                       <h3 className="truncate text-h3 text-text group-hover:text-primary">{board.name}</h3>
-                      <p className="mt-2 text-body-sm text-text-muted">Перейти к задачам, статусам и realtime-обновлениям.</p>
+                      <p className="mt-2 text-body-sm text-text-muted">Перейти к задачам и realtime-обновлениям.</p>
                     </div>
                   </div>
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl text-white shadow-surface" style={{ backgroundColor: board.color || '#2563eb' }} aria-hidden="true">{board.icon || '📋'}</span>

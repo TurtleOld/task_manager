@@ -175,7 +175,7 @@ function TodayCard({ card, onComplete, pending }: { card: MyTodayCard; onComplet
             <Chip>{card.board_name}</Chip>
             <Chip>{card.column_name}</Chip>
           </div>
-          <Link to={`/boards/${card.board}/cards/${card.id}`} className="mt-3 block rounded-control text-h3 text-text transition hover:text-primary">
+          <Link to={`/lists/${card.board}/tasks/${card.id}`} className="mt-3 block rounded-control text-h3 text-text transition hover:text-primary">
             {card.title}
           </Link>
           {card.description ? <p className="mt-2 line-clamp-2 text-body-sm text-text-muted">{card.description}</p> : null}

@@ -31,14 +31,14 @@ export function AgendaHeader({
   return (
     <header className="sticky top-16 z-sticky flex h-14 items-center gap-3 border-b border-border/80 bg-background/78 px-4 backdrop-blur-xl sm:px-6">
       <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1">
-        <ScopeChip active={activeListId == null} label="Все списки" to="/agenda" />
+        <ScopeChip active={activeListId == null} label="Все списки" to="/today" />
         {lists.map((list) => (
           <ScopeChip
             key={list.id}
             active={activeListId === list.id}
             icon={list.icon}
             label={list.name}
-            to={`/agenda/${list.id}`}
+            to={`/lists/${list.id}`}
           />
         ))}
       </div>

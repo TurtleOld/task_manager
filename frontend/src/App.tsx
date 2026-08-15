@@ -1,8 +1,9 @@
 import { Component, lazy } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppShell } from './app/AppShell'
 import { ProtectedRoute } from './app/ProtectedRoute'
+import { resolveLegacyRedirect } from './app/routeRedirects'
 import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { SettingsPage } from './pages/settings/SettingsPage'
@@ -28,11 +29,8 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error
 
 const ArchivePage = lazy(() => import('./pages/archive/ArchivePage').then((module) => ({ default: module.ArchivePage })))
 const AgendaPage = lazy(() => import('./pages/agenda/AgendaPage').then((module) => ({ default: module.AgendaPage })))
-const BoardPage = lazy(() => import('./pages/board/BoardPage').then((module) => ({ default: module.BoardPage })))
 const BoardsPage = lazy(() => import('./pages/boards/BoardsPage').then((module) => ({ default: module.BoardsPage })))
 const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage').then((module) => ({ default: module.CalendarPage })))
-const InboxPage = lazy(() => import('./pages/inbox/InboxPage').then((module) => ({ default: module.InboxPage })))
-const TodayPage = lazy(() => import('./pages/today/TodayPage').then((module) => ({ default: module.TodayPage })))
 
 export default function App() {
   const { user, token, login, logout, updateUser } = useAuthState()
@@ -51,17 +49,20 @@ export default function App() {
       >
         <Route path="/" element={<BoardsPage />} />
         <Route path="/settings" element={user ? <SettingsPage user={user} onUserUpdate={updateUser} onLogout={logout} /> : null} />
-        <Route path="/agenda" element={user ? <AgendaPage user={user} /> : null} />
-        <Route path="/agenda/:listId" element={user ? <AgendaPage user={user} /> : null} />
-        <Route path="/boards/:id" element={user ? <BoardPage user={user} /> : null} />
-        <Route path="/boards/:id/cards/:cardId" element={user ? <BoardPage user={user} /> : null} />
-        <Route path="/today" element={<TodayPage />} />
+        <Route path="/today" element={user ? <AgendaPage user={user} /> : null} />
+        <Route path="/lists/:listId" element={user ? <AgendaPage user={user} /> : null} />
+        <Route path="/lists/:listId/tasks/:taskId" element={user ? <AgendaPage user={user} /> : null} />
         <Route path="/calendar" element={<CalendarPage />} />
-        <Route path="/inbox" element={<InboxPage />} />
         <Route path="/archive" element={<ArchivePage />} />
+        <Route path="*" element={<LegacyRedirect />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </AppErrorBoundary>
   )
+}
+
+function LegacyRedirect() {
+  const location = useLocation()
+  const target = resolveLegacyRedirect(location.pathname, location.hash)
+  return <Navigate to={target ?? '/'} replace />
 }

@@ -151,8 +151,7 @@ def _format_deadline_ru(*, dt: datetime, tz_name: str) -> str:
 
 def _build_card_link(*, card: Card) -> str:
     base = settings.FRONTEND_BASE_URL.rstrip("/")
-    # Frontend has a board page; we include a fragment with card id for quick manual search.
-    return f"{base}/boards/{card.board_id}#card-{card.id}"
+    return f"{base}/lists/{card.board_id}/tasks/{card.id}"
 
 
 @shared_task(bind=True, max_retries=5, default_retry_delay=60)
@@ -317,11 +316,11 @@ def _event_body(event: NotificationEvent) -> str:
         "",
     ]
     if board:
-        lines.append(f"Доска: {board}")
+        lines.append(f"Список: {board}")
     if column:
         lines.append(f"Колонка: {column}")
     if card:
-        lines.append(f"Карточка: {card}")
+        lines.append(f"Задача: {card}")
     if event.link:
         lines.extend(["", f"Перейти: {event.link}"])
     return "\n".join(lines)
@@ -930,7 +929,7 @@ def send_overdue_card_reminders(self) -> None:
         body_text = (
             f"Задача «{card.title}» просрочена.\n"
             f"Дедлайн: {_format_deadline_ru(dt=card.deadline, tz_name='Europe/Moscow')}\n"
-            f"Доска: {card.board.name}\n"
+            f"Список: {card.board.name}\n"
             f"Колонка: {card.column.name}\n\n"
             f"Перенесите задачу в колонку «Done» после выполнения.\n"
             f"Открыть: {link}"

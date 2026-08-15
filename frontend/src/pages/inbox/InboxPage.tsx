@@ -311,7 +311,7 @@ function InboxTaskCard({ card, canMove, moving, onMove }: { card: Card; canMove:
             <Chip tone={priorityTone} active>{priorityToMarker(card.priority)} {priorityToLabel(card.priority)}</Chip>
             <Chip>Inbox</Chip>
           </div>
-          <Link to={`/boards/${card.board}/cards/${card.id}`} className="mt-3 block rounded-control text-h3 text-text transition hover:text-primary">
+          <Link to={`/lists/${card.board}/tasks/${card.id}`} className="mt-3 block rounded-control text-h3 text-text transition hover:text-primary">
             {card.title}
           </Link>
           {card.description ? <p className="mt-2 line-clamp-3 text-body-sm text-text-muted">{card.description}</p> : null}
