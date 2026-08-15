@@ -1,7 +1,7 @@
 import { Component, Suspense, useEffect, useMemo, useState } from 'react'
 import type { ComponentType, ErrorInfo, ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Archive, CalendarDays, ChevronLeft, Inbox, LayoutDashboard, Menu, Search, Settings, SunMedium } from 'lucide-react'
+import { Archive, CalendarDays, ChevronLeft, Inbox, LayoutDashboard, ListTodo, Menu, Search, Settings, SunMedium } from 'lucide-react'
 import { useBoards } from '../api/queries/boards'
 import type { AuthUser } from '../api/types'
 import { CommandPalette } from './CommandPalette'
@@ -44,6 +44,7 @@ interface AppShellProps {
 
 const pinnedViews = [
   { to: '/today', label: 'Мой день', icon: SunMedium },
+  { to: '/agenda', label: 'Агенда', icon: ListTodo },
   { to: '/calendar', label: 'Календарь', icon: CalendarDays },
   { to: '/inbox', label: 'Inbox', icon: Inbox },
   { to: '/archive', label: 'Архив', icon: Archive },
@@ -350,6 +351,8 @@ function getBoardId(pathname: string) {
 
 function getPageTitle(pathname: string, boardName?: string) {
   if (pathname.startsWith('/boards/')) return boardName || 'Доска'
+  if (pathname.startsWith('/agenda/')) return 'Агенда'
+  if (pathname === '/agenda') return 'Агенда'
   if (pathname === '/settings') return 'Настройки'
   if (pathname === '/today') return 'Мой день'
   if (pathname === '/calendar') return 'Календарь'
@@ -361,5 +364,6 @@ function getPageTitle(pathname: string, boardName?: string) {
 function getBreadcrumbs(pathname: string, boardName?: string) {
   if (pathname.startsWith('/boards/')) return [{ label: 'Доски', to: '/' }, { label: boardName || 'Доска' }]
   if (pathname === '/') return [{ label: 'Доски' }]
+  if (pathname.startsWith('/agenda')) return [{ label: 'Агенда', to: '/agenda' }, { label: 'Агенда' }]
   return [{ label: 'Доски', to: '/' }, { label: getPageTitle(pathname, boardName) }]
 }

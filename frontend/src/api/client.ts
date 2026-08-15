@@ -19,6 +19,7 @@ import type {
   InboxSchedule,
   ArchiveResponse,
   SearchResponse,
+  AgendaResponse,
   ChecklistItem,
   RecurrenceRule,
   CardComment,
@@ -189,6 +190,25 @@ export const api = {
   },
   listMyToday: async (): Promise<MyTodayResponse> => {
     const res = await fetch(`${V1}/cards/my-today/`, { headers: authHeaders() })
+    return json(res)
+  },
+  getAgenda: async (listId?: number): Promise<AgendaResponse> => {
+    const query = listId ? `?list=${listId}` : ''
+    const res = await fetch(`${V1}/agenda/${query}`, { headers: authHeaders() })
+    return json(res)
+  },
+  completeCard: async (id: number): Promise<Card> => {
+    const res = await fetch(`${V1}/cards/${id}/complete/`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    return json(res)
+  },
+  uncompleteCard: async (id: number): Promise<Card> => {
+    const res = await fetch(`${V1}/cards/${id}/uncomplete/`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
     return json(res)
   },
   createCard: async (column: number, title: string, description = ''): Promise<Card> => {

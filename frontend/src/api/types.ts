@@ -71,8 +71,44 @@ export interface Card {
   version: number
   archived_at: string | null
   is_done: boolean
+  completed_at?: string | null
+  completed_by?: number | null
   parent_recurrence: number | null
   recurrence: RecurrenceRule | null
+}
+
+export interface AgendaUser {
+  id: number
+  username: string
+  full_name: string | null
+}
+
+export interface AgendaCard {
+  id: number
+  title: string
+  list: number
+  deadline: string | null
+  priority: 0 | 1 | 2 | 3
+  priority_label?: string
+  assignee: AgendaUser | null
+  completed_at: string | null
+  completed_by: AgendaUser | null
+  has_subtasks: boolean
+  has_checklist: boolean
+  created_at: string
+}
+
+export interface AgendaBoundaries {
+  timezone: string
+  today_start: string
+  tomorrow_start: string
+  day_after_start: string
+  week_end: string
+}
+
+export interface AgendaResponse {
+  boundaries: AgendaBoundaries
+  cards: AgendaCard[]
 }
 
 export interface RecurrenceRule {

@@ -11,11 +11,14 @@ function getWsBase(): string {
   return `${proto}://${window.location.host}`
 }
 
+export { getWsBase }
+
 export type BoardEvent =
   | { type: 'card.created'; card: Card }
   | { type: 'card.updated'; card: Card }
   | { type: 'card.deleted'; card_id: number }
   | { type: 'card.moved'; card: Card }
+  | { type: 'card.completed'; card: Card }
   | { type: 'comment.created'; card_id: number; comment: CardComment }
   | { type: 'comment.updated'; card_id: number; comment: CardComment }
   | { type: 'comment.deleted'; card_id: number; comment_id: number }
