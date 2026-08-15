@@ -67,3 +67,9 @@ secrets/
 android/ANDROID_IMPROVEMENT_PLAN_RU.md
 
 .claude/
+
+# Local working material: design scratch, specs and tickets (not committed,
+# deleted once the work lands). CONTEXT.md, README and docs/adr/ stay in git.
+.superdesign/
+docs/spec/
+.scratch/
