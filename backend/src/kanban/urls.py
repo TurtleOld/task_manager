@@ -4,6 +4,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    AgendaView,
     ArchiveView,
     BoardViewSet,
     CardViewSet,
@@ -36,6 +37,7 @@ router.register(
 )
 
 urlpatterns = [
+    path("agenda/", AgendaView.as_view(), name="agenda"),
     path("archive/", ArchiveView.as_view(), name="archive"),
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/login/", LoginView.as_view(), name="login"),

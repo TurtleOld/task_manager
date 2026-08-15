@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .agenda import AgendaCardSerializer, AgendaUserSerializer
 from .boards import BoardSerializer
 from .cards import (
     AttachmentSerializer,
@@ -30,6 +31,8 @@ from .users import (
 )
 
 __all__ = [
+    "AgendaCardSerializer",
+    "AgendaUserSerializer",
     "BoardSerializer",
     "AttachmentSerializer",
     "CardActivitySerializer",
