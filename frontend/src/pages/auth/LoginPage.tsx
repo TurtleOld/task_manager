@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { AuthUser, RegistrationStatus } from '../../api/types'
 import { Button, Card as SurfaceCard, Field, PageShell, TextInput } from '@/components/ui'
+import { safeRedirectPath } from '@/shared/lib/safeRedirectPath'
 
 interface LoginPageProps {
   onLogin: (user: AuthUser) => void
@@ -43,7 +44,7 @@ export function LoginPage({ onLogin, token }: LoginPageProps) {
       if (boards.length === 1) {
         navigate(`/boards/${boards[0]?.id}`, { replace: true })
       } else {
-        const next = (location.state as { from?: string } | null)?.from
+        const next = safeRedirectPath((location.state as { from?: string } | null)?.from)
         navigate(next || '/', { replace: true })
       }
     } catch (e) {
