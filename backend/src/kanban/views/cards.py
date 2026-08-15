@@ -8,7 +8,7 @@ from typing import Any
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 from django.utils.text import get_valid_filename
 from rest_framework import status, viewsets
@@ -738,7 +738,6 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             return Response({"detail": "Version conflict"}, status=status.HTTP_409_CONFLICT)
 
         with transaction.atomic():
-            before_column = card.column
             if to_column_id is not None and int(to_column_id) != card.column_id:
                 try:
                     target_column = Column.objects.get(id=int(to_column_id))
@@ -779,20 +778,81 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         )
         serializer = self.get_serializer(card)
 
+        broadcast_board_event(card.board_id, "card.moved", {"card": serializer.data})
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="complete")
+    def complete(self, request: Request, pk: str | None = None) -> Response:
+        card = self.get_object()
         actor = request.user if request.user.is_authenticated else None
+        now = timezone.now()
+
+        with transaction.atomic():
+            card._activity_actor = actor
+            card.completed_at = now
+            card.completed_by = actor
+            card.save(update_fields=["completed_at", "completed_by", "updated_at", "version"])
+
+            open_subtask_ids = list(
+                Card.objects.filter(
+                    parent_id=card.pk,
+                    completed_at__isnull=True,
+                    archived_at__isnull=True,
+                ).values_list("id", flat=True)
+            )
+            if open_subtask_ids:
+                Card.objects.filter(id__in=open_subtask_ids).update(
+                    completed_at=now,
+                    completed_by=actor,
+                    updated_at=now,
+                    version=F("version") + 1,
+                )
+                CardActivity.objects.bulk_create(
+                    CardActivity(
+                        card_id=subtask_id,
+                        actor=actor,
+                        action="card.updated",
+                        before={"completed_at": None},
+                        after={"completed_at": now.isoformat()},
+                    )
+                    for subtask_id in open_subtask_ids
+                )
+
+        card = (
+            Card.objects.select_related("board", "column")
+            .prefetch_related(*CARD_PREFETCH_RELATED)
+            .get(pk=card.pk)
+        )
+        serializer = self.get_serializer(card)
+
         create_notification_event(
-            event_type=NotificationEventType.CARD_MOVED.value,
+            event_type=NotificationEventType.CARD_COMPLETED.value,
             actor=actor,
             board=card.board,
             column=card.column,
             card=card,
-            summary=f"Карточка «{card.title}» перемещена",
-            payload={
-                "board": card.board.name,
-                "column": card.column.name,
-                "card": card.title,
-                "from_column": before_column.name if before_column else "",
-            },
+            summary=f"Задача «{card.title}» выполнена",
+            payload={"board": card.board.name, "card": card.title},
         )
-        broadcast_board_event(card.board_id, "card.moved", {"card": serializer.data})
+        broadcast_board_event(card.board_id, "card.completed", {"card": serializer.data})
+        self._broadcast_parent_update(card.parent_id)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="uncomplete")
+    def uncomplete(self, request: Request, pk: str | None = None) -> Response:
+        card = self.get_object()
+        card._activity_actor = request.user if request.user.is_authenticated else None
+        card.completed_at = None
+        card.completed_by = None
+        card.save(update_fields=["completed_at", "completed_by", "updated_at", "version"])
+
+        card = (
+            Card.objects.select_related("board", "column")
+            .prefetch_related(*CARD_PREFETCH_RELATED)
+            .get(pk=card.pk)
+        )
+        serializer = self.get_serializer(card)
+
+        broadcast_board_event(card.board_id, "card.updated", {"card": serializer.data})
+        self._broadcast_parent_update(card.parent_id)
         return Response(serializer.data)

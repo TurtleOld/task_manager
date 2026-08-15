@@ -58,20 +58,6 @@ def test_move_card_to_another_column(api_client: APIClient) -> None:
     assert card.board_id == board.id
 
 
-@pytest.mark.django_db()
-def test_move_card_creates_card_moved_event(api_client: APIClient) -> None:
-    from kanban.models import NotificationEvent
-
-    board, col1, col2 = make_board_with_two_cols()
-    card = Card.objects.create(column=col1, title="Mover")
-
-    api_client.post(
-        f"/api/v1/cards/{card.id}/move/",
-        data={"to_column": col2.id},
-        format="json",
-    )
-    assert NotificationEvent.objects.filter(event_type="card.moved", card_id=card.id).exists()
-
 
 @pytest.mark.django_db()
 def test_move_card_to_nonexistent_column(api_client: APIClient) -> None:

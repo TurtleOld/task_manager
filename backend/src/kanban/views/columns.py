@@ -11,8 +11,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from ..broadcast import broadcast_board_event
-from ..models import Column, NotificationEventType
-from ..notifications import create_notification_event
+from ..models import Column
 from ..serializers import ColumnSerializer
 
 
@@ -23,15 +22,6 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
 
     def perform_create(self, serializer: ColumnSerializer) -> None:
         column = serializer.save()
-        actor = self.request.user if self.request.user.is_authenticated else None
-        create_notification_event(
-            event_type=NotificationEventType.COLUMN_CREATED.value,
-            actor=actor,
-            board=column.board,
-            column=column,
-            summary=f"Создана колонка «{column.name}»",
-            payload={"board": column.board.name, "column": column.name},
-        )
         broadcast_board_event(
             column.board_id,
             "column.created",
@@ -40,15 +30,6 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
 
     def perform_update(self, serializer: ColumnSerializer) -> None:
         column = serializer.save()
-        actor = self.request.user if self.request.user.is_authenticated else None
-        create_notification_event(
-            event_type=NotificationEventType.COLUMN_UPDATED.value,
-            actor=actor,
-            board=column.board,
-            column=column,
-            summary=f"Обновлена колонка «{column.name}»",
-            payload={"board": column.board.name, "column": column.name},
-        )
         broadcast_board_event(
             column.board_id,
             "column.updated",
@@ -58,21 +39,10 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
     def perform_destroy(self, instance: Column) -> None:
         if instance.is_default:
             raise serializers.ValidationError({"detail": "Нельзя удалить стандартную колонку"})
-        actor = self.request.user if self.request.user.is_authenticated else None
-        summary = f"Удалена колонка «{instance.name}»"
-        payload = {"board": instance.board.name, "column": instance.name}
         board_id = instance.board_id
         column_id = instance.id
-        board = instance.board
         instance.archived_at = timezone.now()
         instance.save(update_fields=["archived_at", "updated_at", "version"])
-        create_notification_event(
-            event_type=NotificationEventType.COLUMN_DELETED.value,
-            actor=actor,
-            board=board,
-            summary=summary,
-            payload=payload,
-        )
         broadcast_board_event(board_id, "column.deleted", {"column_id": column_id})
 
     @action(detail=True, methods=["post"], url_path="restore")
@@ -127,14 +97,5 @@ class ColumnViewSet(viewsets.ModelViewSet[Column]):
 
         column = Column.objects.select_related("board").get(pk=column.pk)
         serializer = self.get_serializer(column)
-        actor = request.user if request.user.is_authenticated else None
-        create_notification_event(
-            event_type=NotificationEventType.COLUMN_UPDATED.value,
-            actor=actor,
-            board=column.board,
-            column=column,
-            summary=f"Перемещена колонка «{column.name}»",
-            payload={"board": column.board.name, "column": column.name},
-        )
         broadcast_board_event(column.board_id, "column.updated", {"column": serializer.data})
         return Response(serializer.data)
