@@ -7,7 +7,7 @@ def backfill_completion_fields(apps, schema_editor):
     Card = apps.get_model("kanban", "Card")
     CardActivity = apps.get_model("kanban", "CardActivity")
 
-    done_cards = Card.objects.filter(column__is_done=True).select_related("column")
+    done_cards = Card.objects.filter(column__is_done=True)
     for card in done_cards.iterator():
         move_record = (
             CardActivity.objects.filter(card=card, after__column=card.column_id)
