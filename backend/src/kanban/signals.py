@@ -7,7 +7,15 @@ from django.dispatch import receiver
 from .inbox import get_or_create_user_inbox
 from .models import Card, CardActivity
 
-TRACKED_CARD_FIELDS = ("title", "description", "deadline", "priority", "column_id", "assignee_id")
+TRACKED_CARD_FIELDS = (
+    "title",
+    "description",
+    "deadline",
+    "priority",
+    "column_id",
+    "assignee_id",
+    "completed_at",
+)
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
