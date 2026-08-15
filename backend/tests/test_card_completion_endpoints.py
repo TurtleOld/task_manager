@@ -108,6 +108,7 @@ def test_completing_parent_cascades_to_open_subtasks(regular_user: User, column:
     parent = Card.objects.create(column=column, title="Trip")
     sub1 = Card.objects.create(column=column, title="Book flights", parent=parent)
     sub2 = Card.objects.create(column=column, title="Book hotel", parent=parent)
+    sub1_version = sub1.version
 
     client = _client_for(regular_user)
     client.post(f"/api/v1/cards/{parent.id}/complete/")
@@ -119,6 +120,24 @@ def test_completing_parent_cascades_to_open_subtasks(regular_user: User, column:
     assert sub1.completed_by_id == regular_user.id
     assert sub2.completed_at == parent.completed_at
     assert sub2.completed_by_id == regular_user.id
+    # The cascade goes through a bulk update, not save() — version/updated_at
+    # must still advance so optimistic concurrency stays meaningful for subtasks.
+    assert sub1.version == sub1_version + 1
+
+
+@pytest.mark.django_db()
+def test_completing_parent_writes_activity_log_for_cascaded_subtasks(
+    regular_user: User, column: Column
+) -> None:
+    parent = Card.objects.create(column=column, title="Trip")
+    sub = Card.objects.create(column=column, title="Book flights", parent=parent)
+
+    _client_for(regular_user).post(f"/api/v1/cards/{parent.id}/complete/")
+
+    activity = CardActivity.objects.filter(card=sub, action="card.updated").latest("created_at")
+    assert activity.actor_id == regular_user.id
+    assert activity.before.get("completed_at") is None
+    assert activity.after.get("completed_at") is not None
 
 
 @pytest.mark.django_db()

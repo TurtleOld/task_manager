@@ -8,7 +8,7 @@ from typing import Any
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 from django.utils.text import get_valid_filename
 from rest_framework import status, viewsets
@@ -793,11 +793,30 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             card.completed_by = actor
             card.save(update_fields=["completed_at", "completed_by", "updated_at", "version"])
 
-            Card.objects.filter(
-                parent_id=card.pk,
-                completed_at__isnull=True,
-                archived_at__isnull=True,
-            ).update(completed_at=now, completed_by=actor)
+            open_subtask_ids = list(
+                Card.objects.filter(
+                    parent_id=card.pk,
+                    completed_at__isnull=True,
+                    archived_at__isnull=True,
+                ).values_list("id", flat=True)
+            )
+            if open_subtask_ids:
+                Card.objects.filter(id__in=open_subtask_ids).update(
+                    completed_at=now,
+                    completed_by=actor,
+                    updated_at=now,
+                    version=F("version") + 1,
+                )
+                CardActivity.objects.bulk_create(
+                    CardActivity(
+                        card_id=subtask_id,
+                        actor=actor,
+                        action="card.updated",
+                        before={"completed_at": None},
+                        after={"completed_at": now.isoformat()},
+                    )
+                    for subtask_id in open_subtask_ids
+                )
 
         card = (
             Card.objects.select_related("board", "column")
@@ -834,6 +853,6 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         )
         serializer = self.get_serializer(card)
 
-        broadcast_board_event(card.board_id, "card.completed", {"card": serializer.data})
+        broadcast_board_event(card.board_id, "card.updated", {"card": serializer.data})
         self._broadcast_parent_update(card.parent_id)
         return Response(serializer.data)
