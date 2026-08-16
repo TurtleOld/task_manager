@@ -188,6 +188,10 @@ export const api = {
     const res = await fetch(`${V1}/cards/?column=${columnId}`, { headers: authHeaders() })
     return json(res)
   },
+  getCard: async (id: number): Promise<Card> => {
+    const res = await fetch(`${V1}/cards/${id}/`, { headers: authHeaders() })
+    return json(res)
+  },
   listMyToday: async (): Promise<MyTodayResponse> => {
     const res = await fetch(`${V1}/cards/my-today/`, { headers: authHeaders() })
     return json(res)

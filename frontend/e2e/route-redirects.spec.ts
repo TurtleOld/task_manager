@@ -21,7 +21,7 @@ test('legacy card address redirects to the task address', async ({ page, request
   await signInPage(page, user)
   await page.goto(`/boards/${board.id}/cards/${card.id}`)
   await expect(page).toHaveURL(`/lists/${board.id}/tasks/${card.id}`)
-  await expect(page.getByRole('heading', { name: board.name })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: card.title })).toBeVisible()
 })
 
 test('legacy reminder link from an email opens the task address', async ({ page, request }) => {
@@ -32,7 +32,7 @@ test('legacy reminder link from an email opens the task address', async ({ page,
   await signInPage(page, user)
   await page.goto(`/boards/${board.id}#card-${card.id}`)
   await expect(page).toHaveURL(`/lists/${board.id}/tasks/${card.id}`)
-  await expect(page.getByRole('heading', { name: board.name })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: card.title })).toBeVisible()
 })
 
 async function createCard(request: import('@playwright/test').APIRequestContext, token: string, columnId: number) {
@@ -41,5 +41,5 @@ async function createCard(request: import('@playwright/test').APIRequestContext,
     data: { column: columnId, title: `E2E задача ${Date.now()}` },
   })
   expect(response.ok()).toBeTruthy()
-  return await response.json() as { id: number }
+  return await response.json() as { id: number; title: string }
 }

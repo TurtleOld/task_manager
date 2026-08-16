@@ -12,6 +12,7 @@ import { useAgendaRealtime } from './hooks/useAgendaRealtime'
 import { AgendaGroup } from './ui/AgendaGroup'
 import { AgendaHeader } from './ui/AgendaHeader'
 import type { AgendaPeopleOption } from './ui/AgendaHeader'
+import { TaskScreen } from '../task/TaskScreen'
 
 const COLLAPSED_STORAGE_KEY = 'agenda.collapsed'
 
@@ -23,7 +24,9 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const params = useParams()
   const navigate = useNavigate()
   const listId = parseListId(params.listId)
+  const taskId = parseListId(params.taskId)
   const scopeKey = listId == null ? 'all' : `list-${listId}`
+  const closeTaskPath = listId != null ? `/lists/${listId}` : '/today'
 
   const { data, isLoading, isError, refetch } = useAgenda(listId)
   const { data: boards = [] } = useBoards()
@@ -118,7 +121,19 @@ export function AgendaPage({ user }: AgendaPageProps) {
     )
   }
 
-  if (isLoading) return <AgendaPageSkeleton />
+  const taskOverlay =
+    taskId != null && listId != null ? (
+      <TaskScreen taskId={taskId} listId={listId} user={user} boundaries={boundaries} onClose={() => navigate(closeTaskPath)} />
+    ) : null
+
+  if (isLoading) {
+    return (
+      <>
+        <AgendaPageSkeleton />
+        {taskOverlay}
+      </>
+    )
+  }
 
   if (isError) {
     return (
@@ -126,6 +141,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
         <ErrorState action={{ label: 'Повторить', onClick: () => void refetch() }}>
           Не удалось загрузить агенду.
         </ErrorState>
+        {taskOverlay}
       </PageShell>
     )
   }
@@ -178,6 +194,8 @@ export function AgendaPage({ user }: AgendaPageProps) {
           </div>
         ) : null}
       </main>
+
+      {taskOverlay}
     </div>
   )
 }

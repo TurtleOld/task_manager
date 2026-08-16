@@ -20,6 +20,7 @@ from ..models import (
     RecurrenceFrequency,
     RecurrenceRule,
 )
+from .agenda import AgendaUserSerializer
 
 User = get_user_model()
 
@@ -313,6 +314,8 @@ class CardSerializer(serializers.ModelSerializer[Card]):
     attachments = serializers.SerializerMethodField()
     is_done = serializers.BooleanField(source="column.is_done", read_only=True)
     recurrence = serializers.SerializerMethodField()
+    assignee_detail = AgendaUserSerializer(source="assignee", read_only=True)
+    completed_by_detail = AgendaUserSerializer(source="completed_by", read_only=True)
 
     class Meta:
         model = Card
@@ -321,6 +324,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "board",
             "column",
             "assignee",
+            "assignee_detail",
             "title",
             "description",
             "deadline",
@@ -341,6 +345,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "recurrence",
             "completed_at",
             "completed_by",
+            "completed_by_detail",
         ]
         read_only_fields = [
             "id",
@@ -358,6 +363,8 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "recurrence",
             "completed_at",
             "completed_by",
+            "assignee_detail",
+            "completed_by_detail",
         ]
 
     def get_checklist(self, obj: Card) -> list[dict[str, Any]]:
