@@ -62,10 +62,10 @@ export function ArchivePage() {
     setRestoringKey(`board-${board.id}`)
     try {
       await unarchiveBoard.mutateAsync(board.id)
-      toast.success(`Доска «${board.name}» восстановлена`)
+      toast.success(`Список «${board.name}» восстановлен`)
       void refetch()
     } catch (error) {
-      toast.error((error as Error).message || 'Не удалось восстановить доску')
+      toast.error((error as Error).message || 'Не удалось восстановить список')
     } finally {
       setRestoringKey(null)
     }
@@ -74,10 +74,10 @@ export function ArchivePage() {
   const forceDeleteArchivedBoard = async (board: Board) => {
     try {
       await forceDeleteBoard.mutateAsync(board.id)
-      toast.success(`Доска «${board.name}» удалена`)
+      toast.success(`Список «${board.name}» удалён`)
       void refetch()
     } catch (error) {
-      toast.error((error as Error).message || 'Не удалось удалить доску')
+      toast.error((error as Error).message || 'Не удалось удалить список')
     } finally {
       setDeletingBoard(null)
     }
@@ -104,16 +104,16 @@ export function ArchivePage() {
               <Badge variant="success">Архив</Badge>
             </div>
             <div>
-              <h1 className="text-h1 text-text">Архив задач, колонок и досок</h1>
+              <h1 className="text-h1 text-text">Архив задач, колонок и списков</h1>
               <p className="mt-2 max-w-3xl text-body-sm text-text-muted">
-                Удаление теперь не стирает данные. Архивированные элементы скрываются с досок и могут быть восстановлены.
+                Удаление теперь не стирает данные. Архивированные элементы скрываются со списков и могут быть восстановлены.
               </p>
             </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-4 lg:min-w-[38rem]">
             <ArchiveMetric label="Всего" value={totalCount} tone="primary" />
-            <ArchiveMetric label="Досок" value={archivedBoards.length} tone="info" />
+            <ArchiveMetric label="Списков" value={archivedBoards.length} tone="info" />
             <ArchiveMetric label="Задач" value={cards.length} tone="warning" />
             <ArchiveMetric label="Колонок" value={columns.length} tone="success" />
           </div>
@@ -124,12 +124,12 @@ export function ArchivePage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-h3 text-text">Фильтр архива</h2>
-            <p className="mt-1 text-body-sm text-text-muted">Можно смотреть весь архив или элементы одной доски.</p>
+            <p className="mt-1 text-body-sm text-text-muted">Можно смотреть весь архив или элементы одного списка.</p>
           </div>
           <label className="min-w-56">
-            <span className="sr-only">Фильтр по доске</span>
+            <span className="sr-only">Фильтр по списку</span>
             <Select value={boardFilter} onChange={(event) => setBoardFilter(event.target.value)}>
-              <option value="all">Все доски</option>
+              <option value="all">Все списки</option>
               {boards.map((board) => <option key={board.id} value={board.id}>{board.name}</option>)}
             </Select>
           </label>
@@ -138,18 +138,18 @@ export function ArchivePage() {
 
       {totalCount === 0 ? (
         <EmptyState title="Архив пуст">
-          Здесь появятся задачи, колонки и доски после архивирования.
+          Здесь появятся задачи, колонки и списки после архивирования.
         </EmptyState>
       ) : null}
 
       {selectedBoardId == null && (
         <SurfaceCard as="section" className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="info">Доски</Badge>
+            <Badge variant="info">Списки</Badge>
             <Badge>{archivedBoards.length} items</Badge>
           </div>
           {archivedBoards.length === 0 ? (
-            <EmptyState title="Архивированных досок нет" className="p-4 text-left" />
+            <EmptyState title="Архивированных списков нет" className="p-4 text-left" />
           ) : (
             <div className="grid gap-3 lg:grid-cols-2">
               {archivedBoards.map((board) => (
@@ -211,9 +211,9 @@ export function ArchivePage() {
       <Dialog open={deletingBoard !== null} onOpenChange={(open) => !open && setDeletingBoard(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Удалить доску навсегда?</DialogTitle>
+            <DialogTitle>Удалить список навсегда?</DialogTitle>
             <DialogDescription>
-              Доска «{deletingBoard?.name}» и все её данные будут удалены безвозвратно. Это действие нельзя отменить.
+              Список «{deletingBoard?.name}» и все его данные будут удалены безвозвратно. Это действие нельзя отменить.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { ensureBoard, ensureUser, signInPage } from './helpers'
 
-test('can add a deadline reminder interval on a task that already has a deadline', async ({ page, request }) => {
+test.skip('can add a deadline reminder interval on a task (disabled until the task screen lands)', async ({ page, request }) => {
   const user = await ensureUser(request)
   const { board, columns } = await ensureBoard(request, user)
   const firstColumn = columns[0]

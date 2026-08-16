@@ -1,7 +1,7 @@
 import { Component, Suspense, useEffect, useMemo, useState } from 'react'
 import type { ComponentType, ErrorInfo, ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Archive, CalendarDays, ChevronLeft, Inbox, LayoutDashboard, ListTodo, Menu, Search, Settings, SunMedium } from 'lucide-react'
+import { Archive, CalendarDays, ChevronLeft, LayoutDashboard, ListTodo, Menu, Search, Settings } from 'lucide-react'
 import { useBoards } from '../api/queries/boards'
 import type { AuthUser } from '../api/types'
 import { CommandPalette } from './CommandPalette'
@@ -43,10 +43,8 @@ interface AppShellProps {
 }
 
 const pinnedViews = [
-  { to: '/today', label: 'Мой день', icon: SunMedium },
-  { to: '/agenda', label: 'Агенда', icon: ListTodo },
+  { to: '/today', label: 'Агенда', icon: ListTodo },
   { to: '/calendar', label: 'Календарь', icon: CalendarDays },
-  { to: '/inbox', label: 'Inbox', icon: Inbox },
   { to: '/archive', label: 'Архив', icon: Archive },
 ]
 
@@ -87,7 +85,7 @@ export function AppShell({ user, onLogout }: AppShellProps) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  const boardId = getBoardId(location.pathname)
+  const boardId = getListId(location.pathname)
   const activeBoard = boardId ? boards.find((board) => board.id === boardId) : undefined
   const pageTitle = getPageTitle(location.pathname, activeBoard?.name)
 
@@ -243,21 +241,21 @@ function ShellSidebar({ boards, boardsLoading, collapsed, mobile = false, onColl
       </div>
       <nav className="mt-5 flex-1 space-y-5 overflow-y-auto pr-1" aria-label="Разделы приложения">
         <NavSection title="Views" collapsed={collapsed && !mobile}>
-          <ShellNavItem to="/" label="Доски" icon={LayoutDashboard} collapsed={collapsed && !mobile} end />
+          <ShellNavItem to="/" label="Списки" icon={LayoutDashboard} collapsed={collapsed && !mobile} end />
           {pinnedViews.map((item) => (
             <ShellNavItem key={item.to} to={item.to} label={item.label} icon={item.icon} collapsed={collapsed && !mobile} />
           ))}
         </NavSection>
 
-        <NavSection title="Boards" collapsed={collapsed && !mobile}>
+        <NavSection title="Списки" collapsed={collapsed && !mobile}>
           {boardsLoading ? <BoardsNavSkeleton collapsed={collapsed && !mobile} /> : null}
           {!boardsLoading && boards.length === 0 ? (
-            !collapsed || mobile ? <p className="px-3 text-caption text-text-muted">Пока нет досок</p> : null
+            !collapsed || mobile ? <p className="px-3 text-caption text-text-muted">Пока нет списков</p> : null
           ) : null}
           {boards.map((board) => (
             <ShellNavItem
               key={board.id}
-              to={`/boards/${board.id}`}
+              to={`/lists/${board.id}`}
               label={board.name}
               icon={(props) => <BoardDotIcon {...props} icon={board.icon} color={board.color} />}
               collapsed={collapsed && !mobile}
@@ -344,26 +342,33 @@ function BoardsNavSkeleton({ collapsed }: { collapsed: boolean }) {
   )
 }
 
-function getBoardId(pathname: string) {
-  const match = pathname.match(/^\/boards\/(\d+)/)
+function getListId(pathname: string) {
+  const match = pathname.match(/^\/lists\/(\d+)/)
   return match?.[1] ? Number(match[1]) : null
 }
 
 function getPageTitle(pathname: string, boardName?: string) {
-  if (pathname.startsWith('/boards/')) return boardName || 'Доска'
-  if (pathname.startsWith('/agenda/')) return 'Агенда'
-  if (pathname === '/agenda') return 'Агенда'
+  if (pathname.startsWith('/lists/')) return boardName || 'Список'
+  if (pathname === '/today') return 'Агенда'
   if (pathname === '/settings') return 'Настройки'
-  if (pathname === '/today') return 'Мой день'
   if (pathname === '/calendar') return 'Календарь'
-  if (pathname === '/inbox') return 'Inbox'
   if (pathname === '/archive') return 'Архив'
-  return 'Доски'
+  return 'Списки'
 }
 
 function getBreadcrumbs(pathname: string, boardName?: string) {
-  if (pathname.startsWith('/boards/')) return [{ label: 'Доски', to: '/' }, { label: boardName || 'Доска' }]
-  if (pathname === '/') return [{ label: 'Доски' }]
-  if (pathname.startsWith('/agenda')) return [{ label: 'Агенда', to: '/agenda' }, { label: 'Агенда' }]
-  return [{ label: 'Доски', to: '/' }, { label: getPageTitle(pathname, boardName) }]
+  if (pathname.startsWith('/lists/')) {
+    const match = pathname.match(/^\/lists\/(\d+)(?:\/tasks\/(\d+))?$/)
+    if (match?.[2]) {
+      return [
+        { label: 'Списки', to: '/' },
+        { label: boardName || 'Список', to: `/lists/${match[1]}` },
+        { label: 'Задача' },
+      ]
+    }
+    return [{ label: 'Списки', to: '/' }, { label: boardName || 'Список' }]
+  }
+  if (pathname === '/') return [{ label: 'Списки' }]
+  if (pathname === '/today') return [{ label: 'Списки', to: '/' }, { label: 'Агенда' }]
+  return [{ label: 'Списки', to: '/' }, { label: getPageTitle(pathname, boardName) }]
 }

@@ -62,11 +62,11 @@ def _build_notification_message(entry: NotificationInboxEntry) -> str:
     column = payload.get("column") or (event.column.name if event.column else "")
     card = payload.get("card") or (event.card.title if event.card else "")
     if board:
-        lines.append(f"Доска: {board}")
+        lines.append(f"Список: {board}")
     if column:
         lines.append(f"Колонка: {column}")
     if card:
-        lines.append(f"Карточка: {card}")
+        lines.append(f"Задача: {card}")
     changes = payload.get("changes")
     if isinstance(changes, list):
         rendered_changes = [str(item).strip() for item in changes if str(item).strip()]
@@ -81,9 +81,9 @@ def _build_notification_message(entry: NotificationInboxEntry) -> str:
 def _build_notification_route(entry: NotificationInboxEntry) -> str:
     event = entry.event
     if event.board_id and event.card_id:
-        return f"/boards/{event.board_id}/cards/{event.card_id}"
+        return f"/lists/{event.board_id}/tasks/{event.card_id}"
     if event.board_id:
-        return f"/boards/{event.board_id}"
+        return f"/lists/{event.board_id}"
     return "/"
 
 

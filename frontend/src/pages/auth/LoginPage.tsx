@@ -42,7 +42,7 @@ export function LoginPage({ onLogin, token }: LoginPageProps) {
       onLogin(user)
       const boards = await api.listBoards()
       if (boards.length === 1) {
-        navigate(`/boards/${boards[0]?.id}`, { replace: true })
+        navigate(`/lists/${boards[0]?.id}`, { replace: true })
       } else {
         const next = safeRedirectPath((location.state as { from?: string } | null)?.from)
         navigate(next || '/', { replace: true })

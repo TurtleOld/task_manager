@@ -84,13 +84,13 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
       open={open}
       onOpenChange={onOpenChange}
       title="Командная палитра"
-      description="Создавайте задачи, переходите к доскам и ищите карточки"
+      description="Создавайте задачи, переходите к спискам и ищите задачи"
       className="max-w-2xl border-border bg-[image:var(--gradient-surface)] text-text shadow-overlay"
     >
       <CommandInput
         value={query}
         onValueChange={setQuery}
-        placeholder="Введите команду, название доски или задачу..."
+        placeholder="Введите команду, название списка или задачу..."
       />
       <CommandList className="max-h-[32rem]">
         <CommandEmpty>{isFetching ? 'Идёт поиск...' : 'Ничего не найдено'}</CommandEmpty>
@@ -115,16 +115,16 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
 
         <CommandSeparator />
 
-        <CommandGroup heading="Перейти к доске">
+        <CommandGroup heading="Перейти к списку">
           {matchingBoards.map((board) => (
             <CommandItem
               key={board.id}
               value={`board-${board.name}`}
-              onSelect={() => runCommand(() => navigate(`/boards/${board.id}`))}
+              onSelect={() => runCommand(() => navigate(`/lists/${board.id}`))}
             >
               <span className="h-2.5 w-2.5 rounded-full bg-primary" aria-hidden="true" />
               <span className="truncate">{board.name}</span>
-              <CommandShortcut>Board</CommandShortcut>
+              <CommandShortcut>Список</CommandShortcut>
             </CommandItem>
           ))}
           {serverBoards
@@ -133,11 +133,11 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
               <CommandItem
                 key={board.id}
                 value={`server-board-${board.name}`}
-                onSelect={() => runCommand(() => navigate(`/boards/${board.id}`))}
+                onSelect={() => runCommand(() => navigate(`/lists/${board.id}`))}
               >
                 <span className="h-2.5 w-2.5 rounded-full bg-primary" aria-hidden="true" />
                 <span className="truncate">{board.name}</span>
-                <CommandShortcut>Board</CommandShortcut>
+                <CommandShortcut>Список</CommandShortcut>
               </CommandItem>
             ))}
         </CommandGroup>
@@ -155,7 +155,7 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
             <CommandItem
               key={card.id}
               value={`card-${card.title}-${card.board_name}-${card.column_name}`}
-              onSelect={() => runCommand(() => navigate(`/boards/${card.board}/cards/${card.id}`))}
+              onSelect={() => runCommand(() => navigate(`/lists/${card.board}/tasks/${card.id}`))}
             >
               <Search className="h-4 w-4" aria-hidden="true" />
               <span className="min-w-0 flex-1">
@@ -164,7 +164,7 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
                   {card.board_name} / {card.column_name}
                 </span>
               </span>
-              <CommandShortcut>Card</CommandShortcut>
+              <CommandShortcut>Задача</CommandShortcut>
             </CommandItem>
           ))}
         </CommandGroup>

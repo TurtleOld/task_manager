@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useBoards } from '../../api/queries/boards'
 import { useAgenda, useAgendaComplete, useAgendaUpdateDeadline } from '../../api/queries/agenda'
@@ -51,7 +51,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
 
   useEffect(() => {
     if (params.listId != null && listId == null) {
-      navigate('/agenda', { replace: true })
+      navigate('/today', { replace: true })
     }
   }, [listId, navigate, params.listId])
 
@@ -175,17 +175,6 @@ export function AgendaPage({ user }: AgendaPageProps) {
                 deadlineBusy={deadlineBusy}
               />
             ))}
-          </div>
-        ) : null}
-
-        {!emptyAgenda ? (
-          <div className="mt-8 flex justify-center">
-            <Link
-              to="/"
-              className="text-caption text-text-muted underline-offset-4 transition hover:text-primary hover:underline"
-            >
-              Перейти к старой доске
-            </Link>
           </div>
         ) : null}
       </main>

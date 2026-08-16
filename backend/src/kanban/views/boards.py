@@ -32,7 +32,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             event_type=NotificationEventType.BOARD_CREATED.value,
             actor=actor,
             board=board,
-            summary=f"Создана доска «{board.name}»",
+            summary=f"Создан список «{board.name}»",
             payload={"board": board.name},
         )
         broadcast_board_event(board.id, "board.created", {"board": BoardSerializer(board).data})
@@ -61,14 +61,14 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             event_type=NotificationEventType.BOARD_UPDATED.value,
             actor=actor,
             board=board,
-            summary=f"Обновлена доска «{board.name}»",
+            summary=f"Обновлён список «{board.name}»",
             payload={"board": board.name},
         )
         broadcast_board_event(board.id, "board.updated", {"board": BoardSerializer(board).data})
 
     def perform_destroy(self, instance: Board) -> None:
         actor = self.request.user if self.request.user.is_authenticated else None
-        summary = f"Удалена доска «{instance.name}»"
+        summary = f"Удалён список «{instance.name}»"
         payload = {"board": instance.name}
         board_id = instance.id
         instance.delete()
@@ -91,7 +91,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             event_type=NotificationEventType.BOARD_UPDATED.value,
             actor=actor,
             board=board,
-            summary=f"Архивирована доска «{board.name}»",
+            summary=f"Архивирован список «{board.name}»",
             payload={"board": board.name},
         )
         broadcast_board_event(board.id, "board.archived", {"board_id": board.id})
@@ -109,7 +109,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             event_type=NotificationEventType.BOARD_UPDATED.value,
             actor=actor,
             board=board,
-            summary=f"Восстановлена доска «{board.name}»",
+            summary=f"Восстановлен список «{board.name}»",
             payload={"board": board.name},
         )
         broadcast_board_event(board.id, "board.unarchived", {"board_id": board.id})
@@ -122,7 +122,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         if board is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         actor = request.user if request.user.is_authenticated else None
-        summary = f"Удалена доска «{board.name}»"
+        summary = f"Удалён список «{board.name}»"
         payload = {"board": board.name}
         board_id = board.id
         board.delete()

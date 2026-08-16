@@ -143,7 +143,7 @@ export function RegisterPage({ user }: RegisterPageProps) {
               </Field>
               <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 text-caption text-text-muted shadow-surface">
                 <p className="font-semibold text-text">Подсказка</p>
-                <p className="mt-1">Владелец имеет полный доступ. Участник видит и редактирует доски, но не может менять роли и удалять рабочее пространство.</p>
+                <p className="mt-1">Владелец имеет полный доступ. Участник видит и редактирует списки, но не может менять роли и удалять рабочее пространство.</p>
               </div>
             </div>
           </section>

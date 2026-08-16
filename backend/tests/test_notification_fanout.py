@@ -34,7 +34,7 @@ def _event(actor, board):
         event_type="board.updated",
         actor=actor,
         board=board,
-        summary="Обновлена доска",
+        summary="Обновлён список",
         payload={"board": board.name},
     )
 

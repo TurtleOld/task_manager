@@ -17,7 +17,7 @@ User = get_user_model()
 def build_frontend_link(board_id: int | None) -> str:
     base = settings.FRONTEND_BASE_URL.rstrip("/")
     if board_id:
-        return f"{base}/boards/{board_id}"
+        return f"{base}/lists/{board_id}"
     return f"{base}/"
 
 

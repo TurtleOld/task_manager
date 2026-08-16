@@ -13,7 +13,7 @@ def test_notification_inbox_api_lists_and_marks_read(auth_client, regular_user, 
         event_type="board.updated",
         actor=regular_user,
         board=board,
-        summary='Обновлена доска "Дом"',
+        summary='Обновлён список "Дом"',
         payload={"board": board.name},
     )
 
@@ -28,7 +28,7 @@ def test_notification_inbox_api_lists_and_marks_read(auth_client, regular_user, 
     item = payload["results"][0]
     assert item["event_id"] == event.id
     assert item["unread"] is True
-    assert item["route"] == f"/boards/{board.id}"
+    assert item["route"] == f"/lists/{board.id}"
 
     mark_response = auth_client.patch(
         "/api/v1/notifications/inbox/",
