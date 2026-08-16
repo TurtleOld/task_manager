@@ -44,6 +44,7 @@ export interface Card {
   column: number
   parent: number | null
   assignee: number | null
+  assignee_detail?: AgendaUser | null
   title: string
   description: string
   deadline: string | null
@@ -73,6 +74,7 @@ export interface Card {
   is_done: boolean
   completed_at?: string | null
   completed_by?: number | null
+  completed_by_detail?: AgendaUser | null
   parent_recurrence: number | null
   recurrence: RecurrenceRule | null
 }
