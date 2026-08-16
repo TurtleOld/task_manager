@@ -1,5 +1,10 @@
 # AGENTS
 
+## Workflow
+
+- Never commit ticket/issue work directly to `main`. Create a new branch for each ticket, commit there, push it, and open a pull request — do not push straight to `main`.
+- Pull request descriptions must be written in Russian.
+
 ## Release Versioning
 
 - Releases are fully automated by release-please (`.github/workflows/release-please.yml`, `release-please-config.json`, `.release-please-manifest.json`).
