@@ -172,45 +172,28 @@ def test_create_card_response_contains_complete_immediate_use_payload(
 
 
 @pytest.mark.django_db()
-def test_my_today_groups_active_cards(api_client: APIClient, board: Board) -> None:
+def test_my_today_uses_agenda_format(api_client: APIClient, board: Board) -> None:
+    """Same shape as the agenda endpoint: boundaries + a flat card list, no column fields."""
     todo = Column.objects.create(board=board, name="To Do")
-    done = Column.objects.create(board=board, name="Done", is_done=True)
-    today_start = timezone.localtime(timezone.now()).replace(
-        hour=0,
-        minute=0,
-        second=0,
-        microsecond=0,
-    )
-    today_deadline = today_start + timedelta(hours=12)
-    overdue = Card.objects.create(
-        column=todo,
-        title="Overdue",
-        deadline=today_start - timedelta(hours=1),
-    )
-    today = Card.objects.create(column=todo, title="Today", deadline=today_deadline)
-    important = Card.objects.create(column=todo, title="Important", priority=3)
+    card = Card.objects.create(column=todo, title="Open task")
     completed = Card.objects.create(
-        column=done,
+        column=todo,
         title="Completed",
-        deadline=today_deadline,
-        priority=3,
+        completed_at=timezone.now() - timedelta(days=30),
     )
 
     resp = api_client.get("/api/v1/cards/my-today/")
 
     assert resp.status_code == 200
     data = resp.json()
-    assert {item["id"] for item in data["overdue"]} == {overdue.id}
-    assert {item["id"] for item in data["today"]} == {today.id}
-    assert {item["id"] for item in data["important"]} == {important.id}
-    assert completed.id not in {
-        item["id"]
-        for section in [data["overdue"], data["today"], data["important"]]
-        for item in section
-    }
-    assert data["today"][0]["board_name"] == board.name
-    assert data["today"][0]["column_name"] == todo.name
-    assert data["today"][0]["done_column"] == done.id
+    assert "boundaries" in data
+    ids = {item["id"] for item in data["cards"]}
+    assert card.id in ids
+    assert completed.id not in ids
+    item = next(item for item in data["cards"] if item["id"] == card.id)
+    assert "column" not in item
+    assert "column_name" not in item
+    assert item["list"] == board.id
 
 
 @pytest.mark.django_db()
@@ -228,7 +211,7 @@ def test_my_today_for_authenticated_user_shows_only_own_cards(
     resp = auth_client.get("/api/v1/cards/my-today/")
 
     assert resp.status_code == 200
-    ids = {item["id"] for item in resp.json()["important"]}
+    ids = {item["id"] for item in resp.json()["cards"]}
     assert own.id in ids
     assert unassigned.id not in ids
     assert other.id not in ids

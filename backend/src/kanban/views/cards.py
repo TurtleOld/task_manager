@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import re
-from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import F
 from django.utils import timezone
 from django.utils.text import get_valid_filename
 from rest_framework import status, viewsets
@@ -17,6 +16,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from ..agenda import agenda_queryset, compute_agenda_boundaries
 from ..broadcast import broadcast_board_event
 from ..models import (
     Attachment,
@@ -26,15 +26,16 @@ from ..models import (
     CardActivity,
     CardComment,
     CardDeadlineReminder,
-    CardPriority,
     ChecklistItem,
     Column,
     NotificationEventType,
+    NotificationProfile,
     RecurrenceRule,
 )
 from ..notifications import create_notification_event
 from ..reminders import reminder_channel_availability, upsert_and_schedule_reminder
 from ..serializers import (
+    AgendaCardSerializer,
     AttachmentSerializer,
     CardActivitySerializer,
     CardCommentSerializer,
@@ -76,58 +77,23 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
     @action(detail=False, methods=["get"], url_path="my-today")
     def my_today(self, request: Request) -> Response:
-        local_now = timezone.localtime(timezone.now())
-        today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-        tomorrow_start = today_start + timedelta(days=1)
-
-        base = (
-            Card.objects.select_related("board", "column")
-            .prefetch_related(*CARD_PREFETCH_RELATED)
-            .exclude(
-                Q(column__is_done=True)
-                | Q(column__name__iexact="Done")
-                | Q(column__name__iexact="Готово")
-            )
-        )
+        # Same format as the agenda endpoint, scoped to the current user
+        # instead of a list — no board filter, no column fields.
         if request.user and request.user.is_authenticated:
-            base = base.filter(assignee=request.user)
+            profile, _ = NotificationProfile.objects.get_or_create(user=request.user)
+            tz_name = profile.timezone
+            assignee_id = request.user.id
+        else:
+            tz_name = "UTC"
+            assignee_id = None
 
-        overdue_cards = list(
-            base.filter(deadline__lt=today_start).order_by("deadline", "position", "id")
-        )
-        today_cards = list(
-            base.filter(deadline__gte=today_start, deadline__lt=tomorrow_start).order_by(
-                "deadline", "position", "id"
-            )
-        )
-        important_cards = list(
-            base.filter(priority=CardPriority.HIGH).order_by("deadline", "position", "id")
-        )
-
-        board_ids = {card.board_id for card in [*overdue_cards, *today_cards, *important_cards]}
-        done_columns = {
-            item["board_id"]: item["id"]
-            for item in Column.objects.filter(board_id__in=board_ids, is_done=True)
-            .order_by("board_id", "position", "id")
-            .values("board_id", "id")
-        }
-
-        def serialize(cards: list[Card]) -> list[dict[str, Any]]:
-            payload = self.get_serializer(cards, many=True).data
-            result: list[dict[str, Any]] = []
-            for card, item in zip(cards, payload, strict=True):
-                data = dict(item)
-                data["board_name"] = card.board.name
-                data["column_name"] = card.column.name
-                data["done_column"] = done_columns.get(card.board_id)
-                result.append(data)
-            return result
+        boundaries = compute_agenda_boundaries(now=timezone.now(), tz_name=tz_name)
+        cards = agenda_queryset(boundaries=boundaries, assignee_id=assignee_id)
 
         return Response(
             {
-                "overdue": serialize(overdue_cards),
-                "today": serialize(today_cards),
-                "important": serialize(important_cards),
+                "boundaries": boundaries.as_dict(),
+                "cards": AgendaCardSerializer(cards, many=True).data,
             }
         )
 

@@ -29,6 +29,7 @@ def test_generated_recurring_card_receives_recurrence_and_source_stops(column) -
         column=column,
         title="Recurring source",
         deadline=now - timedelta(minutes=1),
+        completed_at=now,
     )
     rule = RecurrenceRule.objects.create(
         card=card,
@@ -48,6 +49,65 @@ def test_generated_recurring_card_receives_recurrence_and_source_stops(column) -
     rule.refresh_from_db()
     assert rule.generated_count == 1
     assert rule.next_due is None
+
+
+@pytest.mark.django_db()
+def test_generation_held_while_instance_open(column) -> None:
+    """No copy is created while the rule's own card is still open (not done)."""
+    now = timezone.now()
+    card = Card.objects.create(
+        column=column,
+        title="Recurring, still open",
+        deadline=now - timedelta(minutes=1),
+    )
+    rule = RecurrenceRule.objects.create(
+        card=card,
+        freq=RecurrenceFrequency.DAILY,
+        interval=1,
+        next_due=now - timedelta(minutes=1),
+    )
+
+    generate_recurring_cards()
+
+    assert Card.objects.filter(parent_recurrence=rule).count() == 0
+    rule.refresh_from_db()
+    assert rule.generated_count == 0
+    assert rule.next_due is not None
+    assert rule.next_due > now
+
+
+@pytest.mark.django_db()
+def test_generation_resumes_after_completion(column) -> None:
+    """Completing the held instance lets the series generate its successor."""
+    now = timezone.now()
+    card = Card.objects.create(
+        column=column,
+        title="Recurring, still open",
+        deadline=now - timedelta(minutes=1),
+    )
+    rule = RecurrenceRule.objects.create(
+        card=card,
+        freq=RecurrenceFrequency.DAILY,
+        interval=1,
+        next_due=now - timedelta(minutes=1),
+    )
+
+    generate_recurring_cards()  # held: card is open, no copy yet
+    assert Card.objects.filter(parent_recurrence=rule).count() == 0
+
+    card.completed_at = timezone.now()
+    card.save(update_fields=["completed_at"])
+    rule.refresh_from_db()
+    rule.next_due = timezone.now() - timedelta(minutes=1)
+    rule.save(update_fields=["next_due"])
+
+    generate_recurring_cards()
+
+    generated = Card.objects.get(parent_recurrence=rule)
+    generated_rule = RecurrenceRule.objects.get(card=generated)
+    rule.refresh_from_db()
+    assert rule.generated_count == 1
+    assert generated_rule.next_due is not None
 
 
 @pytest.mark.django_db()

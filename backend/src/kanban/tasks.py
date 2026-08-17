@@ -13,7 +13,6 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Q
 from django.db.utils import IntegrityError
 from django.utils import timezone
 from django.utils.text import Truncator
@@ -25,7 +24,6 @@ from .models import (
     CardActivity,
     CardDeadlineReminder,
     CardDeadlineReminderDelivery,
-    Column,
     InboxSchedule,
     NotificationChannel,
     NotificationDelivery,
@@ -748,6 +746,25 @@ def generate_recurring_cards(self) -> None:
             continue
 
         due = rule.next_due or now
+
+        # At most one open instance (not completed, not archived) per recurrence
+        # series. The series' current card always owns the only "live" rule
+        # (generation transfers next_due to the new copy's own rule and clears
+        # it here), so checking this card is enough — no need to walk the
+        # chain. Held silently: no card is created, no notification, no
+        # indicator; only the due date shifts so the check is cheap next time.
+        if card.completed_at is None and card.archived_at is None:
+            rule.next_due = calculate_next_recurrence_due(
+                base=due,
+                freq=rule.freq,
+                interval=rule.interval,
+                byweekday=rule.byweekday,
+                byday=rule.byday,
+                bysetpos=rule.bysetpos,
+            )
+            rule.save(update_fields=["next_due", "updated_at", "version"])
+            continue
+
         # The copy's deadline is the NEXT occurrence after the trigger time.
         # This guarantees the generated task always starts with a future deadline.
         copy_deadline = calculate_next_recurrence_due(
@@ -758,14 +775,9 @@ def generate_recurring_cards(self) -> None:
             byday=rule.byday,
             bysetpos=rule.bysetpos,
         )
-        todo_column = (
-            Column.objects.filter(board=card.board, archived_at__isnull=True, is_done=False)
-            .order_by("position", "id")
-            .first()
-        ) or card.column
         copy = Card.objects.create(
             board=card.board,
-            column=todo_column,
+            column=card.column,
             parent=card.parent,
             assignee=card.assignee,
             title=card.title,
@@ -891,17 +903,15 @@ def prune_card_activity(self) -> None:
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
 def send_overdue_card_reminders(self) -> None:
-    """Periodic task: send FCM reminders for overdue cards not in 'Done' columns."""
+    """Periodic task: send FCM reminders for overdue cards not yet done."""
     site_settings = SiteSettings.load()
     interval_minutes = site_settings.overdue_reminder_interval
 
     now = timezone.now()
     cutoff = now - timezone.timedelta(minutes=interval_minutes)
 
-    overdue_cards = (
-        Card.objects.filter(deadline__lt=now)
-        .exclude(Q(column__is_done=True) | Q(column__name__iexact="Done"))
-        .select_related("board", "column")
+    overdue_cards = Card.objects.filter(deadline__lt=now, completed_at__isnull=True).select_related(
+        "board", "column"
     )
 
     if not overdue_cards.exists():
@@ -929,9 +939,8 @@ def send_overdue_card_reminders(self) -> None:
         body_text = (
             f"Задача «{card.title}» просрочена.\n"
             f"Дедлайн: {_format_deadline_ru(dt=card.deadline, tz_name='Europe/Moscow')}\n"
-            f"Список: {card.board.name}\n"
-            f"Колонка: {card.column.name}\n\n"
-            f"Перенесите задачу в колонку «Done» после выполнения.\n"
+            f"Список: {card.board.name}\n\n"
+            f"Отметьте задачу выполненной, когда закончите.\n"
             f"Открыть: {link}"
         )
 
