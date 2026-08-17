@@ -18,7 +18,8 @@ def test_search_finds_cards_and_boards(auth_client: APIClient) -> None:
     data = resp.json()
     assert [item["id"] for item in data["cards"]] == [card.id]
     assert data["cards"][0]["board_name"] == board.name
-    assert data["cards"][0]["column_name"] == column.name
+    assert "column" not in data["cards"][0]
+    assert "column_name" not in data["cards"][0]
 
     board_resp = auth_client.get("/api/v1/search/?q=ремонт")
     assert [item["id"] for item in board_resp.json()["boards"]] == [board.id]

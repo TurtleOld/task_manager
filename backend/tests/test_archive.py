@@ -7,7 +7,7 @@ from kanban.models import Board, Card, Column
 
 
 @pytest.mark.django_db()
-def test_archive_lists_archived_cards_and_columns(auth_client: APIClient) -> None:
+def test_archive_lists_archived_cards_without_columns(auth_client: APIClient) -> None:
     board = Board.objects.create(name="Home")
     column = Column.objects.create(board=board, name="To Do")
     card = Card.objects.create(column=column, title="Old task")
@@ -21,9 +21,8 @@ def test_archive_lists_archived_cards_and_columns(auth_client: APIClient) -> Non
     data = resp.json()
     assert [item["id"] for item in data["cards"]] == [card.id]
     assert data["cards"][0]["board_name"] == "Home"
-    assert data["cards"][0]["column_name"] == "To Do"
-    assert [item["id"] for item in data["columns"]] == [column.id]
-    assert data["columns"][0]["board_name"] == "Home"
+    assert "column_name" not in data["cards"][0]
+    assert "columns" not in data
 
 
 @pytest.mark.django_db()

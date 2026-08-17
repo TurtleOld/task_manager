@@ -23,7 +23,7 @@ class SearchView(APIView):
             Board.objects.filter(is_inbox=False, name__icontains=query).order_by("name", "id")[:8]
         )
         cards = list(
-            Card.objects.select_related("board", "column")
+            Card.objects.select_related("board")
             .prefetch_related("labels")
             .filter(
                 board__is_inbox=False,
@@ -52,8 +52,6 @@ class SearchView(APIView):
             "description": card.description,
             "board": card.board_id,
             "board_name": card.board.name,
-            "column": card.column_id,
-            "column_name": card.column.name,
             "deadline": card.deadline,
             "priority": card.priority,
         }
