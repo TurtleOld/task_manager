@@ -15,6 +15,8 @@ import { useColumns } from '../../api/queries/columns'
 import { useAssignableUsers } from '../../api/queries/task'
 import type { AgendaCard, AuthUser } from '../../api/types'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
+import { useMediaQuery } from '../../shared/hooks/useMediaQuery'
+import { useVisualViewportInset } from '../../shared/hooks/useVisualViewportInset'
 import { EmptyState, ErrorState, PageShell, Skeleton } from '@/components/ui'
 import { AGENDA_GROUP_LABELS, AGENDA_GROUP_ORDER, bucketAgendaCards } from './lib/grouping'
 import type { AgendaGroupId } from './lib/grouping'
@@ -23,11 +25,16 @@ import { useFamilyTodayRealtime } from './hooks/useFamilyTodayRealtime'
 import { AgendaGroup } from './ui/AgendaGroup'
 import { AgendaHeader } from './ui/AgendaHeader'
 import type { AgendaPeopleOption } from './ui/AgendaHeader'
+import { QuickAddBar } from './ui/QuickAddBar'
 import type { QuickAddResult } from './ui/QuickAddBar'
 import { FamilyTodayPanel } from './ui/FamilyTodayPanel'
 import { TaskScreen } from '../task/TaskScreen'
 
 const COLLAPSED_STORAGE_KEY = 'agenda.collapsed'
+/** Совпадает с брейкпоинтом `xl:`, на котором появляется правая панель. */
+const DESKTOP_PANEL_QUERY = '(min-width: 1280px)'
+/** Совпадает с брейкпоинтом `lg:`, на котором прячется нижняя таб-панель/строка добавления. */
+const MOBILE_LAYOUT_QUERY = '(max-width: 1023px)'
 
 interface AgendaPageProps {
   user: AuthUser
@@ -45,7 +52,10 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const { data: boards = [] } = useBoards()
   const completeMutation = useAgendaComplete(listId, user.id)
   const deadlineMutation = useAgendaUpdateDeadline(listId)
-  const familyToday = useFamilyToday()
+  const isDesktopPanel = useMediaQuery(DESKTOP_PANEL_QUERY)
+  const isMobileLayout = useMediaQuery(MOBILE_LAYOUT_QUERY)
+  const keyboardInset = useVisualViewportInset()
+  const familyToday = useFamilyToday({ enabled: isDesktopPanel })
   const shoppingToggleMutation = useFamilyShoppingItemToggle()
   const columnsQuery = useColumns(listId ?? 0)
   const assignableUsersQuery = useAssignableUsers(user)
@@ -82,7 +92,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
     return boards.map((board) => board.id)
   }, [boards, listId])
   useAgendaRealtime({ boardIds: realtimeBoardIds, listId, token: wsToken })
-  const familyBoardIds = useMemo(() => boards.map((board) => board.id), [boards])
+  const familyBoardIds = useMemo(() => (isDesktopPanel ? boards.map((board) => board.id) : []), [boards, isDesktopPanel])
   useFamilyTodayRealtime({ boardIds: familyBoardIds, token: wsToken })
 
   const cards = useMemo(() => data?.cards ?? [], [data?.cards])
@@ -136,6 +146,42 @@ export function AgendaPage({ user }: AgendaPageProps) {
     deadlineMutation.mutate(
       { id: card.id, deadline },
       {
+        onError: () => toast.error('Не удалось изменить срок'),
+      },
+    )
+  }
+
+  const handleSwipeComplete = (card: AgendaCard) => {
+    completeMutation.mutate(
+      { id: card.id, complete: true },
+      {
+        onSuccess: () => {
+          toast.success(`Задача «${card.title}» выполнена`, {
+            action: {
+              label: 'Отменить',
+              onClick: () => completeMutation.mutate({ id: card.id, complete: false }),
+            },
+          })
+        },
+        onError: () => toast.error('Не удалось отметить задачу выполненной'),
+      },
+    )
+  }
+
+  const handleSwipeTomorrow = (card: AgendaCard) => {
+    if (!boundaries) return
+    const previousDeadline = card.deadline
+    deadlineMutation.mutate(
+      { id: card.id, deadline: boundaries.tomorrow_start },
+      {
+        onSuccess: () => {
+          toast.success(`Срок задачи «${card.title}» перенесён на завтра`, {
+            action: {
+              label: 'Отменить',
+              onClick: () => deadlineMutation.mutate({ id: card.id, deadline: previousDeadline }),
+            },
+          })
+        },
         onError: () => toast.error('Не удалось изменить срок'),
       },
     )
@@ -215,8 +261,10 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const emptyAgenda = cards.length === 0
   const emptyByFilter = !emptyAgenda && visibleCards.length === 0
 
+  const mobileQuickAddEnabled = isMobileLayout && listId != null && defaultColumn != null
+
   return (
-    <div className="min-h-screen bg-background/80 pb-12 text-text">
+    <div className="min-h-screen bg-background/80 pb-12 text-text" style={mobileQuickAddEnabled ? { paddingBottom: 'calc(9rem + env(safe-area-inset-bottom))' } : undefined}>
       <AgendaHeader
         activeAssigneeId={activeAssigneeId}
         activeListId={listId}
@@ -224,7 +272,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
         people={people}
         onAssigneeFilterChange={setActiveAssigneeId}
         quickAdd={
-          listId != null && defaultColumn != null
+          !isMobileLayout && listId != null && defaultColumn != null
             ? {
                 busy: createCardMutation.isPending,
                 onSubmit: handleQuickAddCreate,
@@ -264,6 +312,8 @@ export function AgendaPage({ user }: AgendaPageProps) {
                   label={AGENDA_GROUP_LABELS[group]}
                   onCompleteToggle={handleCompleteToggle}
                   onDeadlineCommit={handleDeadlineCommit}
+                  onSwipeComplete={handleSwipeComplete}
+                  onSwipeTomorrow={handleSwipeTomorrow}
                   onToggle={() => toggleCollapsed(group)}
                   deadlineBusy={deadlineBusy}
                 />
@@ -272,18 +322,34 @@ export function AgendaPage({ user }: AgendaPageProps) {
           ) : null}
         </main>
 
-        <aside className="hidden w-80 shrink-0 xl:block">
-          <FamilyTodayPanel
-            data={familyToday.data}
-            isLoading={familyToday.isLoading}
-            isError={familyToday.isError}
-            activeAssigneeId={activeAssigneeId}
-            onPersonClick={handlePersonClick}
-            onShoppingItemToggle={handleShoppingItemToggle}
-            shoppingBusy={shoppingToggleMutation.isPending}
-          />
-        </aside>
+        {isDesktopPanel ? (
+          <aside className="hidden w-80 shrink-0 xl:block">
+            <FamilyTodayPanel
+              data={familyToday.data}
+              isLoading={familyToday.isLoading}
+              isError={familyToday.isError}
+              activeAssigneeId={activeAssigneeId}
+              onPersonClick={handlePersonClick}
+              onShoppingItemToggle={handleShoppingItemToggle}
+              shoppingBusy={shoppingToggleMutation.isPending}
+            />
+          </aside>
+        ) : null}
       </div>
+
+      {mobileQuickAddEnabled ? (
+        <div
+          className="fixed inset-x-0 z-sticky border-t border-border/80 bg-background/95 px-3 py-2 backdrop-blur-xl lg:hidden"
+          style={{ bottom: keyboardInset > 0 ? keyboardInset : 'calc(4rem + env(safe-area-inset-bottom))' }}
+        >
+          <QuickAddBar
+            busy={createCardMutation.isPending}
+            onSubmit={handleQuickAddCreate}
+            people={assignableUsersQuery.data ?? []}
+            timeZone={boundaries?.timezone}
+          />
+        </div>
+      ) : null}
 
       {taskOverlay}
     </div>

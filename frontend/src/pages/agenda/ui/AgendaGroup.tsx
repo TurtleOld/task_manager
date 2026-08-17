@@ -15,6 +15,8 @@ interface AgendaGroupProps {
   label: string
   onCompleteToggle: (card: AgendaCard, complete: boolean) => void
   onDeadlineCommit: (card: AgendaCard, deadline: string | null) => void
+  onSwipeComplete: (card: AgendaCard) => void
+  onSwipeTomorrow: (card: AgendaCard) => void
   onToggle: () => void
 }
 
@@ -23,7 +25,7 @@ const groupLabelTone: Partial<Record<AgendaGroupId, string>> = {
   today: 'text-warning',
 }
 
-export function AgendaGroup({ boundaries, busy, cards, collapsed, deadlineBusy, group, label, onCompleteToggle, onDeadlineCommit, onToggle }: AgendaGroupProps) {
+export function AgendaGroup({ boundaries, busy, cards, collapsed, deadlineBusy, group, label, onCompleteToggle, onDeadlineCommit, onSwipeComplete, onSwipeTomorrow, onToggle }: AgendaGroupProps) {
   const contentId = useId()
 
   if (cards.length === 0) return null
@@ -58,6 +60,8 @@ export function AgendaGroup({ boundaries, busy, cards, collapsed, deadlineBusy, 
               group={group}
               onCompleteToggle={onCompleteToggle}
               onDeadlineCommit={onDeadlineCommit}
+              onSwipeComplete={onSwipeComplete}
+              onSwipeTomorrow={onSwipeTomorrow}
             />
           ))}
         </ul>

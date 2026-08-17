@@ -8,7 +8,7 @@ import { CommandPalette } from './CommandPalette'
 import { NotificationInboxButton } from './NotificationInboxButton'
 import { toggleTheme } from './theme'
 import { Button, Skeleton } from '@/components/ui'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 
 const SIDEBAR_COLLAPSED_KEY = 'app-shell.sidebar-collapsed'
@@ -106,20 +106,11 @@ export function AppShell({ user, onLogout }: AppShellProps) {
     <div className="min-h-screen bg-background/70 text-text">
       <div className="hidden lg:block">{sidebar}</div>
 
-      <div className={cn('min-h-screen transition-[padding] duration-normal ease-standard lg:pl-72', collapsed && 'lg:pl-20')}>
+      <div className={cn('min-h-screen transition-[padding] duration-normal ease-standard pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-72', collapsed && 'lg:pl-20')}>
         <header className="sticky top-0 z-sticky border-b border-border/80 bg-background/78 px-4 py-3 backdrop-blur-xl sm:px-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-                <SheetTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-control border border-border bg-surface/90 text-text shadow-surface transition hover:border-border-strong hover:bg-surface-hover lg:hidden"
-                    aria-label="Открыть навигацию"
-                  >
-                    <Menu className="h-5 w-5" aria-hidden="true" />
-                  </button>
-                </SheetTrigger>
                 <SheetContent side="left" className="w-[21rem] max-w-[88vw] gap-0 border-sidebar-border bg-sidebar p-0 text-sidebar-foreground">
                   <SheetHeader className="sr-only">
                     <SheetTitle>Навигация</SheetTitle>
@@ -180,8 +171,51 @@ export function AppShell({ user, onLogout }: AppShellProps) {
           </PageErrorBoundary>
         </main>
       </div>
+
+      <MobileTabBar onMoreClick={() => setMobileOpen(true)} />
+
       <CommandPalette boards={boards} onLogout={onLogout} open={commandOpen} onOpenChange={setCommandOpen} />
     </div>
+  )
+}
+
+function MobileTabBar({ onMoreClick }: { onMoreClick: () => void }) {
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-sticky flex items-stretch border-t border-border/80 bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-elevated backdrop-blur-xl lg:hidden"
+      aria-label="Нижняя навигация"
+    >
+      <MobileTabLink to="/" label="Списки" icon={LayoutDashboard} end />
+      {pinnedViews.map((item) => (
+        <MobileTabLink key={item.to} to={item.to} label={item.label} icon={item.icon} />
+      ))}
+      <button
+        type="button"
+        onClick={onMoreClick}
+        className="flex h-16 flex-1 flex-col items-center justify-center gap-1 text-caption text-text-muted transition duration-fast ease-standard hover:text-text"
+      >
+        <Menu className="h-5 w-5" aria-hidden="true" />
+        Ещё
+      </button>
+    </nav>
+  )
+}
+
+function MobileTabLink({ to, label, icon: Icon, end = false }: { to: string; label: string; icon: ComponentType<{ className?: string }>; end?: boolean }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) =>
+        cn(
+          'flex h-16 flex-1 flex-col items-center justify-center gap-1 text-caption transition duration-fast ease-standard',
+          isActive ? 'text-primary' : 'text-text-muted hover:text-text',
+        )
+      }
+    >
+      <Icon className="h-5 w-5" aria-hidden="true" />
+      <span>{label}</span>
+    </NavLink>
   )
 }
 
