@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Check } from 'lucide-react'
 import { Checkbox as RadixCheckbox } from '@radix-ui/react-checkbox'
@@ -9,20 +9,24 @@ import {
   useAssignableUsers,
   useTask,
   useTaskAddAttachment,
+  useTaskAddComment,
   useTaskAddSubtask,
   useTaskChecklistAdd,
   useTaskChecklistDelete,
   useTaskChecklistReorder,
   useTaskChecklistUpdate,
+  useTaskComments,
   useTaskComplete,
   useTaskDeleteAttachment,
+  useTaskDeleteComment,
   useTaskSubtaskComplete,
+  useTaskUpdateComment,
   useTaskUpdateField,
   useTaskUploadAttachments,
 } from '../../api/queries/task'
 import type { AgendaBoundaries, AuthUser } from '../../api/types'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
-import { Badge, Card as SurfaceCard, ChipButton, ErrorState, Field, Select, Skeleton, Textarea, TextInput } from '@/components/ui'
+import { Badge, Card as SurfaceCard, Checkbox, ChipButton, ErrorState, Field, Select, Skeleton, Textarea, TextInput } from '@/components/ui'
 import { Modal } from '@/components/ui'
 import { priorityToLabel, priorityToTone } from '../board/lib/priority'
 import { useBoards } from '../../api/queries/boards'
@@ -34,6 +38,7 @@ import { buildHistoryEntries } from './lib/history'
 import { ChecklistEditor } from './ui/ChecklistEditor'
 import { SubtasksPanel } from './ui/SubtasksPanel'
 import { AttachmentsPanel } from './ui/AttachmentsPanel'
+import { CommentsPanel } from './ui/CommentsPanel'
 import { HistoryPanel } from './ui/HistoryPanel'
 
 const priorityOptions: Array<0 | 1 | 2 | 3> = [0, 1, 2, 3]
@@ -47,6 +52,7 @@ interface TaskScreenProps {
 }
 
 export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskScreenProps) {
+  const qc = useQueryClient()
   const { data: task, isLoading, isError, refetch } = useTask(taskId)
   const { data: boards = [] } = useBoards()
   const { data: assignableUsers = [] } = useAssignableUsers(user)
@@ -69,6 +75,11 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
   const addAttachmentLink = useTaskAddAttachment(taskId)
   const uploadAttachments = useTaskUploadAttachments(taskId)
   const deleteAttachment = useTaskDeleteAttachment(taskId)
+  const { data: comments = [], isLoading: commentsLoading } = useTaskComments(taskId)
+  const addComment = useTaskAddComment(taskId)
+  const updateComment = useTaskUpdateComment(taskId)
+  const deleteComment = useTaskDeleteComment(taskId)
+  const commentsBusy = addComment.isPending || updateComment.isPending || deleteComment.isPending
 
   const [title, setTitle] = useState(task?.title ?? '')
   const [titleFocused, setTitleFocused] = useState(false)
@@ -192,14 +203,14 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-        <div className="grid w-full gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-          <div className="space-y-5">
-            <SurfaceCard as="section" className="space-y-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+        <div className="grid w-full gap-4 lg:grid-cols-2">
+          <div className="space-y-4">
+            <SurfaceCard as="section" className="space-y-3 p-5">
               <Field label="Описание" htmlFor="task-description">
                 <Textarea
                   id="task-description"
-                  rows={6}
+                  rows={4}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   onFocus={() => setDescriptionFocused(true)}
@@ -209,26 +220,6 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
               </Field>
             </SurfaceCard>
 
-            {task.parent == null ? (
-              <SubtasksPanel
-                listId={listId}
-                subtasks={task.subtasks}
-                addBusy={addSubtaskMutation.isPending}
-                onAdd={(subtaskTitle) =>
-                  addSubtaskMutation.mutate(
-                    { title: subtaskTitle },
-                    { onError: () => toast.error('Не удалось добавить подзадачу') },
-                  )
-                }
-                onToggleComplete={(id, complete) =>
-                  subtaskCompleteMutation.mutate(
-                    { id, complete },
-                    { onError: () => toast.error('Не удалось изменить отметку подзадачи') },
-                  )
-                }
-              />
-            ) : null}
-
             <ChecklistEditor
               items={[...task.checklist].sort((a, b) => a.position - b.position)}
               onAdd={(text) => checklistAdd.mutate({ text }, { onError: () => toast.error('Не удалось добавить пункт') })}
@@ -237,19 +228,22 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
               onReorder={(orderedIds) => checklistReorder.mutate(orderedIds)}
             />
 
-            <AttachmentsPanel
-              attachments={task.attachments}
-              busy={addAttachmentLink.isPending || uploadAttachments.isPending}
-              onAddLink={(payload) => addAttachmentLink.mutate(payload, { onError: () => toast.error('Не удалось добавить вложение') })}
-              onUpload={(files, type) => uploadAttachments.mutate({ files, type }, { onError: () => toast.error('Не удалось загрузить файл') })}
-              onDelete={(attachmentId) => deleteAttachment.mutate(attachmentId, { onError: () => toast.error('Не удалось удалить вложение') })}
+            <CommentsPanel
+              comments={comments}
+              isLoading={commentsLoading}
+              busy={commentsBusy}
+              onAdd={(text) => addComment.mutate({ text }, { onError: () => toast.error('Не удалось добавить комментарий') })}
+              onUpdate={(commentId, text) =>
+                updateComment.mutate({ commentId, text }, { onError: () => toast.error('Не удалось изменить комментарий') })
+              }
+              onDelete={(commentId) =>
+                deleteComment.mutate(commentId, { onError: () => toast.error('Не удалось удалить комментарий') })
+              }
             />
-
-            <HistoryPanel entries={historyEntries} loading={activityQuery.isLoading} timeZone={timeZone} />
           </div>
 
-          <div className="space-y-5">
-            <SurfaceCard as="section" className="space-y-4">
+          <div className="space-y-4">
+            <SurfaceCard as="section" className="space-y-3 p-5">
               <Field label="Срок" htmlFor="task-deadline">
                 <DeadlinePicker
                   boundaries={effectiveBoundaries}
@@ -292,7 +286,51 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                   ))}
                 </div>
               </Field>
+
+              {task.parent == null ? (
+                <Checkbox
+                  label="Показывать в панели «Сегодня у семьи»"
+                  description="Чек-лист этой задачи станет общим списком покупок"
+                  checked={task.is_shopping_list === true}
+                  onChange={(event) =>
+                    updateField.mutate(
+                      { is_shopping_list: event.target.checked },
+                      { onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.familyToday() }) },
+                    )
+                  }
+                />
+              ) : null}
             </SurfaceCard>
+
+            {task.parent == null ? (
+              <SubtasksPanel
+                listId={listId}
+                subtasks={task.subtasks}
+                addBusy={addSubtaskMutation.isPending}
+                onAdd={(subtaskTitle) =>
+                  addSubtaskMutation.mutate(
+                    { title: subtaskTitle },
+                    { onError: () => toast.error('Не удалось добавить подзадачу') },
+                  )
+                }
+                onToggleComplete={(id, complete) =>
+                  subtaskCompleteMutation.mutate(
+                    { id, complete },
+                    { onError: () => toast.error('Не удалось изменить отметку подзадачи') },
+                  )
+                }
+              />
+            ) : null}
+
+            <AttachmentsPanel
+              attachments={task.attachments}
+              busy={addAttachmentLink.isPending || uploadAttachments.isPending}
+              onAddLink={(payload) => addAttachmentLink.mutate(payload, { onError: () => toast.error('Не удалось добавить вложение') })}
+              onUpload={(files, type) => uploadAttachments.mutate({ files, type }, { onError: () => toast.error('Не удалось загрузить файл') })}
+              onDelete={(attachmentId) => deleteAttachment.mutate(attachmentId, { onError: () => toast.error('Не удалось удалить вложение') })}
+            />
+
+            <HistoryPanel entries={historyEntries} loading={activityQuery.isLoading} timeZone={timeZone} />
           </div>
         </div>
       </div>

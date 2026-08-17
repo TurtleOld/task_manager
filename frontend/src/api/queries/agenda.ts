@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../client'
-import type { AgendaCard, AgendaResponse, AgendaUser, Card } from '../types'
+import type { AgendaCard, AgendaResponse, AgendaUser, Card, FamilyTodayResponse } from '../types'
 import { queryKeys } from './keys'
 
 function hasUserName(user: AgendaUser | null): boolean {
@@ -130,6 +130,49 @@ export function useAgendaUpdateDeadline(listId?: number | null) {
     },
     onSuccess: (card) => {
       setAgendaCard(qc, key, toAgendaCard(card))
+    },
+  })
+}
+
+/** Данные правой панели «Сегодня у семьи» — всегда по всей семье, без учёта охвата агенды. */
+export function useFamilyToday() {
+  return useQuery<FamilyTodayResponse>({
+    queryKey: queryKeys.familyToday(),
+    queryFn: () => api.getFamilyToday(),
+  })
+}
+
+/**
+ * Отметка пункта общего чек-листа покупок прямо из панели, без открытия
+ * задачи. Оптимистично: пункт перечёркивается сразу, откатывается при ошибке.
+ */
+export function useFamilyShoppingItemToggle() {
+  const qc = useQueryClient()
+  const key = queryKeys.familyToday()
+  return useMutation<
+    void,
+    Error,
+    { cardId: number; itemId: number; done: boolean },
+    { previous: FamilyTodayResponse | undefined }
+  >({
+    mutationFn: ({ cardId, itemId, done }) => api.updateChecklistItem(cardId, itemId, { done }).then(() => undefined),
+    onMutate: async ({ itemId, done }) => {
+      await qc.cancelQueries({ queryKey: key })
+      const previous = qc.getQueryData<FamilyTodayResponse>(key)
+      qc.setQueryData<FamilyTodayResponse>(key, (prev) => {
+        if (!prev?.shopping_list) return prev
+        return {
+          ...prev,
+          shopping_list: {
+            ...prev.shopping_list,
+            items: prev.shopping_list.items.map((item) => (item.id === itemId ? { ...item, done } : item)),
+          },
+        }
+      })
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(key, ctx.previous)
     },
   })
 }

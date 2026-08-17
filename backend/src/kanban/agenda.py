@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from django.db.models import Exists, F, OuterRef, Q, QuerySet
+from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet
 from django.utils import timezone as dj_timezone
 
 from .models import Card, ChecklistItem
@@ -96,3 +96,73 @@ def agenda_queryset(
         queryset = queryset.filter(assignee_id=assignee_id)
 
     return queryset.order_by(F("deadline").asc(nulls_last=True), "-priority", "created_at")
+
+
+@dataclass(frozen=True)
+class FamilyTodayPerson:
+    """Family-wide, never scoped to the currently selected list."""
+
+    user_id: int
+    username: str
+    full_name: str
+    today_total: int
+    today_completed: int
+
+
+def family_today_people(*, boundaries: AgendaBoundaries) -> list[FamilyTodayPerson]:
+    rows = (
+        Card.objects.filter(
+            archived_at__isnull=True,
+            assignee__isnull=False,
+            deadline__gte=boundaries.today_start,
+            deadline__lt=boundaries.tomorrow_start,
+        )
+        .values("assignee_id", "assignee__username", "assignee__first_name")
+        .annotate(
+            today_total=Count("id"),
+            today_completed=Count("id", filter=Q(completed_at__isnull=False)),
+        )
+        .order_by("assignee__first_name", "assignee__username")
+    )
+    return [
+        FamilyTodayPerson(
+            user_id=row["assignee_id"],
+            username=row["assignee__username"],
+            full_name=row["assignee__first_name"],
+            today_total=row["today_total"],
+            today_completed=row["today_completed"],
+        )
+        for row in rows
+    ]
+
+
+def week_start_of(boundaries: AgendaBoundaries) -> datetime:
+    weekday = boundaries.today_start.weekday()
+    return boundaries.today_start - timedelta(days=weekday)
+
+
+def family_week_progress(*, boundaries: AgendaBoundaries) -> tuple[int, int]:
+    """(completed, total) for the current calendar week.
+
+    `total` counts cards *due* this week, whether or not they're done yet —
+    the family's plan for the week. `completed` counts by completion moment
+    per docs/spec/agenda.md §3.2, so a task finished early or one due a
+    different week still counts the moment it's checked off. Archived tasks
+    never count either way: archive means "no longer needed", not "done".
+    """
+    week_start = week_start_of(boundaries)
+    total = Card.objects.filter(
+        archived_at__isnull=True,
+        deadline__gte=week_start,
+        deadline__lt=boundaries.week_end,
+    ).count()
+    completed = Card.objects.filter(
+        archived_at__isnull=True,
+        completed_at__gte=week_start,
+        completed_at__lt=boundaries.week_end,
+    ).count()
+    return completed, total
+
+
+def shopping_list_card() -> Card | None:
+    return Card.objects.filter(is_shopping_list=True).select_related("board").first()

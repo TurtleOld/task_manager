@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../client'
-import type { AdminUser, AuthUser, Card, ChecklistItem } from '../types'
+import type { AdminUser, AuthUser, Card, CardComment, ChecklistItem } from '../types'
 import { queryKeys } from './keys'
 
 export function useTask(taskId: number | null) {
@@ -234,6 +234,48 @@ export function useTaskDeleteAttachment(taskId: number) {
   return useMutation({
     mutationFn: (attachmentId: string) => api.deleteCardAttachment(taskId, attachmentId),
     onSuccess: (card) => setTaskCard(qc, card),
+  })
+}
+
+export function useTaskComments(taskId: number) {
+  return useQuery<CardComment[]>({
+    queryKey: queryKeys.cardComments(taskId),
+    queryFn: () => api.listCardComments(taskId),
+  })
+}
+
+export function useTaskAddComment(taskId: number) {
+  const qc = useQueryClient()
+  const key = queryKeys.cardComments(taskId)
+  return useMutation<CardComment, Error, { text: string }>({
+    mutationFn: ({ text }) => api.addCardComment(taskId, { text }),
+    onSuccess: (comment) => {
+      qc.setQueryData<CardComment[]>(key, (prev) =>
+        prev ? (prev.some((item) => item.id === comment.id) ? prev : [...prev, comment]) : [comment],
+      )
+    },
+  })
+}
+
+export function useTaskUpdateComment(taskId: number) {
+  const qc = useQueryClient()
+  const key = queryKeys.cardComments(taskId)
+  return useMutation<CardComment, Error, { commentId: number; text: string }>({
+    mutationFn: ({ commentId, text }) => api.updateCardComment(taskId, commentId, { text }),
+    onSuccess: (comment) => {
+      qc.setQueryData<CardComment[]>(key, (prev) => prev?.map((item) => (item.id === comment.id ? comment : item)))
+    },
+  })
+}
+
+export function useTaskDeleteComment(taskId: number) {
+  const qc = useQueryClient()
+  const key = queryKeys.cardComments(taskId)
+  return useMutation<void, Error, number>({
+    mutationFn: (commentId) => api.deleteCardComment(taskId, commentId),
+    onSuccess: (_result, commentId) => {
+      qc.setQueryData<CardComment[]>(key, (prev) => prev?.filter((item) => item.id !== commentId))
+    },
   })
 }
 

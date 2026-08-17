@@ -51,15 +51,13 @@ export function ChecklistEditor({ items, onAdd, onToggle, onDelete, onReorder }:
   const doneCount = order.filter((item) => item.done).length
 
   return (
-    <SurfaceCard as="section" className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Badge variant="success">Чек-лист</Badge>
-            <Badge variant="neutral">{doneCount}/{order.length}</Badge>
-          </div>
+    <SurfaceCard as="section" className="space-y-3 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Badge variant="success">Чек-лист</Badge>
+          <Badge variant="neutral">{doneCount}/{order.length}</Badge>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        <div className="flex flex-wrap items-center gap-2">
           <TextInput
             value={newText}
             onChange={(event) => setNewText(event.target.value)}

@@ -26,13 +26,13 @@ export function SubtasksPanel({ listId, subtasks, onAdd, addBusy, onToggleComple
   }
 
   return (
-    <SurfaceCard as="section" className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <SurfaceCard as="section" className="space-y-3 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Badge variant="info">Подзадачи</Badge>
           <Badge variant="neutral">{doneCount}/{subtasks.length}</Badge>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        <div className="flex flex-wrap items-center gap-2">
           <TextInput
             value={title}
             onChange={(event) => setTitle(event.target.value)}
