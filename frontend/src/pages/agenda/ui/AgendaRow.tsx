@@ -1,11 +1,13 @@
 import { useId } from 'react'
 import { Link } from 'react-router-dom'
 import { Checkbox } from '@radix-ui/react-checkbox'
-import { Check, Flag, GitBranch, ListChecks } from 'lucide-react'
+import { Calendar, Check, Flag, GitBranch, ListChecks } from 'lucide-react'
 import type { AgendaBoundaries, AgendaCard } from '../../../api/types'
 import { priorityToLabel, priorityToTone } from '../../board/lib/priority'
 import { formatDeadlineShort } from '../lib/formatDeadline'
 import type { AgendaGroupId } from '../lib/grouping'
+import { useSwipeRow } from '../hooks/useSwipeRow'
+import { SWIPE_ACTION_THRESHOLD_PX } from '../lib/swipeGesture'
 import { cn } from '@/lib/utils'
 import { DeadlinePicker } from './DeadlinePicker'
 
@@ -17,6 +19,8 @@ interface AgendaRowProps {
   group: AgendaGroupId
   onCompleteToggle: (card: AgendaCard, complete: boolean) => void
   onDeadlineCommit: (card: AgendaCard, deadline: string | null) => void
+  onSwipeComplete: (card: AgendaCard) => void
+  onSwipeTomorrow: (card: AgendaCard) => void
 }
 
 const priorityToneToClass: Record<'neutral' | 'danger' | 'warning' | 'success', string> = {
@@ -26,7 +30,17 @@ const priorityToneToClass: Record<'neutral' | 'danger' | 'warning' | 'success', 
   success: 'text-success',
 }
 
-export function AgendaRow({ boundaries, busy, card, deadlineBusy, group, onCompleteToggle, onDeadlineCommit }: AgendaRowProps) {
+export function AgendaRow({
+  boundaries,
+  busy,
+  card,
+  deadlineBusy,
+  group,
+  onCompleteToggle,
+  onDeadlineCommit,
+  onSwipeComplete,
+  onSwipeTomorrow,
+}: AgendaRowProps) {
   const checkboxId = useId()
   const completed = Boolean(card.completed_at)
   const hasPriority = card.priority !== 0 && card.priority != null
@@ -36,69 +50,112 @@ export function AgendaRow({ boundaries, busy, card, deadlineBusy, group, onCompl
   const completerName =
     completed && card.completed_by ? card.completed_by.full_name || card.completed_by.username : null
 
+  const { ref: swipeRef, action: swipeAction, offsetX } = useSwipeRow({
+    disabled: busy,
+    onComplete: () => onSwipeComplete(card),
+    onTomorrow: () => onSwipeTomorrow(card),
+  })
+  const swipeReady = swipeAction != null && Math.abs(offsetX) >= SWIPE_ACTION_THRESHOLD_PX
+
   return (
-    <li className={cn('flex h-12 items-center gap-3 rounded-control px-3 transition duration-fast ease-standard hover:bg-surface-hover compact:h-10', completed && 'bg-surface-hover/50')}>
-      <Checkbox
-        id={checkboxId}
-        checked={completed}
-        disabled={busy}
-        onCheckedChange={(next) => onCompleteToggle(card, next === true)}
-        aria-label={completed ? `Снять отметку с задачи «${card.title}»` : `Отметить задачу «${card.title}» выполненной`}
-        title={completerName ? `Выполнил(а): ${completerName}` : undefined}
-        className={cn(
-          'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-border-strong bg-surface text-text-inverse transition duration-fast ease-standard',
-          'data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-text-inverse',
-          'focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-        )}
-      >
-        <Check className="h-3 w-3" aria-hidden="true" />
-      </Checkbox>
-
-      <Link
-        to={`/lists/${card.list}/tasks/${card.id}`}
-        className={cn(
-          'min-w-0 flex-1 truncate rounded-sm text-body-sm text-text transition hover:text-primary',
-          completed && 'text-text-muted line-through decoration-text-muted/60',
-        )}
-        title={card.title}
-      >
-        {card.title}
-      </Link>
-
-      <DeadlinePicker
-        boundaries={boundaries}
-        busy={deadlineBusy}
-        deadline={card.deadline}
-        displayText={card.deadline ? formatDeadlineShort(card.deadline, boundaries) : undefined}
-        onCommit={(deadline) => onDeadlineCommit(card, deadline)}
-        className={deadlineTone}
-      />
-
-      {hasPriority ? (
-        <Flag
-          className={cn('h-4 w-4 shrink-0', priorityToneToClass[priorityToTone(card.priority)])}
-          aria-label={`Приоритет: ${card.priority_label || priorityToLabel(card.priority)}`}
-          fill="currentColor"
-        />
-      ) : null}
-
-      {card.has_checklist ? (
-        <ListChecks className="h-4 w-4 shrink-0 text-text-muted" aria-label="Есть чек-лист" />
-      ) : null}
-      {card.has_subtasks ? (
-        <GitBranch className="h-4 w-4 shrink-0 text-text-muted" aria-label="Есть подзадачи" />
-      ) : null}
-
-      {assignee ? (
-        <span
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/12 text-[0.65rem] font-bold text-primary"
-          title={assignee.full_name || assignee.username}
-          aria-label={`Исполнитель: ${assignee.full_name || assignee.username}`}
+    <li
+      ref={swipeRef}
+      className={cn(
+        'relative isolate flex min-h-16 items-center gap-3 overflow-hidden rounded-control px-3 transition duration-fast ease-standard hover:bg-surface-hover sm:min-h-12 compact:min-h-12 sm:compact:min-h-10',
+        completed && 'bg-surface-hover/50',
+      )}
+    >
+      {offsetX !== 0 ? (
+        <div
+          aria-hidden="true"
+          className={cn(
+            'absolute inset-0 -z-10 flex items-center px-4 text-caption font-semibold text-text-inverse transition-colors duration-fast ease-standard',
+            offsetX > 0 ? 'justify-start bg-success' : 'justify-end bg-info',
+            swipeReady && 'brightness-105',
+          )}
         >
-          {assigneeInitial}
-        </span>
+          {offsetX > 0 ? (
+            <span className="flex items-center gap-1.5">
+              <Check className="h-4 w-4" aria-hidden="true" /> Готово
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5">
+              Завтра <Calendar className="h-4 w-4" aria-hidden="true" />
+            </span>
+          )}
+        </div>
       ) : null}
+
+      <div
+        className={cn(
+          'flex min-w-0 flex-1 items-center gap-3 transition-transform duration-fast ease-standard',
+          offsetX !== 0 && 'bg-surface',
+        )}
+        style={offsetX !== 0 ? { transform: `translateX(${offsetX}px)` } : undefined}
+      >
+        <Checkbox
+          id={checkboxId}
+          checked={completed}
+          disabled={busy}
+          onCheckedChange={(next) => onCompleteToggle(card, next === true)}
+          aria-label={completed ? `Снять отметку с задачи «${card.title}»` : `Отметить задачу «${card.title}» выполненной`}
+          title={completerName ? `Выполнил(а): ${completerName}` : undefined}
+          className={cn(
+            'relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-border-strong bg-surface text-text-inverse transition duration-fast ease-standard',
+            'before:absolute before:-inset-3 before:content-[""] sm:before:content-none',
+            'data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-text-inverse',
+            'focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        >
+          <Check className="h-3 w-3" aria-hidden="true" />
+        </Checkbox>
+
+        <Link
+          to={`/lists/${card.list}/tasks/${card.id}`}
+          className={cn(
+            'min-w-0 flex-1 truncate rounded-sm text-body-sm text-text transition hover:text-primary',
+            completed && 'text-text-muted line-through decoration-text-muted/60',
+          )}
+          title={card.title}
+        >
+          {card.title}
+        </Link>
+
+        <DeadlinePicker
+          boundaries={boundaries}
+          busy={deadlineBusy}
+          deadline={card.deadline}
+          displayText={card.deadline ? formatDeadlineShort(card.deadline, boundaries) : undefined}
+          onCommit={(deadline) => onDeadlineCommit(card, deadline)}
+          className={deadlineTone}
+        />
+
+        {hasPriority ? (
+          <Flag
+            className={cn('h-4 w-4 shrink-0', priorityToneToClass[priorityToTone(card.priority)])}
+            aria-label={`Приоритет: ${card.priority_label || priorityToLabel(card.priority)}`}
+            fill="currentColor"
+          />
+        ) : null}
+
+        {card.has_checklist ? (
+          <ListChecks className="h-4 w-4 shrink-0 text-text-muted" aria-label="Есть чек-лист" />
+        ) : null}
+        {card.has_subtasks ? (
+          <GitBranch className="h-4 w-4 shrink-0 text-text-muted" aria-label="Есть подзадачи" />
+        ) : null}
+
+        {assignee ? (
+          <span
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/12 text-[0.65rem] font-bold text-primary"
+            title={assignee.full_name || assignee.username}
+            aria-label={`Исполнитель: ${assignee.full_name || assignee.username}`}
+          >
+            {assigneeInitial}
+          </span>
+        ) : null}
+      </div>
     </li>
   )
 }

@@ -193,11 +193,16 @@ export function useAgendaCreateCard(listId: number) {
   })
 }
 
-/** Данные правой панели «Сегодня у семьи» — всегда по всей семье, без учёта охвата агенды. */
-export function useFamilyToday() {
+/**
+ * Данные правой панели «Сегодня у семьи» — всегда по всей семье, без учёта
+ * охвата агенды. На узких экранах панель недоступна (тикет 10), поэтому
+ * запрос можно отключить через `enabled`, чтобы не тратить его впустую.
+ */
+export function useFamilyToday(options: { enabled?: boolean } = {}) {
   return useQuery<FamilyTodayResponse>({
     queryKey: queryKeys.familyToday(),
     queryFn: () => api.getFamilyToday(),
+    enabled: options.enabled ?? true,
   })
 }
 
