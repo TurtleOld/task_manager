@@ -61,7 +61,7 @@ export function AgendaRow({
     <li
       ref={swipeRef}
       className={cn(
-        'relative isolate flex min-h-16 items-center gap-3 overflow-hidden rounded-control px-3 transition duration-fast ease-standard hover:bg-surface-hover sm:min-h-12 compact:min-h-12 sm:compact:min-h-10',
+        'relative isolate flex min-h-16 items-center gap-3 overflow-hidden rounded-control px-3 transition duration-fast ease-standard hover:bg-surface-hover lg:min-h-12 compact:min-h-12 lg:compact:min-h-10',
         completed && 'bg-surface-hover/50',
       )}
     >
@@ -102,7 +102,7 @@ export function AgendaRow({
           title={completerName ? `Выполнил(а): ${completerName}` : undefined}
           className={cn(
             'relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-border-strong bg-surface text-text-inverse transition duration-fast ease-standard',
-            'before:absolute before:-inset-3 before:content-[""] sm:before:content-none',
+            'before:absolute before:-inset-3 before:content-[""] lg:before:content-none',
             'data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-text-inverse',
             'focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
             'disabled:cursor-not-allowed disabled:opacity-50',
@@ -128,7 +128,7 @@ export function AgendaRow({
           deadline={card.deadline}
           displayText={card.deadline ? formatDeadlineShort(card.deadline, boundaries) : undefined}
           onCommit={(deadline) => onDeadlineCommit(card, deadline)}
-          className={deadlineTone}
+          className={cn(deadlineTone, 'relative before:absolute before:-inset-2 before:content-[""] lg:before:content-none')}
         />
 
         {hasPriority ? (
