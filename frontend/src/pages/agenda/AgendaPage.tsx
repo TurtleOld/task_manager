@@ -3,12 +3,16 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useBoards } from '../../api/queries/boards'
 import {
+  makeAgendaPlaceholderCard,
   useAgenda,
   useAgendaComplete,
+  useAgendaCreateCard,
   useAgendaUpdateDeadline,
   useFamilyShoppingItemToggle,
   useFamilyToday,
 } from '../../api/queries/agenda'
+import { useColumns } from '../../api/queries/columns'
+import { useAssignableUsers } from '../../api/queries/task'
 import type { AgendaCard, AuthUser } from '../../api/types'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { EmptyState, ErrorState, PageShell, Skeleton } from '@/components/ui'
@@ -19,6 +23,7 @@ import { useFamilyTodayRealtime } from './hooks/useFamilyTodayRealtime'
 import { AgendaGroup } from './ui/AgendaGroup'
 import { AgendaHeader } from './ui/AgendaHeader'
 import type { AgendaPeopleOption } from './ui/AgendaHeader'
+import type { QuickAddResult } from './ui/QuickAddBar'
 import { FamilyTodayPanel } from './ui/FamilyTodayPanel'
 import { TaskScreen } from '../task/TaskScreen'
 
@@ -42,6 +47,9 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const deadlineMutation = useAgendaUpdateDeadline(listId)
   const familyToday = useFamilyToday()
   const shoppingToggleMutation = useFamilyShoppingItemToggle()
+  const columnsQuery = useColumns(listId ?? 0)
+  const assignableUsersQuery = useAssignableUsers(user)
+  const createCardMutation = useAgendaCreateCard(listId ?? 0)
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
     try {
@@ -133,6 +141,39 @@ export function AgendaPage({ user }: AgendaPageProps) {
     )
   }
 
+  const defaultColumn = useMemo(() => {
+    const columns = columnsQuery.data
+    if (!columns || columns.length === 0) return null
+    return columns.find((column) => column.is_default) ?? columns[0]
+  }, [columnsQuery.data])
+
+  const handleQuickAddCreate = (result: QuickAddResult) => {
+    if (listId == null || defaultColumn == null) return
+    const placeholder = makeAgendaPlaceholderCard({
+      id: -Date.now(),
+      title: result.title,
+      list: listId,
+      deadline: result.deadline,
+      assignee: result.assigneeId != null ? { id: result.assigneeId, name: result.assigneeName } : null,
+    })
+    createCardMutation.mutate(
+      {
+        payload: {
+          column: defaultColumn.id,
+          title: result.title,
+          deadline: result.deadline,
+          assignee: result.assigneeId,
+          labels: result.tag ? [{ name: result.tag }] : [],
+        },
+        placeholder,
+      },
+      {
+        onSuccess: (card) => toast.success(`Задача «${card.title}» добавлена`),
+        onError: () => toast.error('Не удалось добавить задачу'),
+      },
+    )
+  }
+
   const handlePersonClick = (userId: number) => {
     setActiveAssigneeId((prev) => (prev === userId ? null : userId))
   }
@@ -182,6 +223,16 @@ export function AgendaPage({ user }: AgendaPageProps) {
         lists={boards.map((board) => ({ id: board.id, name: board.name, icon: board.icon }))}
         people={people}
         onAssigneeFilterChange={setActiveAssigneeId}
+        quickAdd={
+          listId != null && defaultColumn != null
+            ? {
+                busy: createCardMutation.isPending,
+                onSubmit: handleQuickAddCreate,
+                people: assignableUsersQuery.data ?? [],
+                timeZone: boundaries?.timezone,
+              }
+            : null
+        }
       />
 
       <div className="mx-auto flex w-full max-w-6xl items-start gap-6 px-4 pt-6 sm:px-6 xl:px-8">
