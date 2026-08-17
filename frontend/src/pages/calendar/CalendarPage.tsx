@@ -286,7 +286,7 @@ export function CalendarPage() {
               type="button"
               onClick={createCardFromSlot}
               loading={createCardMutation.isPending}
-              disabled={!newCardTitle.trim() || !newCardBoardId || createCardMutation.isPending}
+              disabled={!newCardTitle.trim() || !defaultColumn || createCardMutation.isPending}
             >
               Создать
             </Button>
