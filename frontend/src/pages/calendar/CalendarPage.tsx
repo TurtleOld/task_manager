@@ -49,8 +49,11 @@ export function CalendarPage() {
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null)
   const [newCardTitle, setNewCardTitle] = useState('')
   const [newCardBoardId, setNewCardBoardId] = useState(0)
-  const [newCardColumnId, setNewCardColumnId] = useState(0)
-  const { data: newCardColumns = [], isLoading: columnsLoading } = useColumns(newCardBoardId)
+  const { data: newCardColumns = [] } = useColumns(newCardBoardId)
+  const defaultColumn = useMemo(() => {
+    if (newCardColumns.length === 0) return null
+    return newCardColumns.find((column) => column.is_default) ?? newCardColumns[0]
+  }, [newCardColumns])
 
   const isLoading = boardsLoading || cardsLoading
   const isError = boardsError || cardsError
@@ -60,17 +63,6 @@ export function CalendarPage() {
     const firstBoard = boards[0]
     if (firstBoard) setNewCardBoardId(firstBoard.id)
   }, [boards, newCardBoardId])
-
-  useEffect(() => {
-    const firstColumn = newCardColumns[0]
-    if (!firstColumn) {
-      setNewCardColumnId(0)
-      return
-    }
-    if (!newCardColumns.some((column) => column.id === newCardColumnId)) {
-      setNewCardColumnId(firstColumn.id)
-    }
-  }, [newCardColumnId, newCardColumns])
 
   const boardsById = useMemo(() => new Map(boards.map((board) => [board.id, board])), [boards])
   const visibleCards = useMemo(() => {
@@ -131,11 +123,11 @@ export function CalendarPage() {
 
   const createCardFromSlot = async () => {
     const title = newCardTitle.trim()
-    if (!selectedSlot || !title || !newCardColumnId) return
+    if (!selectedSlot || !title || !defaultColumn) return
 
     try {
       const card = await createCardMutation.mutateAsync({
-        column: newCardColumnId,
+        column: defaultColumn.id,
         title,
         deadline: deadlineForSlot(selectedSlot).toISOString(),
       })
@@ -267,12 +259,12 @@ export function CalendarPage() {
             <div>
               <Badge variant="primary">Новая задача</Badge>
               <h2 className="mt-3 text-h3 text-text">Создать задачу на {formatDateTime(deadlineForSlot(selectedSlot))}</h2>
-              <p className="mt-1 text-body-sm text-text-muted">Выберите список и колонку, куда добавить задачу.</p>
+              <p className="mt-1 text-body-sm text-text-muted">Выберите список, куда добавить задачу.</p>
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => setSelectedSlot(null)}>Закрыть</Button>
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-[1fr_0.8fr_0.8fr_auto] lg:items-end">
+          <div className="grid gap-3 lg:grid-cols-[1fr_0.8fr_auto] lg:items-end">
             <Field label="Название" htmlFor="calendar-card-title">
               <TextInput
                 id="calendar-card-title"
@@ -290,21 +282,11 @@ export function CalendarPage() {
                 {boards.map((board) => <option key={board.id} value={board.id}>{board.name}</option>)}
               </Select>
             </Field>
-            <Field label="Колонка" htmlFor="calendar-column">
-              <Select
-                id="calendar-column"
-                value={newCardColumnId || ''}
-                onChange={(event) => setNewCardColumnId(Number(event.target.value))}
-                disabled={columnsLoading || newCardColumns.length === 0}
-              >
-                {newCardColumns.map((column) => <option key={column.id} value={column.id}>{column.name}</option>)}
-              </Select>
-            </Field>
             <Button
               type="button"
               onClick={createCardFromSlot}
               loading={createCardMutation.isPending}
-              disabled={!newCardTitle.trim() || !newCardColumnId || createCardMutation.isPending}
+              disabled={!newCardTitle.trim() || !newCardBoardId || createCardMutation.isPending}
             >
               Создать
             </Button>
