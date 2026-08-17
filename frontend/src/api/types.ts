@@ -77,6 +77,7 @@ export interface Card {
   completed_by_detail?: AgendaUser | null
   parent_recurrence: number | null
   recurrence: RecurrenceRule | null
+  is_shopping_list?: boolean
 }
 
 export interface AgendaUser {
@@ -111,6 +112,29 @@ export interface AgendaBoundaries {
 export interface AgendaResponse {
   boundaries: AgendaBoundaries
   cards: AgendaCard[]
+}
+
+export interface FamilyTodayPerson {
+  user: AgendaUser
+  today_total: number
+  today_completed: number
+}
+
+export interface FamilyShoppingList {
+  card: { id: number; title: string; list: number }
+  items: ChecklistItem[]
+}
+
+export interface FamilyWeekProgress {
+  completed: number
+  total: number
+}
+
+export interface FamilyTodayResponse {
+  boundaries: AgendaBoundaries
+  people: FamilyTodayPerson[]
+  shopping_list: FamilyShoppingList | null
+  week: FamilyWeekProgress
 }
 
 export interface RecurrenceRule {

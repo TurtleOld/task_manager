@@ -20,6 +20,7 @@ import type {
   ArchiveResponse,
   SearchResponse,
   AgendaResponse,
+  FamilyTodayResponse,
   ChecklistItem,
   RecurrenceRule,
   CardComment,
@@ -201,6 +202,10 @@ export const api = {
     const res = await fetch(`${V1}/agenda/${query}`, { headers: authHeaders() })
     return json(res)
   },
+  getFamilyToday: async (): Promise<FamilyTodayResponse> => {
+    const res = await fetch(`${V1}/agenda/family-today/`, { headers: authHeaders() })
+    return json(res)
+  },
   completeCard: async (id: number): Promise<Card> => {
     const res = await fetch(`${V1}/cards/${id}/complete/`, {
       method: 'POST',
@@ -246,6 +251,7 @@ export const api = {
       deadline: string | null
       priority: 0 | 1 | 2 | 3
       labels: { name: string; color?: string }[]
+      is_shopping_list: boolean
     }>
   ): Promise<Card> => {
     const res = await fetch(`${V1}/cards/${id}/`, {

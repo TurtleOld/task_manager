@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ..broadcast import broadcast_board_event  # noqa: F401 — re-exported for test patches
-from .agenda import AgendaView
+from .agenda import AgendaView, FamilyTodayView
 from .archive import ArchiveView
 from .auth import (
     CurrentUserView,
@@ -25,6 +25,7 @@ from .users import IsAdminUser, UserAdminViewSet
 
 __all__ = [
     "AgendaView",
+    "FamilyTodayView",
     "BoardViewSet",
     "ArchiveView",
     "CardViewSet",

@@ -288,3 +288,184 @@ def test_agenda_orders_by_deadline_then_priority_then_created_at(
         "Low, created first",
         "No deadline",
     ]
+
+
+# ---------------------------------------------------------------------------
+# GET /agenda/family-today/ — right panel data
+# ---------------------------------------------------------------------------
+
+
+def _family_boundaries():
+    # The view always computes boundaries from the real clock, so tests must
+    # match that rather than pinning a fixed date.
+    return compute_agenda_boundaries(now=timezone.now(), tz_name="UTC")
+
+
+@pytest.mark.django_db()
+def test_family_today_requires_authentication() -> None:
+    resp = APIClient().get("/api/v1/agenda/family-today/")
+    assert resp.status_code == 401
+
+
+@pytest.mark.django_db()
+def test_family_today_person_counts_todays_tasks_across_lists(
+    auth_client: APIClient, regular_user: User, column: Column
+) -> None:
+    from kanban.models import Board
+
+    other_board = Board.objects.create(name="Other list")
+    other_column = Column.objects.create(board=other_board, name="To Do")
+    boundaries = _family_boundaries()
+
+    Card.objects.create(
+        column=column,
+        title="Mine, list one",
+        assignee=regular_user,
+        deadline=boundaries.today_start,
+    )
+    done = Card.objects.create(
+        column=other_column,
+        title="Mine, list two, done",
+        assignee=regular_user,
+        deadline=boundaries.today_start,
+    )
+    done.completed_at = boundaries.today_start
+    done.completed_by = regular_user
+    done.save(update_fields=["completed_at", "completed_by"])
+    Card.objects.create(
+        column=column,
+        title="Mine, tomorrow",
+        assignee=regular_user,
+        deadline=boundaries.tomorrow_start,
+    )
+
+    resp = auth_client.get("/api/v1/agenda/family-today/")
+
+    assert resp.status_code == 200
+    people = resp.json()["people"]
+    row = next(p for p in people if p["user"]["id"] == regular_user.id)
+    assert row["today_total"] == 2
+    assert row["today_completed"] == 1
+
+
+@pytest.mark.django_db()
+def test_family_today_omits_people_without_tasks_today(
+    auth_client: APIClient, regular_user: User, column: Column
+) -> None:
+    boundaries = _family_boundaries()
+    idle_user = User.objects.create_user(username="idle", password="pass")
+    Card.objects.create(
+        column=column,
+        title="Overdue only",
+        assignee=idle_user,
+        deadline=boundaries.today_start - timedelta(days=1),
+    )
+
+    resp = auth_client.get("/api/v1/agenda/family-today/")
+
+    ids = {p["user"]["id"] for p in resp.json()["people"]}
+    assert idle_user.id not in ids
+
+
+@pytest.mark.django_db()
+def test_family_today_excludes_archived_from_person_counts(
+    auth_client: APIClient, regular_user: User, column: Column
+) -> None:
+    boundaries = _family_boundaries()
+    Card.objects.create(
+        column=column,
+        title="Archived today task",
+        assignee=regular_user,
+        deadline=boundaries.today_start,
+        archived_at=timezone.now(),
+    )
+
+    resp = auth_client.get("/api/v1/agenda/family-today/")
+
+    ids = {p["user"]["id"] for p in resp.json()["people"]}
+    assert regular_user.id not in ids
+
+
+@pytest.mark.django_db()
+def test_family_today_week_progress_counts_completed_by_completion_moment(
+    auth_client: APIClient, regular_user: User, column: Column
+) -> None:
+    boundaries = _family_boundaries()
+    week_start = boundaries.today_start - timedelta(days=boundaries.today_start.weekday())
+
+    Card.objects.create(column=column, title="Due this week", deadline=boundaries.today_start)
+
+    # Counts as completed-this-week by moment even though its deadline falls
+    # next week — the spec counts completion, not deadline (§3.2).
+    later = Card.objects.create(
+        column=column, title="Completed early", deadline=boundaries.week_end + timedelta(days=2)
+    )
+    later.completed_at = week_start + timedelta(hours=1)
+    later.completed_by = regular_user
+    later.save(update_fields=["completed_at", "completed_by"])
+
+    stale = Card.objects.create(
+        column=column, title="Completed last week", deadline=boundaries.today_start
+    )
+    stale.completed_at = week_start - timedelta(hours=1)
+    stale.save(update_fields=["completed_at"])
+
+    resp = auth_client.get("/api/v1/agenda/family-today/")
+
+    week = resp.json()["week"]
+    assert week["total"] == 2
+    assert week["completed"] == 1
+
+
+@pytest.mark.django_db()
+def test_family_today_week_progress_excludes_archived(
+    auth_client: APIClient, regular_user: User, column: Column
+) -> None:
+    boundaries = _family_boundaries()
+    week_start = boundaries.today_start - timedelta(days=boundaries.today_start.weekday())
+    archived = Card.objects.create(
+        column=column,
+        title="Archived",
+        deadline=boundaries.today_start,
+        archived_at=timezone.now(),
+    )
+    archived.completed_at = week_start + timedelta(hours=1)
+    archived.save(update_fields=["completed_at"])
+
+    resp = auth_client.get("/api/v1/agenda/family-today/")
+
+    week = resp.json()["week"]
+    assert week["total"] == 0
+    assert week["completed"] == 0
+
+
+@pytest.mark.django_db()
+def test_family_today_shopping_list_is_null_when_nothing_pinned(auth_client: APIClient) -> None:
+    resp = auth_client.get("/api/v1/agenda/family-today/")
+    assert resp.json()["shopping_list"] is None
+
+
+@pytest.mark.django_db()
+def test_family_today_shopping_list_exposes_pinned_cards_items(
+    auth_client: APIClient, column: Column
+) -> None:
+    card = Card.objects.create(column=column, title="Покупки", is_shopping_list=True)
+    ChecklistItem.objects.create(card=card, text="Молоко", position=0)
+    ChecklistItem.objects.create(card=card, text="Хлеб", done=True, position=1)
+
+    resp = auth_client.get("/api/v1/agenda/family-today/")
+
+    shopping = resp.json()["shopping_list"]
+    assert shopping["card"] == {"id": card.id, "title": "Покупки", "list": card.board_id}
+    assert [item["text"] for item in shopping["items"]] == ["Молоко", "Хлеб"]
+    assert shopping["items"][1]["done"] is True
+
+
+@pytest.mark.django_db()
+def test_pinning_a_new_shopping_list_unpins_the_previous_one(column: Column) -> None:
+    first = Card.objects.create(column=column, title="Old list", is_shopping_list=True)
+    second = Card.objects.create(column=column, title="New list", is_shopping_list=True)
+
+    first.refresh_from_db()
+    assert first.is_shopping_list is False
+    assert second.is_shopping_list is True

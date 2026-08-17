@@ -2,16 +2,24 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useBoards } from '../../api/queries/boards'
-import { useAgenda, useAgendaComplete, useAgendaUpdateDeadline } from '../../api/queries/agenda'
+import {
+  useAgenda,
+  useAgendaComplete,
+  useAgendaUpdateDeadline,
+  useFamilyShoppingItemToggle,
+  useFamilyToday,
+} from '../../api/queries/agenda'
 import type { AgendaCard, AuthUser } from '../../api/types'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { EmptyState, ErrorState, PageShell, Skeleton } from '@/components/ui'
 import { AGENDA_GROUP_LABELS, AGENDA_GROUP_ORDER, bucketAgendaCards } from './lib/grouping'
 import type { AgendaGroupId } from './lib/grouping'
 import { useAgendaRealtime } from './hooks/useAgendaRealtime'
+import { useFamilyTodayRealtime } from './hooks/useFamilyTodayRealtime'
 import { AgendaGroup } from './ui/AgendaGroup'
 import { AgendaHeader } from './ui/AgendaHeader'
 import type { AgendaPeopleOption } from './ui/AgendaHeader'
+import { FamilyTodayPanel } from './ui/FamilyTodayPanel'
 import { TaskScreen } from '../task/TaskScreen'
 
 const COLLAPSED_STORAGE_KEY = 'agenda.collapsed'
@@ -32,6 +40,8 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const { data: boards = [] } = useBoards()
   const completeMutation = useAgendaComplete(listId, user.id)
   const deadlineMutation = useAgendaUpdateDeadline(listId)
+  const familyToday = useFamilyToday()
+  const shoppingToggleMutation = useFamilyShoppingItemToggle()
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
     try {
@@ -64,6 +74,8 @@ export function AgendaPage({ user }: AgendaPageProps) {
     return boards.map((board) => board.id)
   }, [boards, listId])
   useAgendaRealtime({ boardIds: realtimeBoardIds, listId, token: wsToken })
+  const familyBoardIds = useMemo(() => boards.map((board) => board.id), [boards])
+  useFamilyTodayRealtime({ boardIds: familyBoardIds, token: wsToken })
 
   const cards = useMemo(() => data?.cards ?? [], [data?.cards])
   const boundaries = data?.boundaries
@@ -121,6 +133,19 @@ export function AgendaPage({ user }: AgendaPageProps) {
     )
   }
 
+  const handlePersonClick = (userId: number) => {
+    setActiveAssigneeId((prev) => (prev === userId ? null : userId))
+  }
+
+  const handleShoppingItemToggle = (itemId: number, done: boolean) => {
+    const cardId = familyToday.data?.shopping_list?.card.id
+    if (cardId == null) return
+    shoppingToggleMutation.mutate(
+      { cardId, itemId, done },
+      { onError: () => toast.error('Не удалось отметить пункт') },
+    )
+  }
+
   const taskOverlay =
     taskId != null && listId != null ? (
       <TaskScreen taskId={taskId} listId={listId} user={user} boundaries={boundaries} onClose={() => navigate(closeTaskPath)} />
@@ -159,41 +184,55 @@ export function AgendaPage({ user }: AgendaPageProps) {
         onAssigneeFilterChange={setActiveAssigneeId}
       />
 
-      <main className="mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6">
-        <div aria-live="polite" role="status" className="sr-only">
-          {announcement}
-        </div>
+      <div className="mx-auto flex w-full max-w-6xl items-start gap-6 px-4 pt-6 sm:px-6 xl:px-8">
+        <main className="mx-auto w-full min-w-0 max-w-3xl xl:mx-0 xl:max-w-none xl:flex-1">
+          <div aria-live="polite" role="status" className="sr-only">
+            {announcement}
+          </div>
 
-        {emptyAgenda ? (
-          <div className="flex min-h-[calc(100vh-15rem)] items-center justify-center">
-            <EmptyState title="На сегодня всё спокойно" className="w-full max-w-md">
-              Задач ни в одной группе нет. Новые задачи появятся здесь по мере добавления.
+          {emptyAgenda ? (
+            <div className="flex min-h-[calc(100vh-15rem)] items-center justify-center">
+              <EmptyState title="На сегодня всё спокойно" className="w-full max-w-md">
+                Задач ни в одной группе нет. Новые задачи появятся здесь по мере добавления.
+              </EmptyState>
+            </div>
+          ) : emptyByFilter ? (
+            <EmptyState title="По фильтру ничего нет">
+              У выбранного исполнителя нет задач в агенде.
             </EmptyState>
-          </div>
-        ) : emptyByFilter ? (
-          <EmptyState title="По фильтру ничего нет">
-            У выбранного исполнителя нет задач в агенде.
-          </EmptyState>
-        ) : buckets ? (
-          <div className="space-y-5">
-            {AGENDA_GROUP_ORDER.map((group) => (
-              <AgendaGroup
-                key={group}
-                boundaries={boundaries!}
-                busy={completeBusy}
-                cards={buckets[group]}
-                collapsed={collapsed[`${scopeKey}:${group}`] === true}
-                group={group}
-                label={AGENDA_GROUP_LABELS[group]}
-                onCompleteToggle={handleCompleteToggle}
-                onDeadlineCommit={handleDeadlineCommit}
-                onToggle={() => toggleCollapsed(group)}
-                deadlineBusy={deadlineBusy}
-              />
-            ))}
-          </div>
-        ) : null}
-      </main>
+          ) : buckets ? (
+            <div className="space-y-5">
+              {AGENDA_GROUP_ORDER.map((group) => (
+                <AgendaGroup
+                  key={group}
+                  boundaries={boundaries!}
+                  busy={completeBusy}
+                  cards={buckets[group]}
+                  collapsed={collapsed[`${scopeKey}:${group}`] === true}
+                  group={group}
+                  label={AGENDA_GROUP_LABELS[group]}
+                  onCompleteToggle={handleCompleteToggle}
+                  onDeadlineCommit={handleDeadlineCommit}
+                  onToggle={() => toggleCollapsed(group)}
+                  deadlineBusy={deadlineBusy}
+                />
+              ))}
+            </div>
+          ) : null}
+        </main>
+
+        <aside className="hidden w-80 shrink-0 xl:block">
+          <FamilyTodayPanel
+            data={familyToday.data}
+            isLoading={familyToday.isLoading}
+            isError={familyToday.isError}
+            activeAssigneeId={activeAssigneeId}
+            onPersonClick={handlePersonClick}
+            onShoppingItemToggle={handleShoppingItemToggle}
+            shoppingBusy={shoppingToggleMutation.isPending}
+          />
+        </aside>
+      </div>
 
       {taskOverlay}
     </div>

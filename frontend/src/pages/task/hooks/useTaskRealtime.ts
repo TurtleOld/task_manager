@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../../api/queries/keys'
-import type { Card } from '../../../api/types'
+import type { Card, CardComment } from '../../../api/types'
 import { getWsBase } from '../../../useBoardWebSocket'
 import type { BoardEvent } from '../../../useBoardWebSocket'
 
@@ -26,6 +26,7 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
     if (!token || boardId == null || taskId == null) return
 
     const key = queryKeys.card(taskId)
+    const commentsKey = queryKeys.cardComments(taskId)
     let ws: WebSocket | null = null
     let timer: ReturnType<typeof setTimeout> | null = null
     let unmounted = false
@@ -33,6 +34,21 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
     const applyCard = (card: Card) => {
       if (card.id !== taskId) return
       qc.setQueryData<Card>(key, card)
+    }
+
+    const applyComment = (event: BoardEvent) => {
+      if (event.type !== 'comment.created' && event.type !== 'comment.updated' && event.type !== 'comment.deleted') return
+      if (event.card_id !== taskId) return
+      qc.setQueryData<CardComment[]>(commentsKey, (prev) => {
+        if (!prev) return prev
+        if (event.type === 'comment.created') {
+          return prev.some((item) => item.id === event.comment.id) ? prev : [...prev, event.comment]
+        }
+        if (event.type === 'comment.updated') {
+          return prev.map((item) => (item.id === event.comment.id ? event.comment : item))
+        }
+        return prev.filter((item) => item.id !== event.comment_id)
+      })
     }
 
     const connect = () => {
@@ -44,6 +60,8 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
           const data = JSON.parse(message.data) as BoardEvent
           if (data.type === 'card.updated' || data.type === 'card.moved' || data.type === 'card.completed') {
             applyCard(data.card)
+          } else {
+            applyComment(data)
           }
         } catch {
           // ignore malformed messages

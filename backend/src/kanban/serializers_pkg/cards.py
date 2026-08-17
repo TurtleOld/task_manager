@@ -346,6 +346,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "completed_at",
             "completed_by",
             "completed_by_detail",
+            "is_shopping_list",
         ]
         read_only_fields = [
             "id",

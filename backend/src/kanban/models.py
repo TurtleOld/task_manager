@@ -174,6 +174,7 @@ class Card(TimestampedModel):
         null=True,
         blank=True,
     )
+    is_shopping_list = models.BooleanField(default=False)
 
     objects = ActiveCardManager()
     with_archived = models.Manager()
@@ -197,6 +198,11 @@ class Card(TimestampedModel):
         # Ensure denormalized board stays in sync with column.board
         if self.column_id:
             self.board = self.column.board
+        if self.is_shopping_list:
+            # At most one card is pinned as the shared shopping checklist.
+            Card.with_archived.filter(is_shopping_list=True).exclude(pk=self.pk).update(
+                is_shopping_list=False
+            )
         super().save(*args, **kwargs)
 
     def clean(self) -> None:

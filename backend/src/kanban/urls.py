@@ -10,6 +10,7 @@ from .views import (
     CardViewSet,
     ColumnViewSet,
     CurrentUserView,
+    FamilyTodayView,
     InboxScheduleDetailView,
     InboxScheduleView,
     InboxView,
@@ -38,6 +39,7 @@ router.register(
 
 urlpatterns = [
     path("agenda/", AgendaView.as_view(), name="agenda"),
+    path("agenda/family-today/", FamilyTodayView.as_view(), name="agenda-family-today"),
     path("archive/", ArchiveView.as_view(), name="archive"),
     path("auth/register/", RegisterView.as_view(), name="register"),
     path("auth/login/", LoginView.as_view(), name="login"),

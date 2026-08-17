@@ -9,7 +9,7 @@ interface HistoryPanelProps {
 
 export function HistoryPanel({ entries, loading, timeZone }: HistoryPanelProps) {
   return (
-    <SurfaceCard as="section" className="space-y-4">
+    <SurfaceCard as="section" className="space-y-3 p-5">
       <div className="flex items-center gap-2">
         <Badge variant="neutral">История</Badge>
         <Badge variant="neutral">{entries.length}</Badge>

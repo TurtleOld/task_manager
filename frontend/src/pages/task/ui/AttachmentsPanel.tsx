@@ -36,13 +36,13 @@ export function AttachmentsPanel({ attachments, busy, onAddLink, onUpload, onDel
   }
 
   return (
-    <SurfaceCard as="section" className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <SurfaceCard as="section" className="space-y-3 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Badge variant="info">Вложения</Badge>
           <Badge variant="neutral">{attachments.length}</Badge>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        <div className="flex flex-wrap items-center gap-2">
           <Select value={type} onChange={(event) => setType(event.target.value as 'file' | 'link' | 'photo')} className="sm:w-28">
             <option value="link">Ссылка</option>
             <option value="file">Файл</option>
