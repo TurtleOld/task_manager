@@ -39,6 +39,29 @@ export function toAgendaCard(card: Card): AgendaCard {
   }
 }
 
+/** Карточка-заглушка для оптимистичной вставки до ответа сервера (быстрое добавление). */
+export function makeAgendaPlaceholderCard(params: {
+  id: number
+  title: string
+  list: number
+  deadline: string | null
+  assignee: { id: number; name: string } | null
+}): AgendaCard {
+  return {
+    id: params.id,
+    title: params.title,
+    list: params.list,
+    deadline: params.deadline,
+    priority: 0,
+    assignee: params.assignee != null ? { id: params.assignee.id, username: '', full_name: params.assignee.name } : null,
+    completed_at: null,
+    completed_by: null,
+    has_subtasks: false,
+    has_checklist: false,
+    created_at: new Date().toISOString(),
+  }
+}
+
 export function upsertAgendaCard(cards: AgendaCard[] | undefined, card: AgendaCard): AgendaCard[] {
   if (!cards) return [card]
   if (cards.some((item) => item.id === card.id)) {
@@ -130,6 +153,42 @@ export function useAgendaUpdateDeadline(listId?: number | null) {
     },
     onSuccess: (card) => {
       setAgendaCard(qc, key, toAgendaCard(card))
+    },
+  })
+}
+
+/**
+ * Быстрое добавление задачи из строки агенды. Оптимистично: карточка-заглушка
+ * появляется в своей группе сразу, заменяется настоящей после ответа сервера;
+ * при ошибке заглушка убирается.
+ */
+export function useAgendaCreateCard(listId: number) {
+  const qc = useQueryClient()
+  const key = queryKeys.agenda(listId)
+  return useMutation<
+    Card,
+    Error,
+    { payload: Parameters<typeof api.createCardWithDetails>[0]; placeholder: AgendaCard },
+    AgendaMutationContext
+  >({
+    mutationFn: ({ payload }) => api.createCardWithDetails(payload),
+    onMutate: async ({ placeholder }) => {
+      await qc.cancelQueries({ queryKey: key })
+      const previous = qc.getQueryData<AgendaResponse>(key)
+      qc.setQueryData<AgendaResponse>(key, (prev) =>
+        prev ? { ...prev, cards: [...prev.cards, placeholder] } : prev,
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previous) qc.setQueryData(key, ctx.previous)
+    },
+    onSuccess: (card, { placeholder }) => {
+      qc.setQueryData<AgendaResponse>(key, (prev) => {
+        if (!prev) return prev
+        const withoutTemp = prev.cards.filter((item) => item.id !== placeholder.id)
+        return { ...prev, cards: upsertAgendaCard(withoutTemp, toAgendaCard(card)) }
+      })
     },
   })
 }

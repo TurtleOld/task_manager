@@ -233,6 +233,8 @@ export const api = {
     title: string
     description?: string
     deadline?: string | null
+    assignee?: number | null
+    labels?: { name: string; color?: string }[]
   }): Promise<Card> => {
     const res = await fetch(`${V1}/cards/`, {
       method: 'POST',
