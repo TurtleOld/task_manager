@@ -1,0 +1,60 @@
+name: PR title
+
+# The repository squash-merges, so GitHub uses the **pull request title** as the
+# commit subject on `main`. release-please reads those subjects to decide
+# whether a release is due, which makes the PR title the release-triggering
+# artefact — not the commit messages inside the branch.
+#
+# When the prefix is missing the failure is silent and expensive: no releasable
+# commit means no release pull request, no version bump, no `v*` tag, and
+# `ci-docker-compose.yml` only builds images on a `v*` tag. Production then
+# keeps running the previous image while `main` moves on. That is exactly how
+# the dispatcher shipped to a deployment whose image predated the command it
+# needed to run.
+#
+# This check makes that failure loud at the moment it can still be fixed.
+
+# `pull_request` rather than `pull_request_target`: this repository has no
+# forks, and the safer trigger avoids the well-known footgun of running with
+# repository permissions in a context influenced by a pull request.
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+
+permissions:
+  pull-requests: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate the title as a conventional commit
+        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # `feat` and `fix` are the only two that produce a release; the rest
+          # are accepted so that genuinely non-releasable work is not forced to
+          # claim a version bump it does not deserve.
+          types: |
+            feat
+            fix
+            docs
+            chore
+            ci
+            build
+            refactor
+            perf
+            test
+            style
+            revert
+          requireScope: false
+          # A subject starting with an uppercase letter reads as a sentence and
+          # collides with how the changelog renders entries; keep them lowercase.
+          subjectPattern: ^(?![A-ZА-ЯЁ]).+$
+          subjectPatternError: |
+            Тема «{subject}» в заголовке PR должна начинаться со строчной буквы.
