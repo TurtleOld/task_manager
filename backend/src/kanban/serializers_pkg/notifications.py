@@ -59,12 +59,9 @@ def _build_notification_message(entry: NotificationInboxEntry) -> str:
     payload = event.payload or {}
     lines = [event.summary]
     board = payload.get("board") or (event.board.name if event.board else "")
-    column = payload.get("column") or (event.column.name if event.column else "")
     card = payload.get("card") or (event.card.title if event.card else "")
     if board:
         lines.append(f"Список: {board}")
-    if column:
-        lines.append(f"Колонка: {column}")
     if card:
         lines.append(f"Задача: {card}")
     changes = payload.get("changes")

@@ -261,7 +261,6 @@ def test_delivery_tasks_are_isolated_from_housekeeping() -> None:
 
     for task in (
         "kanban.tasks.generate_recurring_cards",
-        "kanban.tasks.process_inbox_schedules",
         "kanban.tasks.prune_card_activity",
     ):
         assert routes[task]["queue"] == "maintenance"

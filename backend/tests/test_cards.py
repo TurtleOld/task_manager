@@ -17,26 +17,25 @@ User = get_user_model()
 
 
 @pytest.mark.django_db()
-def test_create_card_minimal(api_client: APIClient, column: Column) -> None:
+def test_create_card_minimal(api_client: APIClient, board: Board) -> None:
     resp = api_client.post(
         "/api/v1/cards/",
-        data={"column": column.id, "title": "New task"},
+        data={"board": board.id, "title": "New task"},
         format="json",
     )
     assert resp.status_code == 201
     data = resp.json()
     assert data["title"] == "New task"
-    assert data["column"] == column.id
-    assert data["board"] == column.board_id
-    assert Card.objects.filter(column=column, title="New task").exists()
+    assert data["board"] == board.id
+    assert Card.objects.filter(board=board, title="New task").exists()
 
 
 @pytest.mark.django_db()
-def test_create_card_full(api_client: APIClient, column: Column) -> None:
+def test_create_card_full(api_client: APIClient, board: Board) -> None:
     resp = api_client.post(
         "/api/v1/cards/",
         data={
-            "column": column.id,
+            "board": board.id,
             "title": "Full task",
             "description": "Details here",
             "priority": 3,
@@ -55,10 +54,10 @@ def test_create_card_full(api_client: APIClient, column: Column) -> None:
 
 
 @pytest.mark.django_db()
-def test_create_card_accepts_legacy_android_priority(api_client: APIClient, column: Column) -> None:
+def test_create_card_accepts_legacy_android_priority(api_client: APIClient, board: Board) -> None:
     resp = api_client.post(
         "/api/v1/cards/",
-        data={"column": column.id, "title": "Legacy priority", "priority": "🔥"},
+        data={"board": board.id, "title": "Legacy priority", "priority": "🔥"},
         format="json",
     )
 
@@ -67,30 +66,30 @@ def test_create_card_accepts_legacy_android_priority(api_client: APIClient, colu
 
 
 @pytest.mark.django_db()
-def test_create_card_requires_title(api_client: APIClient, column: Column) -> None:
+def test_create_card_requires_title(api_client: APIClient, board: Board) -> None:
     resp = api_client.post(
         "/api/v1/cards/",
-        data={"column": column.id, "title": ""},
+        data={"board": board.id, "title": ""},
         format="json",
     )
     assert resp.status_code == 400
 
 
 @pytest.mark.django_db()
-def test_create_card_requires_column(api_client: APIClient) -> None:
+def test_create_card_requires_board(api_client: APIClient) -> None:
     resp = api_client.post(
         "/api/v1/cards/",
-        data={"title": "No column"},
+        data={"title": "No board"},
         format="json",
     )
     assert resp.status_code == 400
 
 
 @pytest.mark.django_db()
-def test_create_card_triggers_notification_event(api_client: APIClient, column: Column) -> None:
+def test_create_card_triggers_notification_event(api_client: APIClient, board: Board) -> None:
     api_client.post(
         "/api/v1/cards/",
-        data={"column": column.id, "title": "Notify me"},
+        data={"board": board.id, "title": "Notify me"},
         format="json",
     )
     assert NotificationEvent.objects.filter(event_type="card.created").exists()
@@ -110,18 +109,6 @@ def test_list_cards_by_board(api_client: APIClient, card: Card, column: Column) 
 
 
 @pytest.mark.django_db()
-def test_list_cards_by_column(api_client: APIClient, card: Card, column: Column) -> None:
-    other_col = Column.objects.create(board=column.board, name="Other")
-    Card.objects.create(column=other_col, title="Other card")
-
-    resp = api_client.get(f"/api/v1/cards/?column={column.id}")
-    assert resp.status_code == 200
-    titles = [c["title"] for c in resp.json()]
-    assert card.title in titles
-    assert "Other card" not in titles
-
-
-@pytest.mark.django_db()
 def test_get_card_detail(api_client: APIClient, card: Card) -> None:
     resp = api_client.get(f"/api/v1/cards/{card.id}/")
     assert resp.status_code == 200
@@ -136,11 +123,11 @@ def test_get_nonexistent_card(api_client: APIClient) -> None:
 
 @pytest.mark.django_db()
 def test_create_card_returns_id_for_immediate_detail_usage(
-    api_client: APIClient, column: Column
+    api_client: APIClient, board: Board
 ) -> None:
     resp = api_client.post(
         "/api/v1/cards/",
-        data={"column": column.id, "title": "Immediate open"},
+        data={"board": board.id, "title": "Immediate open"},
         format="json",
     )
     assert resp.status_code == 201
@@ -154,11 +141,11 @@ def test_create_card_returns_id_for_immediate_detail_usage(
 
 @pytest.mark.django_db()
 def test_create_card_response_contains_complete_immediate_use_payload(
-    api_client: APIClient, column: Column
+    api_client: APIClient, board: Board
 ) -> None:
     resp = api_client.post(
         "/api/v1/cards/",
-        data={"column": column.id, "title": "Open right away"},
+        data={"board": board.id, "title": "Open right away"},
         format="json",
     )
 
@@ -166,8 +153,7 @@ def test_create_card_response_contains_complete_immediate_use_payload(
     data = resp.json()
     assert isinstance(data["id"], int)
     assert data["id"] > 0
-    assert data["column"] == column.id
-    assert data["board"] == column.board_id
+    assert data["board"] == board.id
     assert data["title"] == "Open right away"
 
 
@@ -191,8 +177,6 @@ def test_my_today_uses_agenda_format(api_client: APIClient, board: Board) -> Non
     assert card.id in ids
     assert completed.id not in ids
     item = next(item for item in data["cards"] if item["id"] == card.id)
-    assert "column" not in item
-    assert "column_name" not in item
     assert item["list"] == board.id
 
 
@@ -384,7 +368,6 @@ def test_notify_deleted_creates_event(api_client: APIClient, column: Column) -> 
             "card_id": card_id,
             "version": version,
             "board": column.board_id,
-            "column": column.id,
             "card_title": "Temp",
         },
         format="json",

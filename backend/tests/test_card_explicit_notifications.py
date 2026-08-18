@@ -24,14 +24,9 @@ def test_update_does_not_auto_notify_and_notify_is_idempotent() -> None:
     client = APIClient()
 
     board = client.post("/api/v1/boards/", data={"name": "B"}, format="json").json()
-    col = client.post(
-        "/api/v1/columns/",
-        data={"board": board["id"], "name": "Todo"},
-        format="json",
-    ).json()
     card = client.post(
         "/api/v1/cards/",
-        data={"column": col["id"], "title": "A"},
+        data={"board": board["id"], "title": "A"},
         format="json",
     ).json()
 
@@ -78,14 +73,9 @@ def test_failed_save_does_not_create_notification_event() -> None:
     client = APIClient()
 
     board = client.post("/api/v1/boards/", data={"name": "B"}, format="json").json()
-    col = client.post(
-        "/api/v1/columns/",
-        data={"board": board["id"], "name": "Todo"},
-        format="json",
-    ).json()
     card = client.post(
         "/api/v1/cards/",
-        data={"column": col["id"], "title": "A"},
+        data={"board": board["id"], "title": "A"},
         format="json",
     ).json()
 
@@ -105,14 +95,9 @@ def test_notify_error_does_not_rollback_save() -> None:
     client = APIClient()
 
     board = client.post("/api/v1/boards/", data={"name": "B"}, format="json").json()
-    col = client.post(
-        "/api/v1/columns/",
-        data={"board": board["id"], "name": "Todo"},
-        format="json",
-    ).json()
     card = client.post(
         "/api/v1/cards/",
-        data={"column": col["id"], "title": "A"},
+        data={"board": board["id"], "title": "A"},
         format="json",
     ).json()
 
@@ -146,14 +131,9 @@ def test_delete_does_not_auto_notify_and_deleted_notify_is_idempotent() -> None:
     client = APIClient()
 
     board = client.post("/api/v1/boards/", data={"name": "B"}, format="json").json()
-    col = client.post(
-        "/api/v1/columns/",
-        data={"board": board["id"], "name": "Todo"},
-        format="json",
-    ).json()
     card = client.post(
         "/api/v1/cards/",
-        data={"column": col["id"], "title": "A"},
+        data={"board": board["id"], "title": "A"},
         format="json",
     ).json()
 
@@ -166,7 +146,6 @@ def test_delete_does_not_auto_notify_and_deleted_notify_is_idempotent() -> None:
         "card_id": card["id"],
         "version": version,
         "board": board["id"],
-        "column": col["id"],
         "card_title": card["title"],
     }
     n1 = client.post("/api/v1/cards/notify-deleted/", data=payload, format="json")

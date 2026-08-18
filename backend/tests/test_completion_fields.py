@@ -65,12 +65,12 @@ def test_completion_fields_are_readable_via_api(api_client: APIClient, column: C
 
 
 @pytest.mark.django_db()
-def test_completion_fields_cannot_be_set_via_api(api_client: APIClient, column: Column) -> None:
+def test_completion_fields_cannot_be_set_via_api(api_client: APIClient, board: Board) -> None:
     completer = User.objects.create_user(username="mike", password="pass")
     resp = api_client.post(
         "/api/v1/cards/",
         data={
-            "column": column.id,
+            "board": board.id,
             "title": "New task",
             "completed_at": timezone.now().isoformat(),
             "completed_by": completer.id,

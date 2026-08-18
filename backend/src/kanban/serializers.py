@@ -15,7 +15,6 @@ from .serializers_pkg import (  # noqa: F401
     CardLabelField,
     CardSerializer,
     ChecklistItemSerializer,
-    ColumnSerializer,
     CurrentUserUpdateSerializer,
     LabelSerializer,
     NotificationInboxEntrySerializer,

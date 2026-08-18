@@ -12,7 +12,6 @@ from .cards import (
     LabelSerializer,
     RecurrenceRuleSerializer,
 )
-from .columns import ColumnSerializer
 from .notifications import (
     CardDeadlineReminderSerializer,
     NotificationInboxEntrySerializer,
@@ -41,7 +40,6 @@ __all__ = [
     "CardLabelField",
     "CardSerializer",
     "ChecklistItemSerializer",
-    "ColumnSerializer",
     "CurrentUserUpdateSerializer",
     "LabelSerializer",
     "NotificationInboxEntrySerializer",

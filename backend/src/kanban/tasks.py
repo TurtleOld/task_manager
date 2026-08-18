@@ -17,14 +17,12 @@ from django.db.utils import IntegrityError
 from django.utils import timezone
 from django.utils.text import Truncator
 
-from .inbox import get_or_create_user_inbox
 from .models import (
     Attachment,
     Card,
     CardActivity,
     CardDeadlineReminder,
     CardDeadlineReminderDelivery,
-    InboxSchedule,
     NotificationChannel,
     NotificationDelivery,
     NotificationEvent,
@@ -307,7 +305,6 @@ def _event_title(event: NotificationEvent) -> str:
 def _event_body(event: NotificationEvent) -> str:
     payload = event.payload or {}
     board = payload.get("board") or (event.board.name if event.board else "")
-    column = payload.get("column") or (event.column.name if event.column else "")
     card = payload.get("card") or (event.card.title if event.card else "")
     lines = [
         event.summary,
@@ -315,8 +312,6 @@ def _event_body(event: NotificationEvent) -> str:
     ]
     if board:
         lines.append(f"Список: {board}")
-    if column:
-        lines.append(f"Колонка: {column}")
     if card:
         lines.append(f"Задача: {card}")
     if event.link:
@@ -845,51 +840,6 @@ def generate_recurring_cards(self) -> None:
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
-def process_inbox_schedules(self) -> None:
-    now = timezone.now()
-    schedules = (
-        InboxSchedule.objects.select_related("user", "target_column", "target_column__board")
-        .filter(status=InboxSchedule.Status.SCHEDULED, move_at__lte=now)
-        .order_by("move_at", "id")
-    )
-
-    from .broadcast import broadcast_board_event  # noqa: E402
-    from .serializers import CardSerializer  # noqa: E402
-
-    for schedule in schedules:
-        _board, inbox_column = get_or_create_user_inbox(schedule.user)
-        cards = list(
-            Card.objects.select_related("board", "column")
-            .prefetch_related(
-                "labels",
-                "checklist_items",
-                "subtasks__labels",
-                "subtasks__checklist_items",
-                "attachments",
-                "recurrence_rule",
-            )
-            .filter(column=inbox_column, parent__isnull=True)
-            .order_by("position", "id")
-        )
-        moved_count = 0
-        for card in cards:
-            source_board_id = card.board_id
-            card.column = schedule.target_column
-            card.save(update_fields=["column", "board", "updated_at", "version"])
-            moved_count += 1
-            broadcast_board_event(source_board_id, "card.deleted", {"card_id": card.id})
-            broadcast_board_event(
-                card.board_id,
-                "card.created",
-                {"card": CardSerializer(card).data},
-            )
-
-        schedule.status = InboxSchedule.Status.COMPLETED
-        schedule.moved_count = moved_count
-        schedule.save(update_fields=["status", "moved_count", "updated_at", "version"])
-
-
-@shared_task(bind=True, max_retries=2, default_retry_delay=30)
 def prune_card_activity(self) -> None:
     card_ids = CardActivity.objects.order_by().values_list("card_id", flat=True).distinct()
     for card_id in card_ids:
@@ -911,7 +861,7 @@ def send_overdue_card_reminders(self) -> None:
     cutoff = now - timezone.timedelta(minutes=interval_minutes)
 
     overdue_cards = Card.objects.filter(deadline__lt=now, completed_at__isnull=True).select_related(
-        "board", "column"
+        "board"
     )
 
     if not overdue_cards.exists():
@@ -954,13 +904,11 @@ def send_overdue_card_reminders(self) -> None:
                     "event_type": NotificationEventType.CARD_DEADLINE_REMINDER.value,
                     "actor": None,
                     "board": card.board,
-                    "column": card.column,
                     "card": card,
                     "summary": f"Задача «{card.title}» просрочена",
                     "link": link or build_frontend_link(card.board_id),
                     "payload": {
                         "board": card.board.name,
-                        "column": card.column.name,
                         "card": card.title,
                         "overdue": True,
                     },

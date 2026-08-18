@@ -8,12 +8,8 @@ from .views import (
     ArchiveView,
     BoardViewSet,
     CardViewSet,
-    ColumnViewSet,
     CurrentUserView,
     FamilyTodayView,
-    InboxScheduleDetailView,
-    InboxScheduleView,
-    InboxView,
     LoginView,
     NotificationInboxView,
     NotificationPreferenceViewSet,
@@ -28,7 +24,6 @@ from .views import (
 
 router = DefaultRouter()
 router.register(r"boards", BoardViewSet, basename="board")
-router.register(r"columns", ColumnViewSet, basename="column")
 router.register(r"cards", CardViewSet, basename="card")
 router.register(r"users", UserAdminViewSet, basename="user-admin")
 router.register(
@@ -46,13 +41,6 @@ urlpatterns = [
     path("auth/me/", CurrentUserView.as_view(), name="current-user"),
     path("auth/registration-status/", RegistrationStatusView.as_view(), name="registration-status"),
     path("auth/terminate-sessions/", TerminateSessionsView.as_view(), name="terminate-sessions"),
-    path("inbox/", InboxView.as_view(), name="inbox"),
-    path("inbox/schedules/", InboxScheduleView.as_view(), name="inbox-schedules"),
-    path(
-        "inbox/schedules/<int:pk>/",
-        InboxScheduleDetailView.as_view(),
-        name="inbox-schedule-detail",
-    ),
     path("notifications/inbox/", NotificationInboxView.as_view(), name="notification-inbox"),
     path("notifications/profile/", NotificationProfileView.as_view(), name="notification-profile"),
     path("search/", SearchView.as_view(), name="search"),

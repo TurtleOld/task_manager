@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from decimal import Decimal
 from typing import Any
 
 from django.contrib.auth import get_user_model
@@ -27,7 +26,6 @@ from ..models import (
     CardComment,
     CardDeadlineReminder,
     ChecklistItem,
-    Column,
     NotificationEventType,
     NotificationProfile,
     RecurrenceRule,
@@ -59,19 +57,17 @@ CARD_PREFETCH_RELATED = (
 
 class CardViewSet(viewsets.ModelViewSet[Card]):
     queryset = (
-        Card.objects.select_related("board", "column")
+        Card.objects.select_related("board")
         .prefetch_related(*CARD_PREFETCH_RELATED)
         .all()
         .order_by("position", "id")
     )
     serializer_class = CardSerializer
-    filterset_fields = ["board", "column"]
+    filterset_fields = ["board"]
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        if self.action == "list" and (
-            self.request.query_params.get("board") or self.request.query_params.get("column")
-        ):
+        if self.action == "list" and self.request.query_params.get("board"):
             return queryset.filter(parent__isnull=True)
         return queryset
 
@@ -235,7 +231,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
     def _broadcast_checklist_update(self, card: Card) -> None:
         card = (
-            Card.objects.select_related("board", "column")
+            Card.objects.select_related("board")
             .prefetch_related(*CARD_PREFETCH_RELATED)
             .get(pk=card.pk)
         )
@@ -253,7 +249,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         payload = dict(request.data or {})
         payload["parent"] = parent.id
-        payload.setdefault("column", parent.column_id)
+        payload.setdefault("board", parent.board_id)
         serializer = self.get_serializer(data=payload)
         serializer.is_valid(raise_exception=True)
         card = serializer.save()
@@ -262,7 +258,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         return Response(self.get_serializer(card).data, status=status.HTTP_201_CREATED)
 
     def _card_queryset_for_payload(self):
-        return Card.objects.select_related("board", "column").prefetch_related(
+        return Card.objects.select_related("board").prefetch_related(
             *CARD_PREFETCH_RELATED,
         )
 
@@ -425,12 +421,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             event_type=NotificationEventType.COMMENT_CREATED.value,
             actor=comment.author,
             board=card.board,
-            column=card.column,
             card=card,
             summary=f"Новый комментарий с упоминанием в задаче «{card.title}»",
             payload={
                 "board": card.board.name,
-                "column": card.column.name,
                 "card": card.title,
                 "comment": comment.text[:500],
                 "mention_user_ids": list(mentioned_users.values_list("id", flat=True)),
@@ -444,13 +438,12 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             event_type=NotificationEventType.CARD_CREATED.value,
             actor=actor,
             board=card.board,
-            column=card.column,
             card=card,
             summary=f"Создана задача «{card.title}»",
-            payload={"board": card.board.name, "column": card.column.name, "card": card.title},
+            payload={"board": card.board.name, "card": card.title},
         )
         card = (
-            Card.objects.select_related("board", "column")
+            Card.objects.select_related("board")
             .prefetch_related(*CARD_PREFETCH_RELATED)
             .get(pk=card.pk)
         )
@@ -466,7 +459,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         for reminder in reminders:
             upsert_and_schedule_reminder(card=card, reminder=reminder)
         card = (
-            Card.objects.select_related("board", "column")
+            Card.objects.select_related("board")
             .prefetch_related(*CARD_PREFETCH_RELATED)
             .get(pk=card.pk)
         )
@@ -485,24 +478,18 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     def restore(self, request: Request, pk: str | None = None) -> Response:
         try:
             card = (
-                Card.with_archived.select_related("board", "column")
+                Card.with_archived.select_related("board")
                 .prefetch_related(*CARD_PREFETCH_RELATED)
                 .get(pk=pk)
             )
         except Card.DoesNotExist:
             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if card.column.archived_at is not None:
-            return Response(
-                {"detail": "Restore the column before restoring this card"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         if card.archived_at is not None:
             card.archived_at = None
             card.save(update_fields=["archived_at", "updated_at", "version"])
             card = (
-                Card.objects.select_related("board", "column")
+                Card.objects.select_related("board")
                 .prefetch_related(*CARD_PREFETCH_RELATED)
                 .get(pk=card.pk)
             )
@@ -609,7 +596,6 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         payload_updates: dict[str, Any] = {
             "board": card.board.name,
-            "column": card.column.name,
             "card": card.title,
         }
         if isinstance(description, str) and description.strip():
@@ -623,7 +609,6 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             event_type=NotificationEventType.CARD_UPDATED.value,
             actor=actor,
             board=card.board,
-            column=card.column,
             card=card,
             summary="".join(summary_parts),
             payload=payload_updates,
@@ -638,7 +623,6 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     def notify_deleted(self, request: Request) -> Response:
         payload: dict[str, Any] = request.data or {}
         board_id = payload.get("board")
-        column_id = payload.get("column")
         card_title = payload.get("card_title")
 
         missing = [k for k in ["card_id", "version"] if payload.get(k) is None]
@@ -658,17 +642,11 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             )
 
         board: Board | None = None
-        column: Column | None = None
         if board_id is not None:
             try:
                 board = Board.objects.get(id=int(board_id))
             except Exception:  # noqa: BLE001
                 board = None
-        if column_id is not None:
-            try:
-                column = Column.with_archived.get(id=int(column_id))
-            except Exception:  # noqa: BLE001
-                column = None
 
         title = str(card_title) if card_title is not None else "(без названия)"
         actor = request.user if request.user.is_authenticated else None
@@ -677,11 +655,9 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             event_type=NotificationEventType.CARD_DELETED.value,
             actor=actor,
             board=board,
-            column=column,
             summary=f"Удалена задача «{title}»",
             payload={
                 "board": getattr(board, "name", ""),
-                "column": getattr(column, "name", ""),
                 "card": title,
             },
             dedupe_key=dedupe_key,
@@ -690,62 +666,6 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             {"event_id": getattr(event, "pk", None), "dedupe_key": dedupe_key},
             status=200,
         )
-
-    @action(detail=True, methods=["post"], url_path="move")
-    def move(self, request: Request, pk: str | None = None) -> Response:
-        card = self.get_object()
-        payload: dict[str, Any] = request.data or {}
-        expected_version = payload.get("expected_version")
-        to_column_id = payload.get("to_column")
-        before_id = payload.get("before_id")
-        after_id = payload.get("after_id")
-
-        if expected_version is not None and int(expected_version) != card.version:
-            return Response({"detail": "Version conflict"}, status=status.HTTP_409_CONFLICT)
-
-        with transaction.atomic():
-            if to_column_id is not None and int(to_column_id) != card.column_id:
-                try:
-                    target_column = Column.objects.get(id=int(to_column_id))
-                except Column.DoesNotExist:
-                    return Response({"detail": "Target column not found"}, status=404)
-            else:
-                target_column = card.column
-
-            neighbor_ids = [int(cid) for cid in [before_id, after_id] if cid is not None]
-            positions: dict[int, Decimal] = {}
-            if neighbor_ids:
-                for c in Card.objects.filter(id__in=neighbor_ids).only("id", "position"):
-                    positions[c.id] = c.position
-
-            before_pos = positions.get(int(before_id)) if before_id is not None else None
-            after_pos = positions.get(int(after_id)) if after_id is not None else None
-
-            if before_pos is not None and after_pos is not None:
-                new_position = (before_pos + after_pos) / Decimal("2")
-            elif before_pos is not None:
-                new_position = before_pos + Decimal("1")
-            elif after_pos is not None:
-                new_position = after_pos - Decimal("1")
-            else:
-                last = Card.objects.filter(column=target_column).order_by("-position").first()
-                new_position = (last.position + Decimal("1")) if last else Decimal("1")
-
-            card.column = target_column
-            card.board = target_column.board
-            card.position = new_position
-            card._activity_actor = request.user if request.user.is_authenticated else None
-            card.save()
-
-        card = (
-            Card.objects.select_related("board", "column")
-            .prefetch_related(*CARD_PREFETCH_RELATED)
-            .get(pk=card.pk)
-        )
-        serializer = self.get_serializer(card)
-
-        broadcast_board_event(card.board_id, "card.moved", {"card": serializer.data})
-        return Response(serializer.data)
 
     @action(detail=True, methods=["post"], url_path="complete")
     def complete(self, request: Request, pk: str | None = None) -> Response:
@@ -785,7 +705,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 )
 
         card = (
-            Card.objects.select_related("board", "column")
+            Card.objects.select_related("board")
             .prefetch_related(*CARD_PREFETCH_RELATED)
             .get(pk=card.pk)
         )
@@ -795,7 +715,6 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             event_type=NotificationEventType.CARD_COMPLETED.value,
             actor=actor,
             board=card.board,
-            column=card.column,
             card=card,
             summary=f"Задача «{card.title}» выполнена",
             payload={"board": card.board.name, "card": card.title},
@@ -813,7 +732,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         card.save(update_fields=["completed_at", "completed_by", "updated_at", "version"])
 
         card = (
-            Card.objects.select_related("board", "column")
+            Card.objects.select_related("board")
             .prefetch_related(*CARD_PREFETCH_RELATED)
             .get(pk=card.pk)
         )

@@ -27,16 +27,8 @@ def test_boards_list_and_create() -> None:
     assert resp.status_code == 201
     board_id = resp.json()["id"]
     assert Board.objects.filter(id=board_id, name="My Board").exists()
-    columns = list(
-        Column.objects.filter(board_id=board_id)
-        .order_by("position")
-        .values("name", "is_default", "is_done")
-    )
-    assert columns == [
-        {"name": "To Do", "is_default": True, "is_done": False},
-        {"name": "In Progress", "is_default": True, "is_done": False},
-        {"name": "Done", "is_default": True, "is_done": True},
-    ]
+    # A new list starts empty — no default columns, no template data.
+    assert not Column.objects.filter(board_id=board_id).exists()
 
     # list non-empty
     resp = client.get("/api/v1/boards/")
@@ -50,10 +42,10 @@ def test_boards_list_hides_inbox_boards() -> None:
     client = APIClient()
     user = User.objects.create_user(username="alice", password="secret123")
     Board.objects.create(name="Home")
+    Board.objects.create(owner=user, is_inbox=True, name="Inbox")
 
     resp = client.get("/api/v1/boards/")
 
     assert resp.status_code == 200
     names = [item["name"] for item in resp.json()]
     assert names == ["Home"]
-    assert Board.objects.filter(owner=user, is_inbox=True).exists()
