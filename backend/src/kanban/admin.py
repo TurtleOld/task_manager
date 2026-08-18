@@ -18,8 +18,8 @@ class ColumnAdmin(admin.ModelAdmin):
 
 @admin.register(Card)
 class CardAdmin(admin.ModelAdmin):
-    list_display = ("id", "board", "column", "title", "position")
-    list_filter = ("board", "column")
+    list_display = ("id", "board", "title", "position")
+    list_filter = ("board",)
 
 
 @admin.register(SiteSettings)

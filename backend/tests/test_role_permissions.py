@@ -48,10 +48,10 @@ def test_viewer_role_preset_matches_expected_permission_set() -> None:
 
 
 @pytest.mark.django_db()
-def test_migration_strips_column_permission_grants_but_keeps_others() -> None:
-    """Regression guard for the 0052 data migration: existing users keep every
-    non-column permission grant, and column grants (if any linger from before
-    this ticket) are gone from the API-reported permission set."""
+def test_api_never_reports_column_permissions_even_if_directly_granted() -> None:
+    """A directly-granted column Django permission (e.g. left over from before
+    the 0052 data migration ran, or added by hand) must never surface in the
+    API permission set, while other grants keep being reported normally."""
     user = User.objects.create_user(username="grantee", password="pass12345")
     content_type = ContentType.objects.get_for_model(Column)
     column_permission = Permission.objects.get(content_type=content_type, codename="view_column")
