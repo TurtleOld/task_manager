@@ -490,6 +490,9 @@ class DispatcherHeartbeat(models.Model):
     last_tick_at = models.DateTimeField(null=True, blank=True)
     last_error = models.TextField(blank=True, default="")
     ticks = models.PositiveBigIntegerField(default=0)
+    # Housekeeping that must run rarely needs its own timestamp: the loop has
+    # no memory across restarts, so "once a day" has to be recorded somewhere.
+    last_prune_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["name"]

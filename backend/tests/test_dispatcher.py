@@ -395,3 +395,66 @@ def test_tick_survives_a_failing_pass(monkeypatch) -> None:
 
     heartbeat = DispatcherHeartbeat.objects.get(name="dispatcher")
     assert "db went away" in heartbeat.last_error
+
+
+# ---------------------------------------------------------------------------
+# Maintenance (what the Celery beat schedule used to own)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db()
+def test_maintenance_runs_the_periodic_jobs(monkeypatch) -> None:
+    """These three were the last reason for a beat container to exist."""
+
+    called: list[str] = []
+    for name in ("generate_recurring_cards", "send_overdue_card_reminders", "prune_card_activity"):
+        monkeypatch.setattr(
+            f"kanban.tasks.{name}.apply",
+            (lambda n: lambda **_kw: called.append(n))(name),
+        )
+
+    dispatcher.maintenance_tick()
+
+    assert called == [
+        "generate_recurring_cards",
+        "send_overdue_card_reminders",
+        "prune_card_activity",
+    ]
+
+
+@pytest.mark.django_db()
+def test_prune_is_throttled_to_once_a_day(monkeypatch) -> None:
+    """Pruning is a monthly-scale chore; the 5-minute cadence must not run it."""
+
+    pruned: list[int] = []
+    monkeypatch.setattr("kanban.tasks.generate_recurring_cards.apply", lambda **_kw: None)
+    monkeypatch.setattr("kanban.tasks.send_overdue_card_reminders.apply", lambda **_kw: None)
+    monkeypatch.setattr("kanban.tasks.prune_card_activity.apply", lambda **_kw: pruned.append(1))
+
+    dispatcher.maintenance_tick()
+    dispatcher.maintenance_tick()
+
+    assert len(pruned) == 1
+
+    # Once the interval has elapsed it runs again.
+    DispatcherHeartbeat.objects.update(
+        last_prune_at=timezone.now() - timedelta(hours=dispatcher.PRUNE_INTERVAL_HOURS + 1)
+    )
+    dispatcher.maintenance_tick()
+
+    assert len(pruned) == 2
+
+
+@pytest.mark.django_db()
+def test_one_failing_chore_does_not_skip_the_others(monkeypatch) -> None:
+    pruned: list[int] = []
+    monkeypatch.setattr(
+        "kanban.tasks.generate_recurring_cards.apply",
+        lambda **_kw: (_ for _ in ()).throw(RuntimeError("recurrence exploded")),
+    )
+    monkeypatch.setattr("kanban.tasks.send_overdue_card_reminders.apply", lambda **_kw: None)
+    monkeypatch.setattr("kanban.tasks.prune_card_activity.apply", lambda **_kw: pruned.append(1))
+
+    dispatcher.maintenance_tick()
+
+    assert pruned == [1]

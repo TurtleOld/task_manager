@@ -62,13 +62,13 @@ jobs:
         env:
           IMAGE_REGISTRY: ghcr.io/turtleold/task_manager
           IMAGE_TAG: ${{ steps.sha.outputs.value }}
-        run: docker compose build --pull backend celery frontend
+        run: docker compose build --pull backend frontend
 
       - name: Push images to GHCR
         env:
           IMAGE_REGISTRY: ghcr.io/turtleold/task_manager
           IMAGE_TAG: ${{ steps.sha.outputs.value }}
-        run: docker compose push backend celery frontend
+        run: docker compose push backend frontend
 
       - name: Tag and push release aliases
         env:
@@ -76,7 +76,7 @@ jobs:
           SHA_TAG: ${{ steps.sha.outputs.value }}
         run: |
           set -euo pipefail
-          for img in backend celery frontend; do
+          for img in backend frontend; do
             if ! docker image inspect "$IMAGE_REGISTRY/$img:$SHA_TAG" >/dev/null 2>&1; then
               echo "Skip $img: image $IMAGE_REGISTRY/$img:$SHA_TAG not found"
               continue
