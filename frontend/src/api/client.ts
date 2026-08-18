@@ -1,7 +1,5 @@
 import type {
   Board,
-  BoardTemplate,
-  Column,
   Card,
   AuthUser,
   UserProfile,
@@ -15,8 +13,6 @@ import type {
   CardDeadlineReminder,
   SiteSettings,
   MyTodayResponse,
-  InboxResponse,
-  InboxSchedule,
   ArchiveResponse,
   SearchResponse,
   AgendaResponse,
@@ -99,18 +95,6 @@ export const api = {
     })
     return json(res)
   },
-  listBoardTemplates: async (): Promise<BoardTemplate[]> => {
-    const res = await fetch(`${V1}/boards/templates/`, { headers: authHeaders() })
-    return json(res)
-  },
-  createBoardFromTemplate: async (payload: { template_id: string; name?: string }): Promise<Board> => {
-    const res = await fetch(`${V1}/boards/from-template/`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify(payload),
-    })
-    return json(res)
-  },
   updateBoard: async (
     id: number,
     payload: Partial<{ name: string; icon: string; color: string }>
@@ -151,31 +135,6 @@ export const api = {
     return ok(res)
   },
 
-  // Columns
-  listColumns: async (boardId: number): Promise<Column[]> => {
-    const res = await fetch(`${V1}/columns/?board=${boardId}`, { headers: authHeaders() })
-    return json(res)
-  },
-  createColumn: async (board: number, name: string, icon: string): Promise<Column> => {
-    const res = await fetch(`${V1}/columns/`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({ board, name, icon }),
-    })
-    return json(res)
-  },
-  moveColumn: async (
-    id: number,
-    payload: Partial<{ before_id: number; after_id: number }>
-  ): Promise<Column> => {
-    const res = await fetch(`${V1}/columns/${id}/move/`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify(payload),
-    })
-    return json(res)
-  },
-
   // Cards
   listCards: async (): Promise<Card[]> => {
     const res = await fetch(`${V1}/cards/`, { headers: authHeaders() })
@@ -183,10 +142,6 @@ export const api = {
   },
   listCardsByBoard: async (boardId: number): Promise<Card[]> => {
     const res = await fetch(`${V1}/cards/?board=${boardId}`, { headers: authHeaders() })
-    return json(res)
-  },
-  listCardsByColumn: async (columnId: number): Promise<Card[]> => {
-    const res = await fetch(`${V1}/cards/?column=${columnId}`, { headers: authHeaders() })
     return json(res)
   },
   getCard: async (id: number): Promise<Card> => {
@@ -220,16 +175,16 @@ export const api = {
     })
     return json(res)
   },
-  createCard: async (column: number, title: string, description = ''): Promise<Card> => {
+  createCard: async (board: number, title: string, description = ''): Promise<Card> => {
     const res = await fetch(`${V1}/cards/`, {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ column, title, description }),
+      body: JSON.stringify({ board, title, description }),
     })
     return json(res)
   },
   createCardWithDetails: async (payload: {
-    column: number
+    board: number
     title: string
     description?: string
     deadline?: string | null
@@ -246,7 +201,6 @@ export const api = {
   updateCard: async (
     id: number,
     payload: Partial<{
-      column: number
       title: string
       description: string
       assignee: number | null
@@ -354,24 +308,6 @@ export const api = {
     })
     return json(res)
   },
-  moveCard: async (
-    id: number,
-    payload: Partial<{ to_column: number; before_id: number; after_id: number; expected_version: number }>
-  ): Promise<Card> => {
-    const res = await fetch(`${V1}/cards/${id}/move/`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify(payload),
-    })
-    return json(res)
-  },
-  restoreColumn: async (id: number): Promise<Column> => {
-    const res = await fetch(`${V1}/columns/${id}/restore/`, {
-      method: 'POST',
-      headers: authHeaders(),
-    })
-    return json(res)
-  },
 
   notifyCardUpdated: async (
     id: number,
@@ -389,46 +325,12 @@ export const api = {
     card_id: number
     version: number
     board?: number
-    column?: number
     card_title?: string
   }): Promise<{ event_id: number | null; dedupe_key: string }> => {
     const res = await fetch(`${V1}/cards/notify-deleted/`, {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify(payload),
-    })
-    return json(res)
-  },
-
-  getInbox: async (): Promise<InboxResponse> => {
-    const res = await fetch(`${V1}/inbox/`, { headers: authHeaders() })
-    return json(res)
-  },
-  createInboxCard: async (payload: {
-    title: string
-    description?: string
-    deadline?: string | null
-    priority?: 0 | 1 | 2 | 3
-  }): Promise<Card> => {
-    const res = await fetch(`${V1}/inbox/`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify(payload),
-    })
-    return json(res)
-  },
-  createInboxSchedule: async (payload: { target_column: number; move_at: string }): Promise<InboxSchedule> => {
-    const res = await fetch(`${V1}/inbox/schedules/`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify(payload),
-    })
-    return json(res)
-  },
-  cancelInboxSchedule: async (id: number): Promise<InboxSchedule> => {
-    const res = await fetch(`${V1}/inbox/schedules/${id}/`, {
-      method: 'DELETE',
-      headers: authHeaders(),
     })
     return json(res)
   },

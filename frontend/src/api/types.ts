@@ -17,31 +17,9 @@ export interface Board {
   version: number
 }
 
-export interface BoardTemplate {
-  id: string
-  name: string
-  icon: string
-  color: string
-}
-
-export interface Column {
-  id: number
-  board: number
-  name: string
-  icon: string
-  position: string
-  is_default: boolean
-  is_done: boolean
-  archived_at: string | null
-  created_at: string
-  updated_at: string
-  version: number
-}
-
 export interface Card {
   id: number
   board: number
-  column: number
   parent: number | null
   assignee: number | null
   assignee_detail?: AgendaUser | null
@@ -71,7 +49,6 @@ export interface Card {
   updated_at: string
   version: number
   archived_at: string | null
-  is_done: boolean
   completed_at?: string | null
   completed_by?: number | null
   completed_by_detail?: AgendaUser | null
@@ -181,8 +158,6 @@ export interface CardActivity {
 
 export interface MyTodayCard extends Card {
   board_name: string
-  column_name: string
-  done_column: number | null
 }
 
 export interface MyTodayResponse {
@@ -191,38 +166,12 @@ export interface MyTodayResponse {
   important: MyTodayCard[]
 }
 
-export interface InboxResponse {
-  board: Board
-  column: Column
-  cards: Card[]
-  schedules: InboxSchedule[]
-}
-
-export interface InboxSchedule {
-  id: number
-  target_column: number
-  target_board: number
-  target_board_name: string
-  target_column_name: string
-  move_at: string
-  status: 'scheduled' | 'completed' | 'cancelled'
-  moved_count: number
-  created_at: string
-  updated_at: string
-}
-
 export interface ArchivedCard extends Card {
-  board_name: string
-  column_name: string
-}
-
-export interface ArchivedColumn extends Column {
   board_name: string
 }
 
 export interface ArchiveResponse {
   cards: ArchivedCard[]
-  columns: ArchivedColumn[]
   boards: Board[]
 }
 
@@ -232,8 +181,6 @@ export interface SearchCardResult {
   description: string
   board: number
   board_name: string
-  column: number
-  column_name: string
   deadline: string | null
   priority: 0 | 1 | 2 | 3
 }
@@ -272,10 +219,6 @@ export type PermissionKey =
   | 'boards:add'
   | 'boards:edit'
   | 'boards:delete'
-  | 'columns:view'
-  | 'columns:add'
-  | 'columns:edit'
-  | 'columns:delete'
   | 'cards:view'
   | 'cards:add'
   | 'cards:edit'
@@ -302,13 +245,10 @@ export type NotificationEventType =
   | 'board.created'
   | 'board.updated'
   | 'board.deleted'
-  | 'column.created'
-  | 'column.updated'
-  | 'column.deleted'
   | 'card.created'
   | 'card.updated'
   | 'card.deleted'
-  | 'card.moved'
+  | 'card.completed'
   | 'comment.created'
   | 'comment.updated'
   | 'comment.deleted'

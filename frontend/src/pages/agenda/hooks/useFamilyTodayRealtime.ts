@@ -35,7 +35,6 @@ export function useFamilyTodayRealtime({ boardIds, token }: FamilyTodayRealtimeO
       if (
         event.type === 'card.created' ||
         event.type === 'card.updated' ||
-        event.type === 'card.moved' ||
         event.type === 'card.completed' ||
         event.type === 'card.deleted'
       ) {

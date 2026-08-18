@@ -7,15 +7,16 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from ..columns import get_or_create_default_column
 from ..models import (
     Attachment,
     AttachmentType,
+    Board,
     Card,
     CardActivity,
     CardComment,
     CardPriority,
     ChecklistItem,
-    Column,
     Label,
     RecurrenceFrequency,
     RecurrenceRule,
@@ -301,6 +302,7 @@ class AttachmentSerializer(serializers.ModelSerializer[Attachment]):
 
 
 class CardSerializer(serializers.ModelSerializer[Card]):
+    board = serializers.PrimaryKeyRelatedField(queryset=Board.objects.all())
     assignee = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
         allow_null=True,
@@ -312,7 +314,6 @@ class CardSerializer(serializers.ModelSerializer[Card]):
     checklist = serializers.SerializerMethodField()
     subtasks = serializers.SerializerMethodField()
     attachments = serializers.SerializerMethodField()
-    is_done = serializers.BooleanField(source="column.is_done", read_only=True)
     recurrence = serializers.SerializerMethodField()
     assignee_detail = AgendaUserSerializer(source="assignee", read_only=True)
     completed_by_detail = AgendaUserSerializer(source="completed_by", read_only=True)
@@ -322,7 +323,6 @@ class CardSerializer(serializers.ModelSerializer[Card]):
         fields = [
             "id",
             "board",
-            "column",
             "assignee",
             "assignee_detail",
             "title",
@@ -340,7 +340,6 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "archived_at",
             "parent",
             "subtasks",
-            "is_done",
             "parent_recurrence",
             "recurrence",
             "completed_at",
@@ -353,13 +352,11 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "created_at",
             "updated_at",
             "version",
-            "board",
             "priority_label",
             "archived_at",
             "checklist",
             "attachments",
             "subtasks",
-            "is_done",
             "parent_recurrence",
             "recurrence",
             "completed_at",
@@ -394,9 +391,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
         return RecurrenceRuleSerializer(rule, context=self.context).data
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
-        column: Column | None = attrs.get("column")
-        if column is not None:
-            attrs["board"] = column.board
+        board: Board | None = attrs.get("board")
 
         parent: Card | None = attrs.get("parent")
         instance = getattr(self, "instance", None)
@@ -407,8 +402,8 @@ class CardSerializer(serializers.ModelSerializer[Card]):
                 raise serializers.ValidationError(
                     {"parent": "Only two subtask levels are allowed."}
                 )
-            target_column = column or getattr(instance, "column", None)
-            if target_column is not None and parent.board_id != target_column.board_id:
+            target_board = board or getattr(instance, "board", None)
+            if target_board is not None and parent.board_id != target_board.id:
                 raise serializers.ValidationError(
                     {"parent": "Subtask must belong to the same board."}
                 )
@@ -416,13 +411,14 @@ class CardSerializer(serializers.ModelSerializer[Card]):
 
     def create(self, validated_data: dict[str, Any]) -> Card:
         labels = validated_data.pop("labels", None)
-        column: Column = validated_data["column"]
+        board: Board = validated_data["board"]
+        column = get_or_create_default_column(board)
+        validated_data["column"] = column
         last = Card.objects.filter(column=column).order_by("-position").first()
         validated_data.setdefault(
             "position",
             (last.position + Decimal("1")) if last else Decimal("1"),
         )
-        validated_data["board"] = column.board
         card = super().create(validated_data)
         try:
             card.full_clean(exclude=["labels"])

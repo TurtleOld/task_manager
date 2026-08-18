@@ -24,7 +24,6 @@ NOTIFICATION_TASKS = {
 
 MAINTENANCE_TASKS = {
     "kanban.tasks.generate_recurring_cards",
-    "kanban.tasks.process_inbox_schedules",
     "kanban.tasks.prune_card_activity",
 }
 

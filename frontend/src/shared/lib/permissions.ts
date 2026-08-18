@@ -7,10 +7,6 @@ export const permissionCatalog: { key: PermissionKey; label: string; desc: strin
   { key: 'boards:add', label: 'Создание списков', desc: 'Создавать новые списки' },
   { key: 'boards:edit', label: 'Редактирование списков', desc: 'Менять название и настройки списков' },
   { key: 'boards:delete', label: 'Удаление списков', desc: 'Удалять списки' },
-  { key: 'columns:view', label: 'Просмотр колонок', desc: 'Видеть колонки и их статус' },
-  { key: 'columns:add', label: 'Создание колонок', desc: 'Добавлять колонки' },
-  { key: 'columns:edit', label: 'Редактирование колонок', desc: 'Менять названия и иконки' },
-  { key: 'columns:delete', label: 'Удаление колонок', desc: 'Удалять колонки' },
   { key: 'cards:view', label: 'Просмотр задач', desc: 'Видеть задачи и их детали' },
   { key: 'cards:add', label: 'Создание задач', desc: 'Добавлять новые задачи' },
   { key: 'cards:edit', label: 'Редактирование задач', desc: 'Менять содержание задач' },
@@ -20,7 +16,7 @@ export const permissionCatalog: { key: PermissionKey; label: string; desc: strin
 // owner = full set; member = read-only across the board.
 export const rolePresets: Record<UserRole, PermissionKey[]> = {
   owner: permissionCatalog.map((item) => item.key),
-  member: ['boards:view', 'columns:view', 'cards:view'],
+  member: ['boards:view', 'cards:view'],
 }
 
 export const roleLabels: Record<UserRole, string> = {

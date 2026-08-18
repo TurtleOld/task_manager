@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { RotateCcw, Trash2 } from 'lucide-react'
 import { useBoards, useUnarchiveBoard, useForceDeleteBoard } from '../../api/queries/boards'
-import { useArchive, useRestoreArchiveCard, useRestoreArchiveColumn } from '../../api/queries/cards'
-import type { ArchivedCard, ArchivedColumn, Board } from '../../api/types'
+import { useArchive, useRestoreArchiveCard } from '../../api/queries/cards'
+import type { ArchivedCard, Board } from '../../api/types'
 import { formatTaskCount } from '../../shared/lib/formatTaskCount'
-import { priorityToLabel, priorityToMarker, priorityToTone } from '../board/lib/priority'
+import { priorityToLabel, priorityToMarker, priorityToTone } from '../../shared/lib/priority'
 import { Badge, Button, Card as SurfaceCard, Chip, EmptyState, ErrorState, PageShell, Select, Skeleton } from '@/components/ui'
 import {
   Dialog,
@@ -22,16 +22,14 @@ export function ArchivePage() {
   const selectedBoardId = boardFilter === 'all' ? undefined : Number(boardFilter)
   const { data, isLoading: archiveLoading, isError, refetch } = useArchive(selectedBoardId)
   const restoreCard = useRestoreArchiveCard(selectedBoardId)
-  const restoreColumn = useRestoreArchiveColumn(selectedBoardId)
   const unarchiveBoard = useUnarchiveBoard()
   const forceDeleteBoard = useForceDeleteBoard()
   const [restoringKey, setRestoringKey] = useState<string | null>(null)
   const [deletingBoard, setDeletingBoard] = useState<Board | null>(null)
 
   const cards = data?.cards ?? []
-  const columns = data?.columns ?? []
   const archivedBoards = data?.boards ?? []
-  const totalCount = cards.length + columns.length + archivedBoards.length
+  const totalCount = cards.length + archivedBoards.length
   const isLoading = boardsLoading || archiveLoading
 
   const restoreArchivedCard = async (card: ArchivedCard) => {
@@ -41,18 +39,6 @@ export function ArchivePage() {
       toast.success('Задача восстановлена')
     } catch (error) {
       toast.error((error as Error).message || 'Не удалось восстановить задачу')
-    } finally {
-      setRestoringKey(null)
-    }
-  }
-
-  const restoreArchivedColumn = async (column: ArchivedColumn) => {
-    setRestoringKey(`column-${column.id}`)
-    try {
-      await restoreColumn.mutateAsync(column.id)
-      toast.success('Колонка восстановлена')
-    } catch (error) {
-      toast.error((error as Error).message || 'Не удалось восстановить колонку')
     } finally {
       setRestoringKey(null)
     }
@@ -104,18 +90,17 @@ export function ArchivePage() {
               <Badge variant="success">Архив</Badge>
             </div>
             <div>
-              <h1 className="text-h1 text-text">Архив задач, колонок и списков</h1>
+              <h1 className="text-h1 text-text">Архив задач и списков</h1>
               <p className="mt-2 max-w-3xl text-body-sm text-text-muted">
                 Удаление теперь не стирает данные. Архивированные элементы скрываются со списков и могут быть восстановлены.
               </p>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-4 lg:min-w-[38rem]">
+          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[30rem]">
             <ArchiveMetric label="Всего" value={totalCount} tone="primary" />
             <ArchiveMetric label="Списков" value={archivedBoards.length} tone="info" />
             <ArchiveMetric label="Задач" value={cards.length} tone="warning" />
-            <ArchiveMetric label="Колонок" value={columns.length} tone="success" />
           </div>
         </div>
       </header>
@@ -138,7 +123,7 @@ export function ArchivePage() {
 
       {totalCount === 0 ? (
         <EmptyState title="Архив пуст">
-          Здесь появятся задачи, колонки и списки после архивирования.
+          Здесь появятся задачи и списки после архивирования.
         </EmptyState>
       ) : null}
 
@@ -181,27 +166,6 @@ export function ArchivePage() {
                 card={card}
                 restoring={restoringKey === `card-${card.id}`}
                 onRestore={() => void restoreArchivedCard(card)}
-              />
-            ))}
-          </div>
-        )}
-      </SurfaceCard>
-
-      <SurfaceCard as="section" className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="success">Колонки</Badge>
-          <Badge>{columns.length} items</Badge>
-        </div>
-        {columns.length === 0 ? (
-          <EmptyState title="Архивированных колонок нет" className="p-4 text-left" />
-        ) : (
-          <div className="grid gap-3 lg:grid-cols-2">
-            {columns.map((column) => (
-              <ArchivedColumnItem
-                key={column.id}
-                column={column}
-                restoring={restoringKey === `column-${column.id}`}
-                onRestore={() => void restoreArchivedColumn(column)}
               />
             ))}
           </div>
@@ -278,31 +242,10 @@ function ArchivedCardItem({ card, restoring, onRestore }: { card: ArchivedCard; 
           <div className="flex flex-wrap items-center gap-2">
             <Chip tone={priorityTone} active>{priorityToMarker(card.priority)} {priorityToLabel(card.priority)}</Chip>
             <Chip>{card.board_name}</Chip>
-            <Chip>{card.column_name}</Chip>
           </div>
           <h3 className="mt-3 text-h3 text-text">{card.title}</h3>
           {card.description ? <p className="mt-2 line-clamp-3 text-body-sm text-text-muted">{card.description}</p> : null}
           <p className="mt-3 text-caption text-text-muted">В архиве с {formatDateTime(card.archived_at)}</p>
-        </div>
-        <Button type="button" variant="secondary" size="sm" loading={restoring} disabled={restoring} onClick={onRestore} className="shrink-0">
-          Восстановить
-        </Button>
-      </div>
-    </article>
-  )
-}
-
-function ArchivedColumnItem({ column, restoring, onRestore }: { column: ArchivedColumn; restoring: boolean; onRestore: () => void }) {
-  return (
-    <article className="rounded-[1.2rem] border border-border/75 bg-surface/90 p-4 shadow-surface backdrop-blur">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <Chip active>{column.icon || '📦'} {column.board_name}</Chip>
-            {column.is_done ? <Chip tone="success" active>Done</Chip> : null}
-          </div>
-          <h3 className="mt-3 text-h3 text-text">{column.name}</h3>
-          <p className="mt-3 text-caption text-text-muted">В архиве с {formatDateTime(column.archived_at)}</p>
         </div>
         <Button type="button" variant="secondary" size="sm" loading={restoring} disabled={restoring} onClick={onRestore} className="shrink-0">
           Восстановить

@@ -202,7 +202,6 @@ CELERY_TASK_ROUTES = {
     "kanban.tasks.send_overdue_card_reminders": {"queue": "notifications"},
     "kanban.tasks.dispatch_due_reminders": {"queue": "notifications"},
     "kanban.tasks.generate_recurring_cards": {"queue": "maintenance"},
-    "kanban.tasks.process_inbox_schedules": {"queue": "maintenance"},
     "kanban.tasks.prune_card_activity": {"queue": "maintenance"},
 }
 CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "false").lower() in {
@@ -219,10 +218,6 @@ CELERY_BEAT_SCHEDULE = {
     },
     "generate-recurring-cards": {
         "task": "kanban.tasks.generate_recurring_cards",
-        "schedule": 60.0,
-    },
-    "process-inbox-schedules": {
-        "task": "kanban.tasks.process_inbox_schedules",
         "schedule": 60.0,
     },
     "dispatch-due-reminders": {

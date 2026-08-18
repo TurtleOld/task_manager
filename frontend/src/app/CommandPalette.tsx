@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, Moon, Plus, Search, Settings, SunMedium } from 'lucide-react'
 import { toast } from 'sonner'
@@ -6,7 +7,6 @@ import { useQuery } from '@tanstack/react-query'
 import type { Board } from '../api/types'
 import { api } from '../api/client'
 import { queryKeys } from '../api/queries/keys'
-import { useCreateInboxCard } from '../api/queries/cards'
 import { toggleTheme } from './theme'
 import { parseTaskInput } from '../shared/lib/parseTaskInput'
 import { getDeviceTimeZone } from '../shared/lib/timezone'
@@ -32,7 +32,11 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const debouncedQuery = useDebouncedValue(query.trim(), 200)
-  const createInboxCard = useCreateInboxCard()
+  const defaultBoard = boards[0] ?? null
+  const createTaskMutation = useMutation({
+    mutationFn: (payload: { board: number; title: string; deadline?: string | null }) =>
+      api.createCardWithDetails(payload),
+  })
   const shouldSearch = debouncedQuery.length >= 2
   const parsedTaskInput = useMemo(
     () => parseTaskInput(query, { timeZone: getDeviceTimeZone() }),
@@ -64,11 +68,15 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
 
   const createTask = async () => {
     const title = parsedTaskInput.deadline ? parsedTaskInput.title : query.trim()
-    if (!title || createInboxCard.isPending) return
+    if (!title || !defaultBoard || createTaskMutation.isPending) return
 
     try {
-      await createInboxCard.mutateAsync({ title, deadline: parsedTaskInput.deadline })
-      toast.success('Задача добавлена в Inbox')
+      await createTaskMutation.mutateAsync({
+        board: defaultBoard.id,
+        title,
+        deadline: parsedTaskInput.deadline,
+      })
+      toast.success(`Задача добавлена в «${defaultBoard.name}»`)
       close()
     } catch {
       toast.error('Не удалось создать задачу')
@@ -98,12 +106,16 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
         <CommandGroup heading="Создать задачу">
           <CommandItem
             value={`create-task-${query}`}
-            disabled={!query.trim() || createInboxCard.isPending}
+            disabled={!query.trim() || !defaultBoard || createTaskMutation.isPending}
             onSelect={() => void createTask()}
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
             <span className="truncate">
-              {hasQuery ? `Создать в Inbox: ${query.trim()}` : 'Введите название задачи'}
+              {!defaultBoard
+                ? 'Сначала создайте список'
+                : hasQuery
+                  ? `Создать в «${defaultBoard.name}»: ${query.trim()}`
+                  : 'Введите название задачи'}
             </span>
             {parsedTaskInput.deadline ? (
               <CommandShortcut>{formatDateTime(parsedTaskInput.deadline)}</CommandShortcut>
@@ -154,14 +166,14 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
           {cards.map((card) => (
             <CommandItem
               key={card.id}
-              value={`card-${card.title}-${card.board_name}-${card.column_name}`}
+              value={`card-${card.title}-${card.board_name}`}
               onSelect={() => runCommand(() => navigate(`/lists/${card.board}/tasks/${card.id}`))}
             >
               <Search className="h-4 w-4" aria-hidden="true" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{card.title}</span>
                 <span className="block truncate text-caption text-text-muted">
-                  {card.board_name} / {card.column_name}
+                  {card.board_name}
                 </span>
               </span>
               <CommandShortcut>Задача</CommandShortcut>

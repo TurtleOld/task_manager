@@ -1,10 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../client'
-import type { ArchiveResponse, Card, Column, InboxResponse, MyTodayCard, MyTodayResponse } from '../types'
+import type { ArchiveResponse, Card, MyTodayCard, MyTodayResponse } from '../types'
 import { queryKeys } from './keys'
 
 type UpdateCardPayload = Parameters<typeof api.updateCard>[1]
-type MoveCardPayload = Parameters<typeof api.moveCard>[1]
 
 function upsertCard(cards: Card[] | undefined, card: Card) {
   if (!cards) return [card]
@@ -12,14 +11,6 @@ function upsertCard(cards: Card[] | undefined, card: Card) {
     return cards.map((item) => (item.id === card.id ? card : item))
   }
   return [...cards, card]
-}
-
-export function useCards(boardId: number) {
-  return useQuery<Card[]>({
-    queryKey: queryKeys.cards(boardId),
-    queryFn: () => api.listCardsByBoard(boardId),
-    enabled: Number.isFinite(boardId) && boardId > 0,
-  })
 }
 
 export function useCalendarCards() {
@@ -56,13 +47,6 @@ export function useCreateCalendarCard() {
   })
 }
 
-export function useInbox() {
-  return useQuery<InboxResponse>({
-    queryKey: queryKeys.inbox(),
-    queryFn: api.getInbox,
-  })
-}
-
 export function useArchive(boardId?: number) {
   return useQuery<ArchiveResponse>({
     queryKey: queryKeys.archive(boardId),
@@ -82,78 +66,6 @@ export function useRestoreArchiveCard(boardId?: number) {
       qc.setQueryData<Card[]>(queryKeys.cards(card.board), (prev) => upsertCard(prev, card))
       void qc.invalidateQueries({ queryKey: queryKeys.myToday() })
       void qc.invalidateQueries({ queryKey: queryKeys.calendarCards() })
-      void qc.invalidateQueries({ queryKey: queryKeys.inbox() })
-    },
-  })
-}
-
-export function useRestoreArchiveColumn(boardId?: number) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => api.restoreColumn(id),
-    onSuccess: (column) => {
-      qc.setQueryData<ArchiveResponse>(queryKeys.archive(boardId), (prev) => {
-        if (!prev) return prev
-        return { ...prev, columns: prev.columns.filter((item) => item.id !== column.id) }
-      })
-      qc.setQueryData<Column[]>(queryKeys.columns(column.board), (prev) => {
-        if (!prev) return [column]
-        if (prev.some((item) => item.id === column.id)) {
-          return prev.map((item) => (item.id === column.id ? column : item))
-        }
-        return [...prev, column]
-      })
-    },
-  })
-}
-
-export function useCreateInboxCard() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (payload: Parameters<typeof api.createInboxCard>[0]) => api.createInboxCard(payload),
-    onSuccess: (card) => {
-      qc.setQueryData<InboxResponse>(queryKeys.inbox(), (prev) => {
-        if (!prev) return prev
-        return { ...prev, cards: upsertCard(prev.cards, card) }
-      })
-      void qc.invalidateQueries({ queryKey: queryKeys.myToday() })
-    },
-  })
-}
-
-export function useMoveInboxCard() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, toColumn }: { id: number; toColumn: number }) =>
-      api.moveCard(id, { to_column: toColumn }),
-    onSuccess: (card) => {
-      qc.setQueryData<InboxResponse>(queryKeys.inbox(), (prev) => {
-        if (!prev) return prev
-        return { ...prev, cards: prev.cards.filter((item) => item.id !== card.id) }
-      })
-      qc.setQueryData<Card[]>(queryKeys.cards(card.board), (prev) => upsertCard(prev, card))
-      void qc.invalidateQueries({ queryKey: queryKeys.myToday() })
-      void qc.invalidateQueries({ queryKey: queryKeys.calendarCards() })
-    },
-  })
-}
-
-export function useCreateInboxSchedule() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (payload: Parameters<typeof api.createInboxSchedule>[0]) => api.createInboxSchedule(payload),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.inbox() })
-    },
-  })
-}
-
-export function useCancelInboxSchedule() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => api.cancelInboxSchedule(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.inbox() })
     },
   })
 }
@@ -168,8 +80,7 @@ export function useMyToday() {
 export function useCompleteTodayCard() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ card, doneColumn }: { card: MyTodayCard; doneColumn: number }) =>
-      api.moveCard(card.id, { to_column: doneColumn }),
+    mutationFn: (id: number) => api.completeCard(id),
     onSuccess: (updated) => {
       qc.setQueryData<MyTodayResponse>(queryKeys.myToday(), (prev) => {
         if (!prev) return prev
@@ -184,135 +95,6 @@ export function useCompleteTodayCard() {
         prev?.map((card) => (card.id === updated.id ? updated : card)),
       )
       void qc.invalidateQueries({ queryKey: queryKeys.myToday() })
-    },
-  })
-}
-
-export function useCreateCard(boardId: number) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({
-      column,
-      title,
-      description,
-      deadline,
-    }: {
-      column: number
-      title: string
-      description?: string
-      deadline?: string | null
-    }) => api.createCardWithDetails({ column, title, description, deadline }),
-    onSuccess: (card) => {
-      qc.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) => {
-        if (!prev) return [card]
-        if (prev.some((c) => c.id === card.id)) return prev
-        return [...prev, card]
-      })
-    },
-  })
-}
-
-export function useUpdateCard(boardId: number) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: UpdateCardPayload }) =>
-      api.updateCard(id, payload),
-    onSuccess: (card) => {
-      qc.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
-        prev?.map((c) => (c.id === card.id ? card : c)),
-      )
-    },
-  })
-}
-
-export function useDeleteCard(boardId: number) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => api.deleteCard(id),
-    onSuccess: (_, id) => {
-      qc.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
-        prev?.filter((c) => c.id !== id),
-      )
-      void qc.invalidateQueries({ queryKey: queryKeys.archive() })
-      void qc.invalidateQueries({ queryKey: queryKeys.myToday() })
-      void qc.invalidateQueries({ queryKey: queryKeys.calendarCards() })
-      void qc.invalidateQueries({ queryKey: queryKeys.inbox() })
-    },
-  })
-}
-
-type MoveContext = { previous: Card[] | undefined }
-
-export function useMoveCard(boardId: number) {
-  const qc = useQueryClient()
-  return useMutation<
-    Card,
-    Error,
-    { id: number; payload: MoveCardPayload; optimistic?: (cards: Card[]) => Card[] },
-    MoveContext
-  >({
-    mutationFn: ({ id, payload }) => api.moveCard(id, payload),
-    onMutate: async ({ optimistic }) => {
-      await qc.cancelQueries({ queryKey: queryKeys.cards(boardId) })
-      const previous = qc.getQueryData<Card[]>(queryKeys.cards(boardId))
-      if (optimistic && previous) {
-        qc.setQueryData<Card[]>(queryKeys.cards(boardId), optimistic(previous))
-      }
-      return { previous }
-    },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) {
-        qc.setQueryData(queryKeys.cards(boardId), ctx.previous)
-      }
-    },
-    onSuccess: (updated) => {
-      qc.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
-        prev?.map((c) => (c.id === updated.id ? updated : c)),
-      )
-    },
-  })
-}
-
-export function useUploadCardAttachments(boardId: number) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, files, type }: { id: number; files: File[]; type?: 'file' | 'photo' }) =>
-      api.uploadCardAttachments(id, files, type),
-    onSuccess: (card) => {
-      qc.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
-        prev?.map((c) => (c.id === card.id ? card : c)),
-      )
-    },
-  })
-}
-
-export function useAddCardAttachment(boardId: number) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({
-      id,
-      payload,
-    }: {
-      id: number
-      payload: { name: string; type: 'link' | 'photo'; url: string }
-    }) => api.addCardAttachment(id, payload),
-    onSuccess: (card) => {
-      qc.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
-        prev?.map((c) => (c.id === card.id ? card : c)),
-      )
-    },
-  })
-}
-
-export function useDeleteCardAttachment(boardId: number) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, attachmentId }: { id: number; attachmentId: string }) =>
-      api.deleteCardAttachment(id, attachmentId),
-    onSuccess: (card) => {
-      qc.setQueryData<Card[]>(queryKeys.cards(boardId), (prev) =>
-        prev?.map((c) => (c.id === card.id ? card : c)),
-      )
     },
   })
 }

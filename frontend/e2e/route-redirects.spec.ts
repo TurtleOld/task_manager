@@ -15,8 +15,8 @@ test('legacy board address redirects to the list agenda', async ({ page, request
 
 test('legacy card address redirects to the task address', async ({ page, request }) => {
   const user = await ensureUser(request)
-  const { board, columns } = await ensureBoard(request, user)
-  const card = await createCard(request, user.token, columns[0].id)
+  const { board } = await ensureBoard(request, user)
+  const card = await createCard(request, user.token, board.id)
 
   await signInPage(page, user)
   await page.goto(`/boards/${board.id}/cards/${card.id}`)
@@ -26,8 +26,8 @@ test('legacy card address redirects to the task address', async ({ page, request
 
 test('legacy reminder link from an email opens the task address', async ({ page, request }) => {
   const user = await ensureUser(request)
-  const { board, columns } = await ensureBoard(request, user)
-  const card = await createCard(request, user.token, columns[0].id)
+  const { board } = await ensureBoard(request, user)
+  const card = await createCard(request, user.token, board.id)
 
   await signInPage(page, user)
   await page.goto(`/boards/${board.id}#card-${card.id}`)
@@ -35,10 +35,10 @@ test('legacy reminder link from an email opens the task address', async ({ page,
   await expect(page.getByRole('dialog', { name: card.title })).toBeVisible()
 })
 
-async function createCard(request: import('@playwright/test').APIRequestContext, token: string, columnId: number) {
+async function createCard(request: import('@playwright/test').APIRequestContext, token: string, boardId: number) {
   const response = await request.post(`${apiURL}/cards/`, {
     headers: { Authorization: `Token ${token}` },
-    data: { column: columnId, title: `E2E задача ${Date.now()}` },
+    data: { board: boardId, title: `E2E задача ${Date.now()}` },
   })
   expect(response.ok()).toBeTruthy()
   return await response.json() as { id: number; title: string }

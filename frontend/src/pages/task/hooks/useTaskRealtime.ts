@@ -58,7 +58,7 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
       ws.onmessage = (message) => {
         try {
           const data = JSON.parse(message.data) as BoardEvent
-          if (data.type === 'card.updated' || data.type === 'card.moved' || data.type === 'card.completed') {
+          if (data.type === 'card.updated' || data.type === 'card.completed') {
             applyCard(data.card)
           } else {
             applyComment(data)

@@ -11,7 +11,6 @@ import {
   useFamilyShoppingItemToggle,
   useFamilyToday,
 } from '../../api/queries/agenda'
-import { useColumns } from '../../api/queries/columns'
 import { useAssignableUsers } from '../../api/queries/task'
 import type { AgendaCard, AuthUser } from '../../api/types'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
@@ -57,7 +56,6 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const keyboardInset = useVisualViewportInset()
   const familyToday = useFamilyToday({ enabled: isDesktopPanel })
   const shoppingToggleMutation = useFamilyShoppingItemToggle()
-  const columnsQuery = useColumns(listId ?? 0)
   const assignableUsersQuery = useAssignableUsers(user)
   const createCardMutation = useAgendaCreateCard(listId ?? 0)
 
@@ -187,14 +185,8 @@ export function AgendaPage({ user }: AgendaPageProps) {
     )
   }
 
-  const defaultColumn = useMemo(() => {
-    const columns = columnsQuery.data
-    if (!columns || columns.length === 0) return null
-    return columns.find((column) => column.is_default) ?? columns[0]
-  }, [columnsQuery.data])
-
   const handleQuickAddCreate = (result: QuickAddResult) => {
-    if (listId == null || defaultColumn == null) return
+    if (listId == null) return
     const placeholder = makeAgendaPlaceholderCard({
       id: -Date.now(),
       title: result.title,
@@ -205,7 +197,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
     createCardMutation.mutate(
       {
         payload: {
-          column: defaultColumn.id,
+          board: listId,
           title: result.title,
           deadline: result.deadline,
           assignee: result.assigneeId,
@@ -261,7 +253,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const emptyAgenda = cards.length === 0
   const emptyByFilter = !emptyAgenda && visibleCards.length === 0
 
-  const mobileQuickAddEnabled = isMobileLayout && listId != null && defaultColumn != null
+  const mobileQuickAddEnabled = isMobileLayout && listId != null
 
   return (
     <div className="min-h-screen bg-background/80 pb-12 text-text" style={mobileQuickAddEnabled ? { paddingBottom: 'calc(9rem + env(safe-area-inset-bottom))' } : undefined}>
@@ -272,7 +264,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
         people={people}
         onAssigneeFilterChange={setActiveAssigneeId}
         quickAdd={
-          !isMobileLayout && listId != null && defaultColumn != null
+          !isMobileLayout && listId != null
             ? {
                 busy: createCardMutation.isPending,
                 onSubmit: handleQuickAddCreate,

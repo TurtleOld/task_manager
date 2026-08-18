@@ -47,8 +47,8 @@ def test_search_hides_archived_cards_and_inbox_boards(
     archived = Card.objects.create(column=column, title="Hidden needle")
     auth_client.delete(f"/api/v1/cards/{archived.id}/")
 
-    inbox_board = Board.objects.get(owner=regular_user, is_inbox=True)
-    inbox_column = Column.objects.get(board=inbox_board, name="Inbox")
+    inbox_board = Board.objects.create(owner=regular_user, is_inbox=True, name="Inbox")
+    inbox_column = Column.objects.create(board=inbox_board, name="Inbox")
     Card.objects.create(column=inbox_column, title="Needle inbox")
 
     resp = auth_client.get("/api/v1/search/?q=needle")

@@ -17,10 +17,6 @@ PERMISSION_MAP: dict[str, tuple[str, str]] = {
     "boards:add": ("kanban", "add_board"),
     "boards:edit": ("kanban", "change_board"),
     "boards:delete": ("kanban", "delete_board"),
-    "columns:view": ("kanban", "view_column"),
-    "columns:add": ("kanban", "add_column"),
-    "columns:edit": ("kanban", "change_column"),
-    "columns:delete": ("kanban", "delete_column"),
     "cards:view": ("kanban", "view_card"),
     "cards:add": ("kanban", "add_card"),
     "cards:edit": ("kanban", "change_card"),
@@ -33,9 +29,6 @@ ROLE_PRESETS: dict[str, list[str]] = {
         "boards:view",
         "boards:add",
         "boards:edit",
-        "columns:view",
-        "columns:add",
-        "columns:edit",
         "cards:view",
         "cards:add",
         "cards:edit",
@@ -43,14 +36,11 @@ ROLE_PRESETS: dict[str, list[str]] = {
     ],
     "editor": [
         "boards:view",
-        "columns:view",
-        "columns:add",
-        "columns:edit",
         "cards:view",
         "cards:add",
         "cards:edit",
     ],
-    "viewer": ["boards:view", "columns:view", "cards:view"],
+    "viewer": ["boards:view", "cards:view"],
 }
 
 
