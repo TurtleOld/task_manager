@@ -11,6 +11,7 @@ const KEY = 'auth'
 
 export interface PushAuthRecord {
   token: string
+  label?: string
 }
 
 function openDb(): Promise<IDBDatabase> {

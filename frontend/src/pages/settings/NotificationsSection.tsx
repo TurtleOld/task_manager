@@ -3,7 +3,13 @@ import { toast } from 'sonner'
 import { BellOff, BellRing, Send } from 'lucide-react'
 import { api } from '../../api/client'
 import type { PushDevice, PushTestResponse } from '../../api/types'
-import { enableNotifications, getNotificationPermission, hasActiveSubscription } from '../../lib/pushManager'
+import {
+  disableCurrentDevice,
+  enableNotifications,
+  getNotificationPermission,
+  getSavedDeviceId,
+  hasActiveSubscription,
+} from '../../lib/pushManager'
 import { Badge, Button, Card as SurfaceCard, EmptyState, Skeleton } from '@/components/ui'
 
 function formatDate(value: string | null): string {
@@ -29,8 +35,14 @@ export function NotificationsSection() {
         api.listPushDevices(),
         hasActiveSubscription(),
       ])
+      const savedId = getSavedDeviceId()
       setDevices(nextDevices)
-      setEnabled(active)
+      // The button must reflect the server, not just the local browser: a
+      // device disabled elsewhere stays subscribed locally but no longer
+      // receives anything, so the browser must be allowed to re-register.
+      setEnabled(
+        active && savedId !== null && nextDevices.some((d) => d.id === savedId && d.active),
+      )
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -61,6 +73,11 @@ export function NotificationsSection() {
     setError('')
     try {
       await api.deletePushDevice(device.id)
+      // Revoking the device this browser registered also drops the local
+      // subscription, so the browser returns to the "off" state.
+      if (device.id === getSavedDeviceId()) {
+        await disableCurrentDevice()
+      }
       await refresh()
     } catch (e) {
       setError((e as Error).message)

@@ -11,6 +11,7 @@ import { subscriptionToRegistrationBody } from './lib/push'
 import { loadPushAuth } from './lib/pushIdb'
 
 interface SwClient {
+  url: string
   focus(): Promise<unknown>
   navigate(url: string): Promise<unknown>
 }
@@ -95,7 +96,11 @@ self.addEventListener('notificationclick', (event) => {
 
   clickEvent.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
+      // Prefer an open tab that already shows the target task, then any open
+      // tab, and open a new one only when the app has no window at all.
+      const alreadyThere = clientList.find((client) => client.url === target)
+      const client = alreadyThere ?? clientList[0]
+      if (client) {
         return client.navigate(target).then(() => client.focus())
       }
       return self.clients.openWindow(target)
@@ -118,7 +123,7 @@ self.addEventListener('pushsubscriptionchange', (event) => {
   changeEvent.waitUntil(
     loadPushAuth().then(async (auth) => {
       if (!auth?.token) return
-      const body = subscriptionToRegistrationBody(newSubscription.toJSON())
+      const body = subscriptionToRegistrationBody(newSubscription.toJSON(), auth.label)
       await fetch('/api/v1/push-devices/', {
         method: 'POST',
         headers: {
