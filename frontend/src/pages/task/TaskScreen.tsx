@@ -40,6 +40,7 @@ import { SubtasksPanel } from './ui/SubtasksPanel'
 import { AttachmentsPanel } from './ui/AttachmentsPanel'
 import { CommentsPanel } from './ui/CommentsPanel'
 import { HistoryPanel } from './ui/HistoryPanel'
+import { RemindersPanel } from './ui/RemindersPanel'
 
 const priorityOptions: Array<0 | 1 | 2 | 3> = [0, 1, 2, 3]
 
@@ -243,6 +244,8 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
           </div>
 
           <div className="space-y-4">
+            <RemindersPanel cardId={task.id} hasDeadline={Boolean(task.deadline)} />
+
             <SurfaceCard as="section" className="space-y-3 p-5">
               <Field label="Срок" htmlFor="task-deadline">
                 <DeadlinePicker

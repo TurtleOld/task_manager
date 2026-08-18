@@ -401,6 +401,103 @@ class NotificationProfile(models.Model):
         return f"profile:{self.user_id}"
 
 
+class PushDevice(TimestampedModel):
+    """One push destination belonging to one user.
+
+    Replaces the single `NotificationProfile.fcm_token` field: a person has a
+    phone, a tablet and a laptop browser, and every one of them needs its own
+    subscription. Registering a new device must never silently unregister
+    another.
+
+    Two kinds live side by side. `webpush` is the primary one — a W3C Push API
+    subscription, where `endpoint` is the push service URL and `p256dh`/`auth`
+    are the client's encryption keys. `fcm` is the legacy Android app channel,
+    where only `token` is set.
+    """
+
+    class Kind(models.TextChoices):
+        WEBPUSH = "webpush", "Web Push"
+        FCM = "fcm", "Firebase Cloud Messaging"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="push_devices",
+    )
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.WEBPUSH)
+
+    # Web Push subscription (kind=webpush).
+    endpoint = models.URLField(max_length=1000, blank=True, default="")
+    p256dh = models.CharField(max_length=200, blank=True, default="")
+    auth = models.CharField(max_length=100, blank=True, default="")
+
+    # FCM registration token (kind=fcm).
+    token = models.CharField(max_length=512, blank=True, default="")
+
+    # Human-readable hint so a person can tell their devices apart when
+    # revoking one ("Chrome на Android").
+    label = models.CharField(max_length=120, blank=True, default="")
+
+    # A device is retired only when the push service tells us the subscription
+    # is gone (404/410). Everything else is a transient failure and must not
+    # cost the user their subscription.
+    active = models.BooleanField(default=True)
+
+    last_success_at = models.DateTimeField(null=True, blank=True)
+    last_failure_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True, default="")
+    failure_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["user_id", "-id"]
+        constraints = [
+            # The push service endpoint is globally unique, so re-subscribing
+            # the same browser updates the row instead of duplicating it.
+            models.UniqueConstraint(
+                fields=["endpoint"],
+                condition=models.Q(kind="webpush"),
+                name="uniq_push_device_webpush_endpoint",
+            ),
+            models.UniqueConstraint(
+                fields=["token"],
+                condition=models.Q(kind="fcm"),
+                name="uniq_push_device_fcm_token",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "active"]),
+            models.Index(fields=["kind", "active"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"push_device:{self.user_id}:{self.kind}:{self.pk}"
+
+    @property
+    def destination(self) -> str:
+        return self.endpoint if self.kind == self.Kind.WEBPUSH else self.token
+
+
+class DispatcherHeartbeat(models.Model):
+    """Last time the notification dispatcher completed a pass.
+
+    Exists so that "no notifications arrived" can be distinguished from "no
+    notifications were due". Without it a dead dispatcher is indistinguishable
+    from a quiet week, which is exactly how four days of silence went
+    unnoticed. Read by the health endpoint.
+    """
+
+    name = models.CharField(max_length=50, unique=True, default="dispatcher")
+    last_tick_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True, default="")
+    ticks = models.PositiveBigIntegerField(default=0)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"heartbeat:{self.name}:{self.last_tick_at}"
+
+
 class NotificationPreference(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     board = models.ForeignKey(Board, on_delete=models.CASCADE, null=True, blank=True)
@@ -452,11 +549,38 @@ class NotificationEvent(models.Model):
     payload = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(default=timezone.now, editable=False)
 
+    # --- transactional outbox ---
+    #
+    # The row is written inside the same transaction as the change that caused
+    # it, and the dispatcher polls for PENDING rows afterwards. That is the
+    # whole point: handing the event to a broker in `transaction.on_commit()`
+    # loses it without a trace whenever the broker is unreachable at that
+    # instant, because the transaction has already been committed.
+    class Dispatch(models.TextChoices):
+        PENDING = "pending", "Pending"
+        PROCESSING = "processing", "Processing"
+        DONE = "done", "Done"
+        FAILED = "failed", "Failed"
+
+    dispatch_status = models.CharField(
+        max_length=20,
+        choices=Dispatch.choices,
+        default=Dispatch.PENDING,
+    )
+    dispatch_attempts = models.PositiveIntegerField(default=0)
+    # When the dispatcher may next pick this row up. Set to `created_at` on
+    # insert and pushed forward with exponential backoff after each failure.
+    next_attempt_at = models.DateTimeField(default=timezone.now)
+    dispatch_started_at = models.DateTimeField(null=True, blank=True)
+    dispatch_error = models.TextField(blank=True, default="")
+
     class Meta:
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["event_type", "created_at"]),
             models.Index(fields=["board", "created_at"]),
+            # The dispatcher's hot query: pending work that is due.
+            models.Index(fields=["dispatch_status", "next_attempt_at"]),
         ]
 
     def __str__(self) -> str:  # pragma: no cover
@@ -570,6 +694,11 @@ class CardDeadlineReminder(TimestampedModel):
     status = models.CharField(max_length=30, choices=Status.choices, default=Status.DISABLED)
     last_error = models.TextField(blank=True, default="")
     sent_at = models.DateTimeField(null=True, blank=True)
+
+    # Retry bookkeeping. Celery used to own this; now the row does, so a
+    # restart of the dispatcher cannot forget how many attempts were made.
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-id"]

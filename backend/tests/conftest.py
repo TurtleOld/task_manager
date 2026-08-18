@@ -28,21 +28,13 @@ def _no_throttle(settings: pytest.FixtureRequest) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Celery / channel-layer stubs — keep tests hermetic (no broker, no Redis)
+# Channel-layer stub — keep tests hermetic (no Redis)
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture(autouse=True)
-def _no_celery(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Make Celery .delay() a no-op in all tests."""
-
-    class _Stub:
-        def delay(self, *a: object, **kw: object) -> None:
-            return None
-
-    import kanban.notifications as notifications
-
-    monkeypatch.setattr(notifications, "send_notification_event", _Stub())
+# No Celery stub is needed any more: `create_notification_event()` writes an
+# outbox row and returns. Nothing is enqueued, so nothing has to be faked —
+# a test that wants delivery to happen calls `dispatcher.tick()` explicitly.
 
 
 @pytest.fixture(autouse=True)

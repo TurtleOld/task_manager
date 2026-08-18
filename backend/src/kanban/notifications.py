@@ -5,11 +5,9 @@ from typing import Any, cast
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
-from django.db import transaction
 from django.db.utils import IntegrityError
 
 from .models import Board, Card, Column, NotificationEvent, NotificationEventType
-from .tasks import send_notification_event
 
 User = get_user_model()
 
@@ -52,7 +50,7 @@ def create_notification_event(
     # transaction remains usable.
     if dedupe_key:
         try:
-            event, created = NotificationEvent.objects.get_or_create(
+            event, _created = NotificationEvent.objects.get_or_create(
                 dedupe_key=dedupe_key,
                 defaults={**defaults, "dedupe_key": dedupe_key},
             )
@@ -60,13 +58,17 @@ def create_notification_event(
             # Extremely rare race: insert succeeded elsewhere between our
             # SELECT and INSERT. Fetch the existing event.
             event = NotificationEvent.objects.get(dedupe_key=dedupe_key)
-            created = False
     else:
         event = NotificationEvent.objects.create(**defaults, dedupe_key=None)
-        created = True
 
-    if created:
-        # `send_notification_event` is a Celery task; type-checkers may not understand `.delay`.
-        task = cast(Any, send_notification_event)
-        transaction.on_commit(lambda: task.delay(cast(int, getattr(event, "pk", None))))
+    # No enqueue step. The row itself is the queue entry: it was written in the
+    # caller's transaction, and `dispatcher.process_outbox_events()` picks it up
+    # on its next pass.
+    #
+    # The previous version called `transaction.on_commit(task.delay(event.pk))`.
+    # That hand-off ran after the commit, so whenever the broker was
+    # unreachable at that exact moment the event was lost while the database
+    # already recorded the change that caused it. An outbox cannot lose it:
+    # either the transaction committed and the row is there to be found, or it
+    # rolled back and there was nothing to send.
     return event

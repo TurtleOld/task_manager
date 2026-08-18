@@ -73,3 +73,6 @@ android/ANDROID_IMPROVEMENT_PLAN_RU.md
 .superdesign/
 docs/spec/
 .scratch/
+
+# Codegraph index (local tooling)
+.codegraph/

@@ -14,12 +14,14 @@ from .views import (
     NotificationInboxView,
     NotificationPreferenceViewSet,
     NotificationProfileView,
+    PushDeviceViewSet,
     RegisterView,
     RegistrationStatusView,
     SearchView,
     SiteSettingsView,
     TerminateSessionsView,
     UserAdminViewSet,
+    VapidPublicKeyView,
 )
 
 router = DefaultRouter()
@@ -31,6 +33,7 @@ router.register(
     NotificationPreferenceViewSet,
     basename="notification-preference",
 )
+router.register(r"push-devices", PushDeviceViewSet, basename="push-device")
 
 urlpatterns = [
     path("agenda/", AgendaView.as_view(), name="agenda"),
@@ -43,6 +46,11 @@ urlpatterns = [
     path("auth/terminate-sessions/", TerminateSessionsView.as_view(), name="terminate-sessions"),
     path("notifications/inbox/", NotificationInboxView.as_view(), name="notification-inbox"),
     path("notifications/profile/", NotificationProfileView.as_view(), name="notification-profile"),
+    path(
+        "notifications/vapid-key/",
+        VapidPublicKeyView.as_view(),
+        name="notification-vapid-key",
+    ),
     path("search/", SearchView.as_view(), name="search"),
     path("settings/site/", SiteSettingsView.as_view(), name="site-settings"),
 ]
