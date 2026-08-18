@@ -127,15 +127,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.getenv("EMAIL_HOST", "")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() in {"1", "true", "yes", "on"}
-EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "false").lower() in {"1", "true", "yes", "on"}
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "notifications@task-manager.local")
-
 REDIS_URL = os.getenv("REDIS_URL") or os.getenv("CELERY_BROKER_URL") or "redis://localhost:6379/0"
 
 # Detect dead/half-open Redis sockets after a network blip so clients reconnect
@@ -196,11 +187,7 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 # default queue, which a deployment is not guaranteed to consume.
 CELERY_TASK_DEFAULT_QUEUE = "celery"
 CELERY_TASK_ROUTES = {
-    "kanban.tasks.send_card_deadline_reminder": {"queue": "notifications"},
-    "kanban.tasks.send_notification_event": {"queue": "notifications"},
-    "kanban.tasks.deliver_notification_event": {"queue": "notifications"},
     "kanban.tasks.send_overdue_card_reminders": {"queue": "notifications"},
-    "kanban.tasks.dispatch_due_reminders": {"queue": "notifications"},
     "kanban.tasks.generate_recurring_cards": {"queue": "maintenance"},
     "kanban.tasks.prune_card_activity": {"queue": "maintenance"},
 }
@@ -220,19 +207,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "kanban.tasks.generate_recurring_cards",
         "schedule": 60.0,
     },
-    "dispatch-due-reminders": {
-        "task": "kanban.tasks.dispatch_due_reminders",
-        "schedule": 60.0,
-    },
     "prune-card-activity": {
         "task": "kanban.tasks.prune_card_activity",
         "schedule": crontab(hour=0, minute=30, day_of_month="1"),
     },
 }
-
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-FCM_SERVICE_ACCOUNT_FILE = os.getenv("FCM_SERVICE_ACCOUNT_FILE", "")
-FCM_PROJECT_ID = os.getenv("FCM_PROJECT_ID", "")
 
 # --- Web Push (VAPID) ---
 #

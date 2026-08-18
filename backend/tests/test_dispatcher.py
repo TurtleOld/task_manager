@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from kanban import dispatcher
@@ -27,13 +28,7 @@ from kanban.notifications import create_notification_event
 from kanban.push_delivery import send_push_to_user
 from kanban.webpush import PushDeliveryError, PushSubscriptionGoneError
 
-
-@pytest.fixture()
-def webpush_settings(settings):
-    settings.VAPID_PUBLIC_KEY = "test-public"
-    settings.VAPID_PRIVATE_KEY = "test-private"
-    settings.VAPID_CLAIM_EMAIL = "mailto:test@example.com"
-    return settings
+User = get_user_model()
 
 
 def _device(user, endpoint: str = "https://push.example.com/a") -> PushDevice:
@@ -286,7 +281,6 @@ def test_due_reminder_is_delivered(column, regular_user, webpush_settings, monke
         card=card,
         user=regular_user,
         enabled=True,
-        channel="push",
         offset_value=20,
         status=CardDeadlineReminder.Status.SCHEDULED,
         scheduled_at=now - timedelta(seconds=30),
@@ -320,7 +314,6 @@ def test_long_overdue_reminder_is_skipped_not_sent(
         card=card,
         user=regular_user,
         enabled=True,
-        channel="push",
         offset_value=20,
         status=CardDeadlineReminder.Status.SCHEDULED,
         scheduled_at=now - timedelta(minutes=dispatcher.REMINDER_STALE_MINUTES + 10),
@@ -350,7 +343,6 @@ def test_reminder_retry_is_scheduled_after_a_failure(
         card=card,
         user=regular_user,
         enabled=True,
-        channel="push",
         offset_value=20,
         status=CardDeadlineReminder.Status.SCHEDULED,
         scheduled_at=now - timedelta(seconds=30),
@@ -458,3 +450,123 @@ def test_one_failing_chore_does_not_skip_the_others(monkeypatch) -> None:
     dispatcher.maintenance_tick()
 
     assert pruned == [1]
+
+
+# ---------------------------------------------------------------------------
+# Event recipients (narrowing): everyone is notified on their device except the
+# actor, while the in-app inbox is written for everyone including the actor.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db()
+def test_event_reaches_other_persons_device_but_not_actors(
+    board, regular_user, webpush_settings, monkeypatch
+) -> None:
+    other = User.objects.create_user(username="user2", password="pw")
+    actor_device = _device(regular_user, "https://push.example.com/actor")
+    other_device = _device(other, "https://push.example.com/other")
+
+    sent: list[str] = []
+    monkeypatch.setattr(
+        "kanban.webpush.send_webpush",
+        lambda *, endpoint, **_kwargs: sent.append(endpoint),
+    )
+
+    create_notification_event(
+        event_type=NotificationEventType.CARD_CREATED,
+        actor=regular_user,
+        board=board,
+        summary="Создана задача",
+    )
+
+    dispatcher.process_outbox_events()
+
+    assert actor_device.endpoint not in sent
+    assert other_device.endpoint in sent
+
+
+@pytest.mark.django_db()
+def test_event_writes_inbox_for_actor_and_everyone_else(
+    board, regular_user, webpush_settings, monkeypatch
+) -> None:
+    other = User.objects.create_user(username="user2", password="pw")
+    _device(regular_user, "https://push.example.com/actor")
+    _device(other, "https://push.example.com/other")
+    monkeypatch.setattr("kanban.webpush.send_webpush", lambda **_kwargs: None)
+
+    event = create_notification_event(
+        event_type=NotificationEventType.CARD_CREATED,
+        actor=regular_user,
+        board=board,
+        summary="Создана задача",
+    )
+
+    dispatcher.process_outbox_events()
+
+    recipients = set(
+        NotificationInboxEntry.objects.filter(event=event).values_list("user_id", flat=True)
+    )
+    assert recipients == {regular_user.id, other.id}
+
+
+@pytest.mark.django_db()
+def test_event_inbox_survives_total_delivery_failure(
+    board, regular_user, webpush_settings, monkeypatch
+) -> None:
+    other = User.objects.create_user(username="user2", password="pw")
+    _device(other)
+
+    def explode(**_kwargs):
+        raise PushDeliveryError("push service unavailable")
+
+    monkeypatch.setattr("kanban.webpush.send_webpush", explode)
+
+    event = create_notification_event(
+        event_type=NotificationEventType.CARD_CREATED,
+        actor=regular_user,
+        board=board,
+        summary="Создана задача",
+    )
+
+    dispatcher.process_outbox_events()
+
+    # The actor always gets an inbox entry, and so does the recipient whose
+    # device delivery failed — the inbox must not depend on the push service.
+    recipients = set(
+        NotificationInboxEntry.objects.filter(event=event).values_list("user_id", flat=True)
+    )
+    assert recipients == {regular_user.id, other.id}
+
+
+@pytest.mark.django_db()
+def test_reminder_is_delivered_only_to_its_owner(
+    column, regular_user, webpush_settings, monkeypatch
+) -> None:
+    other = User.objects.create_user(username="user2", password="pw")
+    owner_device = _device(regular_user, "https://push.example.com/owner")
+    _device(other, "https://push.example.com/other")
+
+    sent: list[str] = []
+    monkeypatch.setattr(
+        "kanban.webpush.send_webpush",
+        lambda *, endpoint, **_kwargs: sent.append(endpoint),
+    )
+    NotificationProfile.objects.get_or_create(user=regular_user)
+
+    now = timezone.now()
+    card = Card.objects.create(
+        column=column, title="Личное напоминание", deadline=now + timedelta(hours=1)
+    )
+    CardDeadlineReminder.objects.create(
+        card=card,
+        user=regular_user,
+        enabled=True,
+        offset_value=20,
+        status=CardDeadlineReminder.Status.SCHEDULED,
+        scheduled_at=now - timedelta(seconds=30),
+        schedule_token="44444444-4444-4444-4444-444444444444",
+    )
+
+    dispatcher.process_due_reminders(now=now)
+
+    assert sent == [owner_device.endpoint]

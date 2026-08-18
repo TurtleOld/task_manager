@@ -98,3 +98,12 @@ def column(board: Board) -> Column:
 @pytest.fixture()
 def card(column: Column) -> Card:
     return Card.objects.create(column=column, title="Test Card")
+
+
+@pytest.fixture()
+def webpush_settings(settings):
+    """Configure VAPID so Web Push delivery is considered available in tests."""
+    settings.VAPID_PUBLIC_KEY = "test-public"
+    settings.VAPID_PRIVATE_KEY = "test-private"
+    settings.VAPID_CLAIM_EMAIL = "mailto:test@example.com"
+    return settings

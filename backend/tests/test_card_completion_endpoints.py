@@ -226,10 +226,10 @@ def test_backfill_migration_deletes_stale_preferences_for_removed_event_types(
     from kanban.models import NotificationPreference
 
     kept = NotificationPreference.objects.create(
-        user=regular_user, channel="email", event_type="card.completed"
+        user=regular_user, channel="push", event_type="card.completed"
     )
     stale = NotificationPreference.objects.create(
-        user=regular_user, channel="email", event_type="card.moved"
+        user=regular_user, channel="push", event_type="card.moved"
     )
 
     migration_module = importlib.import_module(

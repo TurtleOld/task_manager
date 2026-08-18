@@ -7,6 +7,7 @@ import type { AdminUser, AuthUser, NotificationProfile, UserRole } from '../../a
 import { roleLabels } from '../../shared/lib/permissions'
 import { TIMEZONE_OPTIONS, ensureProfileTimeZoneInitialized, getDeviceTimeZone, resolveTimeZone } from '../../shared/lib/timezone'
 import { Badge, Button, Card as SurfaceCard, EmptyState, Field, Modal, PageShell, Select, Skeleton, TextInput } from '@/components/ui'
+import { NotificationsSection } from './NotificationsSection'
 
 interface SettingsPageProps {
   user: AuthUser
@@ -39,7 +40,6 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
   const [overdueIntervalSaving, setOverdueIntervalSaving] = useState(false)
   const deviceTimeZone = useMemo(() => getDeviceTimeZone(), [])
   const [accountFullName, setAccountFullName] = useState(user.full_name || user.username)
-  const [accountEmail, setAccountEmail] = useState('')
   const [accountLanguage, setAccountLanguage] = useState(loadLanguagePreference())
   const [accountTimeZone, setAccountTimeZone] = useState(deviceTimeZone)
   const [accountSaving, setAccountSaving] = useState(false)
@@ -96,9 +96,8 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
   }, [user.full_name, user.username])
 
   useEffect(() => {
-    setAccountEmail(notificationProfile?.email ?? '')
     setAccountTimeZone(resolveTimeZone(notificationProfile?.timezone ?? deviceTimeZone))
-  }, [deviceTimeZone, notificationProfile?.email, notificationProfile?.timezone])
+  }, [deviceTimeZone, notificationProfile?.timezone])
 
   useEffect(() => {
     setFontSizePx(loadAppFontSize())
@@ -121,7 +120,6 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
       }
 
       const updatedProfile = await api.updateNotificationProfile({
-        email: accountEmail.trim(),
         timezone: resolveTimeZone(accountTimeZone),
       })
       setNotificationProfile(updatedProfile)
@@ -285,9 +283,6 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
               <Field label="Имя" htmlFor="account-full-name">
                 <TextInput id="account-full-name" value={accountFullName} onChange={(event) => setAccountFullName(event.target.value)} autoComplete="name" />
               </Field>
-              <Field label="Email" htmlFor="account-email">
-                <TextInput id="account-email" type="email" value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} placeholder="name@company.com" autoComplete="email" />
-              </Field>
               <Field label="Язык интерфейса" htmlFor="account-language">
                 <Select id="account-language" value={accountLanguage} onChange={(event) => setAccountLanguage(event.target.value)}>
                   <option value="ru">Русский</option>
@@ -308,6 +303,8 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
               <Button type="button" variant="secondary" onClick={() => setAccountFullName(user.full_name || user.username)}>Сбросить имя</Button>
             </div>
           </SurfaceCard>
+
+          <NotificationsSection />
 
           <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
             <div className="flex items-center justify-between">

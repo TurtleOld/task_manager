@@ -227,6 +227,7 @@ class PushDeviceViewSet(viewsets.ViewSet):
                 "sent": result.sent,
                 "retired": result.retired,
                 "failed": result.failed,
+                "no_devices": result.no_devices,
                 "detail": result.summary(),
             },
             status=status.HTTP_200_OK if result.delivered else status.HTTP_502_BAD_GATEWAY,

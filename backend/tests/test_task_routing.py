@@ -1,9 +1,9 @@
 """Guard the queue each task lands on.
 
-`deliver_notification_event` once shipped without a route and silently fell
-back to the default queue, so push delivery depended on a worker happening to
-consume `celery` as well. These tests assert the routing the deployment relies
-on, and fail when a newly added task is left unrouted.
+A task that shipped without a route silently fell back to the default queue,
+so delivery depended on a worker happening to consume `celery` as well. These
+tests assert the routing the deployment relies on, and fail when a newly added
+task is left unrouted.
 """
 
 from __future__ import annotations
@@ -15,11 +15,7 @@ from config.celery import app
 # Every task that ends in something a user sees. Delivery must not share a
 # queue with long housekeeping sweeps.
 NOTIFICATION_TASKS = {
-    "kanban.tasks.send_card_deadline_reminder",
-    "kanban.tasks.send_notification_event",
-    "kanban.tasks.deliver_notification_event",
     "kanban.tasks.send_overdue_card_reminders",
-    "kanban.tasks.dispatch_due_reminders",
 }
 
 MAINTENANCE_TASKS = {

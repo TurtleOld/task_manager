@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
+from kanban import dispatcher
 from kanban.models import NotificationInboxEntry
 from kanban.notifications import create_notification_event
-from kanban.tasks import send_notification_event
 
 
 @pytest.mark.django_db()
@@ -17,7 +17,7 @@ def test_notification_inbox_api_lists_and_marks_read(auth_client, regular_user, 
         payload={"board": board.name},
     )
 
-    send_notification_event.run(event.id)
+    dispatcher.process_outbox_events()
 
     response = auth_client.get("/api/v1/notifications/inbox/")
     assert response.status_code == 200

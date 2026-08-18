@@ -4,7 +4,6 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from django.conf import settings
 from django.utils import timezone
 
 from .models import (
@@ -12,7 +11,6 @@ from .models import (
     CardDeadlineReminder,
     NotificationChannel,
     NotificationPreference,
-    NotificationProfile,
     PushDevice,
 )
 
@@ -32,8 +30,7 @@ def preferences_enabled_for_event_type(
 ) -> bool:
     """Resolve one channel's preference without requiring a NotificationEvent.
 
-    Same precedence as [`kanban.tasks._enabled_channels()`](backend/src/kanban/tasks.py:541):
-    a board-scoped preference wins over a global one, and no preference at
+    A board-scoped preference wins over a global one, and no preference at
     all means enabled.
     """
 
@@ -55,34 +52,6 @@ def preferences_enabled_for_event_type(
 def reminder_channel_availability(
     *, user_id: int, board_id: int | None, event_type: str
 ) -> dict[str, ChannelAvailability]:
-    profile, _ = NotificationProfile.objects.get_or_create(user_id=user_id)
-
-    def email_availability() -> ChannelAvailability:
-        if not preferences_enabled_for_event_type(
-            user_id=user_id,
-            board_id=board_id,
-            channel=NotificationChannel.EMAIL.value,
-            event_type=event_type,
-        ):
-            return ChannelAvailability(False, "Email отключён в настройках уведомлений")
-        if not profile.email:
-            return ChannelAvailability(False, "Email не указан в профиле уведомлений")
-        return ChannelAvailability(True, "")
-
-    def telegram_availability() -> ChannelAvailability:
-        if not preferences_enabled_for_event_type(
-            user_id=user_id,
-            board_id=board_id,
-            channel=NotificationChannel.TELEGRAM.value,
-            event_type=event_type,
-        ):
-            return ChannelAvailability(False, "Telegram отключён в настройках уведомлений")
-        if not settings.TELEGRAM_BOT_TOKEN:
-            return ChannelAvailability(False, "Telegram-бот не настроен на сервере")
-        if not profile.telegram_chat_id:
-            return ChannelAvailability(False, "Telegram chat_id не указан в профиле уведомлений")
-        return ChannelAvailability(True, "")
-
     def push_availability() -> ChannelAvailability:
         if not preferences_enabled_for_event_type(
             user_id=user_id,
@@ -91,16 +60,13 @@ def reminder_channel_availability(
             event_type=event_type,
         ):
             return ChannelAvailability(False, "Push отключён в настройках уведомлений")
-        # Any one active device is enough. Availability deliberately does not
-        # care which kind it is: a browser subscription and the legacy Android
-        # token are both "the user can be reached".
+        # Any one active device is enough. With a single channel, "available"
+        # means "the person has at least one active device".
         if not PushDevice.objects.filter(user_id=user_id, active=True).exists():
-            return ChannelAvailability(False, "Нет подключённых устройств для push")
+            return ChannelAvailability(False, "Нет подключённых устройств")
         return ChannelAvailability(True, "")
 
     return {
-        NotificationChannel.EMAIL.value: email_availability(),
-        NotificationChannel.TELEGRAM.value: telegram_availability(),
         NotificationChannel.PUSH.value: push_availability(),
     }
 
@@ -110,13 +76,6 @@ def resolve_delivery_channel(
     reminder: CardDeadlineReminder,
     availability: dict[str, ChannelAvailability],
 ) -> str | None:
-    if reminder.channel:
-        return (
-            reminder.channel
-            if availability.get(reminder.channel, ChannelAvailability(False, "")).available
-            else None
-        )
-
     available = [channel for channel, item in availability.items() if item.available]
     if len(available) == 1:
         return available[0]
@@ -192,10 +151,14 @@ def upsert_and_schedule_reminder(
 
     channel = resolve_delivery_channel(reminder=reminder, availability=availability)
     if not channel:
+        reason = next(
+            (item.reason for item in availability.values() if not item.available),
+            "Канал доставки недоступен",
+        )
         reminder.status = CardDeadlineReminder.Status.INVALID_CHANNEL
         reminder.scheduled_at = None
         reminder.schedule_token = None
-        reminder.last_error = ""
+        reminder.last_error = reason
         reminder.sent_at = None
         reminder.save(
             update_fields=[
@@ -263,6 +226,6 @@ def upsert_and_schedule_reminder(
     # No broker-side ETA here on purpose. Celery's `eta` keeps the message in
     # the worker's memory until it fires, which occupies a prefetch slot for
     # the whole wait and loses the reminder whenever the worker restarts.
-    # The DB row above is the source of truth; `dispatch_due_reminders` polls
-    # it every minute and enqueues an immediate task once it comes due.
+    # The DB row above is the source of truth; the dispatcher polls it every
+    # tick and delivers the reminder once it comes due.
     return reminder

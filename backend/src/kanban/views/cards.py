@@ -521,14 +521,6 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 {
                     "reminders": CardDeadlineReminderSerializer(reminders, many=True).data,
                     "channels": {
-                        "email": {
-                            "available": availability["email"].available,
-                            "reason": availability["email"].reason,
-                        },
-                        "telegram": {
-                            "available": availability["telegram"].available,
-                            "reason": availability["telegram"].reason,
-                        },
                         "push": {
                             "available": availability["push"].available,
                             "reason": availability["push"].reason,

@@ -239,7 +239,7 @@ export interface RegistrationStatus {
   allow_admin: boolean
 }
 
-export type NotificationChannel = 'email' | 'telegram' | 'push'
+export type NotificationChannel = 'push'
 
 export type NotificationEventType =
   | 'board.created'
@@ -255,9 +255,6 @@ export type NotificationEventType =
   | 'card.deadline_reminder'
 
 export interface NotificationProfile {
-  email: string
-  telegram_chat_id: string
-  fcm_token?: string
   timezone: string
   timezone_configured: boolean
 }
@@ -286,15 +283,12 @@ export interface SiteSettings {
 
 export type ReminderOffsetUnit = 'minutes' | 'hours'
 
-export type ReminderChannel = 'email' | 'telegram' | 'push'
-
 export interface CardDeadlineReminder {
   id: number
   order: number
   enabled: boolean
   offset_value: number
   offset_unit: ReminderOffsetUnit
-  channel: ReminderChannel | null
   scheduled_at: string | null
   status:
     | 'disabled'
@@ -318,11 +312,34 @@ export interface ReminderChannelInfo {
 export interface CardDeadlineReminderResponse {
   reminders: CardDeadlineReminder[]
   channels: {
-    email: ReminderChannelInfo
-    telegram: ReminderChannelInfo
     push: ReminderChannelInfo
   }
   deadline: string | null
+}
+
+export interface PushDevice {
+  id: number
+  kind: string
+  label: string
+  active: boolean
+  created_at: string
+  last_success_at: string | null
+  last_failure_at: string | null
+  last_error: string
+}
+
+export interface VapidKeyResponse {
+  public_key: string
+  configured: boolean
+}
+
+export interface PushTestResponse {
+  delivered: boolean
+  sent: number
+  retired: number
+  failed: number
+  no_devices: boolean
+  detail: string
 }
 
 export interface NotificationPreference {
