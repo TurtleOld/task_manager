@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/TurtleOld/task_manager/compare/v1.3.1...v1.4.0) (2026-08-18)
+
+
+### Features
+
+* уведомления на телефон через Web Push ([#83](https://github.com/TurtleOld/task_manager/issues/83)) ([05a8fda](https://github.com/TurtleOld/task_manager/commit/05a8fda850c1f0413719ef0a8d25db07af588a3e))
+
 ## [1.3.1](https://github.com/TurtleOld/task_manager/compare/v1.3.0...v1.3.1) (2026-08-18)
 
 
