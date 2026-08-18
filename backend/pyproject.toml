@@ -20,8 +20,6 @@ dependencies = [
     "channels>=4.0",
     "channels-redis>=4.2",
     "django-celery-beat>=2.6",
-    "google-auth>=2.40",
-    "requests>=2.32",
     "pywebpush>=2.0.3",
 ]
 

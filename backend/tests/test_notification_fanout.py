@@ -3,30 +3,27 @@ from __future__ import annotations
 import pytest
 from django.contrib.auth import get_user_model
 
-from kanban import tasks as tasks_module
+from kanban import dispatcher
 from kanban.models import (
     NotificationChannel,
     NotificationDelivery,
     NotificationInboxEntry,
     NotificationPreference,
-    NotificationProfile,
+    PushDevice,
 )
 from kanban.notifications import create_notification_event
-from kanban.tasks import deliver_notification_event, send_notification_event
 
 User = get_user_model()
 
 
-@pytest.fixture()
-def _no_push(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str, str]]:
-    """Capture push sends instead of hitting FCM."""
-    sent: list[tuple[str, str, str]] = []
-
-    def _fake_push(token, title, message, **kwargs) -> None:
-        sent.append((token, title, message))
-
-    monkeypatch.setattr(tasks_module, "_send_push", _fake_push)
-    return sent
+def _device(user) -> PushDevice:
+    return PushDevice.objects.create(
+        user=user,
+        kind=PushDevice.Kind.WEBPUSH,
+        endpoint=f"https://push.example.com/{user.id}",
+        p256dh="p256dh-key",
+        auth="auth-key",
+    )
 
 
 def _event(actor, board):
@@ -40,11 +37,11 @@ def _event(actor, board):
 
 
 @pytest.mark.django_db()
-def test_fanout_writes_inbox_for_every_recipient(regular_user, board) -> None:
+def test_inbox_written_for_every_recipient_including_actor(regular_user, board) -> None:
     other = User.objects.create_user(username="user2", password="pw")
     event = _event(regular_user, board)
 
-    send_notification_event.run(event.id)
+    dispatcher.process_outbox_events()
 
     recipients = set(
         NotificationInboxEntry.objects.filter(event=event).values_list("user_id", flat=True)
@@ -53,12 +50,12 @@ def test_fanout_writes_inbox_for_every_recipient(regular_user, board) -> None:
 
 
 @pytest.mark.django_db()
-def test_fanout_is_idempotent(regular_user, board) -> None:
-    """A retry of the fan-out must not duplicate inbox entries."""
+def test_inbox_is_idempotent(regular_user, board) -> None:
+    """A retry of the outbox pass must not duplicate inbox entries."""
     event = _event(regular_user, board)
 
-    send_notification_event.run(event.id)
-    send_notification_event.run(event.id)
+    dispatcher.process_outbox_events()
+    dispatcher.process_outbox_events()
 
     assert NotificationInboxEntry.objects.filter(event=event).count() == 1
 
@@ -74,7 +71,7 @@ def test_mentions_limit_recipients(regular_user, board) -> None:
         payload={"mention_user_ids": [mentioned.id]},
     )
 
-    send_notification_event.run(event.id)
+    dispatcher.process_outbox_events()
 
     recipients = set(
         NotificationInboxEntry.objects.filter(event=event).values_list("user_id", flat=True)
@@ -83,109 +80,88 @@ def test_mentions_limit_recipients(regular_user, board) -> None:
 
 
 @pytest.mark.django_db()
-def test_delivery_sends_push_when_enabled(
-    regular_user, board, _no_push: list[tuple[str, str, str]]
+def test_delivery_records_push_when_enabled(
+    regular_user, board, webpush_settings, monkeypatch
 ) -> None:
-    NotificationProfile.objects.update_or_create(
-        user=regular_user, defaults={"fcm_token": "tok", "email": ""}
-    )
+    other = User.objects.create_user(username="user2", password="pw")
+    _device(other)
+    monkeypatch.setattr("kanban.webpush.send_webpush", lambda **_kwargs: None)
     event = _event(regular_user, board)
 
-    deliver_notification_event.run(event.id, regular_user.id)
+    dispatcher.process_outbox_events()
 
-    assert len(_no_push) == 1
     delivery = NotificationDelivery.objects.get(
-        event=event, user=regular_user, channel=NotificationChannel.PUSH
+        event=event, user=other, channel=NotificationChannel.PUSH
     )
     assert delivery.status == NotificationDelivery.Status.SENT
 
 
 @pytest.mark.django_db()
 def test_board_preference_overrides_global(
-    regular_user, board, _no_push: list[tuple[str, str, str]]
+    regular_user, board, webpush_settings, monkeypatch
 ) -> None:
     """Board-scoped preference wins over the global one (regression guard)."""
-    NotificationProfile.objects.update_or_create(
-        user=regular_user, defaults={"fcm_token": "tok", "email": ""}
-    )
+    other = User.objects.create_user(username="user2", password="pw")
+    _device(other)
     NotificationPreference.objects.create(
-        user=regular_user,
+        user=other,
         board=None,
         channel=NotificationChannel.PUSH,
         event_type="board.updated",
         enabled=True,
     )
     NotificationPreference.objects.create(
-        user=regular_user,
+        user=other,
         board=board,
         channel=NotificationChannel.PUSH,
         event_type="board.updated",
         enabled=False,
     )
+    monkeypatch.setattr("kanban.webpush.send_webpush", lambda **_kwargs: None)
     event = _event(regular_user, board)
 
-    deliver_notification_event.run(event.id, regular_user.id)
+    dispatcher.process_outbox_events()
 
-    assert _no_push == []
+    assert not NotificationDelivery.objects.filter(
+        event=event, user=other, channel=NotificationChannel.PUSH
+    ).exists()
 
 
 @pytest.mark.django_db()
 def test_global_preference_applies_without_board_override(
-    regular_user, board, _no_push: list[tuple[str, str, str]]
+    regular_user, board, webpush_settings, monkeypatch
 ) -> None:
-    NotificationProfile.objects.update_or_create(
-        user=regular_user, defaults={"fcm_token": "tok", "email": ""}
-    )
+    other = User.objects.create_user(username="user2", password="pw")
+    _device(other)
     NotificationPreference.objects.create(
-        user=regular_user,
+        user=other,
         board=None,
         channel=NotificationChannel.PUSH,
         event_type="board.updated",
         enabled=False,
     )
+    monkeypatch.setattr("kanban.webpush.send_webpush", lambda **_kwargs: None)
     event = _event(regular_user, board)
 
-    deliver_notification_event.run(event.id, regular_user.id)
+    dispatcher.process_outbox_events()
 
-    assert _no_push == []
+    assert not NotificationDelivery.objects.filter(
+        event=event, user=other, channel=NotificationChannel.PUSH
+    ).exists()
 
 
 @pytest.mark.django_db()
 def test_no_preference_defaults_to_enabled(
-    regular_user, board, _no_push: list[tuple[str, str, str]]
+    regular_user, board, webpush_settings, monkeypatch
 ) -> None:
-    NotificationProfile.objects.update_or_create(
-        user=regular_user, defaults={"fcm_token": "tok", "email": ""}
-    )
-    event = _event(regular_user, board)
-
-    deliver_notification_event.run(event.id, regular_user.id)
-
-    assert len(_no_push) == 1
-
-
-@pytest.mark.django_db()
-def test_one_failing_recipient_does_not_affect_others(
-    regular_user, board, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The reason for the split: a failure is scoped to one recipient."""
     other = User.objects.create_user(username="user2", password="pw")
-    for user in (regular_user, other):
-        NotificationProfile.objects.update_or_create(
-            user=user, defaults={"fcm_token": f"tok-{user.id}", "email": ""}
-        )
-
-    def _fake_push(token, title, message, **kwargs) -> None:
-        if token == f"tok-{regular_user.id}":
-            raise RuntimeError("FCM down for this token")
-
-    monkeypatch.setattr(tasks_module, "_send_push", _fake_push)
+    _device(other)
+    monkeypatch.setattr("kanban.webpush.send_webpush", lambda **_kwargs: None)
     event = _event(regular_user, board)
 
-    deliver_notification_event.run(event.id, regular_user.id)
-    deliver_notification_event.run(event.id, other.id)
+    dispatcher.process_outbox_events()
 
-    failed = NotificationDelivery.objects.get(event=event, user=regular_user)
-    succeeded = NotificationDelivery.objects.get(event=event, user=other)
-    assert failed.status == NotificationDelivery.Status.FAILED
-    assert succeeded.status == NotificationDelivery.Status.SENT
+    delivery = NotificationDelivery.objects.get(
+        event=event, user=other, channel=NotificationChannel.PUSH
+    )
+    assert delivery.status == NotificationDelivery.Status.SENT

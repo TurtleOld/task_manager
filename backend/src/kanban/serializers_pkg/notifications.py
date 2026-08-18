@@ -19,9 +19,6 @@ class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProf
     class Meta:
         model = NotificationProfile
         fields = [
-            "email",
-            "telegram_chat_id",
-            "fcm_token",
             "timezone",
             "timezone_configured",
         ]
@@ -33,18 +30,6 @@ class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProf
         validated_data: dict[str, Any],
     ) -> NotificationProfile:
         update_fields: list[str] = []
-        email = validated_data.get("email")
-        if email is not None:
-            instance.email = email.strip()
-            update_fields.append("email")
-        telegram_chat_id = validated_data.get("telegram_chat_id")
-        if telegram_chat_id is not None:
-            instance.telegram_chat_id = telegram_chat_id.strip()
-            update_fields.append("telegram_chat_id")
-        fcm_token = validated_data.get("fcm_token")
-        if fcm_token is not None:
-            instance.fcm_token = str(fcm_token).strip()
-            update_fields.append("fcm_token")
         tz = validated_data.get("timezone")
         if tz is not None:
             instance.timezone = str(tz).strip() or "UTC"
@@ -143,7 +128,6 @@ class CardDeadlineReminderSerializer(serializers.ModelSerializer[CardDeadlineRem
             "enabled",
             "offset_value",
             "offset_unit",
-            "channel",
             "scheduled_at",
             "status",
             "last_error",
@@ -167,14 +151,6 @@ class CardDeadlineReminderSerializer(serializers.ModelSerializer[CardDeadlineRem
             CardDeadlineReminder.Unit.HOURS,
         }:
             raise serializers.ValidationError({"offset_unit": "Некорректная единица"})
-
-        channel = attrs.get("channel")
-        if channel is not None and channel not in {
-            NotificationChannel.EMAIL,
-            NotificationChannel.TELEGRAM,
-            NotificationChannel.PUSH,
-        }:
-            raise serializers.ValidationError({"channel": "Некорректный канал"})
 
         if self.instance is not None:
             effective_unit = unit or self.instance.offset_unit

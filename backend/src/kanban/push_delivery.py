@@ -1,7 +1,7 @@
 """Fan a single push notification out to every device a user has registered.
 
-A person is not a device. They carry a phone, leave a browser open on a
-laptop, and may still have the old Android app installed. Previously the
+A person is not a device. They carry a phone and leave a browser open on a
+laptop, and every one of them needs its own subscription. Previously the
 backend kept one `NotificationProfile.fcm_token`, so registering any of those
 silently unregistered the others.
 
@@ -93,17 +93,6 @@ def _mark_failure(device: PushDevice, error: str, *, retire: bool) -> None:
     )
 
 
-def _send_to_fcm_device(device: PushDevice, *, title: str, body: str, data: dict[str, str]) -> None:
-    # Imported lazily: the FCM path pulls in google-auth, and the Web Push
-    # path must stay usable on a deployment that never configured Firebase.
-    from .tasks import InvalidFcmTokenError, _send_push
-
-    try:
-        _send_push(device.token, title, body, data=data)
-    except InvalidFcmTokenError as exc:
-        raise PushSubscriptionGoneError(str(exc)) from exc
-
-
 def send_push_to_user(
     *,
     user_id: int,
@@ -125,28 +114,19 @@ def send_push_to_user(
         return result
 
     payload = build_payload(title=title, body=body, link=link, tag=tag, data=data)
-    fcm_data = {
-        "title": title,
-        "body": body,
-        "link": link,
-        **(data or {}),
-    }
 
     for device in devices:
         try:
-            if device.kind == PushDevice.Kind.WEBPUSH:
-                if not webpush_configured():
-                    raise PushNotConfiguredError("VAPID keys are not configured")
-                from .webpush import send_webpush
+            if not webpush_configured():
+                raise PushNotConfiguredError("VAPID keys are not configured")
+            from .webpush import send_webpush
 
-                send_webpush(
-                    endpoint=device.endpoint,
-                    p256dh=device.p256dh,
-                    auth=device.auth,
-                    payload=payload,
-                )
-            else:
-                _send_to_fcm_device(device, title=title, body=body, data=fcm_data)
+            send_webpush(
+                endpoint=device.endpoint,
+                p256dh=device.p256dh,
+                auth=device.auth,
+                payload=payload,
+            )
         except PushSubscriptionGoneError as exc:
             # The subscription is permanently gone: retire this device only.
             _mark_failure(device, str(exc), retire=True)

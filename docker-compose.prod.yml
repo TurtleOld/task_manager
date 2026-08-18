@@ -33,17 +33,6 @@ x-app-env: &app-env
   VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
   VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
   VAPID_CLAIM_EMAIL: ${VAPID_CLAIM_EMAIL:-}
-  # Legacy Android channel.
-  FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-/run/secrets/firebase-service-account.json}
-  FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
-  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-  EMAIL_HOST: ${EMAIL_HOST:-}
-  EMAIL_PORT: ${EMAIL_PORT:-587}
-  EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
-  EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
-  EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
-  EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
-  DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-notifications@task-manager.local}
   TZ: Europe/Moscow
 
 x-logging: &logging
@@ -101,7 +90,6 @@ services:
       - "127.0.0.1:18000:8000"
     volumes:
       - ./media:/app/media
-      - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
     healthcheck:
       # /api/health now actually queries the database instead of returning a
       # hardcoded "ok", so this check can fail when the app is broken.
@@ -135,7 +123,6 @@ services:
       - task-manager
     volumes:
       - ./media:/app/media
-      - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
     healthcheck:
       # Asks the application whether the loop is still turning. A wedged
       # process does not exit, so without this Docker would keep reporting a

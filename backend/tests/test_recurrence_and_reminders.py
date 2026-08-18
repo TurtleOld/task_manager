@@ -112,7 +112,7 @@ def test_generation_resumes_after_completion(column) -> None:
 
 
 @pytest.mark.django_db()
-def test_deadline_reminder_accepts_push_channel(
+def test_deadline_reminder_schedules_without_explicit_channel(
     auth_client: APIClient, regular_user, column, settings
 ) -> None:
     card = Card.objects.create(
@@ -121,12 +121,12 @@ def test_deadline_reminder_accepts_push_channel(
         deadline=timezone.now() + timedelta(hours=2),
     )
     NotificationProfile.objects.create(user=regular_user)
-    # Push availability is now a property of registered devices, not of a
-    # single token field on the profile.
+    # Push availability is a property of registered devices, not of a channel
+    # field on the profile or the reminder.
     PushDevice.objects.create(
         user=regular_user,
-        kind=PushDevice.Kind.FCM,
-        token="fcm-token",
+        kind=PushDevice.Kind.WEBPUSH,
+        endpoint="https://push.example.com/a",
     )
 
     response = auth_client.put(
@@ -137,7 +137,6 @@ def test_deadline_reminder_accepts_push_channel(
                     "enabled": True,
                     "offset_value": 30,
                     "offset_unit": "minutes",
-                    "channel": "push",
                 }
             ]
         },
@@ -146,7 +145,6 @@ def test_deadline_reminder_accepts_push_channel(
 
     assert response.status_code == 200
     data = response.json()
-    assert data[0]["channel"] == "push"
     assert data[0]["status"] == CardDeadlineReminder.Status.SCHEDULED
 
 
@@ -155,15 +153,28 @@ def test_deadline_reminder_channels_include_push(
     auth_client: APIClient, regular_user, card: Card, settings
 ) -> None:
     NotificationProfile.objects.create(user=regular_user)
-    # Push availability is now a property of registered devices, not of a
-    # single token field on the profile.
     PushDevice.objects.create(
         user=regular_user,
-        kind=PushDevice.Kind.FCM,
-        token="fcm-token-2",
+        kind=PushDevice.Kind.WEBPUSH,
+        endpoint="https://push.example.com/b",
     )
 
     response = auth_client.get(f"/api/v1/cards/{card.id}/deadline-reminder/")
 
     assert response.status_code == 200
-    assert "push" in response.json()["channels"]
+    channels = response.json()["channels"]
+    assert channels["push"]["available"] is True
+
+
+@pytest.mark.django_db()
+def test_deadline_reminder_without_devices_reports_no_devices(
+    auth_client: APIClient, regular_user, card: Card, settings
+) -> None:
+    NotificationProfile.objects.create(user=regular_user)
+
+    response = auth_client.get(f"/api/v1/cards/{card.id}/deadline-reminder/")
+
+    assert response.status_code == 200
+    channels = response.json()["channels"]
+    assert channels["push"]["available"] is False
+    assert "устройств" in channels["push"]["reason"].lower()

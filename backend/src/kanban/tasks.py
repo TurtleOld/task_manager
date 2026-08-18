@@ -1,50 +1,31 @@
 from __future__ import annotations
 
-import json
+import calendar
 import logging
 from datetime import datetime
-from urllib import request
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 from celery import shared_task
 from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.core.mail import send_mail
-from django.db import transaction
 from django.db.utils import IntegrityError
 from django.utils import timezone
-from django.utils.text import Truncator
 
 from .models import (
     Attachment,
     Card,
     CardActivity,
-    CardDeadlineReminder,
-    CardDeadlineReminderDelivery,
     NotificationChannel,
     NotificationDelivery,
     NotificationEvent,
     NotificationEventType,
     NotificationInboxEntry,
-    NotificationPreference,
     NotificationProfile,
     RecurrenceFrequency,
     RecurrenceRule,
     SiteSettings,
 )
-from .reminders import reminder_channel_availability, resolve_delivery_channel
-
-User = get_user_model()
 
 logger = logging.getLogger(__name__)
-
-FCM_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
-
-
-class InvalidFcmTokenError(RuntimeError):
-    pass
 
 
 def calculate_next_recurrence_due(
@@ -82,8 +63,6 @@ def calculate_next_recurrence_due(
 
 
 def _add_months(value: datetime, months: int, day: int) -> datetime:
-    import calendar
-
     month_index = value.month - 1 + months
     year = value.year + month_index // 12
     month = month_index % 12 + 1
@@ -93,8 +72,6 @@ def _add_months(value: datetime, months: int, day: int) -> datetime:
 
 def _nth_weekday_of_month(base: datetime, months: int, weekday: int, pos: int) -> datetime:
     """Return the pos-th occurrence of weekday in the target month (pos<0 counts from end)."""
-    import calendar
-
     month_index = base.month - 1 + months
     year = base.year + month_index // 12
     month = month_index % 12 + 1
@@ -129,7 +106,7 @@ def _ru_plural(value: int, forms: tuple[str, str, str]) -> str:
 
 
 def _format_offset_ru(*, value: int, unit: str) -> str:
-    if unit == CardDeadlineReminder.Unit.HOURS:
+    if unit == "hours":
         word = _ru_plural(value, ("час", "часа", "часов"))
         return f"за {value} {word} до срока"
     word = _ru_plural(value, ("минуту", "минуты", "минут"))
@@ -148,578 +125,6 @@ def _format_deadline_ru(*, dt: datetime, tz_name: str) -> str:
 def _build_card_link(*, card: Card) -> str:
     base = settings.FRONTEND_BASE_URL.rstrip("/")
     return f"{base}/lists/{card.board_id}/tasks/{card.id}"
-
-
-@shared_task(bind=True, max_retries=5, default_retry_delay=60)
-def send_card_deadline_reminder(self, reminder_id: int, schedule_token: str) -> None:
-    reminder = (
-        CardDeadlineReminder.objects.filter(id=reminder_id).select_related("card", "user").first()
-    )
-    if not reminder:
-        return
-
-    # Skip outdated enqueued tasks after reschedule.
-    if not reminder.schedule_token or str(reminder.schedule_token) != str(schedule_token):
-        return
-
-    card = Card.objects.filter(id=reminder.card_id).first()
-    if not card or not card.deadline:
-        reminder.status = CardDeadlineReminder.Status.INVALID_NO_DEADLINE
-        reminder.scheduled_at = None
-        reminder.schedule_token = None
-        reminder.save(
-            update_fields=[
-                "status",
-                "scheduled_at",
-                "schedule_token",
-                "updated_at",
-                "version",
-            ]
-        )
-        return
-
-    availability = reminder_channel_availability(
-        user_id=reminder.user_id,
-        board_id=card.board_id,
-        event_type="card.deadline_reminder",
-    )
-    channel = resolve_delivery_channel(reminder=reminder, availability=availability)
-    if not channel:
-        reminder.status = CardDeadlineReminder.Status.INVALID_CHANNEL
-        reminder.scheduled_at = None
-        reminder.schedule_token = None
-        reminder.save(
-            update_fields=[
-                "status",
-                "scheduled_at",
-                "schedule_token",
-                "updated_at",
-                "version",
-            ]
-        )
-        return
-
-    # Idempotency: one delivery per (reminder, schedule_token).
-    dedupe_key = f"card.deadline_reminder:{reminder.id}:{schedule_token}"
-    try:
-        delivery, _created = CardDeadlineReminderDelivery.objects.get_or_create(
-            dedupe_key=dedupe_key,
-            defaults={
-                "reminder_id": reminder.id,
-                "card_id": card.id,
-                "user_id": reminder.user_id,
-                "channel": channel,
-                "status": CardDeadlineReminderDelivery.Status.QUEUED,
-            },
-        )
-    except IntegrityError:
-        delivery = CardDeadlineReminderDelivery.objects.get(dedupe_key=dedupe_key)
-
-    if delivery.status == CardDeadlineReminderDelivery.Status.SENT:
-        return
-
-    # Mark processing (safe on retries)
-    if delivery.status != CardDeadlineReminderDelivery.Status.PROCESSING:
-        delivery.status = CardDeadlineReminderDelivery.Status.PROCESSING
-        delivery.started_at = timezone.now()
-        delivery.save(update_fields=["status", "started_at"])
-
-    profile, _ = NotificationProfile.objects.get_or_create(user_id=reminder.user_id)
-    offset_text = _format_offset_ru(value=reminder.offset_value, unit=reminder.offset_unit)
-    deadline_text = _format_deadline_ru(dt=card.deadline, tz_name=profile.timezone)
-    link = _build_card_link(card=card)
-
-    subject = f"Напоминание: {card.title}"
-    body_lines = [
-        f"Напоминание по задаче: {card.title}",
-        f"Дедлайн: {deadline_text}",
-        f"Интервал: {offset_text}",
-        "",
-        f"Открыть задачу: {link}",
-    ]
-    body = "\n".join(body_lines)
-
-    try:
-        if channel == NotificationChannel.EMAIL:
-            if not profile.email:
-                raise RuntimeError("Email is not configured")
-            _send_email(profile.email, subject, body)
-        elif channel == NotificationChannel.TELEGRAM:
-            if not profile.telegram_chat_id:
-                raise RuntimeError("Telegram chat_id is not configured")
-            _send_telegram(profile.telegram_chat_id, body)
-        elif channel == NotificationChannel.PUSH:
-            fcm_token = (profile.fcm_token or "").strip()
-            if not fcm_token:
-                raise RuntimeError("Push is not configured")
-            push_data = _build_fcm_data_payload(
-                notification_id=None,
-                event_type=NotificationEventType.CARD_DEADLINE_REMINDER.value,
-                title=subject,
-                body=body,
-                link=link,
-                board_id=card.board_id,
-                card_id=card.id,
-            )
-            try:
-                _send_push(fcm_token, subject, body, data=push_data)
-            except InvalidFcmTokenError:
-                _clear_fcm_token(profile, fcm_token)
-                raise
-        else:
-            raise RuntimeError(f"Unsupported channel: {channel}")
-
-        delivery.status = CardDeadlineReminderDelivery.Status.SENT
-        delivery.sent_at = timezone.now()
-        delivery.save(update_fields=["status", "sent_at"])
-
-        reminder.status = CardDeadlineReminder.Status.SENT
-        reminder.sent_at = delivery.sent_at
-        reminder.last_error = ""
-        reminder.save(update_fields=["status", "sent_at", "last_error", "updated_at", "version"])
-    except InvalidFcmTokenError as exc:
-        delivery.status = CardDeadlineReminderDelivery.Status.FAILED
-        delivery.error = str(exc)
-        delivery.save(update_fields=["status", "error"])
-
-        reminder.status = CardDeadlineReminder.Status.FAILED
-        reminder.last_error = str(exc)
-        reminder.save(update_fields=["status", "last_error", "updated_at", "version"])
-    except Exception as exc:  # noqa: BLE001
-        delivery.status = CardDeadlineReminderDelivery.Status.FAILED
-        delivery.error = str(exc)
-        delivery.save(update_fields=["status", "error"])
-
-        reminder.status = CardDeadlineReminder.Status.FAILED
-        reminder.last_error = str(exc)
-        reminder.save(update_fields=["status", "last_error", "updated_at", "version"])
-        raise self.retry(exc=exc)
-
-
-def _event_title(event: NotificationEvent) -> str:
-    actor = event.actor
-    actor_name = (actor.first_name or actor.username) if actor else "Система"
-    return f"{actor_name}: {event.summary}"
-
-
-def _event_body(event: NotificationEvent) -> str:
-    payload = event.payload or {}
-    board = payload.get("board") or (event.board.name if event.board else "")
-    card = payload.get("card") or (event.card.title if event.card else "")
-    lines = [
-        event.summary,
-        "",
-    ]
-    if board:
-        lines.append(f"Список: {board}")
-    if card:
-        lines.append(f"Задача: {card}")
-    if event.link:
-        lines.extend(["", f"Перейти: {event.link}"])
-    return "\n".join(lines)
-
-
-def _send_email(to_email: str, subject: str, body: str) -> None:
-    send_mail(
-        subject=subject,
-        message=body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[to_email],
-        fail_silently=False,
-    )
-
-
-def _send_telegram(chat_id: str, message: str) -> None:
-    token = settings.TELEGRAM_BOT_TOKEN
-    if not token:
-        raise RuntimeError("TELEGRAM_BOT_TOKEN is not configured")
-    payload = json.dumps({"chat_id": chat_id, "text": message}).encode("utf-8")
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.netloc != "api.telegram.org":
-        raise RuntimeError("Refusing to send Telegram request to non-official host")
-
-    req = request.Request(
-        url=url,
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with request.urlopen(req, timeout=10) as resp:
-            if resp.status >= 400:
-                raise RuntimeError(f"Telegram API error: HTTP {resp.status}")
-    except HTTPError as exc:
-        # Telegram API usually returns a JSON body like:
-        # {"ok":false,"error_code":403,"description":"Forbidden: bot was blocked by the user"}
-        body = ""
-        try:
-            body = exc.read().decode("utf-8", errors="replace")
-        except Exception:  # noqa: BLE001
-            body = "<failed to read response body>"
-        logger.warning("Telegram API HTTPError: status=%s body=%s", exc.code, body)
-        raise RuntimeError(f"Telegram API error: HTTP {exc.code}; body={body}") from exc
-    except URLError as exc:
-        logger.warning("Telegram API URLError: %s", exc)
-        raise RuntimeError(f"Telegram API connection error: {exc}") from exc
-
-
-def _build_fcm_data_payload(
-    *,
-    notification_id: int | None,
-    event_type: str,
-    title: str,
-    body: str,
-    link: str | None,
-    board_id: int | None,
-    card_id: int | None,
-) -> dict[str, str]:
-    return {
-        "notificationId": str(notification_id or ""),
-        "eventType": event_type,
-        "title": title,
-        "body": body,
-        "link": link or "",
-        "boardId": str(board_id or ""),
-        "cardId": str(card_id or ""),
-    }
-
-
-def _fcm_auth_token() -> tuple[str, str]:
-    service_account_file = settings.FCM_SERVICE_ACCOUNT_FILE
-    if not service_account_file:
-        raise RuntimeError("FCM_SERVICE_ACCOUNT_FILE is not configured")
-
-    try:
-        from google.auth.transport.requests import Request as GoogleAuthRequest
-        from google.oauth2 import service_account
-    except ImportError as exc:  # pragma: no cover - deployment dependency guard
-        raise RuntimeError(
-            "google-auth with requests transport is required for FCM push delivery"
-        ) from exc
-
-    credentials = service_account.Credentials.from_service_account_file(
-        service_account_file,
-        scopes=[FCM_SCOPE],
-    )
-    project_id = (settings.FCM_PROJECT_ID or credentials.project_id or "").strip()
-    if not project_id:
-        raise RuntimeError("FCM_PROJECT_ID is not configured and service account has no project_id")
-    credentials.refresh(GoogleAuthRequest())
-    access_token = credentials.token
-    if not access_token:
-        raise RuntimeError("Failed to obtain FCM access token")
-    return access_token, project_id
-
-
-def _is_invalid_fcm_token(status_code: int, response_body: str) -> bool:
-    if status_code not in {400, 404}:
-        return False
-    try:
-        payload = json.loads(response_body)
-    except json.JSONDecodeError:
-        payload = {}
-
-    error = payload.get("error") if isinstance(payload, dict) else None
-    details = error.get("details", []) if isinstance(error, dict) else []
-    for detail in details:
-        if not isinstance(detail, dict):
-            continue
-        error_code = detail.get("errorCode")
-        if error_code in {"UNREGISTERED", "INVALID_ARGUMENT"}:
-            return True
-
-    lowered = response_body.lower()
-    return "unregistered" in lowered or "registration token" in lowered
-
-
-def _send_push(
-    fcm_token: str,
-    title: str,
-    message: str,
-    event_id: int | None = None,
-    data: dict[str, str] | None = None,
-) -> None:
-    fcm_token = fcm_token.strip()
-    if not fcm_token:
-        raise RuntimeError("FCM token is not configured")
-
-    access_token, project_id = _fcm_auth_token()
-    url = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
-    parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.netloc != "fcm.googleapis.com":
-        raise RuntimeError("Refusing to send FCM request to invalid host")
-
-    payload_data = data or _build_fcm_data_payload(
-        notification_id=event_id,
-        event_type="",
-        title=title,
-        body=message,
-        link="",
-        board_id=None,
-        card_id=None,
-    )
-    payload = {
-        "message": {
-            "token": fcm_token,
-            "data": {key: str(value) for key, value in payload_data.items()},
-            "android": {
-                "priority": "HIGH",
-            },
-        }
-    }
-
-    req = request.Request(
-        url=url,
-        data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {access_token}",
-            "Content-Type": "application/json; charset=utf-8",
-        },
-        method="POST",
-    )
-
-    try:
-        with request.urlopen(req, timeout=10) as resp:
-            body = resp.read().decode("utf-8", errors="replace")
-            if resp.status >= 400:
-                raise RuntimeError(f"FCM API error: HTTP {resp.status}; body={body}")
-
-            logger.info(
-                "fcm_push_delivery_sent event_id=%s status=%s response=%s",
-                event_id,
-                resp.status,
-                body,
-            )
-    except HTTPError as exc:
-        body = ""
-        try:
-            body = exc.read().decode("utf-8", errors="replace")
-        except Exception:  # noqa: BLE001
-            body = "<failed to read response body>"
-        if _is_invalid_fcm_token(exc.code, body):
-            logger.warning(
-                "fcm_push_invalid_token event_id=%s status=%s body=%s",
-                event_id,
-                exc.code,
-                body,
-            )
-            raise InvalidFcmTokenError(
-                f"FCM token is invalid or unregistered: HTTP {exc.code}"
-            ) from exc
-        logger.warning(
-            "fcm_push_delivery_failed event_id=%s status=%s reason=http_error body=%s",
-            event_id,
-            exc.code,
-            body,
-        )
-        raise RuntimeError(f"FCM API error: HTTP {exc.code}; body={body}") from exc
-    except URLError as exc:
-        logger.warning(
-            "fcm_push_delivery_failed event_id=%s reason=url_error error=%s",
-            event_id,
-            exc,
-        )
-        raise RuntimeError(f"FCM API connection error: {exc}") from exc
-
-
-def _clear_fcm_token(profile: NotificationProfile, token: str) -> None:
-    if profile.fcm_token != token:
-        return
-    profile.fcm_token = ""
-    profile.save(update_fields=["fcm_token"])
-
-
-def _enabled_channels(*, user_id: int, event: NotificationEvent) -> set[str]:
-    """Channels enabled for this user, resolved in a single query.
-
-    A board-scoped preference wins over a global one, and a channel with no
-    preference at all defaults to enabled.
-    """
-
-    rows = NotificationPreference.objects.filter(
-        user_id=user_id,
-        event_type=event.event_type,
-    ).values_list("channel", "board_id", "enabled")
-
-    board_scoped: dict[str, bool] = {}
-    global_scoped: dict[str, bool] = {}
-    for channel, board_id, enabled in rows:
-        if board_id is None:
-            global_scoped[channel] = bool(enabled)
-        elif event.board_id and board_id == event.board_id:
-            board_scoped[channel] = bool(enabled)
-
-    enabled_channels: set[str] = set()
-    for channel in (
-        NotificationChannel.EMAIL,
-        NotificationChannel.TELEGRAM,
-        NotificationChannel.PUSH,
-    ):
-        value = channel[0] if isinstance(channel, tuple) else channel
-        if value in board_scoped:
-            if board_scoped[value]:
-                enabled_channels.add(value)
-            continue
-        if value in global_scoped:
-            if global_scoped[value]:
-                enabled_channels.add(value)
-            continue
-        enabled_channels.add(value)
-    return enabled_channels
-
-
-def _event_recipient_ids(event: NotificationEvent) -> list[int]:
-    """Users this event is addressed to (mentions narrow it down)."""
-    mention_user_ids = (
-        event.payload.get("mention_user_ids") if isinstance(event.payload, dict) else None
-    )
-    qs = User.objects.all().order_by("id")
-    if isinstance(mention_user_ids, list) and mention_user_ids:
-        mentioned = {int(item) for item in mention_user_ids if str(item).isdigit()}
-        if not mentioned:
-            return []
-        qs = qs.filter(id__in=mentioned)
-    return list(qs.values_list("id", flat=True))
-
-
-@shared_task(bind=True, max_retries=3, default_retry_delay=30)
-def send_notification_event(self, event_id: int) -> None:
-    """Fan out one event into a per-recipient delivery task.
-
-    Delivery is split per user on purpose: a failing SMTP/FCM call for one
-    recipient used to retry this whole task, re-sending to everyone who had
-    already received the event. Now a retry only affects that one recipient.
-    """
-
-    event = NotificationEvent.objects.filter(id=event_id).first()
-    if not event:
-        return
-
-    recipient_ids = _event_recipient_ids(event)
-
-    # The in-app inbox is written here rather than in the delivery task: it
-    # touches nothing external, so it must not depend on email/push succeeding.
-    NotificationInboxEntry.objects.bulk_create(
-        [NotificationInboxEntry(event=event, user_id=uid) for uid in recipient_ids],
-        ignore_conflicts=True,
-    )
-
-    for user_id in recipient_ids:
-        transaction.on_commit(lambda uid=user_id: deliver_notification_event.delay(event_id, uid))
-
-
-@shared_task(bind=True, max_retries=3, default_retry_delay=30)
-def deliver_notification_event(self, event_id: int, user_id: int) -> None:
-    event = (
-        NotificationEvent.objects.filter(id=event_id)
-        .select_related("actor", "board", "column", "card")
-        .first()
-    )
-    if not event:
-        return
-
-    user = User.objects.filter(id=user_id).first()
-    if not user:
-        return
-
-    subject = Truncator(_event_title(event)).chars(120)
-    body = _event_body(event)
-
-    profile, _ = NotificationProfile.objects.get_or_create(user=user)
-
-    # Preferences for this user in one query instead of two per channel.
-    enabled_channels = _enabled_channels(user_id=user.id, event=event)
-
-    for channel in [
-        NotificationChannel.EMAIL,
-        NotificationChannel.TELEGRAM,
-        NotificationChannel.PUSH,
-    ]:
-        channel_value = channel[0] if isinstance(channel, tuple) else channel
-        if channel_value not in enabled_channels:
-            continue
-
-        if channel_value == NotificationChannel.EMAIL:
-            target_email = profile.email
-            if not target_email:
-                continue
-            delivery = NotificationDelivery.objects.create(
-                event=event,
-                user=user,
-                channel=channel,
-            )
-            try:
-                _send_email(target_email, subject, body)
-                delivery.status = NotificationDelivery.Status.SENT
-                delivery.sent_at = timezone.now()
-                delivery.save(update_fields=["status", "sent_at"])
-            except Exception as exc:  # noqa: BLE001
-                delivery.status = NotificationDelivery.Status.FAILED
-                delivery.error = str(exc)
-                delivery.save(update_fields=["status", "error"])
-                continue
-
-        if channel_value == NotificationChannel.TELEGRAM:
-            target_chat = profile.telegram_chat_id
-            if not target_chat:
-                continue
-            delivery = NotificationDelivery.objects.create(
-                event=event,
-                user=user,
-                channel=channel,
-            )
-            try:
-                _send_telegram(target_chat, body)
-                delivery.status = NotificationDelivery.Status.SENT
-                delivery.sent_at = timezone.now()
-                delivery.save(update_fields=["status", "sent_at"])
-            except Exception as exc:  # noqa: BLE001
-                delivery.status = NotificationDelivery.Status.FAILED
-                delivery.error = str(exc)
-                delivery.save(update_fields=["status", "error"])
-                continue
-
-        if channel_value == NotificationChannel.PUSH:
-            target_fcm_token = (profile.fcm_token or "").strip()
-            if not target_fcm_token:
-                continue
-            delivery = NotificationDelivery.objects.create(
-                event=event,
-                user=user,
-                channel=channel,
-            )
-            try:
-                push_payload = _build_fcm_data_payload(
-                    notification_id=event.id,
-                    event_type=event.event_type,
-                    title=str(subject),
-                    body=body,
-                    link=event.link,
-                    board_id=event.board_id,
-                    card_id=event.card_id,
-                )
-                _send_push(
-                    target_fcm_token,
-                    str(subject),
-                    body,
-                    event_id=event.id,
-                    data=push_payload,
-                )
-                delivery.status = NotificationDelivery.Status.SENT
-                delivery.sent_at = timezone.now()
-                delivery.save(update_fields=["status", "sent_at"])
-            except InvalidFcmTokenError as exc:
-                _clear_fcm_token(profile, target_fcm_token)
-                delivery.status = NotificationDelivery.Status.FAILED
-                delivery.error = str(exc)
-                delivery.save(update_fields=["status", "error"])
-                continue
-            except Exception as exc:  # noqa: BLE001
-                delivery.status = NotificationDelivery.Status.FAILED
-                delivery.error = str(exc)
-                delivery.save(update_fields=["status", "error"])
-                continue
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
@@ -853,7 +258,7 @@ def prune_card_activity(self) -> None:
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
 def send_overdue_card_reminders(self) -> None:
-    """Periodic task: send FCM reminders for overdue cards not yet done."""
+    """Periodic task: send Web Push reminders for overdue cards not yet done."""
     site_settings = SiteSettings.load()
     interval_minutes = site_settings.overdue_reminder_interval
 
@@ -923,9 +328,8 @@ def send_overdue_card_reminders(self) -> None:
         if not event or not event.pk:
             continue
 
-        # Delivery goes through the device fan-out rather than a single token
-        # per profile: a person may have a phone, a browser and the legacy
-        # Android app, and reaching any one of them counts as delivered.
+        # Delivery fans out over registered devices: a person may have a phone
+        # and a laptop browser, and reaching any one of them counts as delivered.
         from .push_delivery import send_push_to_user
 
         for profile in profiles:
@@ -962,105 +366,3 @@ def send_overdue_card_reminders(self) -> None:
                     profile.user_id,
                     result.summary(),
                 )
-
-
-# Reminders due within this window before "now" are still delivered. Anything
-# older is considered stale (e.g. after a long outage) and marked SKIPPED so a
-# restart does not flood users with a burst of obsolete notifications.
-REMINDER_CATCHUP_GRACE_MINUTES = 60
-
-# Upper bound on reminders dispatched per beat tick, so one backlog burst
-# cannot monopolise the worker pool.
-REMINDER_DISPATCH_BATCH_SIZE = 200
-
-# A reminder left in DISPATCHED longer than this lost its worker mid-flight
-# and is returned to SCHEDULED to be retried.
-REMINDER_DISPATCH_STUCK_MINUTES = 15
-
-
-@shared_task(bind=True, max_retries=2, default_retry_delay=30)
-def dispatch_due_reminders(self) -> None:
-    """Enqueue deadline reminders that have come due.
-
-    The DB row is the source of truth for *when* a reminder fires; this task
-    is the only thing that turns it into an actual queue message. Because it
-    re-reads state every tick, reminders survive worker restarts and are
-    caught up automatically after downtime.
-    """
-
-    now = timezone.now()
-    stale_before = now - timezone.timedelta(minutes=REMINDER_CATCHUP_GRACE_MINUTES)
-
-    # Recover rows stuck in DISPATCHED: the send task was enqueued but the
-    # worker died before reaching a terminal status. Returning them to
-    # SCHEDULED lets this task retry them on the next tick. The delivery
-    # dedupe_key still guarantees the user is not notified twice.
-    stuck_cutoff = now - timezone.timedelta(minutes=REMINDER_DISPATCH_STUCK_MINUTES)
-    recovered = CardDeadlineReminder.objects.filter(
-        status=CardDeadlineReminder.Status.DISPATCHED,
-        updated_at__lt=stuck_cutoff,
-    ).update(status=CardDeadlineReminder.Status.SCHEDULED)
-    if recovered:
-        logger.warning("reminder_dispatch_recovered count=%s", recovered)
-
-    due_ids = list(
-        CardDeadlineReminder.objects.filter(
-            enabled=True,
-            status=CardDeadlineReminder.Status.SCHEDULED,
-            scheduled_at__isnull=False,
-            scheduled_at__lte=now,
-        )
-        .order_by("scheduled_at", "id")
-        .values_list("id", flat=True)[:REMINDER_DISPATCH_BATCH_SIZE]
-    )
-    if not due_ids:
-        return
-
-    for reminder_id in due_ids:
-        # Lock each row individually so a concurrent beat run (or a second
-        # worker) cannot dispatch the same reminder twice. skip_locked means
-        # the loser of the race moves on instead of blocking.
-        with transaction.atomic():
-            reminder = (
-                CardDeadlineReminder.objects.select_for_update(skip_locked=True)
-                .filter(
-                    id=reminder_id,
-                    status=CardDeadlineReminder.Status.SCHEDULED,
-                )
-                .first()
-            )
-            if not reminder or not reminder.scheduled_at:
-                continue
-
-            if reminder.scheduled_at < stale_before:
-                reminder.status = CardDeadlineReminder.Status.SKIPPED
-                reminder.last_error = "Пропущено: время напоминания давно прошло"
-                reminder.save(
-                    update_fields=[
-                        "status",
-                        "last_error",
-                        "updated_at",
-                        "version",
-                    ]
-                )
-                logger.warning(
-                    "reminder_skipped_stale reminder=%s scheduled_at=%s",
-                    reminder.id,
-                    reminder.scheduled_at,
-                )
-                continue
-
-            token = reminder.schedule_token
-            if not token:
-                continue
-
-            # Flip out of SCHEDULED inside the lock so the next tick will not
-            # pick this row up again while the send task is still in flight.
-            reminder.status = CardDeadlineReminder.Status.DISPATCHED
-            reminder.save(update_fields=["status", "updated_at", "version"])
-
-            reminder_pk = reminder.id
-            token_value = str(token)
-            transaction.on_commit(
-                lambda pk=reminder_pk, tok=token_value: send_card_deadline_reminder.delay(pk, tok)
-            )

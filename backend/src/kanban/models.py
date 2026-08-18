@@ -320,8 +320,10 @@ class ChecklistItem(models.Model):
 
 
 class NotificationChannel(models.TextChoices):
-    EMAIL = "email", "Email"
-    TELEGRAM = "telegram", "Telegram"
+    # Web Push is the only delivery channel (ADR 0003). The enumeration is kept
+    # with a single member on purpose: `NotificationDelivery.channel` must stay
+    # an honest history of deliveries, and adding a second channel later must
+    # not require reshaping the deliveries table.
     PUSH = "push", "Push"
 
 
@@ -385,12 +387,10 @@ class CardActivity(models.Model):
 
 
 class NotificationProfile(models.Model):
+    # After the email/Telegram/FCM channels were removed (ADR 0003), only the
+    # timezone remains: the agenda's date bucketing depends on it. The model
+    # keeps its historical name; renaming it is tracked separately.
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    email = models.EmailField(blank=True, default="")
-    telegram_chat_id = models.CharField(max_length=64, blank=True, default="")
-    onesignal_player_id = models.CharField(max_length=200, blank=True, default="")
-    fcm_token = models.CharField(max_length=512, blank=True, default="")
-    unifiedpush_endpoint = models.URLField(max_length=1000, blank=True, default="")
     timezone = models.CharField(max_length=64, blank=True, default="UTC")
     timezone_configured = models.BooleanField(default=False)
 
@@ -408,16 +408,13 @@ class PushDevice(TimestampedModel):
     phone, a tablet and a laptop browser, and every one of them needs its own
     subscription. Registering a new device must never silently unregister
     another.
-
-    Two kinds live side by side. `webpush` is the primary one — a W3C Push API
-    subscription, where `endpoint` is the push service URL and `p256dh`/`auth`
-    are the client's encryption keys. `fcm` is the legacy Android app channel,
-    where only `token` is set.
     """
 
     class Kind(models.TextChoices):
+        # Web Push is the only device kind (ADR 0003). Kept as an enumeration
+        # with a single member for the same reason as `NotificationChannel`:
+        # a future second kind must not require reshaping this table.
         WEBPUSH = "webpush", "Web Push"
-        FCM = "fcm", "Firebase Cloud Messaging"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -430,9 +427,6 @@ class PushDevice(TimestampedModel):
     endpoint = models.URLField(max_length=1000, blank=True, default="")
     p256dh = models.CharField(max_length=200, blank=True, default="")
     auth = models.CharField(max_length=100, blank=True, default="")
-
-    # FCM registration token (kind=fcm).
-    token = models.CharField(max_length=512, blank=True, default="")
 
     # Human-readable hint so a person can tell their devices apart when
     # revoking one ("Chrome на Android").
@@ -458,11 +452,6 @@ class PushDevice(TimestampedModel):
                 condition=models.Q(kind="webpush"),
                 name="uniq_push_device_webpush_endpoint",
             ),
-            models.UniqueConstraint(
-                fields=["token"],
-                condition=models.Q(kind="fcm"),
-                name="uniq_push_device_fcm_token",
-            ),
         ]
         indexes = [
             models.Index(fields=["user", "active"]),
@@ -474,7 +463,7 @@ class PushDevice(TimestampedModel):
 
     @property
     def destination(self) -> str:
-        return self.endpoint if self.kind == self.Kind.WEBPUSH else self.token
+        return self.endpoint
 
 
 class DispatcherHeartbeat(models.Model):
@@ -659,7 +648,7 @@ class CardDeadlineReminder(TimestampedModel):
         FAILED = "failed", "Failed"
         INVALID_NO_DEADLINE = "invalid.no_deadline", "Invalid: no deadline"
         INVALID_PAST = "invalid.past", "Invalid: time in past"
-        INVALID_CHANNEL = "invalid.channel", "Invalid: channel unavailable"
+        INVALID_CHANNEL = "invalid.channel", "Invalid: no devices"
 
     card = models.ForeignKey(Card, on_delete=models.CASCADE, related_name="deadline_reminders")
     user = models.ForeignKey(
@@ -677,16 +666,6 @@ class CardDeadlineReminder(TimestampedModel):
         max_length=10,
         choices=Unit.choices,
         default=Unit.MINUTES,
-    )
-
-    # Chosen delivery channel (optional):
-    # - null/blank => auto (only possible when there is exactly one available channel)
-    # - email / telegram => explicit
-    channel = models.CharField(
-        max_length=20,
-        choices=NotificationChannel.choices,
-        null=True,
-        blank=True,
     )
 
     # Scheduling

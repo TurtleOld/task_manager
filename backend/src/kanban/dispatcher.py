@@ -25,6 +25,7 @@ from datetime import timedelta
 from typing import Any
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -43,7 +44,13 @@ from .models import (
     NotificationProfile,
 )
 from .push_delivery import send_push_to_user
-from .reminders import reminder_channel_availability, resolve_delivery_channel
+from .reminders import (
+    preferences_enabled_for_event_type,
+    reminder_channel_availability,
+    resolve_delivery_channel,
+)
+
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
@@ -95,22 +102,6 @@ def _deliver_reminder_on_channel(
     link: str,
 ) -> None:
     """Send one reminder. Raises on failure so the caller can schedule a retry."""
-
-    from .tasks import _send_email, _send_telegram
-
-    profile, _ = NotificationProfile.objects.get_or_create(user_id=reminder.user_id)
-
-    if channel == NotificationChannel.EMAIL:
-        if not profile.email:
-            raise RuntimeError("Email не указан в профиле уведомлений")
-        _send_email(profile.email, subject, body)
-        return
-
-    if channel == NotificationChannel.TELEGRAM:
-        if not profile.telegram_chat_id:
-            raise RuntimeError("Telegram chat_id не указан в профиле уведомлений")
-        _send_telegram(profile.telegram_chat_id, body)
-        return
 
     if channel == NotificationChannel.PUSH:
         result = send_push_to_user(
@@ -216,7 +207,11 @@ def process_due_reminders(*, now=None, limit: int | None = None) -> int:
             )
             channel = resolve_delivery_channel(reminder=reminder, availability=availability)
             if not channel:
-                _finalize_reminder(reminder, status=CardDeadlineReminder.Status.INVALID_CHANNEL)
+                _finalize_reminder(
+                    reminder,
+                    status=CardDeadlineReminder.Status.INVALID_CHANNEL,
+                    error="Нет подключённых устройств для получения напоминания",
+                )
                 continue
 
             # One delivery row per (reminder, schedule_token): a retry after a
@@ -307,69 +302,93 @@ def process_due_reminders(*, now=None, limit: int | None = None) -> int:
 
 
 def _event_recipients(event: NotificationEvent) -> list[int]:
-    from .tasks import _event_recipient_ids
+    """Users this event is addressed to (mentions narrow it down).
 
-    return _event_recipient_ids(event)
+    The in-app inbox is written for every recipient, including the actor. The
+    actor is excluded only from device delivery, and only there.
+    """
+
+    mention_user_ids = (
+        event.payload.get("mention_user_ids") if isinstance(event.payload, dict) else None
+    )
+    qs = User.objects.all().order_by("id")
+    if isinstance(mention_user_ids, list) and mention_user_ids:
+        mentioned = {int(item) for item in mention_user_ids if str(item).isdigit()}
+        if not mentioned:
+            return []
+        qs = qs.filter(id__in=mentioned)
+    return list(qs.values_list("id", flat=True))
+
+
+def _event_title(event: NotificationEvent) -> str:
+    actor = event.actor
+    actor_name = (actor.first_name or actor.username) if actor else "Система"
+    return f"{actor_name}: {event.summary}"
+
+
+def _event_body(event: NotificationEvent) -> str:
+    payload = event.payload or {}
+    board = payload.get("board") or (event.board.name if event.board else "")
+    card = payload.get("card") or (event.card.title if event.card else "")
+    lines = [
+        event.summary,
+        "",
+    ]
+    if board:
+        lines.append(f"Список: {board}")
+    if card:
+        lines.append(f"Задача: {card}")
+    if event.link:
+        lines.extend(["", f"Перейти: {event.link}"])
+    return "\n".join(lines)
 
 
 def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
-    from .tasks import _enabled_channels, _event_body, _event_title, _send_email, _send_telegram
+    """Deliver one event to one person's devices over Web Push.
+
+    The actor is already excluded by the caller, and this function writes only
+    the device delivery record — the inbox entry is written separately and
+    unconditionally.
+    """
+
+    if not preferences_enabled_for_event_type(
+        user_id=user_id,
+        board_id=event.board_id,
+        channel=NotificationChannel.PUSH.value,
+        event_type=event.event_type,
+    ):
+        return
 
     subject = str(Truncator(_event_title(event)).chars(120))
     body = _event_body(event)
 
-    profile, _ = NotificationProfile.objects.get_or_create(user_id=user_id)
-    enabled = _enabled_channels(user_id=user_id, event=event)
+    result = send_push_to_user(
+        user_id=user_id,
+        title=subject,
+        body=body,
+        link=event.link,
+        tag=f"card-{event.card_id}" if event.card_id else f"event-{event.id}",
+        data={
+            "eventType": event.event_type,
+            "cardId": str(event.card_id or ""),
+            "boardId": str(event.board_id or ""),
+        },
+    )
 
-    def record(channel: str, send) -> None:
-        delivery = NotificationDelivery.objects.create(
-            event=event, user_id=user_id, channel=channel
-        )
-        try:
-            send()
-        except Exception as exc:  # noqa: BLE001 - one channel must not stop the others
-            delivery.status = NotificationDelivery.Status.FAILED
-            delivery.error = str(exc)[:500]
-            delivery.save(update_fields=["status", "error"])
-        else:
-            delivery.status = NotificationDelivery.Status.SENT
-            delivery.sent_at = timezone.now()
-            delivery.save(update_fields=["status", "sent_at"])
+    if result.no_devices:
+        # Not an error: this person simply has no push devices yet.
+        return
 
-    if NotificationChannel.EMAIL.value in enabled and profile.email:
-        record(
-            NotificationChannel.EMAIL.value,
-            lambda: _send_email(profile.email, subject, body),
-        )
-
-    if NotificationChannel.TELEGRAM.value in enabled and profile.telegram_chat_id:
-        record(
-            NotificationChannel.TELEGRAM.value,
-            lambda: _send_telegram(profile.telegram_chat_id, body),
-        )
-
-    if NotificationChannel.PUSH.value in enabled:
-
-        def send_push() -> None:
-            result = send_push_to_user(
-                user_id=user_id,
-                title=subject,
-                body=body,
-                link=event.link,
-                tag=f"card-{event.card_id}" if event.card_id else f"event-{event.id}",
-                data={
-                    "eventType": event.event_type,
-                    "cardId": str(event.card_id or ""),
-                    "boardId": str(event.board_id or ""),
-                },
-            )
-            if result.no_devices:
-                # Not an error: this person simply has no push devices.
-                return
-            if not result.delivered:
-                raise RuntimeError(result.summary())
-
-        record(NotificationChannel.PUSH.value, send_push)
+    delivery = NotificationDelivery.objects.create(
+        event=event, user_id=user_id, channel=NotificationChannel.PUSH.value
+    )
+    if result.delivered:
+        delivery.status = NotificationDelivery.Status.SENT
+        delivery.sent_at = timezone.now()
+    else:
+        delivery.status = NotificationDelivery.Status.FAILED
+        delivery.error = result.summary()[:500]
+    delivery.save(update_fields=["status", "sent_at", "error"])
 
 
 def process_outbox_events(*, now=None, limit: int | None = None) -> int:
@@ -409,13 +428,19 @@ def process_outbox_events(*, now=None, limit: int | None = None) -> int:
             recipient_ids = _event_recipients(event)
 
             # The in-app inbox is written first and unconditionally: it touches
-            # nothing external, so it must not depend on push succeeding.
+            # nothing external, so it must not depend on push succeeding. Every
+            # recipient gets an entry, including the actor.
             NotificationInboxEntry.objects.bulk_create(
                 [NotificationInboxEntry(event=event, user_id=uid) for uid in recipient_ids],
                 ignore_conflicts=True,
             )
 
             for user_id in recipient_ids:
+                # The person who caused the event already sees the result on
+                # their own screen; their phone must not buzz for their own
+                # action. Everyone else gets a device notification.
+                if user_id == event.actor_id:
+                    continue
                 _deliver_event_to_user(event, user_id)
         except Exception as exc:  # noqa: BLE001
             event.dispatch_attempts += 1

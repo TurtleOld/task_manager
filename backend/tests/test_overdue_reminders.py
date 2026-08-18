@@ -13,8 +13,18 @@ from kanban.tasks import send_overdue_card_reminders
 User = get_user_model()
 
 
+def _device(user) -> None:
+    PushDevice.objects.create(
+        user=user,
+        kind=PushDevice.Kind.WEBPUSH,
+        endpoint=f"https://push.example.com/{user.id}",
+        p256dh="p256dh-key",
+        auth="auth-key",
+    )
+
+
 @pytest.mark.django_db()
-def test_overdue_reminder_skips_completed_cards() -> None:
+def test_overdue_reminder_skips_completed_cards(webpush_settings) -> None:
     board = Board.objects.create(name="Board")
     column = Column.objects.create(board=board, name="To Do")
     Card.objects.create(
@@ -26,17 +36,16 @@ def test_overdue_reminder_skips_completed_cards() -> None:
 
     user = User.objects.create_user(username="user1", password="secret123")
     NotificationProfile.objects.create(user=user)
-    # Delivery now fans out over registered devices instead of one token field.
-    PushDevice.objects.create(user=user, kind=PushDevice.Kind.FCM, token="fcm-token")
+    _device(user)
 
-    with patch("kanban.tasks._send_push") as send_push:
+    with patch("kanban.webpush.send_webpush") as send_push:
         send_overdue_card_reminders.run()
 
     send_push.assert_not_called()
 
 
 @pytest.mark.django_db()
-def test_overdue_reminder_skips_archived_cards() -> None:
+def test_overdue_reminder_skips_archived_cards(webpush_settings) -> None:
     board = Board.objects.create(name="Board")
     column = Column.objects.create(board=board, name="To Do")
     card = Card.objects.create(
@@ -49,17 +58,16 @@ def test_overdue_reminder_skips_archived_cards() -> None:
 
     user = User.objects.create_user(username="user1", password="secret123")
     NotificationProfile.objects.create(user=user)
-    # Delivery now fans out over registered devices instead of one token field.
-    PushDevice.objects.create(user=user, kind=PushDevice.Kind.FCM, token="fcm-token")
+    _device(user)
 
-    with patch("kanban.tasks._send_push") as send_push:
+    with patch("kanban.webpush.send_webpush") as send_push:
         send_overdue_card_reminders.run()
 
     send_push.assert_not_called()
 
 
 @pytest.mark.django_db()
-def test_overdue_reminder_sends_for_open_card() -> None:
+def test_overdue_reminder_sends_for_open_card(webpush_settings) -> None:
     board = Board.objects.create(name="Board")
     column = Column.objects.create(board=board, name="To Do")
     Card.objects.create(
@@ -70,10 +78,9 @@ def test_overdue_reminder_sends_for_open_card() -> None:
 
     user = User.objects.create_user(username="user1", password="secret123")
     NotificationProfile.objects.create(user=user)
-    # Delivery now fans out over registered devices instead of one token field.
-    PushDevice.objects.create(user=user, kind=PushDevice.Kind.FCM, token="fcm-token")
+    _device(user)
 
-    with patch("kanban.tasks._send_push") as send_push:
+    with patch("kanban.webpush.send_webpush") as send_push:
         send_overdue_card_reminders.run()
 
     send_push.assert_called_once()
