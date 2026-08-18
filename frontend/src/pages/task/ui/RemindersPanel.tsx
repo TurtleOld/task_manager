@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { BellOff, BellRing, Plus, Trash2 } from 'lucide-react'
 import { Badge, Button, Card as SurfaceCard, EmptyState, Select } from '@/components/ui'
 import { api } from '../../../api/client'
 import { queryKeys } from '../../../api/queries/keys'
-import type { CardDeadlineReminder, ReminderChannel, ReminderOffsetUnit } from '../../../api/types'
+import type { CardDeadlineReminder, ReminderOffsetUnit } from '../../../api/types'
 
 interface RemindersPanelProps {
   cardId: number
@@ -13,7 +14,7 @@ interface RemindersPanelProps {
 }
 
 /** Draft shape: what the PUT endpoint accepts, without server-side result fields. */
-type ReminderDraft = Pick<CardDeadlineReminder, 'enabled' | 'offset_value' | 'offset_unit' | 'channel'>
+type ReminderDraft = Pick<CardDeadlineReminder, 'enabled' | 'offset_value' | 'offset_unit'>
 
 const OFFSET_PRESETS: Array<{ value: number; unit: ReminderOffsetUnit; label: string }> = [
   { value: 10, unit: 'minutes', label: 'За 10 минут' },
@@ -22,12 +23,6 @@ const OFFSET_PRESETS: Array<{ value: number; unit: ReminderOffsetUnit; label: st
   { value: 3, unit: 'hours', label: 'За 3 часа' },
   { value: 24, unit: 'hours', label: 'За сутки' },
 ]
-
-const CHANNEL_LABELS: Record<ReminderChannel, string> = {
-  push: 'Push',
-  telegram: 'Telegram',
-  email: 'Email',
-}
 
 /**
  * Status copy is deliberately blunt about failure. A reminder that silently
@@ -52,7 +47,7 @@ function statusBadge(reminder: CardDeadlineReminder): { text: string; variant: '
     case 'invalid.past':
       return { text: 'Время уже прошло', variant: 'danger' }
     case 'invalid.channel':
-      return { text: 'Канал недоступен', variant: 'danger' }
+      return { text: 'Нет устройств', variant: 'danger' }
     default:
       return { text: reminder.status, variant: 'neutral' }
   }
@@ -64,7 +59,7 @@ function presetKey(value: number, unit: ReminderOffsetUnit): string {
 
 export function RemindersPanel({ cardId, hasDeadline }: RemindersPanelProps) {
   const qc = useQueryClient()
-  const [pendingChannel, setPendingChannel] = useState<ReminderChannel | ''>('')
+  const [pendingOffset, setPendingOffset] = useState('30:minutes')
 
   const query = useQuery({
     queryKey: queryKeys.cardDeadlineReminder(cardId),
@@ -73,19 +68,8 @@ export function RemindersPanel({ cardId, hasDeadline }: RemindersPanelProps) {
 
   const reminders = query.data?.reminders ?? []
   const channels = query.data?.channels
-
-  const availableChannels = useMemo(() => {
-    if (!channels) return [] as ReminderChannel[]
-    return (Object.keys(CHANNEL_LABELS) as ReminderChannel[]).filter((name) => channels[name]?.available)
-  }, [channels])
-
-  /** Why a channel cannot be used — shown so the fix is obvious. */
-  const blockedReasons = useMemo(() => {
-    if (!channels) return [] as string[]
-    return (Object.keys(CHANNEL_LABELS) as ReminderChannel[])
-      .filter((name) => !channels[name]?.available && channels[name]?.reason)
-      .map((name) => `${CHANNEL_LABELS[name]}: ${channels[name].reason}`)
-  }, [channels])
+  const pushAvailable = channels?.push?.available ?? false
+  const pushReason = channels?.push?.reason ?? ''
 
   const save = useMutation({
     mutationFn: (drafts: ReminderDraft[]) => api.saveCardDeadlineReminder(cardId, { reminders: drafts }),
@@ -99,17 +83,15 @@ export function RemindersPanel({ cardId, hasDeadline }: RemindersPanelProps) {
     enabled: reminder.enabled,
     offset_value: reminder.offset_value,
     offset_unit: reminder.offset_unit,
-    channel: reminder.channel,
   })
 
   const commit = (drafts: ReminderDraft[]) => save.mutate(drafts)
 
   const addReminder = () => {
-    const channel = (pendingChannel || availableChannels[0]) as ReminderChannel | undefined
-    if (!channel) return
+    const [value, unit] = pendingOffset.split(':')
     commit([
       ...reminders.map(toDraft),
-      { enabled: true, offset_value: 30, offset_unit: 'minutes', channel },
+      { enabled: true, offset_value: Number(value), offset_unit: unit as ReminderOffsetUnit },
     ])
   }
 
@@ -121,7 +103,7 @@ export function RemindersPanel({ cardId, hasDeadline }: RemindersPanelProps) {
     commit(reminders.filter((_, i) => i !== index).map(toDraft))
   }
 
-  const canAdd = hasDeadline && availableChannels.length > 0
+  const canAdd = hasDeadline && pushAvailable
 
   return (
     <SurfaceCard as="section" className="space-y-3 p-5">
@@ -132,18 +114,18 @@ export function RemindersPanel({ cardId, hasDeadline }: RemindersPanelProps) {
         </div>
         {canAdd ? (
           <div className="flex flex-wrap items-center gap-2">
-            {availableChannels.length > 1 ? (
-              <Select
-                value={pendingChannel}
-                onChange={(event) => setPendingChannel(event.target.value as ReminderChannel | '')}
-                aria-label="Канал напоминания"
-                className="sm:w-40"
-              >
-                {availableChannels.map((name) => (
-                  <option key={name} value={name}>{CHANNEL_LABELS[name]}</option>
-                ))}
-              </Select>
-            ) : null}
+            <Select
+              value={pendingOffset}
+              onChange={(event) => setPendingOffset(event.target.value)}
+              aria-label="За сколько до срока"
+              className="w-40"
+            >
+              {OFFSET_PRESETS.map((preset) => (
+                <option key={presetKey(preset.value, preset.unit)} value={presetKey(preset.value, preset.unit)}>
+                  {preset.label}
+                </option>
+              ))}
+            </Select>
             <Button type="button" size="sm" onClick={addReminder} loading={save.isPending}>
               <Plus className="size-4" aria-hidden />
               Добавить
@@ -158,11 +140,17 @@ export function RemindersPanel({ cardId, hasDeadline }: RemindersPanelProps) {
         </EmptyState>
       ) : query.isLoading ? (
         <p className="text-body-sm text-text-muted">Загружаем напоминания…</p>
+      ) : !pushAvailable ? (
+        <EmptyState title="Некуда отправлять" className="p-4">
+          <p>Подключите устройство, чтобы получать напоминания.</p>
+          {pushReason ? <p className="mt-1">{pushReason}</p> : null}
+          <Link to="/settings" className="mt-2 inline-block text-primary underline-offset-4 hover:text-primary-hover hover:underline">
+            Включить уведомления в настройках
+          </Link>
+        </EmptyState>
       ) : reminders.length === 0 ? (
         <EmptyState title="Напоминаний нет" className="p-4">
-          {availableChannels.length === 0
-            ? 'Некуда отправлять: подключите устройство для push в настройках уведомлений.'
-            : 'Добавьте напоминание, чтобы получить уведомление до наступления срока.'}
+          Добавьте напоминание, чтобы получить уведомление до наступления срока.
         </EmptyState>
       ) : (
         <ul className="space-y-2">
@@ -215,21 +203,6 @@ export function RemindersPanel({ cardId, hasDeadline }: RemindersPanelProps) {
                   ))}
                 </Select>
 
-                {availableChannels.length > 1 ? (
-                  <Select
-                    value={reminder.channel ?? ''}
-                    onChange={(event) =>
-                      updateReminder(index, { channel: event.target.value as ReminderChannel })
-                    }
-                    aria-label="Канал доставки"
-                    className="w-32"
-                  >
-                    {availableChannels.map((name) => (
-                      <option key={name} value={name}>{CHANNEL_LABELS[name]}</option>
-                    ))}
-                  </Select>
-                ) : null}
-
                 <Badge variant={badge.variant}>{badge.text}</Badge>
 
                 {reminder.last_error ? (
@@ -251,14 +224,6 @@ export function RemindersPanel({ cardId, hasDeadline }: RemindersPanelProps) {
           })}
         </ul>
       )}
-
-      {blockedReasons.length > 0 ? (
-        <ul className="space-y-1 text-body-sm text-text-muted">
-          {blockedReasons.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
-      ) : null}
     </SurfaceCard>
   )
 }

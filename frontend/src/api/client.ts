@@ -11,6 +11,9 @@ import type {
   NotificationPreference,
   CardDeadlineReminderResponse,
   CardDeadlineReminder,
+  PushDevice,
+  PushTestResponse,
+  VapidKeyResponse,
   SiteSettings,
   MyTodayResponse,
   ArchiveResponse,
@@ -442,6 +445,42 @@ export const api = {
     return json(res)
   },
 
+  // Push devices (Web Push)
+  listPushDevices: async (): Promise<PushDevice[]> => {
+    const res = await fetch(`${V1}/push-devices/`, { headers: authHeaders() })
+    return json(res)
+  },
+  registerPushDevice: async (payload: {
+    endpoint: string
+    keys: { p256dh: string; auth: string }
+    label?: string
+  }): Promise<PushDevice> => {
+    const res = await fetch(`${V1}/push-devices/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+    return json(res)
+  },
+  deletePushDevice: async (id: number): Promise<void> => {
+    const res = await fetch(`${V1}/push-devices/${id}/`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    })
+    return ok(res)
+  },
+  testPushDevice: async (): Promise<PushTestResponse> => {
+    const res = await fetch(`${V1}/push-devices/test/`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    return json(res)
+  },
+  getVapidKey: async (): Promise<VapidKeyResponse> => {
+    const res = await fetch(`${V1}/notifications/vapid-key/`, { headers: authHeaders() })
+    return json(res)
+  },
+
   // Card deadline reminders (per-user)
   getCardDeadlineReminder: async (cardId: number): Promise<CardDeadlineReminderResponse> => {
     const res = await fetch(`${V1}/cards/${cardId}/deadline-reminder/`, { headers: authHeaders() })
@@ -449,7 +488,7 @@ export const api = {
   },
   saveCardDeadlineReminder: async (
     cardId: number,
-    payload: { reminders: Array<Pick<CardDeadlineReminder, 'enabled' | 'offset_value' | 'offset_unit' | 'channel'>> }
+    payload: { reminders: Array<Pick<CardDeadlineReminder, 'enabled' | 'offset_value' | 'offset_unit'>> }
   ): Promise<CardDeadlineReminder[]> => {
     const res = await fetch(`${V1}/cards/${cardId}/deadline-reminder/`, {
       method: 'PUT',
