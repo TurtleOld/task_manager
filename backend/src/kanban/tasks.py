@@ -923,52 +923,44 @@ def send_overdue_card_reminders(self) -> None:
         if not event or not event.pk:
             continue
 
+        # Delivery goes through the device fan-out rather than a single token
+        # per profile: a person may have a phone, a browser and the legacy
+        # Android app, and reaching any one of them counts as delivered.
+        from .push_delivery import send_push_to_user
+
         for profile in profiles:
             NotificationInboxEntry.objects.get_or_create(event=event, user=profile.user)
-
-            fcm_token = (profile.fcm_token or "").strip()
-            if not fcm_token:
-                continue
 
             delivery = NotificationDelivery.objects.create(
                 event=event,
                 user=profile.user,
                 channel=NotificationChannel.PUSH,
             )
-            try:
-                push_payload = _build_fcm_data_payload(
-                    notification_id=event.id,
-                    event_type=event.event_type,
-                    title=title,
-                    body=body_text,
-                    link=link,
-                    board_id=card.board_id,
-                    card_id=card.id,
-                )
-                _send_push(fcm_token, title, body_text, event_id=event.id, data=push_payload)
+            result = send_push_to_user(
+                user_id=profile.user_id,
+                title=title,
+                body=body_text,
+                link=link,
+                tag=f"card-{card.id}",
+                data={
+                    "eventType": event.event_type,
+                    "cardId": str(card.id),
+                    "boardId": str(card.board_id or ""),
+                },
+            )
+            if result.delivered:
                 delivery.status = NotificationDelivery.Status.SENT
                 delivery.sent_at = timezone.now()
                 delivery.save(update_fields=["status", "sent_at"])
-            except InvalidFcmTokenError as exc:
-                _clear_fcm_token(profile, fcm_token)
+            else:
                 delivery.status = NotificationDelivery.Status.FAILED
-                delivery.error = str(exc)
+                delivery.error = result.summary()[:500]
                 delivery.save(update_fields=["status", "error"])
                 logger.warning(
-                    "overdue_push_invalid_fcm_token card=%s user=%s error=%s",
+                    "overdue_push_failed card=%s user=%s reason=%s",
                     card.id,
                     profile.user_id,
-                    exc,
-                )
-            except Exception as exc:  # noqa: BLE001
-                delivery.status = NotificationDelivery.Status.FAILED
-                delivery.error = str(exc)
-                delivery.save(update_fields=["status", "error"])
-                logger.warning(
-                    "overdue_push_failed card=%s user=%s error=%s",
-                    card.id,
-                    profile.user_id,
-                    exc,
+                    result.summary(),
                 )
 
 
