@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.3.0](https://github.com/TurtleOld/task_manager/compare/v1.2.13...v1.3.0) (2026-08-18)
+
+
+### Features
+
+* быстрое добавление задач в шапке агенды ([#09](https://github.com/TurtleOld/task_manager/issues/09)) ([#69](https://github.com/TurtleOld/task_manager/issues/69)) ([30d6c68](https://github.com/TurtleOld/task_manager/commit/30d6c68427335c40683c197777c954a74fbd013d))
+* выполненность как свойство задачи ([#60](https://github.com/TurtleOld/task_manager/issues/60)) ([ca80b8e](https://github.com/TurtleOld/task_manager/commit/ca80b8e92e628f2e75561dfa3e31cf8b379913d7))
+* данные агенды — эндпоинт GET /agenda/ ([#63](https://github.com/TurtleOld/task_manager/issues/63)) ([a2e1155](https://github.com/TurtleOld/task_manager/commit/a2e1155da44ca438fa4beb8362457cb1411c015b))
+* маршруты списков и постоянные редиректы ([#65](https://github.com/TurtleOld/task_manager/issues/65)) ([b79eb3f](https://github.com/TurtleOld/task_manager/commit/b79eb3f0987c5fc4f62ee6807dd1214b2b320701))
+* мобильная агенда ([#10](https://github.com/TurtleOld/task_manager/issues/10)) ([#70](https://github.com/TurtleOld/task_manager/issues/70)) ([e774cb4](https://github.com/TurtleOld/task_manager/commit/e774cb42a2d4180b01ce72876ab4c30e48895a18))
+* отметить задачу выполненной и снять отметку ([#62](https://github.com/TurtleOld/task_manager/issues/62)) ([abd8c6c](https://github.com/TurtleOld/task_manager/commit/abd8c6c37ec18758e8695fbd7ed72366f74a11ed))
+* панель «Сегодня у семьи» ([#08](https://github.com/TurtleOld/task_manager/issues/08)) ([#68](https://github.com/TurtleOld/task_manager/issues/68)) ([98e438e](https://github.com/TurtleOld/task_manager/commit/98e438eba0a304ff3e4a17ccbb20aa9243d77637))
+* перекрасить приложение в палитру «Индиго-слива» ([#59](https://github.com/TurtleOld/task_manager/issues/59)) ([0b75384](https://github.com/TurtleOld/task_manager/commit/0b7538454124f9cdf46734ae9223afb02e0ba356))
+* серверные потребители перестают судить о выполненности по колонке ([#11](https://github.com/TurtleOld/task_manager/issues/11)) ([#71](https://github.com/TurtleOld/task_manager/issues/71)) ([991492a](https://github.com/TurtleOld/task_manager/commit/991492ace5a3c49084250f2dae88d75338f1c410))
+* экран агенды — группы задач по срокам ([#64](https://github.com/TurtleOld/task_manager/issues/64)) ([ab81543](https://github.com/TurtleOld/task_manager/commit/ab815438e80eca3ee204352ea56bf2577d5ea4c4))
+* экран задачи ([#07](https://github.com/TurtleOld/task_manager/issues/07)) ([#66](https://github.com/TurtleOld/task_manager/issues/66)) ([6d75aec](https://github.com/TurtleOld/task_manager/commit/6d75aece8b8e3e45033e89ee14cf7617747ae11d))
+
+
+### Bug Fixes
+
+* валидировать путь редиректа после входа ([#58](https://github.com/TurtleOld/task_manager/issues/58)) ([53670be](https://github.com/TurtleOld/task_manager/commit/53670be03e2d66a23eff6c22ff312b81b3a0ddae))
+* маршрутизировать доставку уведомлений в очередь notifications ([#55](https://github.com/TurtleOld/task_manager/issues/55)) ([8e3d6d9](https://github.com/TurtleOld/task_manager/commit/8e3d6d973a5ac6d9fec5c58ded28a6c6b5183ed2))
+* убрать наложение строки быстрого добавления и дублирующие чипы списков ([#75](https://github.com/TurtleOld/task_manager/issues/75)) ([316490c](https://github.com/TurtleOld/task_manager/commit/316490c5b48ff07938840459f7dababac73c0692))
+
 ## [1.2.13](https://github.com/TurtleOld/task_manager/compare/v1.2.12...v1.2.13) (2026-08-09)
 
 
