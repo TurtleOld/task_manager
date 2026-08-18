@@ -116,8 +116,15 @@ OPENAPI_URL=http://localhost:8000/api/schema npm run generate:openapi
 
 ### Каналы
 
+- **Web Push (VAPID)** — основной канал. Уведомление попадает в системную шторку
+  телефона и оттуда зеркалится на часы (Wear OS, Apple Watch), даже когда
+  вкладка закрыта. На iOS требуется 16.4+ и установка на домашний экран.
+- Push через FCM — legacy-канал для Android-приложения.
 - Email (SMTP)
 - Telegram (бот через HTTP API)
+
+Устройства хранятся в `PushDevice`: у одного человека их может быть сколько
+угодно (телефон, планшет, браузер), и регистрация нового не отключает старые.
 
 ### Настройки
 
@@ -128,25 +135,53 @@ OPENAPI_URL=http://localhost:8000/api/schema npm run generate:openapi
 
 - board.created, board.updated, board.deleted
 - column.created, column.updated, column.deleted
-- card.created, card.updated, card.deleted, card.moved
+- card.created, card.updated, card.deleted, card.completed
+- card.deadline_reminder, comment.created
 
 ### Переменные окружения
 
 - FRONTEND_BASE_URL — базовый URL фронтенда для ссылок в уведомлениях
 - EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_USE_TLS, EMAIL_USE_SSL, DEFAULT_FROM_EMAIL
 - TELEGRAM_BOT_TOKEN — токен бота
-- CELERY_BROKER_URL, CELERY_RESULT_BACKEND — брокер/результаты (Redis)
+- FCM_SERVICE_ACCOUNT_FILE, FCM_PROJECT_ID — legacy-канал Android-приложения
 
-### Запуск Celery
+Web Push:
 
-В docker-compose добавлен сервис `celery` и `redis`.
+- VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY — пара ключей, генерируется **один раз**
+  командой `npx web-push generate-vapid-keys`. Смена пары инвалидирует все
+  существующие подписки, поэтому это долгоживущее состояние, а не ротируемый
+  секрет. Публичный ключ не секретен и отдаётся браузеру эндпоинтом
+  `GET /api/v1/notifications/vapid-key/`.
+- VAPID_CLAIM_EMAIL — контакт отправителя в формате `mailto:...`. Обязателен:
+  push-сервисы Google и Mozilla отвечают 400 на запрос без него.
 
-Для локального запуска:
+Диспетчер:
+
+- DISPATCHER_POLL_SECONDS (по умолчанию 20) — как часто опрашивается очередь
+- DISPATCHER_MAX_ATTEMPTS (5) — сколько раз повторять неудачную отправку
+- DISPATCHER_STUCK_MINUTES (10) — через сколько строка в PROCESSING считается
+  осиротевшей после падения диспетчера
+
+### Запуск диспетчера
+
+Очередь — это PostgreSQL, брокер не нужен. Всю доставку выполняет один процесс:
 
 ```bash
 cd backend
-set PYTHONPATH=src && uv run --active celery -A config worker -l info
+PYTHONPATH=src uv run python manage.py run_dispatcher
 ```
+
+Полезные флаги: `--once` (один проход и выход), `--no-maintenance`,
+`--interval N`. В docker-compose это сервис `dispatcher`.
+
+Живость проверяется через `GET /api/health/detail`: он отдаёт время последнего
+прохода диспетчера и помечает статус `degraded`, если тиков давно не было.
+Именно этой проверки не хватало, когда уведомления молчали несколько дней.
+
+### Legacy: Celery
+
+Celery остаётся в кодовой базе для повторяющихся задач и чистки активности,
+но из пути доставки уведомлений он выведен.
 
 ## План тестирования уведомлений
 

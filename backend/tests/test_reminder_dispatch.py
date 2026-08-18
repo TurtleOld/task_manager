@@ -8,7 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from kanban import tasks as tasks_module
-from kanban.models import Card, CardDeadlineReminder, NotificationProfile
+from kanban.models import Card, CardDeadlineReminder, NotificationProfile, PushDevice
 from kanban.reminders import upsert_and_schedule_reminder
 from kanban.tasks import dispatch_due_reminders
 
@@ -65,7 +65,8 @@ def test_scheduling_does_not_use_broker_eta(
     monkeypatch.setattr(tasks_module, "send_card_deadline_reminder", _Stub())
 
     now = timezone.now()
-    NotificationProfile.objects.update_or_create(user=regular_user, defaults={"fcm_token": "token"})
+    NotificationProfile.objects.update_or_create(user=regular_user, defaults={})
+    PushDevice.objects.create(user=regular_user, kind=PushDevice.Kind.FCM, token="token")
     card = Card.objects.create(
         column=column,
         title="Far future",

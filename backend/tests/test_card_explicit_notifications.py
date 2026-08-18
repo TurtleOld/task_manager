@@ -6,19 +6,6 @@ from rest_framework.test import APIClient
 from kanban.models import NotificationEvent
 
 
-@pytest.fixture(autouse=True)
-def _disable_celery_delay(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Avoid broker/network in tests: make Celery `.delay()` a no-op."""
-
-    class _DummyTask:
-        def delay(self, *_args: object, **_kwargs: object) -> None:  # noqa: D401
-            return None
-
-    import kanban.notifications as notifications
-
-    monkeypatch.setattr(notifications, "send_notification_event", _DummyTask())
-
-
 @pytest.mark.django_db()
 def test_update_does_not_auto_notify_and_notify_is_idempotent() -> None:
     client = APIClient()

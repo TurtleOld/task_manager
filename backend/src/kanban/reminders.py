@@ -13,6 +13,7 @@ from .models import (
     NotificationChannel,
     NotificationPreference,
     NotificationProfile,
+    PushDevice,
 )
 
 
@@ -90,8 +91,11 @@ def reminder_channel_availability(
             event_type=event_type,
         ):
             return ChannelAvailability(False, "Push отключён в настройках уведомлений")
-        if not profile.fcm_token:
-            return ChannelAvailability(False, "FCM token не зарегистрирован")
+        # Any one active device is enough. Availability deliberately does not
+        # care which kind it is: a browser subscription and the legacy Android
+        # token are both "the user can be reached".
+        if not PushDevice.objects.filter(user_id=user_id, active=True).exists():
+            return ChannelAvailability(False, "Нет подключённых устройств для push")
         return ChannelAvailability(True, "")
 
     return {
@@ -237,6 +241,10 @@ def upsert_and_schedule_reminder(
     reminder.schedule_token = token
     reminder.last_error = ""
     reminder.sent_at = None
+    # A reschedule is a fresh start: failed attempts against the previous
+    # schedule must not count toward the new one's retry budget.
+    reminder.attempts = 0
+    reminder.next_attempt_at = None
     reminder.save(
         update_fields=[
             "enabled",
@@ -245,6 +253,8 @@ def upsert_and_schedule_reminder(
             "schedule_token",
             "last_error",
             "sent_at",
+            "attempts",
+            "next_attempt_at",
             "updated_at",
             "version",
         ]

@@ -11,6 +11,7 @@ from ..models import (
     NotificationInboxEntry,
     NotificationPreference,
     NotificationProfile,
+    PushDevice,
 )
 
 
@@ -188,4 +189,48 @@ class CardDeadlineReminderSerializer(serializers.ModelSerializer[CardDeadlineRem
         if effective_unit == CardDeadlineReminder.Unit.MINUTES and effective_value is not None:
             if int(effective_value) > 24 * 60:
                 raise serializers.ValidationError({"offset_value": "Слишком большое значение"})
+        return attrs
+
+
+class PushDeviceSerializer(serializers.ModelSerializer[PushDevice]):
+    """Read view of a registered device.
+
+    The subscription secrets (`p256dh`, `auth`, `token`) are deliberately never
+    returned: the client already holds them, and echoing them back only widens
+    the blast radius of a leaked response.
+    """
+
+    class Meta:
+        model = PushDevice
+        fields = [
+            "id",
+            "kind",
+            "label",
+            "active",
+            "created_at",
+            "last_success_at",
+            "last_failure_at",
+            "last_error",
+        ]
+        read_only_fields = fields
+
+
+class PushSubscriptionSerializer(serializers.Serializer[dict[str, Any]]):
+    """Incoming Web Push subscription, shaped as the browser produces it.
+
+    `PushSubscription.toJSON()` yields {endpoint, keys: {p256dh, auth}}, so the
+    client can post it through with no reshaping.
+    """
+
+    endpoint = serializers.URLField(max_length=1000)
+    keys = serializers.DictField(child=serializers.CharField(max_length=200))
+    label = serializers.CharField(max_length=120, required=False, allow_blank=True)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        keys = attrs.get("keys") or {}
+        missing = [name for name in ("p256dh", "auth") if not keys.get(name)]
+        if missing:
+            raise serializers.ValidationError(
+                {"keys": f"Отсутствуют обязательные ключи: {', '.join(missing)}"}
+            )
         return attrs

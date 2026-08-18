@@ -299,6 +299,7 @@ export interface CardDeadlineReminder {
   status:
     | 'disabled'
     | 'scheduled'
+    | 'dispatched'
     | 'sent'
     | 'skipped'
     | 'failed'

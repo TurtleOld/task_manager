@@ -79,6 +79,61 @@ services:
       - ./media:/app/media
       - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
 
+  # Replaces the celery worker/beat trio for notifications: the database is the
+  # queue, so this one process is the entire delivery path. `restart: always`
+  # plus a healthcheck on the heartbeat means a wedged loop actually gets
+  # restarted — a stopped dispatcher is what made notifications go silent.
+  dispatcher:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/celery:${IMAGE_TAG:-main}
+    command: ["sh", "-lc", "/app/.venv/bin/python /app/manage.py run_dispatcher"]
+    environment:
+      PYTHONPATH: /app/src
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-task_manager}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_CLAIM_EMAIL: ${VAPID_CLAIM_EMAIL:-}
+      DISPATCHER_POLL_SECONDS: ${DISPATCHER_POLL_SECONDS:-20}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-/run/secrets/firebase-service-account.json}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      EMAIL_HOST: ${EMAIL_HOST:-}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
+      EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-notifications@task-manager.local}
+      TZ: Europe/Moscow
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    restart: always
+    healthcheck:
+      # Asks the app itself whether the dispatcher is still ticking, so a
+      # process that is up but wedged is reported unhealthy and restarted.
+      test:
+        - "CMD-SHELL"
+        - "/app/.venv/bin/python /app/manage.py shell -c \"import sys;from django.utils import timezone;from kanban.models import DispatcherHeartbeat;h=DispatcherHeartbeat.objects.filter(name='dispatcher').first();sys.exit(0 if h and h.last_tick_at and (timezone.now()-h.last_tick_at).total_seconds()<180 else 1)\""
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/manage.py:/app/manage.py
+      - ./media:/app/media
+      - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
+
   celery:
     build:
       context: .

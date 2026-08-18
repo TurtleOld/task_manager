@@ -16,12 +16,16 @@ from .notifications import (
     NotificationInboxView,
     NotificationPreferenceViewSet,
     NotificationProfileView,
+    PushDeviceViewSet,
+    VapidPublicKeyView,
 )
 from .search import SearchView
 from .site_settings import SiteSettingsView
 from .users import IsAdminUser, UserAdminViewSet
 
 __all__ = [
+    "PushDeviceViewSet",
+    "VapidPublicKeyView",
     "AgendaView",
     "FamilyTodayView",
     "BoardViewSet",

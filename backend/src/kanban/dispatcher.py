@@ -1,0 +1,516 @@
+"""The notification dispatcher: PostgreSQL is the queue.
+
+Why not Celery. The schedule already lived in the database — a reminder fires
+because `CardDeadlineReminder.scheduled_at` says so, not because a broker holds
+a delayed message. Celery contributed only "run this now", and paid for it with
+a Redis instance in the critical path plus three long-running containers. Worse,
+the hand-off itself could lose work: `transaction.on_commit(task.delay(...))`
+runs *after* the commit, so a broker hiccup at that instant dropped the event
+with the database already claiming it happened.
+
+What replaces it is a single loop that re-reads state every tick. Rows are
+claimed with `SELECT ... FOR UPDATE SKIP LOCKED`, so running two dispatchers is
+safe; a crash mid-send leaves a row in PROCESSING which the next pass recovers;
+and downtime is caught up automatically because nothing lives in memory.
+
+Ordering note: reminders are handled before outbox events. A deadline that has
+already passed is the one notification a person actually planned their day
+around.
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import timedelta
+from typing import Any
+
+from django.conf import settings
+from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
+from django.utils.text import Truncator
+
+from .models import (
+    Card,
+    CardDeadlineReminder,
+    CardDeadlineReminderDelivery,
+    DispatcherHeartbeat,
+    NotificationChannel,
+    NotificationDelivery,
+    NotificationEvent,
+    NotificationEventType,
+    NotificationInboxEntry,
+    NotificationProfile,
+)
+from .push_delivery import send_push_to_user
+from .reminders import reminder_channel_availability, resolve_delivery_channel
+
+logger = logging.getLogger(__name__)
+
+# A reminder whose moment passed longer ago than this is dropped rather than
+# delivered. Waking someone at 03:00 about a deadline from Tuesday is worse
+# than staying quiet.
+REMINDER_STALE_MINUTES = 120
+
+
+def _backoff(attempts: int) -> timedelta:
+    """Exponential backoff, capped. 1m, 2m, 4m, 8m, 16m, then 30m."""
+
+    return timedelta(seconds=min(60 * (2**attempts), 1800))
+
+
+# --------------------------------------------------------------------------
+# Deadline reminders
+# --------------------------------------------------------------------------
+
+
+def _reminder_message(reminder: CardDeadlineReminder, card: Card) -> tuple[str, str, str]:
+    from .tasks import _build_card_link, _format_deadline_ru, _format_offset_ru
+
+    profile, _ = NotificationProfile.objects.get_or_create(user_id=reminder.user_id)
+    offset_text = _format_offset_ru(value=reminder.offset_value, unit=reminder.offset_unit)
+    deadline_text = _format_deadline_ru(dt=card.deadline, tz_name=profile.timezone)
+    link = _build_card_link(card=card)
+
+    subject = f"Напоминание: {card.title}"
+    body = "\n".join(
+        [
+            f"Напоминание по задаче: {card.title}",
+            f"Дедлайн: {deadline_text}",
+            f"Интервал: {offset_text}",
+            "",
+            f"Открыть задачу: {link}",
+        ]
+    )
+    return subject, body, link
+
+
+def _deliver_reminder_on_channel(
+    *,
+    reminder: CardDeadlineReminder,
+    card: Card,
+    channel: str,
+    subject: str,
+    body: str,
+    link: str,
+) -> None:
+    """Send one reminder. Raises on failure so the caller can schedule a retry."""
+
+    from .tasks import _send_email, _send_telegram
+
+    profile, _ = NotificationProfile.objects.get_or_create(user_id=reminder.user_id)
+
+    if channel == NotificationChannel.EMAIL:
+        if not profile.email:
+            raise RuntimeError("Email не указан в профиле уведомлений")
+        _send_email(profile.email, subject, body)
+        return
+
+    if channel == NotificationChannel.TELEGRAM:
+        if not profile.telegram_chat_id:
+            raise RuntimeError("Telegram chat_id не указан в профиле уведомлений")
+        _send_telegram(profile.telegram_chat_id, body)
+        return
+
+    if channel == NotificationChannel.PUSH:
+        result = send_push_to_user(
+            user_id=reminder.user_id,
+            title=subject,
+            body=body,
+            link=link,
+            # Re-sending about the same task replaces the previous card in the
+            # notification shade instead of stacking duplicates.
+            tag=f"card-{card.id}",
+            data={
+                "eventType": NotificationEventType.CARD_DEADLINE_REMINDER.value,
+                "cardId": str(card.id),
+                "boardId": str(card.board_id or ""),
+            },
+        )
+        if not result.delivered:
+            raise RuntimeError(f"Push не доставлен — {result.summary()}")
+        return
+
+    raise RuntimeError(f"Неизвестный канал доставки: {channel}")
+
+
+def _finalize_reminder(
+    reminder: CardDeadlineReminder,
+    *,
+    # `CardDeadlineReminder.Status` members are `str` at runtime, but mypy
+    # models Django's TextChoices members as tuples, so the annotation stays
+    # loose rather than forcing `.value` at every call site.
+    status: Any,
+    error: str = "",
+) -> None:
+    reminder.status = status
+    reminder.last_error = error
+    reminder.scheduled_at = None if status.startswith("invalid") else reminder.scheduled_at
+    reminder.next_attempt_at = None
+    reminder.save(
+        update_fields=[
+            "status",
+            "last_error",
+            "scheduled_at",
+            "next_attempt_at",
+            "updated_at",
+            "version",
+        ]
+    )
+
+
+def process_due_reminders(*, now=None, limit: int | None = None) -> int:
+    """Deliver every reminder whose moment has arrived. Returns how many were sent."""
+
+    now = now or timezone.now()
+    limit = limit or settings.DISPATCHER_BATCH_SIZE
+    stale_before = now - timedelta(minutes=REMINDER_STALE_MINUTES)
+    sent = 0
+
+    due_ids = list(
+        CardDeadlineReminder.objects.filter(
+            enabled=True,
+            status=CardDeadlineReminder.Status.SCHEDULED,
+            scheduled_at__isnull=False,
+            scheduled_at__lte=now,
+        )
+        # Never attempted, or the retry backoff has elapsed.
+        .filter(Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now))
+        .order_by("scheduled_at", "id")
+        .values_list("id", flat=True)[:limit]
+    )
+
+    for reminder_id in due_ids:
+        with transaction.atomic():
+            reminder = (
+                CardDeadlineReminder.objects.select_for_update(skip_locked=True)
+                .filter(id=reminder_id, status=CardDeadlineReminder.Status.SCHEDULED)
+                .select_related("card")
+                .first()
+            )
+            if not reminder or not reminder.scheduled_at:
+                continue
+
+            if reminder.scheduled_at < stale_before:
+                _finalize_reminder(
+                    reminder,
+                    status=CardDeadlineReminder.Status.SKIPPED,
+                    error="Пропущено: время напоминания давно прошло",
+                )
+                logger.warning(
+                    "reminder_skipped_stale reminder=%s scheduled_at=%s",
+                    reminder.id,
+                    reminder.scheduled_at,
+                )
+                continue
+
+            card = Card.objects.filter(id=reminder.card_id).first()
+            if not card or not card.deadline:
+                _finalize_reminder(reminder, status=CardDeadlineReminder.Status.INVALID_NO_DEADLINE)
+                continue
+
+            availability = reminder_channel_availability(
+                user_id=reminder.user_id,
+                board_id=card.board_id,
+                event_type=NotificationEventType.CARD_DEADLINE_REMINDER.value,
+            )
+            channel = resolve_delivery_channel(reminder=reminder, availability=availability)
+            if not channel:
+                _finalize_reminder(reminder, status=CardDeadlineReminder.Status.INVALID_CHANNEL)
+                continue
+
+            # One delivery row per (reminder, schedule_token): a retry after a
+            # partial failure must not notify the person a second time.
+            dedupe_key = f"card.deadline_reminder:{reminder.id}:{reminder.schedule_token}"
+            delivery, _created = CardDeadlineReminderDelivery.objects.get_or_create(
+                dedupe_key=dedupe_key,
+                defaults={
+                    "reminder_id": reminder.id,
+                    "card_id": card.id,
+                    "user_id": reminder.user_id,
+                    "channel": channel,
+                    "status": CardDeadlineReminderDelivery.Status.QUEUED,
+                },
+            )
+            if delivery.status == CardDeadlineReminderDelivery.Status.SENT:
+                _finalize_reminder(reminder, status=CardDeadlineReminder.Status.SENT)
+                continue
+
+            subject, body, link = _reminder_message(reminder, card)
+
+            try:
+                _deliver_reminder_on_channel(
+                    reminder=reminder,
+                    card=card,
+                    channel=channel,
+                    subject=subject,
+                    body=body,
+                    link=link,
+                )
+            except Exception as exc:  # noqa: BLE001 - every failure is recorded, none escape
+                reminder.attempts += 1
+                delivery.status = CardDeadlineReminderDelivery.Status.FAILED
+                delivery.error = str(exc)[:500]
+                delivery.save(update_fields=["status", "error"])
+
+                if reminder.attempts >= settings.DISPATCHER_MAX_ATTEMPTS:
+                    reminder.status = CardDeadlineReminder.Status.FAILED
+                    reminder.next_attempt_at = None
+                    logger.error(
+                        "reminder_failed_permanently reminder=%s attempts=%s error=%s",
+                        reminder.id,
+                        reminder.attempts,
+                        exc,
+                    )
+                else:
+                    # Stay SCHEDULED so the next pass retries it.
+                    reminder.next_attempt_at = now + _backoff(reminder.attempts)
+                reminder.last_error = str(exc)[:500]
+                reminder.save(
+                    update_fields=[
+                        "status",
+                        "attempts",
+                        "next_attempt_at",
+                        "last_error",
+                        "updated_at",
+                        "version",
+                    ]
+                )
+                continue
+
+            delivery.status = CardDeadlineReminderDelivery.Status.SENT
+            delivery.sent_at = timezone.now()
+            delivery.save(update_fields=["status", "sent_at"])
+
+            reminder.status = CardDeadlineReminder.Status.SENT
+            reminder.sent_at = delivery.sent_at
+            reminder.last_error = ""
+            reminder.next_attempt_at = None
+            reminder.save(
+                update_fields=[
+                    "status",
+                    "sent_at",
+                    "last_error",
+                    "next_attempt_at",
+                    "updated_at",
+                    "version",
+                ]
+            )
+            sent += 1
+
+    return sent
+
+
+# --------------------------------------------------------------------------
+# Notification events (transactional outbox)
+# --------------------------------------------------------------------------
+
+
+def _event_recipients(event: NotificationEvent) -> list[int]:
+    from .tasks import _event_recipient_ids
+
+    return _event_recipient_ids(event)
+
+
+def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
+    from .tasks import _enabled_channels, _event_body, _event_title, _send_email, _send_telegram
+
+    subject = str(Truncator(_event_title(event)).chars(120))
+    body = _event_body(event)
+
+    profile, _ = NotificationProfile.objects.get_or_create(user_id=user_id)
+    enabled = _enabled_channels(user_id=user_id, event=event)
+
+    def record(channel: str, send) -> None:
+        delivery = NotificationDelivery.objects.create(
+            event=event, user_id=user_id, channel=channel
+        )
+        try:
+            send()
+        except Exception as exc:  # noqa: BLE001 - one channel must not stop the others
+            delivery.status = NotificationDelivery.Status.FAILED
+            delivery.error = str(exc)[:500]
+            delivery.save(update_fields=["status", "error"])
+        else:
+            delivery.status = NotificationDelivery.Status.SENT
+            delivery.sent_at = timezone.now()
+            delivery.save(update_fields=["status", "sent_at"])
+
+    if NotificationChannel.EMAIL.value in enabled and profile.email:
+        record(
+            NotificationChannel.EMAIL.value,
+            lambda: _send_email(profile.email, subject, body),
+        )
+
+    if NotificationChannel.TELEGRAM.value in enabled and profile.telegram_chat_id:
+        record(
+            NotificationChannel.TELEGRAM.value,
+            lambda: _send_telegram(profile.telegram_chat_id, body),
+        )
+
+    if NotificationChannel.PUSH.value in enabled:
+
+        def send_push() -> None:
+            result = send_push_to_user(
+                user_id=user_id,
+                title=subject,
+                body=body,
+                link=event.link,
+                tag=f"card-{event.card_id}" if event.card_id else f"event-{event.id}",
+                data={
+                    "eventType": event.event_type,
+                    "cardId": str(event.card_id or ""),
+                    "boardId": str(event.board_id or ""),
+                },
+            )
+            if result.no_devices:
+                # Not an error: this person simply has no push devices.
+                return
+            if not result.delivered:
+                raise RuntimeError(result.summary())
+
+        record(NotificationChannel.PUSH.value, send_push)
+
+
+def process_outbox_events(*, now=None, limit: int | None = None) -> int:
+    """Deliver pending notification events. Returns how many were processed."""
+
+    now = now or timezone.now()
+    limit = limit or settings.DISPATCHER_BATCH_SIZE
+    processed = 0
+
+    pending_ids = list(
+        NotificationEvent.objects.filter(
+            dispatch_status=NotificationEvent.Dispatch.PENDING,
+            next_attempt_at__lte=now,
+        )
+        .order_by("next_attempt_at", "id")
+        .values_list("id", flat=True)[:limit]
+    )
+
+    for event_id in pending_ids:
+        with transaction.atomic():
+            event = (
+                NotificationEvent.objects.select_for_update(skip_locked=True)
+                .filter(id=event_id, dispatch_status=NotificationEvent.Dispatch.PENDING)
+                .select_related("actor", "board", "column", "card")
+                .first()
+            )
+            if not event:
+                continue
+
+            event.dispatch_status = NotificationEvent.Dispatch.PROCESSING
+            event.dispatch_started_at = now
+            event.save(update_fields=["dispatch_status", "dispatch_started_at"])
+
+        # Outside the lock: sending talks to the network and must not hold a
+        # row lock for the duration.
+        try:
+            recipient_ids = _event_recipients(event)
+
+            # The in-app inbox is written first and unconditionally: it touches
+            # nothing external, so it must not depend on push succeeding.
+            NotificationInboxEntry.objects.bulk_create(
+                [NotificationInboxEntry(event=event, user_id=uid) for uid in recipient_ids],
+                ignore_conflicts=True,
+            )
+
+            for user_id in recipient_ids:
+                _deliver_event_to_user(event, user_id)
+        except Exception as exc:  # noqa: BLE001
+            event.dispatch_attempts += 1
+            event.dispatch_error = str(exc)[:500]
+            if event.dispatch_attempts >= settings.DISPATCHER_MAX_ATTEMPTS:
+                event.dispatch_status = NotificationEvent.Dispatch.FAILED
+                logger.error("event_dispatch_failed_permanently event=%s error=%s", event.id, exc)
+            else:
+                event.dispatch_status = NotificationEvent.Dispatch.PENDING
+                event.next_attempt_at = now + _backoff(event.dispatch_attempts)
+            event.save(
+                update_fields=[
+                    "dispatch_status",
+                    "dispatch_attempts",
+                    "dispatch_error",
+                    "next_attempt_at",
+                ]
+            )
+            continue
+
+        event.dispatch_status = NotificationEvent.Dispatch.DONE
+        event.dispatch_error = ""
+        event.save(update_fields=["dispatch_status", "dispatch_error"])
+        processed += 1
+
+    return processed
+
+
+# --------------------------------------------------------------------------
+# Recovery and heartbeat
+# --------------------------------------------------------------------------
+
+
+def recover_stuck(*, now=None) -> int:
+    """Return rows orphaned by a crashed dispatcher to PENDING."""
+
+    now = now or timezone.now()
+    cutoff = now - timedelta(minutes=settings.DISPATCHER_STUCK_MINUTES)
+
+    recovered = NotificationEvent.objects.filter(
+        dispatch_status=NotificationEvent.Dispatch.PROCESSING,
+        dispatch_started_at__lt=cutoff,
+    ).update(dispatch_status=NotificationEvent.Dispatch.PENDING, next_attempt_at=now)
+
+    # Legacy status from the Celery era: rows handed to a worker that died.
+    recovered += CardDeadlineReminder.objects.filter(
+        status=CardDeadlineReminder.Status.DISPATCHED,
+        updated_at__lt=cutoff,
+    ).update(status=CardDeadlineReminder.Status.SCHEDULED)
+
+    if recovered:
+        logger.warning("dispatcher_recovered_stuck count=%s", recovered)
+    return recovered
+
+
+def beat(*, error: str = "") -> None:
+    """Record that a pass completed, so the health endpoint can see liveness."""
+
+    heartbeat, _ = DispatcherHeartbeat.objects.get_or_create(name="dispatcher")
+    heartbeat.last_tick_at = timezone.now()
+    heartbeat.last_error = error[:500]
+    heartbeat.ticks += 1
+    heartbeat.save(update_fields=["last_tick_at", "last_error", "ticks"])
+
+
+def tick() -> dict[str, int]:
+    """One full pass. Never raises: a bad tick must not kill the loop."""
+
+    now = timezone.now()
+    stats = {"recovered": 0, "reminders": 0, "events": 0}
+    error = ""
+
+    try:
+        stats["recovered"] = recover_stuck(now=now)
+        stats["reminders"] = process_due_reminders(now=now)
+        stats["events"] = process_outbox_events(now=now)
+    except Exception as exc:  # noqa: BLE001 - the loop must survive anything
+        error = str(exc)
+        logger.exception("dispatcher_tick_failed")
+
+    beat(error=error)
+    return stats
+
+
+def maintenance_tick() -> None:
+    """Recurring cards and activity pruning. Not time-critical."""
+
+    from .tasks import generate_recurring_cards, prune_card_activity
+
+    try:
+        generate_recurring_cards.apply(throw=True)
+    except Exception:  # noqa: BLE001
+        logger.exception("dispatcher_recurring_cards_failed")
+
+    try:
+        prune_card_activity.apply(throw=True)
+    except Exception:  # noqa: BLE001
+        logger.exception("dispatcher_prune_activity_failed")

@@ -234,6 +234,32 @@ TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 FCM_SERVICE_ACCOUNT_FILE = os.getenv("FCM_SERVICE_ACCOUNT_FILE", "")
 FCM_PROJECT_ID = os.getenv("FCM_PROJECT_ID", "")
 
+# --- Web Push (VAPID) ---
+#
+# Generate once with `npx web-push generate-vapid-keys`. The pair is permanent:
+# rotating it invalidates every existing browser subscription, so treat the
+# private key as long-lived state, not as a rotatable secret.
+# The public key is not secret and is served to the browser via
+# GET /api/v1/notifications/vapid-key/.
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+# Push services (FCM, Mozilla) reject a request whose VAPID claims carry no
+# contact for the sender, so this must be a real "mailto:" or "https:" value.
+VAPID_CLAIM_EMAIL = os.getenv("VAPID_CLAIM_EMAIL", "")
+
+# --- Notification dispatcher ---
+#
+# Poll intervals for `manage.py run_dispatcher`. The database is the queue;
+# these numbers only decide how promptly it is drained.
+DISPATCHER_POLL_SECONDS = int(os.getenv("DISPATCHER_POLL_SECONDS", "20"))
+# Recurring cards and activity pruning are not time-critical.
+DISPATCHER_MAINTENANCE_SECONDS = int(os.getenv("DISPATCHER_MAINTENANCE_SECONDS", "300"))
+DISPATCHER_BATCH_SIZE = int(os.getenv("DISPATCHER_BATCH_SIZE", "100"))
+DISPATCHER_MAX_ATTEMPTS = int(os.getenv("DISPATCHER_MAX_ATTEMPTS", "5"))
+# A row left in PROCESSING for longer than this is assumed orphaned by a
+# crashed dispatcher and is returned to PENDING.
+DISPATCHER_STUCK_MINUTES = int(os.getenv("DISPATCHER_STUCK_MINUTES", "10"))
+
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",

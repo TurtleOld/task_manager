@@ -11,6 +11,7 @@ from kanban.models import (
     Card,
     CardDeadlineReminder,
     NotificationProfile,
+    PushDevice,
     RecurrenceFrequency,
     RecurrenceRule,
 )
@@ -119,7 +120,14 @@ def test_deadline_reminder_accepts_push_channel(
         title="Push reminder",
         deadline=timezone.now() + timedelta(hours=2),
     )
-    NotificationProfile.objects.create(user=regular_user, fcm_token="fcm-token")
+    NotificationProfile.objects.create(user=regular_user)
+    # Push availability is now a property of registered devices, not of a
+    # single token field on the profile.
+    PushDevice.objects.create(
+        user=regular_user,
+        kind=PushDevice.Kind.FCM,
+        token="fcm-token",
+    )
 
     response = auth_client.put(
         f"/api/v1/cards/{card.id}/deadline-reminder/",
@@ -146,7 +154,14 @@ def test_deadline_reminder_accepts_push_channel(
 def test_deadline_reminder_channels_include_push(
     auth_client: APIClient, regular_user, card: Card, settings
 ) -> None:
-    NotificationProfile.objects.create(user=regular_user, fcm_token="fcm-token")
+    NotificationProfile.objects.create(user=regular_user)
+    # Push availability is now a property of registered devices, not of a
+    # single token field on the profile.
+    PushDevice.objects.create(
+        user=regular_user,
+        kind=PushDevice.Kind.FCM,
+        token="fcm-token-2",
+    )
 
     response = auth_client.get(f"/api/v1/cards/{card.id}/deadline-reminder/")
 
