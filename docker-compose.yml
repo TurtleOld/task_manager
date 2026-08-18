@@ -52,7 +52,6 @@ services:
       VAPID_CLAIM_EMAIL: ${VAPID_CLAIM_EMAIL:-}
       TZ: Europe/Moscow
     healthcheck:
-      # PORT env is not set in this compose file; Django runs on 8000 inside the container
       test: ["CMD-SHELL", "curl -fsSL http://localhost:8000/api/health > /dev/null"]
       interval: 5s
       timeout: 3s
@@ -71,15 +70,10 @@ services:
       - ./backend/manage.py:/app/manage.py
       - ./media:/app/media
 
-  # Replaces the celery worker/beat trio for notifications: the database is the
-  # queue, so this one process is the entire delivery path. `restart: always`
-  # plus a healthcheck on the heartbeat means a wedged loop actually gets
-  # restarted — a stopped dispatcher is what made notifications go silent.
   dispatcher:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    # Same image as `backend` — both come from backend/Dockerfile.
     image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/backend:${IMAGE_TAG:-main}
     command: ["sh", "-lc", "/app/.venv/bin/python /app/manage.py run_dispatcher"]
     environment:
@@ -102,8 +96,6 @@ services:
         condition: service_started
     restart: always
     healthcheck:
-      # Asks the app itself whether the dispatcher is still ticking, so a
-      # process that is up but wedged is reported unhealthy and restarted.
       test:
         - "CMD-SHELL"
         - "/app/.venv/bin/python /app/manage.py shell -c \"import sys;from django.utils import timezone;from kanban.models import DispatcherHeartbeat;h=DispatcherHeartbeat.objects.filter(name='dispatcher').first();sys.exit(0 if h and h.last_tick_at and (timezone.now()-h.last_tick_at).total_seconds()<180 else 1)\""
