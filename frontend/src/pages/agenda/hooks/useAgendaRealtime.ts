@@ -38,7 +38,7 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
     let unmounted = false
 
     const applyCardEvent = (event: BoardEvent) => {
-      if (event.type === 'card.updated' || event.type === 'card.moved' || event.type === 'card.completed') {
+      if (event.type === 'card.updated' || event.type === 'card.completed') {
         qc.setQueryData<AgendaResponse>(key, (prev) => {
           if (!prev) return prev
           if (!prev.cards.some((item) => item.id === event.card.id)) return prev

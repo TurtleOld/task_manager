@@ -1,20 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../client'
-import type { Board, BoardTemplate } from '../types'
+import type { Board } from '../types'
 import { queryKeys } from './keys'
 
 export function useBoards() {
   return useQuery<Board[]>({
     queryKey: queryKeys.boards(),
     queryFn: () => api.listBoards(),
-  })
-}
-
-export function useBoardTemplates(options?: { enabled?: boolean }) {
-  return useQuery<BoardTemplate[]>({
-    queryKey: queryKeys.boardTemplates(),
-    queryFn: () => api.listBoardTemplates(),
-    enabled: options?.enabled ?? true,
   })
 }
 
@@ -33,19 +25,6 @@ export function useCreateBoard() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: { name: string; icon?: string; color?: string }) => api.createBoard(payload),
-    onSuccess: (board) => {
-      qc.setQueryData<Board[]>(queryKeys.boards(), (prev) =>
-        prev ? [...prev, board] : [board],
-      )
-    },
-  })
-}
-
-export function useCreateBoardFromTemplate() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (payload: Parameters<typeof api.createBoardFromTemplate>[0]) =>
-      api.createBoardFromTemplate(payload),
     onSuccess: (board) => {
       qc.setQueryData<Board[]>(queryKeys.boards(), (prev) =>
         prev ? [...prev, board] : [board],

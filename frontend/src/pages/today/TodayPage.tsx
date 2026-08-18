@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useCompleteTodayCard, useMyToday } from '../../api/queries/cards'
 import type { MyTodayCard } from '../../api/types'
 import { formatTaskCount } from '../../shared/lib/formatTaskCount'
-import { priorityToLabel, priorityToMarker, priorityToTone } from '../board/lib/priority'
+import { priorityToLabel, priorityToMarker, priorityToTone } from '../../shared/lib/priority'
 import { Badge, Button, Card as SurfaceCard, Chip, EmptyState, ErrorState, PageShell, Skeleton } from '@/components/ui'
 
 type SectionTone = 'danger' | 'warning' | 'primary'
@@ -36,14 +36,9 @@ export function TodayPage() {
   const totalCount = overdueCards.length + todayCards.length + importantCards.length
 
   const completeCard = async (card: MyTodayCard) => {
-    if (!card.done_column) {
-      toast.error('На доске нет колонки для завершённых задач')
-      return
-    }
-
     setPendingCardId(card.id)
     try {
-      await completeMutation.mutateAsync({ card, doneColumn: card.done_column })
+      await completeMutation.mutateAsync(card.id)
       toast.success('Задача завершена')
     } catch {
       toast.error('Не удалось завершить задачу')
@@ -90,7 +85,7 @@ export function TodayPage() {
 
       {totalCount === 0 ? (
         <EmptyState title="На сегодня всё спокойно">
-          Нет просроченных, сегодняшних или срочных задач в активных колонках.
+          Нет просроченных, сегодняшних или срочных задач.
         </EmptyState>
       ) : null}
 
@@ -164,7 +159,6 @@ function TodaySection({ cards, description, emptyText, onComplete, pendingCardId
 function TodayCard({ card, onComplete, pending }: { card: MyTodayCard; onComplete: (card: MyTodayCard) => void; pending: boolean }) {
   const priorityTone = priorityToTone(card.priority)
   const deadline = formatDateTime(card.deadline)
-  const canComplete = Boolean(card.done_column)
 
   return (
     <article className="rounded-[1.2rem] border border-border/75 bg-surface/90 p-4 shadow-surface backdrop-blur transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated">
@@ -173,7 +167,6 @@ function TodayCard({ card, onComplete, pending }: { card: MyTodayCard; onComplet
           <div className="flex flex-wrap items-center gap-2">
             <Chip tone={priorityTone} active>{priorityToMarker(card.priority)} {priorityToLabel(card.priority)}</Chip>
             <Chip>{card.board_name}</Chip>
-            <Chip>{card.column_name}</Chip>
           </div>
           <Link to={`/lists/${card.board}/tasks/${card.id}`} className="mt-3 block rounded-control text-h3 text-text transition hover:text-primary">
             {card.title}
@@ -184,12 +177,11 @@ function TodayCard({ card, onComplete, pending }: { card: MyTodayCard; onComplet
 
         <Button
           type="button"
-          variant={canComplete ? 'secondary' : 'ghost'}
+          variant="secondary"
           size="sm"
           loading={pending}
-          disabled={!canComplete || pending}
+          disabled={pending}
           onClick={() => onComplete(card)}
-          title={canComplete ? 'Переместить задачу в done-колонку' : 'На доске нет done-колонки'}
           className="shrink-0"
         >
           Завершить

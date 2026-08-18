@@ -5,7 +5,6 @@ import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import type { Card } from '../../api/types'
 import { useBoards } from '../../api/queries/boards'
-import { useColumns } from '../../api/queries/columns'
 import { useCalendarCards, useCreateCalendarCard, useUpdateCalendarCard } from '../../api/queries/cards'
 import { Badge, Button, Card as SurfaceCard, EmptyState, ErrorState, Field, PageShell, Select, Skeleton, TextInput } from '@/components/ui'
 import { Link, useNavigate } from 'react-router-dom'
@@ -49,11 +48,6 @@ export function CalendarPage() {
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot | null>(null)
   const [newCardTitle, setNewCardTitle] = useState('')
   const [newCardBoardId, setNewCardBoardId] = useState(0)
-  const { data: newCardColumns = [] } = useColumns(newCardBoardId)
-  const defaultColumn = useMemo(() => {
-    if (newCardColumns.length === 0) return null
-    return newCardColumns.find((column) => column.is_default) ?? newCardColumns[0]
-  }, [newCardColumns])
 
   const isLoading = boardsLoading || cardsLoading
   const isError = boardsError || cardsError
@@ -123,11 +117,11 @@ export function CalendarPage() {
 
   const createCardFromSlot = async () => {
     const title = newCardTitle.trim()
-    if (!selectedSlot || !title || !defaultColumn) return
+    if (!selectedSlot || !title || !newCardBoardId) return
 
     try {
       const card = await createCardMutation.mutateAsync({
-        column: defaultColumn.id,
+        board: newCardBoardId,
         title,
         deadline: deadlineForSlot(selectedSlot).toISOString(),
       })
@@ -286,7 +280,7 @@ export function CalendarPage() {
               type="button"
               onClick={createCardFromSlot}
               loading={createCardMutation.isPending}
-              disabled={!newCardTitle.trim() || !defaultColumn || createCardMutation.isPending}
+              disabled={!newCardTitle.trim() || !newCardBoardId || createCardMutation.isPending}
             >
               Создать
             </Button>

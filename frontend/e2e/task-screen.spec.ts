@@ -7,8 +7,8 @@ const apiURL = process.env.PLAYWRIGHT_API_URL || 'http://127.0.0.1:8000/api/v1'
 test.describe('task screen', () => {
   test('opens by direct link as an overlay over the agenda, shows completion and closes with Esc', async ({ page, request }) => {
     const user = await ensureUser(request)
-    const { board, columns } = await ensureBoard(request, user)
-    const card = await createCard(request, user, columns[0].id, { title: `E2E Task ${Date.now()}` })
+    const { board } = await ensureBoard(request, user)
+    const card = await createCard(request, user, board.id, { title: `E2E Task ${Date.now()}` })
 
     await signInPage(page, user)
     await page.goto(`/lists/${board.id}/tasks/${card.id}`)
@@ -29,8 +29,8 @@ test.describe('task screen', () => {
 
   test('completing a parent task closes its open subtasks without a reload', async ({ page, request }) => {
     const user = await ensureUser(request)
-    const { board, columns } = await ensureBoard(request, user)
-    const parent = await createCard(request, user, columns[0].id, { title: `E2E Parent ${Date.now()}` })
+    const { board } = await ensureBoard(request, user)
+    const parent = await createCard(request, user, board.id, { title: `E2E Parent ${Date.now()}` })
     const subtaskResponse = await request.post(`${apiURL}/cards/${parent.id}/subtasks/`, {
       headers: authHeaders(user),
       data: { title: 'E2E Subtask' },
@@ -52,8 +52,8 @@ test.describe('task screen', () => {
 
   test('checklist items can be added and marked done, and deadline changes apply without a page reload', async ({ page, request }) => {
     const user = await ensureUser(request)
-    const { board, columns } = await ensureBoard(request, user)
-    const card = await createCard(request, user, columns[0].id, { title: `E2E Checklist ${Date.now()}` })
+    const { board } = await ensureBoard(request, user)
+    const card = await createCard(request, user, board.id, { title: `E2E Checklist ${Date.now()}` })
 
     await signInPage(page, user)
     await page.goto(`/lists/${board.id}/tasks/${card.id}`)
@@ -82,12 +82,12 @@ test.describe('task screen', () => {
 async function createCard(
   request: import('@playwright/test').APIRequestContext,
   user: E2EUser,
-  columnId: number,
+  boardId: number,
   data: Record<string, unknown>,
 ) {
   const response = await request.post(`${apiURL}/cards/`, {
     headers: authHeaders(user),
-    data: { column: columnId, ...data },
+    data: { board: boardId, ...data },
   })
   expect(response.ok()).toBeTruthy()
   return (await response.json()) as { id: number; title: string; board: number }

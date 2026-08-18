@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useBoardTemplates, useBoards, useCreateBoard, useCreateBoardFromTemplate } from '../../api/queries/boards'
+import { useBoards, useCreateBoard } from '../../api/queries/boards'
 import { Badge, Button, Card as SurfaceCard, EmptyState, Field, PageShell, Skeleton, TextInput } from '@/components/ui'
 
 const BOARD_ICONS = ['📋', '🏡', '🛒', '🛠️', '🏖️', '💰', '🎯', '📚', '🚗', '🐾', '🌱', '🎁']
@@ -9,14 +9,10 @@ const BOARD_COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed', '#0
 
 export function BoardsPage() {
   const { data: boards = [], isLoading } = useBoards()
-  const [createPanelOpen, setCreatePanelOpen] = useState(false)
-  const { data: templates = [], isLoading: templatesLoading } = useBoardTemplates({ enabled: createPanelOpen })
   const createBoardMutation = useCreateBoard()
-  const createFromTemplateMutation = useCreateBoardFromTemplate()
   const [name, setName] = useState('')
   const [icon, setIcon] = useState(BOARD_ICONS[0] ?? '📋')
   const [color, setColor] = useState(BOARD_COLORS[0] ?? '#2563eb')
-  const [templateName, setTemplateName] = useState('')
 
   const onCreate = async () => {
     if (!name.trim()) return
@@ -29,20 +25,6 @@ export function BoardsPage() {
       return
     }
     setName('')
-  }
-
-  const onCreateFromTemplate = async (templateId: string) => {
-    try {
-      const board = await createFromTemplateMutation.mutateAsync({
-        template_id: templateId,
-        name: templateName.trim() || undefined,
-      })
-      toast.success(`Список «${board.name}» создан из шаблона`)
-    } catch {
-      toast.error('Не удалось создать список из шаблона')
-      return
-    }
-    setTemplateName('')
   }
 
   if (isLoading) return <BoardsPageSkeleton />
@@ -58,7 +40,7 @@ export function BoardsPage() {
             </div>
             <div>
               <h1 className="text-h1 text-text">Списки</h1>
-              <p className="mt-2 max-w-3xl text-body-sm text-text-muted">Создавайте рабочие пространства, выбирайте визуальные маркеры и стартуйте быстрее с семейными шаблонами.</p>
+              <p className="mt-2 max-w-3xl text-body-sm text-text-muted">Создавайте рабочие пространства и выбирайте визуальные маркеры, чтобы списки легко различались.</p>
             </div>
           </div>
           <Badge variant="success">
@@ -68,27 +50,26 @@ export function BoardsPage() {
         </div>
       </header>
 
-      <details className="group rounded-[1.35rem] border border-border/80 bg-[image:var(--gradient-surface)] shadow-surface backdrop-blur" onToggle={(event) => setCreatePanelOpen(event.currentTarget.open)}>
+      <details className="group rounded-[1.35rem] border border-border/80 bg-[image:var(--gradient-surface)] shadow-surface backdrop-blur">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:hidden [&::-webkit-details-marker]:hidden">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="primary">Создать список</Badge>
-              <Badge variant="info">Templates</Badge>
             </div>
             <h2 className="mt-2 text-h3 text-text">Создать список</h2>
-            <p className="mt-1 text-body-sm text-text-muted">Пустой список или готовый шаблон скрыты здесь, чтобы перечень списков был выше.</p>
+            <p className="mt-1 text-body-sm text-text-muted">Форма создания списка скрыта здесь, чтобы перечень списков был выше.</p>
           </div>
           <span className="shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-caption font-semibold text-text-muted transition group-open:rotate-180" aria-hidden="true">⌄</span>
         </summary>
 
-        <div className="grid gap-4 border-t border-border/70 p-4 xl:grid-cols-[1fr_1fr]">
+        <div className="grid gap-4 border-t border-border/70 p-4">
           <SurfaceCard as="section" className="space-y-4 border-primary/10">
           <div>
             <div className="flex items-center gap-2">
               <Badge variant="primary">Создать список</Badge>
             </div>
-            <h2 className="mt-3 text-h3 text-text">Создать пустой список</h2>
-            <p className="mt-1 text-body-sm text-text-muted">Выберите иконку и цвет, чтобы список легко отличался в sidebar и перечне.</p>
+            <h2 className="mt-3 text-h3 text-text">Новый список</h2>
+            <p className="mt-1 text-body-sm text-text-muted">Список создаётся пустым — выберите иконку и цвет, чтобы он легко отличался в перечне.</p>
           </div>
           <Field label="Название" htmlFor="new-board-name">
             <TextInput id="new-board-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Например: Семья, Ремонт, Отпуск" />
@@ -134,44 +115,6 @@ export function BoardsPage() {
             </div>
             <Button onClick={onCreate} loading={createBoardMutation.isPending} disabled={!name.trim() || createBoardMutation.isPending} aria-label="Создать список">Создать</Button>
           </div>
-          </SurfaceCard>
-
-          <SurfaceCard as="section" className="space-y-4 border-primary/10">
-          <div>
-            <div className="flex items-center gap-2">
-              <Badge variant="primary">Templates</Badge>
-            </div>
-            <h2 className="mt-3 text-h3 text-text">Создать из шаблона</h2>
-            <p className="mt-1 text-body-sm text-text-muted">Шаблон создаёт список с колонками и стартовыми задачами.</p>
-          </div>
-          <Field label="Свое название (необязательно)" htmlFor="template-board-name">
-            <TextInput id="template-board-name" value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="Оставьте пустым, чтобы взять название шаблона" />
-          </Field>
-          {templatesLoading ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-32 rounded-[1.15rem]" />)}
-            </div>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {templates.map((template) => (
-                <button
-                  key={template.id}
-                  type="button"
-                  onClick={() => void onCreateFromTemplate(template.id)}
-                  disabled={createFromTemplateMutation.isPending}
-                  className="group rounded-[1.15rem] border border-border/80 bg-background-subtle/55 p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/30 hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl text-white shadow-surface" style={{ backgroundColor: template.color }}>{template.icon}</span>
-                    <div className="min-w-0">
-                      <p className="text-body font-semibold text-text group-hover:text-primary">{template.name}</p>
-                      <p className="mt-1 text-caption text-text-muted">Колонки, labels и примеры задач</p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
           </SurfaceCard>
         </div>
       </details>

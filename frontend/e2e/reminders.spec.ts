@@ -3,14 +3,13 @@ import { ensureBoard, ensureUser, signInPage } from './helpers'
 
 test.skip('can add a deadline reminder interval on a task (disabled until the task screen lands)', async ({ page, request }) => {
   const user = await ensureUser(request)
-  const { board, columns } = await ensureBoard(request, user)
-  const firstColumn = columns[0]
+  const { board } = await ensureBoard(request, user)
   const taskTitle = `Reminder E2E ${Date.now()}`
 
   const deadline = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
   const cardResponse = await request.post(`${process.env.PLAYWRIGHT_API_URL || 'http://127.0.0.1:8000/api/v1'}/cards/`, {
     headers: { Authorization: `Token ${user.token}` },
-    data: { column: firstColumn.id, title: taskTitle, priority: 2, deadline },
+    data: { board: board.id, title: taskTitle, priority: 2, deadline },
   })
   expect(cardResponse.ok()).toBeTruthy()
 

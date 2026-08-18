@@ -1,11 +1,13 @@
-import type { BoardPriority } from '../types'
+import type { Card } from '../../api/types'
+
+export type CardPriority = Card['priority']
 
 export const PRIORITY_NONE = 0 as const
 export const PRIORITY_LOW = 1 as const
 export const PRIORITY_NORMAL = 2 as const
 export const PRIORITY_HIGH = 3 as const
 
-export function priorityToMarker(priority: BoardPriority | number | null | undefined): string {
+export function priorityToMarker(priority: CardPriority | number | null | undefined): string {
   switch (priority) {
     case PRIORITY_HIGH:
       return '🔥'
@@ -19,7 +21,7 @@ export function priorityToMarker(priority: BoardPriority | number | null | undef
   }
 }
 
-export function priorityToLabel(priority: BoardPriority | number | null | undefined): string {
+export function priorityToLabel(priority: CardPriority | number | null | undefined): string {
   switch (priority) {
     case PRIORITY_HIGH:
       return 'Срочно'
@@ -34,7 +36,7 @@ export function priorityToLabel(priority: BoardPriority | number | null | undefi
 }
 
 export function priorityToTone(
-  priority: BoardPriority | number | null | undefined,
+  priority: CardPriority | number | null | undefined,
 ): 'danger' | 'success' | 'warning' | 'neutral' {
   switch (priority) {
     case PRIORITY_HIGH:

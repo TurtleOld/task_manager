@@ -1,5 +1,5 @@
 import type { CardActivity } from '../../../api/types'
-import { priorityToLabel } from '../../board/lib/priority'
+import { priorityToLabel } from '../../../shared/lib/priority'
 
 export interface HistoryEntry {
   id: number
