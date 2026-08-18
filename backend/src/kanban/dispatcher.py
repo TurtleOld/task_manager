@@ -500,17 +500,42 @@ def tick() -> dict[str, int]:
     return stats
 
 
-def maintenance_tick() -> None:
-    """Recurring cards and activity pruning. Not time-critical."""
+# Activity pruning is a monthly-scale chore; running it on the maintenance
+# cadence would issue a pointless DELETE every few minutes.
+PRUNE_INTERVAL_HOURS = 24
 
-    from .tasks import generate_recurring_cards, prune_card_activity
+
+def maintenance_tick() -> None:
+    """Everything the Celery beat schedule used to own, except reminders.
+
+    These are the last three periodic jobs, so once they run here the beat and
+    worker containers have nothing left to do.
+    """
+
+    from .tasks import generate_recurring_cards, prune_card_activity, send_overdue_card_reminders
 
     try:
         generate_recurring_cards.apply(throw=True)
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 - one failing chore must not skip the rest
         logger.exception("dispatcher_recurring_cards_failed")
 
     try:
-        prune_card_activity.apply(throw=True)
+        # Self-rate-limiting: the task skips any card it already notified about
+        # within `SiteSettings.overdue_reminder_interval`, so calling it more
+        # often than that interval costs a query and sends nothing.
+        send_overdue_card_reminders.apply(throw=True)
     except Exception:  # noqa: BLE001
-        logger.exception("dispatcher_prune_activity_failed")
+        logger.exception("dispatcher_overdue_reminders_failed")
+
+    heartbeat, _ = DispatcherHeartbeat.objects.get_or_create(name="dispatcher")
+    due = heartbeat.last_prune_at is None or heartbeat.last_prune_at < timezone.now() - timedelta(
+        hours=PRUNE_INTERVAL_HOURS
+    )
+    if due:
+        try:
+            prune_card_activity.apply(throw=True)
+        except Exception:  # noqa: BLE001
+            logger.exception("dispatcher_prune_activity_failed")
+        else:
+            heartbeat.last_prune_at = timezone.now()
+            heartbeat.save(update_fields=["last_prune_at"])

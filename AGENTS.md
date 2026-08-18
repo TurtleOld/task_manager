@@ -4,6 +4,8 @@
 
 - Never commit ticket/issue work directly to `main`. Create a new branch for each ticket, commit there, push it, and open a pull request — do not push straight to `main`.
 - Pull request descriptions must be written in Russian.
+- **Open every pull request against `main`.** Targeting another feature branch strands the work if that branch merges first.
+- **The pull request title must be a conventional commit** (`feat: ...`, `fix: ...`, `chore: ...`). The repository squash-merges, so GitHub uses the PR *title* as the commit subject on `main`, and that subject is what release-please reads. A missing prefix produces no release, no `v*` tag, and therefore no rebuilt Docker images — the deployed code silently stops matching `main`. Enforced by `.github/workflows/pr-title.yml`.
 
 ## Release Versioning
 

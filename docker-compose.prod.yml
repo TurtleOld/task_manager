@@ -1,190 +1,187 @@
-services:
-  db:
-    image: postgres:17
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-task_manager}
-      TZ: Europe/Moscow
-    ports:
-      - "5437:5432"
-    volumes:
-      - db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 10s
+# Production stack — the single source of truth.
+#
+# Copy this file to the deployment directory as `compose.yaml`:
+#
+#     scp docker-compose.prod.yml <server>:/srv/task_manager/compose.yaml
+#     ssh <server> 'cd /srv/task_manager && docker compose pull && docker compose up -d'
+#
+# Everything machine-specific lives in `.env` next to it and is never committed.
+# All paths here are relative on purpose, so the file works wherever the data
+# directory happens to be.
+#
+# There used to be a second, divergent copy of this file living only on the
+# server. That divergence cost real debugging time: the repository copy still
+# referenced a `db` service that production does not have and a push provider
+# that was removed, so reading it produced a wrong diagnosis. Keep one file.
 
+# Shared environment. Defined once so a service cannot silently drift — the
+# previous per-service copy-paste is how `celery-maintenance` ended up pointing
+# at a database host that does not exist in this deployment.
+x-app-env: &app-env
+  PYTHONPATH: /app/src
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY must be set}
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+  DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
+  # No default on purpose: a wrong base URL silently puts broken links into
+  # every notification, so it must be set explicitly per deployment.
+  FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL must be set}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+  # Web Push — the primary notification channel.
+  VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+  VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+  VAPID_CLAIM_EMAIL: ${VAPID_CLAIM_EMAIL:-}
+  # Legacy Android channel.
+  FCM_SERVICE_ACCOUNT_FILE: ${FCM_SERVICE_ACCOUNT_FILE:-/run/secrets/firebase-service-account.json}
+  FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+  EMAIL_HOST: ${EMAIL_HOST:-}
+  EMAIL_PORT: ${EMAIL_PORT:-587}
+  EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+  EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+  EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
+  EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
+  DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-notifications@task-manager.local}
+  TZ: Europe/Moscow
+
+x-logging: &logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# `always`, not `on-failure:N`. `on-failure` ignores a clean exit (code 0), so
+# a process that shuts itself down stays down, and it gives up permanently
+# after N attempts — after which the container sits in `Exited` and nobody
+# finds out. Both happened here.
+x-restart: &restart
+  restart: always
+
+services:
   redis:
     image: redis:7
+    # Persistence stays on. Redis now backs only the websocket channel layer,
+    # but an unpersisted restart used to wipe the notification queue outright.
     command: ["redis-server", "--appendonly", "yes"]
     environment:
       TZ: Europe/Moscow
     ports:
-      - "16379:6379"
+      # Bound to loopback: this port was previously open on 0.0.0.0, and an
+      # unrelated project's Celery had attached itself to the same broker.
+      - "127.0.0.1:16379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 3s
-      retries: 30
+      retries: 5
       start_period: 5s
     volumes:
-      - redis-data:/data
+      - ./redis:/data
+    logging: *logging
+    <<: *restart
+    networks:
+      - task-manager
 
   backend:
     image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/backend:${IMAGE_TAG:-latest}
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-      target: prod
+    env_file:
+      - .env
     environment:
-      PYTHONPATH: /app/src
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+      <<: *app-env
       PORT: ${PORT:-8000}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-task_manager}
-      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
-      ONESIGNAL_REST_API_KEY: ${ONESIGNAL_REST_API_KEY:-}
-      EMAIL_HOST: ${EMAIL_HOST:-}
-      EMAIL_PORT: ${EMAIL_PORT:-587}
-      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
-      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
-      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
-      EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
-      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-notifications@task-manager.local}
-      TZ: Europe/Moscow
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - shared-db
+      - task-manager
     ports:
-      - "18000:8000"
+      - "127.0.0.1:18000:8000"
     volumes:
       - ./media:/app/media
+      - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
     healthcheck:
+      # /api/health now actually queries the database instead of returning a
+      # hardcoded "ok", so this check can fail when the app is broken.
       test: ["CMD-SHELL", "curl -fsSL http://localhost:$$PORT/api/health > /dev/null"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-      start_period: 20s
-    restart: unless-stopped
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging: *logging
+    <<: *restart
 
-  celery:
-    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/celery:${IMAGE_TAG:-latest}
-    command: ["sh", "-lc", "/app/.venv/bin/celery -A config worker -l info -Q notifications,celery"]
+  # The entire notification delivery path. Replaces the celery + celery-beat +
+  # celery-maintenance trio: the queue is PostgreSQL, so no broker sits between
+  # a due reminder and the phone it is meant for.
+  dispatcher:
+    # Same image as `backend`: both are built from backend/Dockerfile, so a
+    # separate one bought nothing but a name that no longer described it.
+    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/backend:${IMAGE_TAG:-latest}
+    command: ["sh", "-lc", "/app/.venv/bin/python /app/manage.py run_dispatcher"]
+    env_file:
+      - .env
     environment:
-      PYTHONPATH: /app/src
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-task_manager}
-      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
-      ONESIGNAL_REST_API_KEY: ${ONESIGNAL_REST_API_KEY:-}
-      EMAIL_HOST: ${EMAIL_HOST:-}
-      EMAIL_PORT: ${EMAIL_PORT:-587}
-      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
-      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
-      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
-      EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
-      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-notifications@task-manager.local}
-      TZ: Europe/Moscow
+      <<: *app-env
+      DISPATCHER_POLL_SECONDS: ${DISPATCHER_POLL_SECONDS:-20}
+      DISPATCHER_MAINTENANCE_SECONDS: ${DISPATCHER_MAINTENANCE_SECONDS:-300}
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       backend:
-        condition: service_started
-    restart: unless-stopped
+        condition: service_healthy
+    networks:
+      - shared-db
+      - task-manager
     volumes:
       - ./media:/app/media
-
-  celery-maintenance:
-    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/celery:${IMAGE_TAG:-latest}
-    command: ["sh", "-lc", "/app/.venv/bin/celery -A config worker -l info -Q maintenance"]
-    environment:
-      PYTHONPATH: /app/src
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-task_manager}
-      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
-      ONESIGNAL_REST_API_KEY: ${ONESIGNAL_REST_API_KEY:-}
-      EMAIL_HOST: ${EMAIL_HOST:-}
-      EMAIL_PORT: ${EMAIL_PORT:-587}
-      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
-      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
-      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
-      EMAIL_USE_SSL: ${EMAIL_USE_SSL:-false}
-      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-notifications@task-manager.local}
-      TZ: Europe/Moscow
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      backend:
-        condition: service_started
-    restart: unless-stopped
-    volumes:
-      - ./media:/app/media
-
-  celery-beat:
-    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/celery:${IMAGE_TAG:-latest}
-    command: ["sh", "-lc", "/app/.venv/bin/celery -A config beat -l info -S django_celery_beat.schedulers:DatabaseScheduler"]
-    environment:
-      PYTHONPATH: /app/src
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-task_manager}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
-      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
-      ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
-      ONESIGNAL_REST_API_KEY: ${ONESIGNAL_REST_API_KEY:-}
-      TZ: Europe/Moscow
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      backend:
-        condition: service_started
-    restart: unless-stopped
+      - ./secrets/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
+    healthcheck:
+      # Asks the application whether the loop is still turning. A wedged
+      # process does not exit, so without this Docker would keep reporting a
+      # healthy container while nothing was being delivered.
+      test:
+        - "CMD-SHELL"
+        - >-
+          /app/.venv/bin/python /app/manage.py shell -c
+          "import sys;from django.utils import timezone;from kanban.models import DispatcherHeartbeat;h=DispatcherHeartbeat.objects.filter(name='dispatcher').first();sys.exit(0 if h and h.last_tick_at and (timezone.now()-h.last_tick_at).total_seconds()<180 else 1)"
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 90s
+    logging: *logging
+    <<: *restart
 
   frontend:
     image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/frontend:${IMAGE_TAG:-latest}
+    env_file:
+      - .env
     environment:
       VITE_API_BASE_URL: /api
       VITE_PROXY_TARGET: http://backend:8000
-      VITE_ONESIGNAL_APP_ID: ${ONESIGNAL_APP_ID:-}
-    ports:
-      - "5173:5173"
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL must be set}
+      TZ: Europe/Moscow
     depends_on:
       backend:
         condition: service_healthy
-    restart: unless-stopped
+    logging: *logging
+    <<: *restart
+    networks:
+      - traefik-public
+      - task-manager
+    labels:
+      taskmanager.skip: "true"
+      traefik.enable: "true"
+      traefik.http.routers.taskmanager.rule: "Host(`${PUBLIC_HOST:?PUBLIC_HOST must be set}`)"
+      traefik.http.routers.taskmanager.entrypoints: "websecure"
+      traefik.http.routers.taskmanager.tls.certresolver: "letsencrypt"
+      traefik.http.services.taskmanager.loadbalancer.server.port: "5173"
+      traefik.http.routers.taskmanager.middlewares: chain-public@file
 
-volumes:
-  db-data:
-  redis-data:
+networks:
+  traefik-public:
+    external: true
+  shared-db:
+    external: true
+  task-manager:
+    driver: bridge
