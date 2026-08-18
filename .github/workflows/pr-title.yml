@@ -29,6 +29,30 @@ permissions:
   pull-requests: read
 
 jobs:
+  # A pull request whose diff against the base is empty produces an empty squash
+  # commit. That is not merely useless: release-please cannot map a commit with
+  # no files onto a package path, so a `feat:` on such a commit is attributed to
+  # whichever package it can find — and the release the subject promised never
+  # happens for the package that needed it.
+  #
+  # The usual cause is branching off another feature branch instead of `main`
+  # and having that branch merge first, at which point the second pull request
+  # has nothing left to contribute.
+  non-empty:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse a pull request that changes nothing
+        env:
+          CHANGED: ${{ github.event.pull_request.changed_files }}
+        run: |
+          if [ "${CHANGED:-0}" -eq 0 ]; then
+            echo "::error::PR не меняет ни одного файла. Обычная причина —" \
+                 "ветка создана не от main, а от другой feature-ветки," \
+                 "которая уже смержилась."
+            exit 1
+          fi
+          echo "Изменённых файлов: $CHANGED"
+
   validate:
     runs-on: ubuntu-latest
     steps:
