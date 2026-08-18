@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/TurtleOld/task_manager/compare/v1.3.0...v1.3.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* выпустить застрявший релиз и не пускать пустые PR ([#81](https://github.com/TurtleOld/task_manager/issues/81)) ([f7441a7](https://github.com/TurtleOld/task_manager/commit/f7441a749d60377bceec32d6790086e224a53223))
+
 ## [1.3.0](https://github.com/TurtleOld/task_manager/compare/v1.2.13...v1.3.0) (2026-08-18)
 
 
