@@ -44,8 +44,8 @@ export function AgendaHeader({
     <header className="sticky top-16 z-sticky flex min-h-14 flex-wrap items-center gap-3 border-b border-border/80 bg-background/78 px-4 py-2 backdrop-blur-xl sm:flex-nowrap sm:py-0 sm:px-6">
       <div
         className={cn(
-          'order-1 flex min-w-0 shrink items-center gap-1 overflow-x-auto py-1',
-          quickAdd ? 'sm:max-w-[24rem]' : 'flex-1',
+          'order-1 flex min-w-0 shrink-0 items-center gap-1 overflow-x-auto py-1 lg:hidden',
+          !quickAdd && 'flex-1',
         )}
       >
         <ScopeChip active={activeListId == null} label="Все списки" to="/today" />
