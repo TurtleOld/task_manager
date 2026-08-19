@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/TurtleOld/task_manager/compare/v1.4.0...v1.5.0) (2026-08-19)
+
+
+### Features
+
+* интерфейс повторяющихся задач и фикс доставки Web Push ([#87](https://github.com/TurtleOld/task_manager/issues/87)) ([f41a78b](https://github.com/TurtleOld/task_manager/commit/f41a78bc0a799ae0847a619a37c304839cb19175))
+
+
+### Bug Fixes
+
+* устранить гонку в generate_recurring_cards при двух dispatcher-инстансах ([#85](https://github.com/TurtleOld/task_manager/issues/85)) ([049e727](https://github.com/TurtleOld/task_manager/commit/049e727e3b62fe5769b8a129b975ecc54d5c4866))
+
 ## [1.4.0](https://github.com/TurtleOld/task_manager/compare/v1.3.1...v1.4.0) (2026-08-18)
 
 
