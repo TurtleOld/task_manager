@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/TurtleOld/task_manager/compare/v1.6.0...v1.6.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* закрыть открытый API и починить пуш-уведомления о действиях с задачами ([#90](https://github.com/TurtleOld/task_manager/issues/90)) ([aae8752](https://github.com/TurtleOld/task_manager/commit/aae87522bdca2818e3f017844314ebd30863a7f3))
+
 ## [1.6.0](https://github.com/TurtleOld/task_manager/compare/v1.5.0...v1.6.0) (2026-08-19)
 
 
