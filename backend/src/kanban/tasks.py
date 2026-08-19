@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 
 from celery import shared_task
 from django.conf import settings
+from django.db import transaction
 from django.db.utils import IntegrityError
 from django.utils import timezone
 
@@ -130,22 +131,43 @@ def _build_card_link(*, card: Card) -> str:
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
 def generate_recurring_cards(self) -> None:
     now = timezone.now()
-    rules = (
+    # Only IDs here — the actual row is re-fetched under lock per rule, since
+    # a concurrent run (overlapping beat ticks, two workers) may have already
+    # handled it by the time we get to it.
+    rule_ids = list(
         RecurrenceRule.objects.filter(next_due__isnull=False, next_due__lte=now)
-        .select_related("card", "card__column", "card__board", "card__assignee")
         .order_by("next_due", "id")
+        .values_list("id", flat=True)
     )
 
-    for rule in rules:
+    for rule_id in rule_ids:
+        _generate_recurring_card_for_rule(rule_id=rule_id, now=now)
+
+
+def _generate_recurring_card_for_rule(*, rule_id: int, now: datetime) -> None:
+    with transaction.atomic():
+        rule = (
+            RecurrenceRule.objects.select_for_update(skip_locked=True)
+            .select_related("card", "card__column", "card__board", "card__assignee")
+            .filter(id=rule_id)
+            .first()
+        )
+        # Locked by a concurrent run, or deleted since we listed it.
+        if rule is None:
+            return
+        # A concurrent run already advanced/cleared this rule.
+        if rule.next_due is None or rule.next_due > now:
+            return
+
         card = rule.card
         if card.archived_at is not None or card.column.archived_at is not None:
-            continue
-        if rule.until is not None and rule.next_due and rule.next_due.date() > rule.until:
-            continue
+            return
+        if rule.until is not None and rule.next_due.date() > rule.until:
+            return
         if rule.count is not None and rule.generated_count >= rule.count:
-            continue
+            return
 
-        due = rule.next_due or now
+        due = rule.next_due
 
         # At most one open instance (not completed, not archived) per recurrence
         # series. The series' current card always owns the only "live" rule
@@ -163,7 +185,7 @@ def generate_recurring_cards(self) -> None:
                 bysetpos=rule.bysetpos,
             )
             rule.save(update_fields=["next_due", "updated_at", "version"])
-            continue
+            return
 
         # The copy's deadline is the NEXT occurrence after the trigger time.
         # This guarantees the generated task always starts with a future deadline.
@@ -241,7 +263,11 @@ def generate_recurring_cards(self) -> None:
         from .broadcast import broadcast_board_event  # noqa: E402
         from .serializers import CardSerializer  # noqa: E402
 
-        broadcast_board_event(copy.board_id, "card.created", {"card": CardSerializer(copy).data})
+        transaction.on_commit(
+            lambda: broadcast_board_event(
+                copy.board_id, "card.created", {"card": CardSerializer(copy).data}
+            )
+        )
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
