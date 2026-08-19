@@ -17,8 +17,8 @@ import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { useMediaQuery } from '../../shared/hooks/useMediaQuery'
 import { useVisualViewportInset } from '../../shared/hooks/useVisualViewportInset'
 import { EmptyState, ErrorState, PageShell, Skeleton } from '@/components/ui'
-import { AGENDA_GROUP_LABELS, AGENDA_GROUP_ORDER, bucketAgendaCards } from './lib/grouping'
-import type { AgendaGroupId } from './lib/grouping'
+import { AGENDA_GROUP_LABELS, AGENDA_VIEW_GROUPS, bucketAgendaCards } from './lib/grouping'
+import type { AgendaGroupId, AgendaViewMode } from './lib/grouping'
 import { useAgendaRealtime } from './hooks/useAgendaRealtime'
 import { useFamilyTodayRealtime } from './hooks/useFamilyTodayRealtime'
 import { AgendaGroup } from './ui/AgendaGroup'
@@ -30,6 +30,9 @@ import { FamilyTodayPanel } from './ui/FamilyTodayPanel'
 import { TaskScreen } from '../task/TaskScreen'
 
 const COLLAPSED_STORAGE_KEY = 'agenda.collapsed'
+const VIEW_MODE_STORAGE_KEY = 'agenda.viewMode'
+/** Группы, свёрнутые по умолчанию, пока пользователь сам их не раскрыл. */
+const DEFAULT_COLLAPSED_GROUPS = new Set<AgendaGroupId>(['tomorrow', 'this-week', 'later', 'someday'])
 /** Совпадает с брейкпоинтом `xl:`, на котором появляется правая панель. */
 const DESKTOP_PANEL_QUERY = '(min-width: 1280px)'
 /** Совпадает с брейкпоинтом `lg:`, на котором прячется нижняя таб-панель/строка добавления. */
@@ -69,6 +72,14 @@ export function AgendaPage({ user }: AgendaPageProps) {
   })
   const [activeAssigneeId, setActiveAssigneeId] = useState<number | null>(null)
   const [announcement, setAnnouncement] = useState('')
+  const [viewMode, setViewMode] = useState<AgendaViewMode>(() => {
+    try {
+      const raw = localStorage.getItem(VIEW_MODE_STORAGE_KEY)
+      return raw === 'today' || raw === 'week' || raw === 'all' ? raw : 'all'
+    } catch {
+      return 'all'
+    }
+  })
 
   useEffect(() => {
     try {
@@ -77,6 +88,14 @@ export function AgendaPage({ user }: AgendaPageProps) {
       // localStorage may be unavailable in private mode.
     }
   }, [collapsed])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode)
+    } catch {
+      // localStorage may be unavailable in private mode.
+    }
+  }, [viewMode])
 
   useEffect(() => {
     if (params.listId != null && listId == null) {
@@ -95,6 +114,22 @@ export function AgendaPage({ user }: AgendaPageProps) {
 
   const cards = useMemo(() => data?.cards ?? [], [data?.cards])
   const boundaries = data?.boundaries
+
+  const boardsById = useMemo(() => new Map(boards.map((board) => [board.id, board])), [boards])
+
+  const visibleGroups = AGENDA_VIEW_GROUPS[viewMode]
+
+  const todayLabel = useMemo(() => {
+    if (!boundaries) return AGENDA_GROUP_LABELS.today
+    const formatted = new Date(boundaries.today_start).toLocaleDateString('ru-RU', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    })
+    return `Сегодня, ${formatted}`
+  }, [boundaries])
+
+  const groupLabels = useMemo(() => ({ ...AGENDA_GROUP_LABELS, today: todayLabel }), [todayLabel])
 
   const people = useMemo<AgendaPeopleOption[]>(() => {
     const map = new Map<number, AgendaPeopleOption>()
@@ -121,9 +156,15 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const completeBusy = completeMutation.isPending
   const deadlineBusy = deadlineMutation.isPending
 
+  const isGroupCollapsed = (group: AgendaGroupId) => {
+    const key = `${scopeKey}:${group}`
+    const stored = collapsed[key]
+    return stored ?? DEFAULT_COLLAPSED_GROUPS.has(group)
+  }
+
   const toggleCollapsed = (group: AgendaGroupId) => {
     const key = `${scopeKey}:${group}`
-    setCollapsed((prev) => ({ ...prev, [key]: prev[key] !== true }))
+    setCollapsed((prev) => ({ ...prev, [key]: !isGroupCollapsed(group) }))
   }
 
   const handleCompleteToggle = (card: AgendaCard, complete: boolean) => {
@@ -252,6 +293,8 @@ export function AgendaPage({ user }: AgendaPageProps) {
 
   const emptyAgenda = cards.length === 0
   const emptyByFilter = !emptyAgenda && visibleCards.length === 0
+  const emptyByView =
+    !emptyAgenda && !emptyByFilter && buckets != null && visibleGroups.every((group) => buckets[group].length === 0)
 
   const mobileQuickAddEnabled = isMobileLayout && listId != null
 
@@ -263,6 +306,8 @@ export function AgendaPage({ user }: AgendaPageProps) {
         lists={boards.map((board) => ({ id: board.id, name: board.name, icon: board.icon }))}
         people={people}
         onAssigneeFilterChange={setActiveAssigneeId}
+        onViewModeChange={setViewMode}
+        viewMode={viewMode}
         quickAdd={
           !isMobileLayout && listId != null
             ? {
@@ -291,17 +336,22 @@ export function AgendaPage({ user }: AgendaPageProps) {
             <EmptyState title="По фильтру ничего нет">
               У выбранного исполнителя нет задач в агенде.
             </EmptyState>
+          ) : emptyByView ? (
+            <EmptyState title="В этом виде ничего нет">
+              Переключитесь на «Все дела», чтобы увидеть остальные задачи.
+            </EmptyState>
           ) : buckets ? (
             <div className="space-y-5">
-              {AGENDA_GROUP_ORDER.map((group) => (
+              {visibleGroups.map((group) => (
                 <AgendaGroup
                   key={group}
+                  boardsById={boardsById}
                   boundaries={boundaries!}
                   busy={completeBusy}
                   cards={buckets[group]}
-                  collapsed={collapsed[`${scopeKey}:${group}`] === true}
+                  collapsed={isGroupCollapsed(group)}
                   group={group}
-                  label={AGENDA_GROUP_LABELS[group]}
+                  label={groupLabels[group]}
                   onCompleteToggle={handleCompleteToggle}
                   onDeadlineCommit={handleDeadlineCommit}
                   onSwipeComplete={handleSwipeComplete}

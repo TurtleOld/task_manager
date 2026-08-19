@@ -88,6 +88,10 @@ def agenda_queryset(
             has_subtasks=Exists(Card.objects.filter(parent_id=OuterRef("pk"))),
             has_checklist=Exists(ChecklistItem.objects.filter(card_id=OuterRef("pk"))),
             is_recurring=Exists(RecurrenceRule.objects.filter(card_id=OuterRef("pk"))),
+            checklist_total=Count("checklist_items", distinct=True),
+            checklist_completed=Count(
+                "checklist_items", filter=Q(checklist_items__done=True), distinct=True
+            ),
         )
     )
 

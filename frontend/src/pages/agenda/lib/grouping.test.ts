@@ -33,6 +33,8 @@ function makeCard(overrides: Partial<AgendaCard>): AgendaCard {
     has_subtasks: false,
     has_checklist: false,
     is_recurring: false,
+    checklist_total: 0,
+    checklist_completed: 0,
     created_at: '2026-08-12T10:00:00+00:00',
     ...overrides,
   }

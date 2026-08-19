@@ -181,6 +181,37 @@ export function ChipButton({ active = false, children, className, tone = 'neutra
   return <button type={type} className={cn(chipBaseClass, active ? chipTones[tone].active : chipTones[tone].idle, className)} aria-pressed={active} {...props}>{children}</button>
 }
 
+type ColorDotProps = { className?: string; color?: string }
+
+export function ColorDot({ className, color }: ColorDotProps) {
+  return <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-accent/12', className)} style={{ backgroundColor: color || '#2563eb' }} aria-hidden="true" />
+}
+
+type ProgressBarTone = 'primary' | 'success'
+
+const progressBarTones: Record<ProgressBarTone, string> = {
+  primary: 'bg-primary',
+  success: 'bg-success',
+}
+
+type ProgressBarProps = HTMLAttributes<HTMLDivElement> & { percent: number; tone?: ProgressBarTone }
+
+export function ProgressBar({ className, percent, tone = 'primary', ...props }: ProgressBarProps) {
+  const clamped = Math.max(0, Math.min(100, percent))
+  return (
+    <div
+      className={cn('h-1.5 w-full overflow-hidden rounded-full bg-background-subtle', className)}
+      role="progressbar"
+      aria-valuenow={clamped}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      {...props}
+    >
+      <div className={cn('h-full rounded-full transition-[width] duration-fast ease-standard', progressBarTones[tone])} style={{ width: `${clamped}%` }} />
+    </div>
+  )
+}
+
 type EmptyStateProps = { action?: { label: string; onClick: () => void }; children?: ReactNode; className?: string; title: ReactNode }
 
 export function EmptyState({ action, children, className, title }: EmptyStateProps) {

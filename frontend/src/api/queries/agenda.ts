@@ -36,6 +36,8 @@ export function toAgendaCard(card: Card): AgendaCard {
     has_subtasks: (card.subtasks?.length ?? 0) > 0,
     has_checklist: (card.checklist?.length ?? 0) > 0,
     is_recurring: card.recurrence != null,
+    checklist_total: card.checklist?.length ?? 0,
+    checklist_completed: card.checklist?.filter((item) => item.done).length ?? 0,
     created_at: card.created_at,
   }
 }
@@ -60,6 +62,8 @@ export function makeAgendaPlaceholderCard(params: {
     has_subtasks: false,
     has_checklist: false,
     is_recurring: false,
+    checklist_total: 0,
+    checklist_completed: 0,
     created_at: new Date().toISOString(),
   }
 }

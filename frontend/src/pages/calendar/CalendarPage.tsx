@@ -155,8 +155,7 @@ export function CalendarPage() {
               <Badge variant="success">Календарь</Badge>
             </div>
             <div>
-              <h1 className="text-h1 text-text">Календарь задач</h1>
-              <p className="mt-2 max-w-3xl text-body-sm text-text-muted">
+              <p className="max-w-3xl text-body-sm text-text-muted">
                 Дедлайны по всем спискам в месячном, недельном и дневном виде. Перетаскивание меняет день дедлайна, сохраняя исходное время задачи.
               </p>
             </div>

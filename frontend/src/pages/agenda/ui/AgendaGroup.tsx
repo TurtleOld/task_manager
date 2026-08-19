@@ -1,11 +1,12 @@
 import { useId } from 'react'
-import { ChevronDown } from 'lucide-react'
-import type { AgendaBoundaries, AgendaCard } from '../../../api/types'
+import { AlertTriangle, ChevronDown } from 'lucide-react'
+import type { AgendaBoundaries, AgendaCard, Board } from '../../../api/types'
 import type { AgendaGroupId } from '../lib/grouping'
 import { cn } from '@/lib/utils'
 import { AgendaRow } from './AgendaRow'
 
 interface AgendaGroupProps {
+  boardsById: Map<number, Board>
   boundaries: AgendaBoundaries
   busy: boolean
   cards: AgendaCard[]
@@ -25,10 +26,16 @@ const groupLabelTone: Partial<Record<AgendaGroupId, string>> = {
   today: 'text-warning',
 }
 
-export function AgendaGroup({ boundaries, busy, cards, collapsed, deadlineBusy, group, label, onCompleteToggle, onDeadlineCommit, onSwipeComplete, onSwipeTomorrow, onToggle }: AgendaGroupProps) {
+const groupAccentGroups: Partial<Record<AgendaGroupId, true>> = {
+  overdue: true,
+}
+
+export function AgendaGroup({ boardsById, boundaries, busy, cards, collapsed, deadlineBusy, group, label, onCompleteToggle, onDeadlineCommit, onSwipeComplete, onSwipeTomorrow, onToggle }: AgendaGroupProps) {
   const contentId = useId()
 
   if (cards.length === 0) return null
+
+  const accented = groupAccentGroups[group] === true
 
   return (
     <section className="space-y-0.5" aria-label={label}>
@@ -44,8 +51,11 @@ export function AgendaGroup({ boundaries, busy, cards, collapsed, deadlineBusy, 
             className={cn('h-4 w-4 shrink-0 text-text-muted transition-transform duration-fast ease-standard', collapsed && '-rotate-90')}
             aria-hidden="true"
           />
-          <span className={cn('text-body-sm font-semibold', groupLabelTone[group] ?? 'text-text')}>{label}</span>
-          <span className="rounded-full bg-background-subtle px-2 py-0.5 text-caption text-text-muted">{cards.length}</span>
+          {group === 'overdue' ? <AlertTriangle className="h-4 w-4 shrink-0 text-danger" aria-hidden="true" /> : null}
+          <span className={cn('text-body-sm font-semibold', groupLabelTone[group] ?? 'text-text', accented && 'uppercase tracking-wide')}>
+            {label}
+          </span>
+          <span className="ml-auto rounded-full bg-background-subtle px-2 py-0.5 text-caption text-text-muted">{cards.length}</span>
         </button>
       </h2>
       {!collapsed ? (
@@ -58,6 +68,7 @@ export function AgendaGroup({ boundaries, busy, cards, collapsed, deadlineBusy, 
               card={card}
               deadlineBusy={deadlineBusy}
               group={group}
+              listMeta={boardsById.get(card.list)}
               onCompleteToggle={onCompleteToggle}
               onDeadlineCommit={onDeadlineCommit}
               onSwipeComplete={onSwipeComplete}

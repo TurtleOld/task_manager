@@ -39,8 +39,7 @@ export function BoardsPage() {
               <Badge variant="success">Списки</Badge>
             </div>
             <div>
-              <h1 className="text-h1 text-text">Списки</h1>
-              <p className="mt-2 max-w-3xl text-body-sm text-text-muted">Создавайте рабочие пространства и выбирайте визуальные маркеры, чтобы списки легко различались.</p>
+              <p className="max-w-3xl text-body-sm text-text-muted">Создавайте рабочие пространства и выбирайте визуальные маркеры, чтобы списки легко различались.</p>
             </div>
           </div>
           <Badge variant="success">

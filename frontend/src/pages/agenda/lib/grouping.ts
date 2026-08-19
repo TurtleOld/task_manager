@@ -13,6 +13,15 @@ export const AGENDA_GROUP_LABELS: Record<AgendaGroupId, string> = {
   someday: 'Когда-нибудь',
 }
 
+export type AgendaViewMode = 'today' | 'week' | 'all'
+
+/** Какие группы показывает каждая вкладка вида агенды («Сегодня / Неделя / Все дела»). */
+export const AGENDA_VIEW_GROUPS: Record<AgendaViewMode, AgendaGroupId[]> = {
+  today: ['overdue', 'today'],
+  week: ['overdue', 'today', 'tomorrow', 'this-week'],
+  all: AGENDA_GROUP_ORDER,
+}
+
 function parseDate(value: string): number {
   return new Date(value).getTime()
 }

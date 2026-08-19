@@ -76,6 +76,8 @@ export interface AgendaCard {
   has_subtasks: boolean
   has_checklist: boolean
   is_recurring: boolean
+  checklist_total: number
+  checklist_completed: number
   created_at: string
 }
 

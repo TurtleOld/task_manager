@@ -1,13 +1,13 @@
 import { Component, Suspense, useEffect, useMemo, useState } from 'react'
 import type { ComponentType, ErrorInfo, ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Archive, CalendarDays, ChevronLeft, LayoutDashboard, ListTodo, Menu, Search, Settings } from 'lucide-react'
+import { Archive, CalendarDays, ChevronLeft, LayoutDashboard, ListTodo, Menu, Moon, Search, Settings, Sun } from 'lucide-react'
 import { useBoards } from '../api/queries/boards'
 import type { AuthUser } from '../api/types'
 import { CommandPalette } from './CommandPalette'
 import { NotificationInboxButton } from './NotificationInboxButton'
 import { toggleTheme } from './theme'
-import { Button, Skeleton } from '@/components/ui'
+import { Button, ColorDot, IconButton, Skeleton } from '@/components/ui'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 
@@ -60,6 +60,7 @@ export function AppShell({ user, onLogout }: AppShellProps) {
       return false
     }
   })
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
 
   useEffect(() => {
     try {
@@ -145,20 +146,26 @@ export function AppShell({ user, onLogout }: AppShellProps) {
             </div>
 
             <div className="flex shrink-0 items-center gap-2">
-              <button
+              <IconButton
                 type="button"
                 onClick={() => setCommandOpen(true)}
-                className="hidden min-h-10 items-center gap-2 rounded-control border border-border bg-surface/90 px-3 py-2 text-caption text-text-muted shadow-surface transition hover:border-border-strong hover:bg-surface-hover hover:text-text sm:inline-flex"
                 aria-label="Открыть командную палитру"
+                title="Поиск ⌘K"
               >
                 <Search className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden md:inline">Поиск</span>
-                <kbd className="hidden rounded-md border border-border bg-background-subtle px-1.5 py-0.5 text-[0.68rem] text-text-muted md:inline">⌘K</kbd>
-              </button>
+              </IconButton>
               <NotificationInboxButton />
-              <Button type="button" variant="secondary" size="sm" onClick={toggleTheme} aria-label="Переключить тему">
-                Тема
-              </Button>
+              <IconButton
+                type="button"
+                onClick={() => {
+                  toggleTheme()
+                  setIsDark((value) => !value)
+                }}
+                aria-label="Переключить тему"
+                title="Переключить тему"
+              >
+                {isDark ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
+              </IconButton>
             </div>
           </div>
         </header>
@@ -359,7 +366,7 @@ function BoardDotIcon({ className, color, icon }: { className?: string; color?: 
   return icon ? (
     <span className={cn('text-body-sm', className)} aria-hidden="true">{icon}</span>
   ) : (
-    <span className={cn('h-2.5 w-2.5 rounded-full ring-4 ring-accent/12', className)} style={{ backgroundColor: color || '#2563eb' }} aria-hidden="true" />
+    <ColorDot className={className} color={color} />
   )
 }
 

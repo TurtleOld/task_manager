@@ -1,8 +1,16 @@
 import { Link } from 'react-router-dom'
+import { ChipButton } from '@/components/ui'
 import { cn } from '@/lib/utils'
+import type { AgendaViewMode } from '../lib/grouping'
 import { QuickAddBar } from './QuickAddBar'
 import type { QuickAddResult } from './QuickAddBar'
 import type { QuickAddPerson } from '../lib/quickAdd'
+
+const VIEW_MODE_OPTIONS: { id: AgendaViewMode; label: string }[] = [
+  { id: 'today', label: 'Сегодня' },
+  { id: 'week', label: 'Неделя' },
+  { id: 'all', label: 'Все дела' },
+]
 
 export interface AgendaPeopleOption {
   id: number
@@ -29,7 +37,9 @@ interface AgendaHeaderProps {
   lists: AgendaScopeOption[]
   people: AgendaPeopleOption[]
   onAssigneeFilterChange: (id: number | null) => void
+  onViewModeChange: (mode: AgendaViewMode) => void
   quickAdd: AgendaQuickAddProps | null
+  viewMode: AgendaViewMode
 }
 
 export function AgendaHeader({
@@ -38,10 +48,25 @@ export function AgendaHeader({
   lists,
   people,
   onAssigneeFilterChange,
+  onViewModeChange,
   quickAdd,
+  viewMode,
 }: AgendaHeaderProps) {
   return (
     <header className="sticky top-16 z-sticky flex min-h-14 flex-wrap items-center gap-3 border-b border-border/80 bg-background/78 px-4 py-2 backdrop-blur-xl sm:flex-nowrap sm:py-0 sm:px-6">
+      <div className="order-0 flex shrink-0 items-center gap-1 py-1" role="group" aria-label="Вид агенды">
+        {VIEW_MODE_OPTIONS.map((option) => (
+          <ChipButton
+            key={option.id}
+            active={viewMode === option.id}
+            tone="primary"
+            onClick={() => onViewModeChange(option.id)}
+          >
+            {option.label}
+          </ChipButton>
+        ))}
+      </div>
+
       <div
         className={cn(
           'order-1 flex min-w-0 shrink-0 items-center gap-1 overflow-x-auto py-1 lg:hidden',

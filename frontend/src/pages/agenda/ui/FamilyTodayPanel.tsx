@@ -1,4 +1,4 @@
-import { Card as SurfaceCard, Checkbox, Skeleton } from '@/components/ui'
+import { Card as SurfaceCard, Checkbox, ProgressBar, Skeleton } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { FamilyShoppingList, FamilyTodayPerson, FamilyTodayResponse, FamilyWeekProgress } from '../../../api/types'
 
@@ -59,6 +59,7 @@ function FamilyPeopleCard({
           {people.map((person) => {
             const name = person.user.full_name || person.user.username || 'Без имени'
             const active = activeAssigneeId === person.user.id
+            const percent = person.today_total > 0 ? Math.floor((person.today_completed / person.today_total) * 100) : 0
             return (
               <li key={person.user.id}>
                 <button
@@ -79,9 +80,14 @@ function FamilyPeopleCard({
                   >
                     {name[0]?.toUpperCase() ?? '?'}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-body-sm text-text">{name}</span>
-                  <span className="shrink-0 text-caption text-text-muted">
-                    {person.today_completed}/{person.today_total} дел
+                  <span className="min-w-0 flex-1 space-y-1">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="min-w-0 flex-1 truncate text-body-sm text-text">{name}</span>
+                      <span className="shrink-0 text-caption text-text-muted">
+                        {person.today_completed}/{person.today_total} дел
+                      </span>
+                    </span>
+                    <ProgressBar percent={percent} />
                   </span>
                 </button>
               </li>
@@ -142,9 +148,7 @@ function FamilyWeekProgressCard({ week }: { week: FamilyWeekProgress }) {
       <p className="text-caption text-text-muted">
         {week.completed} из {week.total} · {percent}%
       </p>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-background-subtle" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}>
-        <div className="h-full rounded-full bg-success transition-[width] duration-fast ease-standard" style={{ width: `${percent}%` }} />
-      </div>
+      <ProgressBar percent={percent} tone="success" />
     </SurfaceCard>
   )
 }
