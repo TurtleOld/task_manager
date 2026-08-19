@@ -25,6 +25,7 @@ class AgendaCardSerializer(serializers.ModelSerializer[Card]):
     completed_by = AgendaUserSerializer(read_only=True)
     has_subtasks = serializers.BooleanField(read_only=True)
     has_checklist = serializers.BooleanField(read_only=True)
+    is_recurring = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Card
@@ -40,6 +41,7 @@ class AgendaCardSerializer(serializers.ModelSerializer[Card]):
             "completed_by",
             "has_subtasks",
             "has_checklist",
+            "is_recurring",
             "created_at",
         ]
         read_only_fields = fields
