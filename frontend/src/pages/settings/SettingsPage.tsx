@@ -231,8 +231,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
               <Badge variant="info">{userCountLabel}</Badge>
             </div>
             <div>
-              <h1 className="text-h1 text-text">Настройки</h1>
-              <p className="mt-2 max-w-3xl text-body-sm text-text-muted">
+              <p className="max-w-3xl text-body-sm text-text-muted">
                 Управляйте профилем, уведомлениями, пользовательскими настройками и доступом из единого административного центра.
               </p>
             </div>

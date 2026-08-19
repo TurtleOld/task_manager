@@ -227,7 +227,8 @@ def test_agenda_card_carries_row_fields(
         deadline=timezone.now() + timedelta(days=1),
     )
     Card.objects.create(column=column, title="Sub", parent=card)
-    ChecklistItem.objects.create(card=card, text="Milk")
+    ChecklistItem.objects.create(card=card, text="Milk", done=True)
+    ChecklistItem.objects.create(card=card, text="Bread")
 
     resp = auth_client.get("/api/v1/agenda/")
 
@@ -239,6 +240,8 @@ def test_agenda_card_carries_row_fields(
     assert item["has_subtasks"] is True
     assert item["has_checklist"] is True
     assert item["is_recurring"] is False
+    assert item["checklist_total"] == 2
+    assert item["checklist_completed"] == 1
 
 
 @pytest.mark.django_db()

@@ -90,8 +90,7 @@ export function ArchivePage() {
               <Badge variant="success">Архив</Badge>
             </div>
             <div>
-              <h1 className="text-h1 text-text">Архив задач и списков</h1>
-              <p className="mt-2 max-w-3xl text-body-sm text-text-muted">
+              <p className="max-w-3xl text-body-sm text-text-muted">
                 Удаление теперь не стирает данные. Архивированные элементы скрываются со списков и могут быть восстановлены.
               </p>
             </div>

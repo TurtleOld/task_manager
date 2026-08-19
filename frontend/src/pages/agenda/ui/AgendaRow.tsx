@@ -2,12 +2,13 @@ import { useId } from 'react'
 import { Link } from 'react-router-dom'
 import { Checkbox } from '@radix-ui/react-checkbox'
 import { Calendar, Check, Flag, GitBranch, ListChecks, Repeat } from 'lucide-react'
-import type { AgendaBoundaries, AgendaCard } from '../../../api/types'
+import type { AgendaBoundaries, AgendaCard, Board } from '../../../api/types'
 import { priorityToLabel, priorityToTone } from '../../../shared/lib/priority'
 import { formatDeadlineShort } from '../lib/formatDeadline'
 import type { AgendaGroupId } from '../lib/grouping'
 import { useSwipeRow } from '../hooks/useSwipeRow'
 import { SWIPE_ACTION_THRESHOLD_PX } from '../lib/swipeGesture'
+import { ColorDot, ProgressBar } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { DeadlinePicker } from './DeadlinePicker'
 
@@ -17,10 +18,15 @@ interface AgendaRowProps {
   card: AgendaCard
   deadlineBusy: boolean
   group: AgendaGroupId
+  listMeta?: Board
   onCompleteToggle: (card: AgendaCard, complete: boolean) => void
   onDeadlineCommit: (card: AgendaCard, deadline: string | null) => void
   onSwipeComplete: (card: AgendaCard) => void
   onSwipeTomorrow: (card: AgendaCard) => void
+}
+
+function formatCompletedTime(value: string): string {
+  return new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
 const priorityToneToClass: Record<'neutral' | 'danger' | 'warning' | 'success', string> = {
@@ -36,6 +42,7 @@ export function AgendaRow({
   card,
   deadlineBusy,
   group,
+  listMeta,
   onCompleteToggle,
   onDeadlineCommit,
   onSwipeComplete,
@@ -49,6 +56,7 @@ export function AgendaRow({
   const assigneeInitial = assignee ? (assignee.full_name || assignee.username || '?')[0]?.toUpperCase() : null
   const completerName =
     completed && card.completed_by ? card.completed_by.full_name || card.completed_by.username : null
+  const checklistPercent = card.checklist_total > 0 ? Math.floor((card.checklist_completed / card.checklist_total) * 100) : 0
 
   const { ref: swipeRef, action: swipeAction, offsetX } = useSwipeRow({
     disabled: busy,
@@ -122,6 +130,13 @@ export function AgendaRow({
           {card.title}
         </Link>
 
+        {listMeta ? (
+          <span className="hidden shrink-0 items-center gap-1.5 text-caption text-text-muted sm:flex">
+            <ColorDot color={listMeta.color} />
+            <span className="max-w-[8rem] truncate">{listMeta.name}</span>
+          </span>
+        ) : null}
+
         <DeadlinePicker
           boundaries={boundaries}
           busy={deadlineBusy}
@@ -140,13 +155,30 @@ export function AgendaRow({
         ) : null}
 
         {card.has_checklist ? (
-          <ListChecks className="h-4 w-4 shrink-0 text-text-muted" aria-label="Есть чек-лист" />
+          card.checklist_total > 0 ? (
+            <span
+              className="flex shrink-0 items-center gap-1.5 text-caption text-text-muted"
+              aria-label={`Чек-лист: ${card.checklist_completed} из ${card.checklist_total}`}
+            >
+              <ListChecks className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{card.checklist_completed}/{card.checklist_total}</span>
+              <ProgressBar percent={checklistPercent} className="w-10" />
+            </span>
+          ) : (
+            <ListChecks className="h-4 w-4 shrink-0 text-text-muted" aria-label="Есть чек-лист" />
+          )
         ) : null}
         {card.has_subtasks ? (
           <GitBranch className="h-4 w-4 shrink-0 text-text-muted" aria-label="Есть подзадачи" />
         ) : null}
         {card.is_recurring ? (
           <Repeat className="h-4 w-4 shrink-0 text-text-muted" aria-label="Повторяющаяся задача" />
+        ) : null}
+
+        {completed && completerName ? (
+          <span className="hidden shrink-0 text-caption text-text-muted lg:inline">
+            выполнил(а) {completerName}{card.completed_at ? `, ${formatCompletedTime(card.completed_at)}` : ''}
+          </span>
         ) : null}
 
         {assignee ? (
