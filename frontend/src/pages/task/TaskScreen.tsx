@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Check } from 'lucide-react'
@@ -24,7 +24,7 @@ import {
   useTaskUpdateField,
   useTaskUploadAttachments,
 } from '../../api/queries/task'
-import type { AgendaBoundaries, AuthUser } from '../../api/types'
+import type { AgendaBoundaries, AuthUser, Card as CardModel } from '../../api/types'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { Badge, Card as SurfaceCard, Checkbox, ChipButton, ErrorState, Field, Select, Skeleton, Textarea, TextInput } from '@/components/ui'
 import { Modal } from '@/components/ui'
@@ -82,6 +82,22 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
   const updateComment = useTaskUpdateComment(taskId)
   const deleteComment = useTaskDeleteComment(taskId)
   const commentsBusy = addComment.isPending || updateComment.isPending || deleteComment.isPending
+
+  const pendingChangesRef = useRef<string[]>([])
+  const noteChange = (label: string) => {
+    pendingChangesRef.current.push(label)
+  }
+  const handleClose = () => {
+    const changes = pendingChangesRef.current
+    pendingChangesRef.current = []
+    if (changes.length > 0) {
+      const latest = qc.getQueryData<CardModel>(queryKeys.card(taskId))
+      if (latest) {
+        api.notifyCardUpdated(taskId, { version: latest.version, changes }).catch(() => {})
+      }
+    }
+    onClose()
+  }
 
   const [title, setTitle] = useState(task?.title ?? '')
   const [titleFocused, setTitleFocused] = useState(false)
@@ -154,19 +170,19 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
       setTitle(task.title)
       return
     }
-    updateField.mutate({ title: value })
+    updateField.mutate({ title: value }, { onSuccess: () => noteChange(`Название: «${value}»`) })
   }
 
   const commitDescription = () => {
     setDescriptionFocused(false)
     if (description === task.description) return
-    updateField.mutate({ description })
+    updateField.mutate({ description }, { onSuccess: () => noteChange('Изменено описание') })
   }
 
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={handleClose}
       title={task.title || 'Задача'}
       className="p-0 max-w-5xl w-[calc(100%-2rem)] flex flex-col max-h-[calc(100vh-2rem)]"
     >
@@ -199,7 +215,7 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
               <p className="text-body-sm text-text-muted">Выполнил(а) {completedLabel}</p>
             ) : null}
           </div>
-          <button type="button" onClick={onClose} aria-label="Закрыть окно" className="shrink-0 rounded-control px-3 py-2 text-caption font-semibold text-text-muted hover:bg-background-subtle hover:text-text">
+          <button type="button" onClick={handleClose} aria-label="Закрыть окно" className="shrink-0 rounded-control px-3 py-2 text-caption font-semibold text-text-muted hover:bg-background-subtle hover:text-text">
             Закрыть
           </button>
         </div>
@@ -254,7 +270,12 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                   boundaries={effectiveBoundaries}
                   deadline={task.deadline}
                   displayText={task.deadline ? formatDeadlineShort(task.deadline, effectiveBoundaries) : undefined}
-                  onCommit={(deadline) => updateField.mutate({ deadline })}
+                  onCommit={(deadline) =>
+                    updateField.mutate(
+                      { deadline },
+                      { onSuccess: () => noteChange(`Срок: ${formatDeadlineValue(deadline)}`) },
+                    )
+                  }
                   className="w-full justify-start"
                 />
               </Field>
@@ -265,7 +286,12 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                   value={task.assignee ?? ''}
                   onChange={(event) => {
                     const value = event.target.value
-                    updateField.mutate({ assignee: value ? Number(value) : null })
+                    const assigneeId = value ? Number(value) : null
+                    const label = assigneeId ? resolveAssigneeName(assigneeId) : 'не назначен'
+                    updateField.mutate(
+                      { assignee: assigneeId },
+                      { onSuccess: () => noteChange(`Исполнитель: ${label}`) },
+                    )
                   }}
                 >
                   <option value="">Не назначен</option>
@@ -284,7 +310,12 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                       active={task.priority === value}
                       role="radio"
                       aria-checked={task.priority === value}
-                      onClick={() => updateField.mutate({ priority: value })}
+                      onClick={() =>
+                        updateField.mutate(
+                          { priority: value },
+                          { onSuccess: () => noteChange(`Приоритет: ${priorityToLabel(value)}`) },
+                        )
+                      }
                     >
                       {priorityToLabel(value)}
                     </ChipButton>
@@ -297,12 +328,18 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                   label="Показывать в панели «Сегодня у семьи»"
                   description="Чек-лист этой задачи станет общим списком покупок"
                   checked={task.is_shopping_list === true}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    const checked = event.target.checked
                     updateField.mutate(
-                      { is_shopping_list: event.target.checked },
-                      { onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.familyToday() }) },
+                      { is_shopping_list: checked },
+                      {
+                        onSuccess: () => {
+                          void qc.invalidateQueries({ queryKey: queryKeys.familyToday() })
+                          noteChange(checked ? 'Включён список покупок' : 'Отключён список покупок')
+                        },
+                      },
                     )
-                  }
+                  }}
                 />
               ) : null}
             </SurfaceCard>
