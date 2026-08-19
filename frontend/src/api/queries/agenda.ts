@@ -35,6 +35,7 @@ export function toAgendaCard(card: Card): AgendaCard {
       card.completed_by != null ? { id: card.completed_by, username: '', full_name: null } : null,
     has_subtasks: (card.subtasks?.length ?? 0) > 0,
     has_checklist: (card.checklist?.length ?? 0) > 0,
+    is_recurring: card.recurrence != null,
     created_at: card.created_at,
   }
 }
@@ -58,6 +59,7 @@ export function makeAgendaPlaceholderCard(params: {
     completed_by: null,
     has_subtasks: false,
     has_checklist: false,
+    is_recurring: false,
     created_at: new Date().toISOString(),
   }
 }

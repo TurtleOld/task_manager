@@ -13,6 +13,7 @@ export const queryKeys = {
   cardComments: (cardId: number) => ['cardComments', cardId] as const,
   cardDeadlineReminder: (cardId: number) =>
     ['cardDeadlineReminder', cardId] as const,
+  cardRecurrence: (cardId: number) => ['cardRecurrence', cardId] as const,
   users: () => ['users'] as const,
   notificationProfile: () => ['notificationProfile'] as const,
 }

@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet
 from django.utils import timezone as dj_timezone
 
-from .models import Card, ChecklistItem
+from .models import Card, ChecklistItem, RecurrenceRule
 
 
 @dataclass(frozen=True)
@@ -87,6 +87,7 @@ def agenda_queryset(
         .annotate(
             has_subtasks=Exists(Card.objects.filter(parent_id=OuterRef("pk"))),
             has_checklist=Exists(ChecklistItem.objects.filter(card_id=OuterRef("pk"))),
+            is_recurring=Exists(RecurrenceRule.objects.filter(card_id=OuterRef("pk"))),
         )
     )
 

@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import { Link } from 'react-router-dom'
 import { Checkbox } from '@radix-ui/react-checkbox'
-import { Calendar, Check, Flag, GitBranch, ListChecks } from 'lucide-react'
+import { Calendar, Check, Flag, GitBranch, ListChecks, Repeat } from 'lucide-react'
 import type { AgendaBoundaries, AgendaCard } from '../../../api/types'
 import { priorityToLabel, priorityToTone } from '../../../shared/lib/priority'
 import { formatDeadlineShort } from '../lib/formatDeadline'
@@ -144,6 +144,9 @@ export function AgendaRow({
         ) : null}
         {card.has_subtasks ? (
           <GitBranch className="h-4 w-4 shrink-0 text-text-muted" aria-label="Есть подзадачи" />
+        ) : null}
+        {card.is_recurring ? (
+          <Repeat className="h-4 w-4 shrink-0 text-text-muted" aria-label="Повторяющаяся задача" />
         ) : null}
 
         {assignee ? (

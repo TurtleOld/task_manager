@@ -238,6 +238,20 @@ def test_agenda_card_carries_row_fields(
     assert item["assignee"]["id"] == regular_user.id
     assert item["has_subtasks"] is True
     assert item["has_checklist"] is True
+    assert item["is_recurring"] is False
+
+
+@pytest.mark.django_db()
+def test_agenda_marks_a_card_with_a_recurrence_rule(auth_client: APIClient, column: Column) -> None:
+    from kanban.models import RecurrenceFrequency, RecurrenceRule
+
+    card = Card.objects.create(column=column, title="Repeats")
+    RecurrenceRule.objects.create(card=card, freq=RecurrenceFrequency.DAILY, interval=28)
+
+    resp = auth_client.get("/api/v1/agenda/")
+
+    item = next(entry for entry in resp.json()["cards"] if entry["title"] == "Repeats")
+    assert item["is_recurring"] is True
 
 
 @pytest.mark.django_db()

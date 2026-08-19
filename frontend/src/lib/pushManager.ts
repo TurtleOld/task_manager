@@ -7,9 +7,32 @@ import { selectForeignRegistrations, subscriptionToRegistrationBody, urlBase64To
 const SW_URL = `${import.meta.env.BASE_URL || '/'}sw.js`
 const DEVICE_ID_KEY = 'push_device_id'
 
+/**
+ * Wait until a registration has an active worker. `register()` resolves as
+ * soon as the registration exists — on a first visit the worker is still
+ * `installing`, and `pushManager.subscribe()` on that registration throws
+ * "no active Service Worker" on Firefox (Chrome tends to tolerate it,
+ * which is why this only shows up on mobile Firefox in practice).
+ */
+async function waitForActiveWorker(registration: ServiceWorkerRegistration): Promise<void> {
+  if (registration.active) return
+  const worker = registration.installing ?? registration.waiting
+  if (!worker) return
+
+  await new Promise<void>((resolve) => {
+    worker.addEventListener('statechange', function onStateChange() {
+      if (worker.state === 'activated') {
+        worker.removeEventListener('statechange', onStateChange)
+        resolve()
+      }
+    })
+  })
+}
+
 /** Register our service worker, then clean up any other provider's worker. */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration> {
   const registration = await navigator.serviceWorker.register(SW_URL)
+  await waitForActiveWorker(registration)
 
   // One-time cleanup: the previous provider left its own registration on this
   // origin, and two handlers must not race for the same event.
