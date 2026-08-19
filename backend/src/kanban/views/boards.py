@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from django.utils import timezone
-from rest_framework import status, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -15,6 +15,7 @@ from ..serializers import BoardSerializer
 class BoardViewSet(viewsets.ModelViewSet[Board]):
     queryset = Board.objects.all().order_by("id")
     serializer_class = BoardSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return Board.objects.filter(is_inbox=False).order_by("id")

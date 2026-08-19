@@ -7,8 +7,8 @@ from kanban.models import NotificationEvent
 
 
 @pytest.mark.django_db()
-def test_update_does_not_auto_notify_and_notify_is_idempotent() -> None:
-    client = APIClient()
+def test_update_does_not_auto_notify_and_notify_is_idempotent(auth_client: APIClient) -> None:
+    client = auth_client
 
     board = client.post("/api/v1/boards/", data={"name": "B"}, format="json").json()
     card = client.post(
@@ -56,8 +56,8 @@ def test_update_does_not_auto_notify_and_notify_is_idempotent() -> None:
 
 
 @pytest.mark.django_db()
-def test_failed_save_does_not_create_notification_event() -> None:
-    client = APIClient()
+def test_failed_save_does_not_create_notification_event(auth_client: APIClient) -> None:
+    client = auth_client
 
     board = client.post("/api/v1/boards/", data={"name": "B"}, format="json").json()
     card = client.post(
@@ -78,8 +78,8 @@ def test_failed_save_does_not_create_notification_event() -> None:
 
 
 @pytest.mark.django_db()
-def test_notify_error_does_not_rollback_save() -> None:
-    client = APIClient()
+def test_notify_error_does_not_rollback_save(auth_client: APIClient) -> None:
+    client = auth_client
 
     board = client.post("/api/v1/boards/", data={"name": "B"}, format="json").json()
     card = client.post(
@@ -114,8 +114,10 @@ def test_notify_error_does_not_rollback_save() -> None:
 
 
 @pytest.mark.django_db()
-def test_delete_does_not_auto_notify_and_deleted_notify_is_idempotent() -> None:
-    client = APIClient()
+def test_delete_does_not_auto_notify_and_deleted_notify_is_idempotent(
+    auth_client: APIClient,
+) -> None:
+    client = auth_client
 
     board = client.post("/api/v1/boards/", data={"name": "B"}, format="json").json()
     card = client.post(

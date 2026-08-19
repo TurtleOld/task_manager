@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Check } from 'lucide-react'
+import { Archive, Check } from 'lucide-react'
 import { Checkbox as RadixCheckbox } from '@radix-ui/react-checkbox'
 import { api } from '../../api/client'
 import { queryKeys } from '../../api/queries/keys'
@@ -11,6 +11,7 @@ import {
   useTaskAddAttachment,
   useTaskAddComment,
   useTaskAddSubtask,
+  useTaskArchive,
   useTaskChecklistAdd,
   useTaskChecklistDelete,
   useTaskChecklistReorder,
@@ -24,10 +25,11 @@ import {
   useTaskUpdateField,
   useTaskUploadAttachments,
 } from '../../api/queries/task'
-import type { AgendaBoundaries, AuthUser } from '../../api/types'
+import type { AgendaBoundaries, AuthUser, Card as CardModel } from '../../api/types'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
-import { Badge, Card as SurfaceCard, Checkbox, ChipButton, ErrorState, Field, Select, Skeleton, Textarea, TextInput } from '@/components/ui'
+import { Badge, Button, Card as SurfaceCard, Checkbox, ChipButton, ErrorState, Field, Select, Skeleton, Textarea, TextInput } from '@/components/ui'
 import { Modal } from '@/components/ui'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { priorityToLabel, priorityToTone } from '../../shared/lib/priority'
 import { useBoards } from '../../api/queries/boards'
 import { formatDeadlineShort } from '../agenda/lib/formatDeadline'
@@ -82,6 +84,47 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
   const updateComment = useTaskUpdateComment(taskId)
   const deleteComment = useTaskDeleteComment(taskId)
   const commentsBusy = addComment.isPending || updateComment.isPending || deleteComment.isPending
+
+  const pendingChangesRef = useRef<string[]>([])
+  const noteChange = (label: string) => {
+    pendingChangesRef.current.push(label)
+  }
+  const handleClose = () => {
+    const changes = pendingChangesRef.current
+    pendingChangesRef.current = []
+    if (changes.length > 0) {
+      const latest = qc.getQueryData<CardModel>(queryKeys.card(taskId))
+      if (latest) {
+        api.notifyCardUpdated(taskId, { version: latest.version, changes }).catch(() => {})
+      }
+    }
+    onClose()
+  }
+
+  const [confirmArchive, setConfirmArchive] = useState(false)
+  const archiveMutation = useTaskArchive(taskId)
+  const archiveTask = () => {
+    const latest = qc.getQueryData<CardModel>(queryKeys.card(taskId))
+    archiveMutation.mutate(undefined, {
+      onSuccess: () => {
+        if (latest) {
+          api
+            .notifyCardDeleted({
+              card_id: latest.id,
+              version: latest.version,
+              board: latest.board,
+              card_title: latest.title,
+            })
+            .catch(() => {})
+        }
+        pendingChangesRef.current = []
+        setConfirmArchive(false)
+        toast.success('Задача отправлена в архив')
+        onClose()
+      },
+      onError: () => toast.error('Не удалось отправить задачу в архив'),
+    })
+  }
 
   const [title, setTitle] = useState(task?.title ?? '')
   const [titleFocused, setTitleFocused] = useState(false)
@@ -154,19 +197,19 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
       setTitle(task.title)
       return
     }
-    updateField.mutate({ title: value })
+    updateField.mutate({ title: value }, { onSuccess: () => noteChange(`Название: «${value}»`) })
   }
 
   const commitDescription = () => {
     setDescriptionFocused(false)
     if (description === task.description) return
-    updateField.mutate({ description })
+    updateField.mutate({ description }, { onSuccess: () => noteChange('Изменено описание') })
   }
 
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={handleClose}
       title={task.title || 'Задача'}
       className="p-0 max-w-5xl w-[calc(100%-2rem)] flex flex-col max-h-[calc(100vh-2rem)]"
     >
@@ -199,9 +242,20 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
               <p className="text-body-sm text-text-muted">Выполнил(а) {completedLabel}</p>
             ) : null}
           </div>
-          <button type="button" onClick={onClose} aria-label="Закрыть окно" className="shrink-0 rounded-control px-3 py-2 text-caption font-semibold text-text-muted hover:bg-background-subtle hover:text-text">
-            Закрыть
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setConfirmArchive(true)}
+              aria-label="Отправить задачу в архив"
+              title="В архив"
+              className="rounded-control p-2 text-text-muted hover:bg-background-subtle hover:text-text"
+            >
+              <Archive className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button type="button" onClick={handleClose} aria-label="Закрыть окно" className="rounded-control px-3 py-2 text-caption font-semibold text-text-muted hover:bg-background-subtle hover:text-text">
+              Закрыть
+            </button>
+          </div>
         </div>
       </div>
 
@@ -224,9 +278,29 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
 
             <ChecklistEditor
               items={[...task.checklist].sort((a, b) => a.position - b.position)}
-              onAdd={(text) => checklistAdd.mutate({ text }, { onError: () => toast.error('Не удалось добавить пункт') })}
-              onToggle={(id, done) => checklistUpdate.mutate({ itemId: id, payload: { done } })}
-              onDelete={(id) => checklistDelete.mutate(id, { onError: () => toast.error('Не удалось удалить пункт') })}
+              onAdd={(text) =>
+                checklistAdd.mutate(
+                  { text },
+                  {
+                    onSuccess: () => noteChange(`Чек-лист: добавлен пункт «${text}»`),
+                    onError: () => toast.error('Не удалось добавить пункт'),
+                  },
+                )
+              }
+              onToggle={(id, done) => {
+                const label = task.checklist.find((item) => item.id === id)?.text ?? ''
+                checklistUpdate.mutate(
+                  { itemId: id, payload: { done } },
+                  { onSuccess: () => noteChange(`Чек-лист: «${label}» ${done ? 'отмечен' : 'снята отметка'}`) },
+                )
+              }}
+              onDelete={(id) => {
+                const label = task.checklist.find((item) => item.id === id)?.text ?? ''
+                checklistDelete.mutate(id, {
+                  onSuccess: () => noteChange(`Чек-лист: удалён пункт «${label}»`),
+                  onError: () => toast.error('Не удалось удалить пункт'),
+                })
+              }}
               onReorder={(orderedIds) => checklistReorder.mutate(orderedIds)}
             />
 
@@ -254,7 +328,12 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                   boundaries={effectiveBoundaries}
                   deadline={task.deadline}
                   displayText={task.deadline ? formatDeadlineShort(task.deadline, effectiveBoundaries) : undefined}
-                  onCommit={(deadline) => updateField.mutate({ deadline })}
+                  onCommit={(deadline) =>
+                    updateField.mutate(
+                      { deadline },
+                      { onSuccess: () => noteChange(`Срок: ${formatDeadlineValue(deadline)}`) },
+                    )
+                  }
                   className="w-full justify-start"
                 />
               </Field>
@@ -265,7 +344,12 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                   value={task.assignee ?? ''}
                   onChange={(event) => {
                     const value = event.target.value
-                    updateField.mutate({ assignee: value ? Number(value) : null })
+                    const assigneeId = value ? Number(value) : null
+                    const label = assigneeId ? resolveAssigneeName(assigneeId) : 'не назначен'
+                    updateField.mutate(
+                      { assignee: assigneeId },
+                      { onSuccess: () => noteChange(`Исполнитель: ${label}`) },
+                    )
                   }}
                 >
                   <option value="">Не назначен</option>
@@ -284,7 +368,12 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                       active={task.priority === value}
                       role="radio"
                       aria-checked={task.priority === value}
-                      onClick={() => updateField.mutate({ priority: value })}
+                      onClick={() =>
+                        updateField.mutate(
+                          { priority: value },
+                          { onSuccess: () => noteChange(`Приоритет: ${priorityToLabel(value)}`) },
+                        )
+                      }
                     >
                       {priorityToLabel(value)}
                     </ChipButton>
@@ -297,12 +386,18 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                   label="Показывать в панели «Сегодня у семьи»"
                   description="Чек-лист этой задачи станет общим списком покупок"
                   checked={task.is_shopping_list === true}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    const checked = event.target.checked
                     updateField.mutate(
-                      { is_shopping_list: event.target.checked },
-                      { onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.familyToday() }) },
+                      { is_shopping_list: checked },
+                      {
+                        onSuccess: () => {
+                          void qc.invalidateQueries({ queryKey: queryKeys.familyToday() })
+                          noteChange(checked ? 'Включён список покупок' : 'Отключён список покупок')
+                        },
+                      },
                     )
-                  }
+                  }}
                 />
               ) : null}
             </SurfaceCard>
@@ -315,30 +410,74 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                 onAdd={(subtaskTitle) =>
                   addSubtaskMutation.mutate(
                     { title: subtaskTitle },
-                    { onError: () => toast.error('Не удалось добавить подзадачу') },
+                    {
+                      onSuccess: () => noteChange(`Добавлена подзадача «${subtaskTitle}»`),
+                      onError: () => toast.error('Не удалось добавить подзадачу'),
+                    },
                   )
                 }
-                onToggleComplete={(id, complete) =>
+                onToggleComplete={(id, complete) => {
+                  const label = task.subtasks.find((item) => item.id === id)?.title ?? ''
                   subtaskCompleteMutation.mutate(
                     { id, complete },
-                    { onError: () => toast.error('Не удалось изменить отметку подзадачи') },
+                    {
+                      onSuccess: () => noteChange(`Подзадача «${label}» ${complete ? 'выполнена' : 'возвращена в работу'}`),
+                      onError: () => toast.error('Не удалось изменить отметку подзадачи'),
+                    },
                   )
-                }
+                }}
               />
             ) : null}
 
             <AttachmentsPanel
               attachments={task.attachments}
               busy={addAttachmentLink.isPending || uploadAttachments.isPending}
-              onAddLink={(payload) => addAttachmentLink.mutate(payload, { onError: () => toast.error('Не удалось добавить вложение') })}
-              onUpload={(files, type) => uploadAttachments.mutate({ files, type }, { onError: () => toast.error('Не удалось загрузить файл') })}
-              onDelete={(attachmentId) => deleteAttachment.mutate(attachmentId, { onError: () => toast.error('Не удалось удалить вложение') })}
+              onAddLink={(payload) =>
+                addAttachmentLink.mutate(payload, {
+                  onSuccess: () => noteChange('Добавлено вложение'),
+                  onError: () => toast.error('Не удалось добавить вложение'),
+                })
+              }
+              onUpload={(files, type) =>
+                uploadAttachments.mutate(
+                  { files, type },
+                  {
+                    onSuccess: () => noteChange('Добавлено вложение'),
+                    onError: () => toast.error('Не удалось загрузить файл'),
+                  },
+                )
+              }
+              onDelete={(attachmentId) =>
+                deleteAttachment.mutate(attachmentId, {
+                  onSuccess: () => noteChange('Удалено вложение'),
+                  onError: () => toast.error('Не удалось удалить вложение'),
+                })
+              }
             />
 
             <HistoryPanel entries={historyEntries} loading={activityQuery.isLoading} timeZone={timeZone} />
           </div>
         </div>
       </div>
+
+      <Dialog open={confirmArchive} onOpenChange={setConfirmArchive}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Отправить задачу в архив?</DialogTitle>
+            <DialogDescription>
+              Задача «{task.title}» уйдёт в архив и пропадёт из агенды. Её можно будет восстановить на странице архива.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setConfirmArchive(false)}>
+              Отмена
+            </Button>
+            <Button variant="danger" onClick={archiveTask} disabled={archiveMutation.isPending}>
+              В архив
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Modal>
   )
 }

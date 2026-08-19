@@ -279,6 +279,12 @@ export function useTaskDeleteComment(taskId: number) {
   })
 }
 
+export function useTaskArchive(taskId: number) {
+  return useMutation<void, Error, void>({
+    mutationFn: () => api.deleteCard(taskId),
+  })
+}
+
 export interface AssignableUser {
   id: number
   name: string

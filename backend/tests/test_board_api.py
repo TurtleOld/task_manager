@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import pytest
-from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
 from kanban.models import Board, Column
 
-User = get_user_model()
+
+@pytest.mark.django_db()
+def test_boards_requires_authentication() -> None:
+    resp = APIClient().get("/api/v1/boards/")
+    assert resp.status_code == 401
 
 
 @pytest.mark.django_db()
-def test_boards_list_and_create() -> None:
-    client = APIClient()
+def test_boards_list_and_create(auth_client: APIClient) -> None:
+    client = auth_client
     # list empty
     resp = client.get("/api/v1/boards/")
     assert resp.status_code == 200
@@ -38,11 +41,10 @@ def test_boards_list_and_create() -> None:
 
 
 @pytest.mark.django_db()
-def test_boards_list_hides_inbox_boards() -> None:
-    client = APIClient()
-    user = User.objects.create_user(username="alice", password="secret123")
+def test_boards_list_hides_inbox_boards(auth_client: APIClient, regular_user) -> None:
+    client = auth_client
     Board.objects.create(name="Home")
-    Board.objects.create(owner=user, is_inbox=True, name="Inbox")
+    Board.objects.create(owner=regular_user, is_inbox=True, name="Inbox")
 
     resp = client.get("/api/v1/boards/")
 
