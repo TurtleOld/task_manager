@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/TurtleOld/task_manager/compare/v1.5.0...v1.6.0) (2026-08-19)
+
+
+### Features
+
+* обновить дизайн агенды под референс «индиго-слива» и добавить точный прогресс чек-листа ([#88](https://github.com/TurtleOld/task_manager/issues/88)) ([82e2380](https://github.com/TurtleOld/task_manager/commit/82e238000dd385b657f41c5b051779923e86b408))
+
 ## [1.5.0](https://github.com/TurtleOld/task_manager/compare/v1.4.0...v1.5.0) (2026-08-19)
 
 
