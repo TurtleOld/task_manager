@@ -121,12 +121,10 @@ export function AgendaPage({ user }: AgendaPageProps) {
 
   const todayLabel = useMemo(() => {
     if (!boundaries) return AGENDA_GROUP_LABELS.today
-    const formatted = new Date(boundaries.today_start).toLocaleDateString('ru-RU', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-    })
-    return `Сегодня, ${formatted}`
+    const date = new Date(boundaries.today_start)
+    const weekday = date.toLocaleDateString('ru-RU', { weekday: 'long' })
+    const dayMonth = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+    return `Сегодня, ${weekday} ${dayMonth}`
   }, [boundaries])
 
   const groupLabels = useMemo(() => ({ ...AGENDA_GROUP_LABELS, today: todayLabel }), [todayLabel])
