@@ -158,7 +158,9 @@ def test_create_card_response_contains_complete_immediate_use_payload(
 
 
 @pytest.mark.django_db()
-def test_my_today_uses_agenda_format(auth_client: APIClient, board: Board, regular_user: User) -> None:
+def test_my_today_uses_agenda_format(
+    auth_client: APIClient, board: Board, regular_user: User
+) -> None:
     """Same shape as the agenda endpoint: boundaries + a flat card list, no column fields."""
     todo = Column.objects.create(board=board, name="To Do")
     card = Card.objects.create(column=todo, title="Open task", assignee=regular_user)

@@ -114,7 +114,9 @@ def test_notify_error_does_not_rollback_save(auth_client: APIClient) -> None:
 
 
 @pytest.mark.django_db()
-def test_delete_does_not_auto_notify_and_deleted_notify_is_idempotent(auth_client: APIClient) -> None:
+def test_delete_does_not_auto_notify_and_deleted_notify_is_idempotent(
+    auth_client: APIClient,
+) -> None:
     client = auth_client
 
     board = client.post("/api/v1/boards/", data={"name": "B"}, format="json").json()
