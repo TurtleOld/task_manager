@@ -119,6 +119,18 @@ jobs:
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
+      - name: Work around flaky apt mirror on GitHub runners
+        run: |
+          # ubuntu-latest (noble) resolves apt sources via mirror+file:/etc/apt/apt-mirrors.txt,
+          # which retries the regional azure.archive.ubuntu.com mirror several times before
+          # falling back to archive.ubuntu.com — that's what stalls "playwright install --with-deps"
+          # for minutes. Point apt straight at the reliable archive to skip the redirector retries.
+          if [ -f /etc/apt/apt-mirrors.txt ]; then
+            echo "http://archive.ubuntu.com/ubuntu" | sudo tee /etc/apt/apt-mirrors.txt
+          fi
+          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            sudo sed -i 's|mirror+file:/etc/apt/apt-mirrors.txt|http://archive.ubuntu.com/ubuntu/|g' /etc/apt/sources.list.d/ubuntu.sources
+          fi
       - name: Install Playwright browsers
         working-directory: frontend
         run: npx playwright install --with-deps chromium
