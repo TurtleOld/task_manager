@@ -9,7 +9,7 @@ from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 from django.utils.text import get_valid_filename
-from rest_framework import status, viewsets
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.request import Request
@@ -64,6 +64,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     )
     serializer_class = CardSerializer
     filterset_fields = ["board"]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         queryset = super().get_queryset()

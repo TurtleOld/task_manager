@@ -23,8 +23,8 @@ def card_with_items(card: Card) -> Card:
 
 
 @pytest.mark.django_db()
-def test_card_detail_includes_checklist(api_client: APIClient, card_with_items: Card) -> None:
-    resp = api_client.get(f"/api/v1/cards/{card_with_items.id}/")
+def test_card_detail_includes_checklist(auth_client: APIClient, card_with_items: Card) -> None:
+    resp = auth_client.get(f"/api/v1/cards/{card_with_items.id}/")
     assert resp.status_code == 200
     checklist = resp.json()["checklist"]
     assert len(checklist) == 2
@@ -36,8 +36,8 @@ def test_card_detail_includes_checklist(api_client: APIClient, card_with_items: 
 
 
 @pytest.mark.django_db()
-def test_card_detail_empty_checklist(api_client: APIClient, card: Card) -> None:
-    resp = api_client.get(f"/api/v1/cards/{card.id}/")
+def test_card_detail_empty_checklist(auth_client: APIClient, card: Card) -> None:
+    resp = auth_client.get(f"/api/v1/cards/{card.id}/")
     assert resp.status_code == 200
     assert resp.json()["checklist"] == []
 
@@ -48,8 +48,8 @@ def test_card_detail_empty_checklist(api_client: APIClient, card: Card) -> None:
 
 
 @pytest.mark.django_db()
-def test_list_checklist_items(api_client: APIClient, card_with_items: Card) -> None:
-    resp = api_client.get(f"/api/v1/cards/{card_with_items.id}/checklist/")
+def test_list_checklist_items(auth_client: APIClient, card_with_items: Card) -> None:
+    resp = auth_client.get(f"/api/v1/cards/{card_with_items.id}/checklist/")
     assert resp.status_code == 200
     items = resp.json()
     assert len(items) == 2
@@ -64,8 +64,8 @@ def test_list_checklist_items(api_client: APIClient, card_with_items: Card) -> N
 
 
 @pytest.mark.django_db()
-def test_add_checklist_item(api_client: APIClient, card: Card) -> None:
-    resp = api_client.post(
+def test_add_checklist_item(auth_client: APIClient, card: Card) -> None:
+    resp = auth_client.post(
         f"/api/v1/cards/{card.id}/checklist/",
         data={"text": "Buy milk", "done": False},
         format="json",
@@ -79,8 +79,8 @@ def test_add_checklist_item(api_client: APIClient, card: Card) -> None:
 
 
 @pytest.mark.django_db()
-def test_add_checklist_item_sets_position(api_client: APIClient, card_with_items: Card) -> None:
-    resp = api_client.post(
+def test_add_checklist_item_sets_position(auth_client: APIClient, card_with_items: Card) -> None:
+    resp = auth_client.post(
         f"/api/v1/cards/{card_with_items.id}/checklist/",
         data={"text": "Third item"},
         format="json",
@@ -90,8 +90,8 @@ def test_add_checklist_item_sets_position(api_client: APIClient, card_with_items
 
 
 @pytest.mark.django_db()
-def test_add_checklist_item_broadcasts_card_update(api_client: APIClient, card: Card) -> None:
-    resp = api_client.post(
+def test_add_checklist_item_broadcasts_card_update(auth_client: APIClient, card: Card) -> None:
+    resp = auth_client.post(
         f"/api/v1/cards/{card.id}/checklist/",
         data={"text": "Check me"},
         format="json",
@@ -105,10 +105,10 @@ def test_add_checklist_item_broadcasts_card_update(api_client: APIClient, card: 
 
 
 @pytest.mark.django_db()
-def test_patch_checklist_item_done(api_client: APIClient, card_with_items: Card) -> None:
+def test_patch_checklist_item_done(auth_client: APIClient, card_with_items: Card) -> None:
     item = ChecklistItem.objects.filter(card=card_with_items, text="Step 1").first()
     assert item is not None
-    resp = api_client.patch(
+    resp = auth_client.patch(
         f"/api/v1/cards/{card_with_items.id}/checklist/{item.id}/",
         data={"done": True},
         format="json",
@@ -120,10 +120,10 @@ def test_patch_checklist_item_done(api_client: APIClient, card_with_items: Card)
 
 
 @pytest.mark.django_db()
-def test_patch_checklist_item_text(api_client: APIClient, card_with_items: Card) -> None:
+def test_patch_checklist_item_text(auth_client: APIClient, card_with_items: Card) -> None:
     item = ChecklistItem.objects.filter(card=card_with_items, text="Step 1").first()
     assert item is not None
-    resp = api_client.patch(
+    resp = auth_client.patch(
         f"/api/v1/cards/{card_with_items.id}/checklist/{item.id}/",
         data={"text": "Updated step"},
         format="json",
@@ -134,12 +134,12 @@ def test_patch_checklist_item_text(api_client: APIClient, card_with_items: Card)
 
 @pytest.mark.django_db()
 def test_patch_checklist_item_wrong_card(
-    api_client: APIClient, column: Column, card_with_items: Card
+    auth_client: APIClient, column: Column, card_with_items: Card
 ) -> None:
     other_card = Card.objects.create(column=column, title="Other card")
     item = ChecklistItem.objects.filter(card=card_with_items).first()
     assert item is not None
-    resp = api_client.patch(
+    resp = auth_client.patch(
         f"/api/v1/cards/{other_card.id}/checklist/{item.id}/",
         data={"done": True},
         format="json",
@@ -153,17 +153,17 @@ def test_patch_checklist_item_wrong_card(
 
 
 @pytest.mark.django_db()
-def test_delete_checklist_item(api_client: APIClient, card_with_items: Card) -> None:
+def test_delete_checklist_item(auth_client: APIClient, card_with_items: Card) -> None:
     item = ChecklistItem.objects.filter(card=card_with_items, text="Step 1").first()
     assert item is not None
-    resp = api_client.delete(f"/api/v1/cards/{card_with_items.id}/checklist/{item.id}/")
+    resp = auth_client.delete(f"/api/v1/cards/{card_with_items.id}/checklist/{item.id}/")
     assert resp.status_code == 204
     assert not ChecklistItem.objects.filter(id=item.id).exists()
 
 
 @pytest.mark.django_db()
-def test_delete_nonexistent_checklist_item(api_client: APIClient, card: Card) -> None:
-    resp = api_client.delete(f"/api/v1/cards/{card.id}/checklist/99999/")
+def test_delete_nonexistent_checklist_item(auth_client: APIClient, card: Card) -> None:
+    resp = auth_client.delete(f"/api/v1/cards/{card.id}/checklist/99999/")
     assert resp.status_code == 404
 
 
@@ -173,8 +173,8 @@ def test_delete_nonexistent_checklist_item(api_client: APIClient, card: Card) ->
 
 
 @pytest.mark.django_db()
-def test_card_patch_does_not_accept_checklist_field(api_client: APIClient, card: Card) -> None:
-    resp = api_client.patch(
+def test_card_patch_does_not_accept_checklist_field(auth_client: APIClient, card: Card) -> None:
+    resp = auth_client.patch(
         f"/api/v1/cards/{card.id}/",
         data={"title": "OK", "checklist": [{"text": "ignored", "done": False}]},
         format="json",

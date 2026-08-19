@@ -72,14 +72,14 @@ def test_board_group_name_format() -> None:
 
 
 @pytest.mark.django_db()
-def test_create_card_broadcasts(api_client: APIClient, board: Board) -> None:
+def test_create_card_broadcasts(auth_client: APIClient, board: Board) -> None:
     captured: list[dict] = []
 
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
     with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
-        api_client.post(
+        auth_client.post(
             "/api/v1/cards/",
             data={"board": board.id, "title": "WS Task"},
             format="json",
@@ -92,14 +92,14 @@ def test_create_card_broadcasts(api_client: APIClient, board: Board) -> None:
 
 
 @pytest.mark.django_db()
-def test_update_card_broadcasts(api_client: APIClient, card: Card) -> None:
+def test_update_card_broadcasts(auth_client: APIClient, card: Card) -> None:
     captured: list[dict] = []
 
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
     with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
-        api_client.patch(
+        auth_client.patch(
             f"/api/v1/cards/{card.id}/",
             data={"title": "Updated"},
             format="json",
@@ -109,7 +109,7 @@ def test_update_card_broadcasts(api_client: APIClient, card: Card) -> None:
 
 
 @pytest.mark.django_db()
-def test_delete_card_broadcasts(api_client: APIClient, card: Card) -> None:
+def test_delete_card_broadcasts(auth_client: APIClient, card: Card) -> None:
     captured: list[dict] = []
 
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
@@ -118,7 +118,7 @@ def test_delete_card_broadcasts(api_client: APIClient, card: Card) -> None:
     card_id = card.id
 
     with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
-        api_client.delete(f"/api/v1/cards/{card_id}/")
+        auth_client.delete(f"/api/v1/cards/{card_id}/")
 
     assert any(
         e["event_type"] == "card.deleted" and e["data"]["card_id"] == card_id for e in captured
@@ -126,14 +126,14 @@ def test_delete_card_broadcasts(api_client: APIClient, card: Card) -> None:
 
 
 @pytest.mark.django_db()
-def test_update_board_broadcasts(api_client: APIClient, board: Board) -> None:
+def test_update_board_broadcasts(auth_client: APIClient, board: Board) -> None:
     captured: list[dict] = []
 
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
     with patch("kanban.views.boards.broadcast_board_event", side_effect=fake_broadcast):
-        api_client.patch(
+        auth_client.patch(
             f"/api/v1/boards/{board.id}/",
             data={"name": "Renamed"},
             format="json",
@@ -143,7 +143,7 @@ def test_update_board_broadcasts(api_client: APIClient, board: Board) -> None:
 
 
 @pytest.mark.django_db()
-def test_complete_card_broadcasts_card_completed(api_client: APIClient, column: Column) -> None:
+def test_complete_card_broadcasts_card_completed(auth_client: APIClient, column: Column) -> None:
     card = Card.objects.create(column=column, title="Buy milk")
 
     captured: list[dict] = []
@@ -152,17 +152,17 @@ def test_complete_card_broadcasts_card_completed(api_client: APIClient, column: 
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
     with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
-        api_client.post(f"/api/v1/cards/{card.id}/complete/")
+        auth_client.post(f"/api/v1/cards/{card.id}/complete/")
 
     assert any(e["event_type"] == "card.completed" for e in captured)
 
 
 @pytest.mark.django_db()
 def test_uncomplete_card_broadcasts_card_updated_not_completed(
-    api_client: APIClient, column: Column
+    auth_client: APIClient, column: Column
 ) -> None:
     card = Card.objects.create(column=column, title="Buy milk")
-    api_client.post(f"/api/v1/cards/{card.id}/complete/")
+    auth_client.post(f"/api/v1/cards/{card.id}/complete/")
 
     captured: list[dict] = []
 
@@ -170,7 +170,7 @@ def test_uncomplete_card_broadcasts_card_updated_not_completed(
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
     with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
-        api_client.post(f"/api/v1/cards/{card.id}/uncomplete/")
+        auth_client.post(f"/api/v1/cards/{card.id}/uncomplete/")
 
     assert any(e["event_type"] == "card.updated" for e in captured)
     assert not any(e["event_type"] == "card.completed" for e in captured)

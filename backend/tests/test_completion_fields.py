@@ -46,7 +46,7 @@ def test_deleting_completed_by_user_keeps_the_card(column: Column) -> None:
 
 
 @pytest.mark.django_db()
-def test_completion_fields_are_readable_via_api(api_client: APIClient, column: Column) -> None:
+def test_completion_fields_are_readable_via_api(auth_client: APIClient, column: Column) -> None:
     completer = User.objects.create_user(username="lisa", password="pass", first_name="Lisa")
     completed_at = timezone.now()
     card = Card.objects.create(
@@ -56,7 +56,7 @@ def test_completion_fields_are_readable_via_api(api_client: APIClient, column: C
         completed_by=completer,
     )
 
-    resp = api_client.get(f"/api/v1/cards/{card.id}/")
+    resp = auth_client.get(f"/api/v1/cards/{card.id}/")
 
     assert resp.status_code == 200
     data = resp.json()
@@ -65,9 +65,9 @@ def test_completion_fields_are_readable_via_api(api_client: APIClient, column: C
 
 
 @pytest.mark.django_db()
-def test_completion_fields_cannot_be_set_via_api(api_client: APIClient, board: Board) -> None:
+def test_completion_fields_cannot_be_set_via_api(auth_client: APIClient, board: Board) -> None:
     completer = User.objects.create_user(username="mike", password="pass")
-    resp = api_client.post(
+    resp = auth_client.post(
         "/api/v1/cards/",
         data={
             "board": board.id,

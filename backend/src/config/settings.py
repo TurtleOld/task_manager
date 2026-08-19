@@ -246,6 +246,12 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.TokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
+    # Without this, DRF's own default is AllowAny — any view that forgets to
+    # set its own permission_classes is open to the internet. Views that need
+    # to be public (register/login) opt out explicitly with AllowAny.
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
     # Basic global throttling to reduce risk of resource starvation / DoS.
     # Per-view overrides can be added where needed.
     "DEFAULT_THROTTLE_CLASSES": [

@@ -200,13 +200,13 @@ def test_completing_all_subtasks_does_not_complete_parent(
 
 
 @pytest.mark.django_db()
-def test_moving_a_card_no_longer_creates_a_notification_event(api_client: APIClient) -> None:
+def test_moving_a_card_no_longer_creates_a_notification_event(auth_client: APIClient) -> None:
     board = Board.objects.create(name="B")
     col1 = Column.objects.create(board=board, name="Todo")
     col2 = Column.objects.create(board=board, name="Done")
     card = Card.objects.create(column=col1, title="Mover")
 
-    api_client.post(
+    auth_client.post(
         f"/api/v1/cards/{card.id}/move/",
         data={"to_column": col2.id},
         format="json",
