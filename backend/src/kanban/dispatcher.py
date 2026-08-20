@@ -409,8 +409,14 @@ def process_outbox_events(*, now=None, limit: int | None = None) -> int:
 
     for event_id in pending_ids:
         with transaction.atomic():
+            # `actor`, `board`, `column` and `card` are all nullable FKs
+            # (`on_delete=SET_NULL`), so `select_related` on them compiles to a
+            # LEFT OUTER JOIN. Postgres refuses `FOR UPDATE` on the nullable
+            # side of an outer join ("FeatureNotSupported"), so the lock must
+            # be scoped to this table alone with `of=("self",)` — otherwise
+            # every tick raises and no event is ever dispatched.
             event = (
-                NotificationEvent.objects.select_for_update(skip_locked=True)
+                NotificationEvent.objects.select_for_update(skip_locked=True, of=("self",))
                 .filter(id=event_id, dispatch_status=NotificationEvent.Dispatch.PENDING)
                 .select_related("actor", "board", "column", "card")
                 .first()
