@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/TurtleOld/task_manager/compare/v1.6.1...v1.7.0) (2026-08-20)
+
+
+### Features
+
+* агенда «Мой день» — корневой раздел, быстрое добавление и вкладка «Выполнено» ([#92](https://github.com/TurtleOld/task_manager/issues/92)) ([69232d9](https://github.com/TurtleOld/task_manager/commit/69232d9087899d7d78d7925c02698e64ad303d4f))
+
 ## [1.6.1](https://github.com/TurtleOld/task_manager/compare/v1.6.0...v1.6.1) (2026-08-19)
 
 
