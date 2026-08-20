@@ -4,6 +4,7 @@ import type { AgendaBoundaries } from '../../../api/types'
 import { formatIsoForTimeZone, zonedDateTimeLocalToIso } from '../../../shared/lib/timezone'
 import { formatDeadlineShort } from '../lib/formatDeadline'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
@@ -16,27 +17,48 @@ interface DeadlinePickerProps {
   onCommit: (deadline: string | null) => void
 }
 
+const DEFAULT_TIME = '18:00'
+
+function timeOf(deadline: string | null, timeZone: string): string {
+  if (!deadline) return DEFAULT_TIME
+  const local = formatIsoForTimeZone(deadline, timeZone)
+  return local.split('T')[1] ?? DEFAULT_TIME
+}
+
 export function DeadlinePicker({ boundaries, busy = false, className, deadline, displayText, onCommit }: DeadlinePickerProps) {
   const [open, setOpen] = useState(false)
   const timeZone = boundaries.timezone
   const selected = deadline ? new Date(formatIsoForTimeZone(deadline, timeZone)) : undefined
 
-  const commit = (date: Date | undefined) => {
-    setOpen(false)
-    if (!date) {
-      onCommit(null)
-      return
+  const [pendingDate, setPendingDate] = useState<Date | undefined>(selected)
+  const [pendingTime, setPendingTime] = useState(() => timeOf(deadline, timeZone))
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (next) {
+      setPendingDate(selected)
+      setPendingTime(timeOf(deadline, timeZone))
     }
+  }
+
+  const commitClear = () => {
+    setOpen(false)
+    onCommit(null)
+  }
+
+  const commitPending = () => {
+    if (!pendingDate) return
+    setOpen(false)
     const local = [
-      date.getFullYear(),
-      String(date.getMonth() + 1).padStart(2, '0'),
-      String(date.getDate()).padStart(2, '0'),
-    ].join('-') + 'T00:00'
+      pendingDate.getFullYear(),
+      String(pendingDate.getMonth() + 1).padStart(2, '0'),
+      String(pendingDate.getDate()).padStart(2, '0'),
+    ].join('-') + `T${pendingTime}`
     onCommit(zonedDateTimeLocalToIso(local, timeZone))
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -55,15 +77,27 @@ export function DeadlinePicker({ boundaries, busy = false, className, deadline, 
         <div className="space-y-2">
           <Calendar
             mode="single"
-            selected={selected}
-            defaultMonth={selected}
-            onSelect={(next) => commit(next)}
+            selected={pendingDate}
+            defaultMonth={pendingDate}
+            onSelect={(next) => setPendingDate(next)}
             autoFocus
           />
+          <label className="flex items-center gap-2 px-1 text-caption text-text-muted">
+            Время
+            <input
+              type="time"
+              value={pendingTime}
+              onChange={(event) => setPendingTime(event.target.value || DEFAULT_TIME)}
+              className="h-8 flex-1 rounded-control border border-border/90 bg-surface px-2 text-body-sm text-text"
+            />
+          </label>
+          <Button type="button" size="sm" fullWidth disabled={!pendingDate} onClick={commitPending}>
+            Сохранить срок
+          </Button>
           {deadline ? (
             <button
               type="button"
-              onClick={() => commit(undefined)}
+              onClick={commitClear}
               className="flex h-8 w-full items-center justify-center gap-1.5 rounded-control border border-border bg-surface px-3 text-caption text-text-muted transition hover:border-danger/40 hover:text-danger"
             >
               <CalendarX2 className="h-3.5 w-3.5" aria-hidden="true" />
