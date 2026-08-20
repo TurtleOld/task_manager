@@ -160,6 +160,11 @@ export const api = {
     const res = await fetch(`${V1}/agenda/${query}`, { headers: authHeaders() })
     return json(res)
   },
+  getCompletedAgenda: async (listId?: number): Promise<AgendaResponse> => {
+    const query = listId ? `?list=${listId}` : ''
+    const res = await fetch(`${V1}/agenda/completed/${query}`, { headers: authHeaders() })
+    return json(res)
+  },
   getFamilyToday: async (): Promise<FamilyTodayResponse> => {
     const res = await fetch(`${V1}/agenda/family-today/`, { headers: authHeaders() })
     return json(res)

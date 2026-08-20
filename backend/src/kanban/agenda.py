@@ -103,6 +103,40 @@ def agenda_queryset(
     return queryset.order_by(F("deadline").asc(nulls_last=True), "-priority", "created_at")
 
 
+def completed_queryset(
+    *,
+    board_id: int | None = None,
+    assignee_id: int | None = None,
+) -> QuerySet[Card]:
+    """All-time completed tasks, newest first — the agenda's `completed=true` view.
+
+    Unlike `agenda_queryset`, this is not bounded to today: it's the only
+    place a task remains visible once it drops out of the agenda (see
+    docs/spec/agenda.md §3.2). Archived tasks are excluded by the default
+    manager, same as everywhere else.
+    """
+    queryset = (
+        Card.objects.select_related("board", "assignee", "completed_by")
+        .filter(parent__isnull=True, completed_at__isnull=False)
+        .annotate(
+            has_subtasks=Exists(Card.objects.filter(parent_id=OuterRef("pk"))),
+            has_checklist=Exists(ChecklistItem.objects.filter(card_id=OuterRef("pk"))),
+            is_recurring=Exists(RecurrenceRule.objects.filter(card_id=OuterRef("pk"))),
+            checklist_total=Count("checklist_items", distinct=True),
+            checklist_completed=Count(
+                "checklist_items", filter=Q(checklist_items__done=True), distinct=True
+            ),
+        )
+    )
+
+    if board_id is not None:
+        queryset = queryset.filter(board_id=board_id)
+    if assignee_id is not None:
+        queryset = queryset.filter(assignee_id=assignee_id)
+
+    return queryset.order_by("-completed_at")
+
+
 @dataclass(frozen=True)
 class FamilyTodayPerson:
     """Family-wide, never scoped to the currently selected list."""

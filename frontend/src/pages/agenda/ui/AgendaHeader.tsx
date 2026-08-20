@@ -10,6 +10,7 @@ const VIEW_MODE_OPTIONS: { id: AgendaViewMode; label: string }[] = [
   { id: 'today', label: 'Сегодня' },
   { id: 'week', label: 'Неделя' },
   { id: 'all', label: 'Все дела' },
+  { id: 'completed', label: 'Выполнено' },
 ]
 
 export interface AgendaPeopleOption {

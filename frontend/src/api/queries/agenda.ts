@@ -83,6 +83,19 @@ export function useAgenda(listId?: number | null) {
   })
 }
 
+/**
+ * Все выполненные задачи (не только за сегодня) — данные для вкладки
+ * «Выполнено», единственного места, где задача остаётся видимой после того,
+ * как выпадает из обычной агенды (см. docs/spec/agenda.md §3.2).
+ */
+export function useCompletedAgenda(listId: number | null | undefined, options: { enabled?: boolean } = {}) {
+  return useQuery<AgendaResponse>({
+    queryKey: queryKeys.completedAgenda(listId ?? undefined),
+    queryFn: () => api.getCompletedAgenda(listId ?? undefined),
+    enabled: options.enabled ?? true,
+  })
+}
+
 type AgendaMutationContext = { previous: AgendaResponse | undefined }
 
 function setAgendaCard(qc: ReturnType<typeof useQueryClient>, key: readonly unknown[], card: AgendaCard) {
@@ -129,6 +142,7 @@ export function useAgendaComplete(listId?: number | null, currentUserId?: number
     },
     onSuccess: (card) => {
       setAgendaCard(qc, key, toAgendaCard(card))
+      void qc.invalidateQueries({ queryKey: ['agenda', 'completed'] })
     },
   })
 }

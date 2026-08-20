@@ -8,6 +8,7 @@ from .views import (
     ArchiveView,
     BoardViewSet,
     CardViewSet,
+    CompletedAgendaView,
     CurrentUserView,
     FamilyTodayView,
     LoginView,
@@ -37,6 +38,7 @@ router.register(r"push-devices", PushDeviceViewSet, basename="push-device")
 
 urlpatterns = [
     path("agenda/", AgendaView.as_view(), name="agenda"),
+    path("agenda/completed/", CompletedAgendaView.as_view(), name="agenda-completed"),
     path("agenda/family-today/", FamilyTodayView.as_view(), name="agenda-family-today"),
     path("archive/", ArchiveView.as_view(), name="archive"),
     path("auth/register/", RegisterView.as_view(), name="register"),
