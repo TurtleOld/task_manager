@@ -466,7 +466,10 @@ function parseListId(value: string | undefined): number | null {
 function AgendaPageSkeleton() {
   return (
     <div className="min-h-screen bg-background/80 pb-12 text-text" aria-busy="true" aria-label="Загрузка агенды">
-      <header className="sticky top-16 z-sticky flex h-14 items-center gap-3 border-b border-border/80 bg-background/78 px-4 backdrop-blur-xl sm:px-6">
+      <header
+        className="sticky z-sticky flex h-14 items-center gap-3 border-b border-border/80 bg-background/78 px-4 backdrop-blur-xl sm:px-6"
+        style={{ top: 'var(--app-header-height)' }}
+      >
         <Skeleton className="h-8 w-28 rounded-full" />
         <Skeleton className="h-8 w-20 rounded-full" />
         <Skeleton className="h-8 w-24 rounded-full" />

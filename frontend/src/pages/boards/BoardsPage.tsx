@@ -49,16 +49,10 @@ export function BoardsPage() {
         </div>
       </header>
 
-      <details className="group rounded-[1.35rem] border border-border/80 bg-[image:var(--gradient-surface)] shadow-surface backdrop-blur">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:hidden [&::-webkit-details-marker]:hidden">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="primary">Создать список</Badge>
-            </div>
-            <h2 className="mt-2 text-h3 text-text">Создать список</h2>
-            <p className="mt-1 text-body-sm text-text-muted">Форма создания списка скрыта здесь, чтобы перечень списков был выше.</p>
-          </div>
-          <span className="shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-caption font-semibold text-text-muted transition group-open:rotate-180" aria-hidden="true">⌄</span>
+      <details className="group rounded-[1.1rem] border border-border/80 bg-[image:var(--gradient-surface)] shadow-surface backdrop-blur">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 marker:hidden [&::-webkit-details-marker]:hidden">
+          <span className="min-w-0 truncate text-body-sm font-semibold text-text">+ Создать список</span>
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-caption font-semibold text-text-muted transition group-open:rotate-180" aria-hidden="true">⌄</span>
         </summary>
 
         <div className="grid gap-4 border-t border-border/70 p-4">

@@ -49,6 +49,7 @@
 
 @layer base {
   :root {
+    --app-header-height: 4rem;
     --app-font-size: 15px;
     --color-background: 247 245 252;
     --color-background-subtle: 238 234 247;
