@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.2](https://github.com/TurtleOld/task_manager/compare/v1.7.1...v1.7.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* диспетчер уведомлений падал на каждом тике из-за FOR UPDATE на outer join ([#96](https://github.com/TurtleOld/task_manager/issues/96)) ([79c796f](https://github.com/TurtleOld/task_manager/commit/79c796f5e4b9d8d1c1ae05e8a0be83ccca3c7a0d))
+
 ## [1.7.1](https://github.com/TurtleOld/task_manager/compare/v1.7.0...v1.7.1) (2026-08-20)
 
 
