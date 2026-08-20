@@ -38,7 +38,7 @@ def test_search_finds_cards_by_label(auth_client: APIClient, column: Column) -> 
 
 
 @pytest.mark.django_db()
-def test_search_hides_archived_cards_and_inbox_boards(
+def test_search_hides_archived_cards(
     auth_client: APIClient,
     regular_user: object,
 ) -> None:
@@ -47,14 +47,25 @@ def test_search_hides_archived_cards_and_inbox_boards(
     archived = Card.objects.create(column=column, title="Hidden needle")
     auth_client.delete(f"/api/v1/cards/{archived.id}/")
 
-    inbox_board = Board.objects.create(owner=regular_user, is_inbox=True, name="Inbox")
-    inbox_column = Column.objects.create(board=inbox_board, name="Inbox")
-    Card.objects.create(column=inbox_column, title="Needle inbox")
-
     resp = auth_client.get("/api/v1/search/?q=needle")
 
     assert resp.status_code == 200
     assert resp.json() == {"cards": [], "boards": []}
+
+
+@pytest.mark.django_db()
+def test_search_finds_cards_on_legacy_inbox_boards(
+    auth_client: APIClient,
+    regular_user: object,
+) -> None:
+    inbox_board = Board.objects.create(owner=regular_user, is_inbox=True, name="Inbox")
+    inbox_column = Column.objects.create(board=inbox_board, name="Inbox")
+    card = Card.objects.create(column=inbox_column, title="Needle inbox")
+
+    resp = auth_client.get("/api/v1/search/?q=needle")
+
+    assert resp.status_code == 200
+    assert [item["id"] for item in resp.json()["cards"]] == [card.id]
 
 
 @pytest.mark.django_db()

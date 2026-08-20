@@ -308,6 +308,109 @@ def test_agenda_orders_by_deadline_then_priority_then_created_at(
 
 
 # ---------------------------------------------------------------------------
+# GET /agenda/completed/ — all-time completed tasks
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db()
+def test_completed_agenda_requires_authentication() -> None:
+    resp = APIClient().get("/api/v1/agenda/completed/")
+    assert resp.status_code == 401
+
+
+@pytest.mark.django_db()
+def test_completed_agenda_omits_open_tasks(auth_client: APIClient, column: Column) -> None:
+    Card.objects.create(column=column, title="Open")
+    done = Card.objects.create(column=column, title="Done")
+    done.completed_at = timezone.now()
+    done.save(update_fields=["completed_at"])
+
+    resp = auth_client.get("/api/v1/agenda/completed/")
+
+    titles = [item["title"] for item in resp.json()["cards"]]
+    assert titles == ["Done"]
+
+
+@pytest.mark.django_db()
+def test_completed_agenda_includes_tasks_completed_long_ago(
+    auth_client: APIClient, column: Column
+) -> None:
+    card = Card.objects.create(column=column, title="Done last month")
+    card.completed_at = timezone.now() - timedelta(days=40)
+    card.save(update_fields=["completed_at"])
+
+    resp = auth_client.get("/api/v1/agenda/completed/")
+
+    titles = [item["title"] for item in resp.json()["cards"]]
+    assert "Done last month" in titles
+
+
+@pytest.mark.django_db()
+def test_completed_agenda_excludes_archived_tasks(auth_client: APIClient, column: Column) -> None:
+    card = Card.objects.create(column=column, title="Done and archived")
+    card.completed_at = timezone.now()
+    card.archived_at = timezone.now()
+    card.save(update_fields=["completed_at", "archived_at"])
+
+    resp = auth_client.get("/api/v1/agenda/completed/")
+
+    titles = [item["title"] for item in resp.json()["cards"]]
+    assert "Done and archived" not in titles
+
+
+@pytest.mark.django_db()
+def test_completed_agenda_orders_newest_first(auth_client: APIClient, column: Column) -> None:
+    older = Card.objects.create(column=column, title="Older")
+    older.completed_at = timezone.now() - timedelta(days=2)
+    older.save(update_fields=["completed_at"])
+    newer = Card.objects.create(column=column, title="Newer")
+    newer.completed_at = timezone.now() - timedelta(hours=1)
+    newer.save(update_fields=["completed_at"])
+
+    resp = auth_client.get("/api/v1/agenda/completed/")
+
+    titles = [item["title"] for item in resp.json()["cards"]]
+    assert titles == ["Newer", "Older"]
+
+
+@pytest.mark.django_db()
+def test_completed_agenda_filters_by_list(auth_client: APIClient, column: Column) -> None:
+    from kanban.models import Board
+
+    other_board = Board.objects.create(name="Other list")
+    other_column = Column.objects.create(board=other_board, name="To Do")
+
+    mine = Card.objects.create(column=column, title="In target list")
+    mine.completed_at = timezone.now()
+    mine.save(update_fields=["completed_at"])
+    theirs = Card.objects.create(column=other_column, title="In other list")
+    theirs.completed_at = timezone.now()
+    theirs.save(update_fields=["completed_at"])
+
+    resp = auth_client.get(f"/api/v1/agenda/completed/?list={column.board_id}")
+
+    titles = [item["title"] for item in resp.json()["cards"]]
+    assert titles == ["In target list"]
+
+
+@pytest.mark.django_db()
+def test_completed_agenda_omits_subtasks_as_top_level_rows(
+    auth_client: APIClient, column: Column
+) -> None:
+    parent = Card.objects.create(column=column, title="Parent")
+    parent.completed_at = timezone.now()
+    parent.save(update_fields=["completed_at"])
+    child = Card.objects.create(column=column, title="Child", parent=parent)
+    child.completed_at = timezone.now()
+    child.save(update_fields=["completed_at"])
+
+    resp = auth_client.get("/api/v1/agenda/completed/")
+
+    titles = [item["title"] for item in resp.json()["cards"]]
+    assert titles == ["Parent"]
+
+
+# ---------------------------------------------------------------------------
 # GET /agenda/family-today/ — right panel data
 # ---------------------------------------------------------------------------
 

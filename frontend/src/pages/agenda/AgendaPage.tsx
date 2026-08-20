@@ -8,6 +8,7 @@ import {
   useAgendaComplete,
   useAgendaCreateCard,
   useAgendaUpdateDeadline,
+  useCompletedAgenda,
   useFamilyShoppingItemToggle,
   useFamilyToday,
 } from '../../api/queries/agenda'
@@ -19,9 +20,11 @@ import { useVisualViewportInset } from '../../shared/hooks/useVisualViewportInse
 import { EmptyState, ErrorState, PageShell, Skeleton } from '@/components/ui'
 import { AGENDA_GROUP_LABELS, AGENDA_VIEW_GROUPS, bucketAgendaCards } from './lib/grouping'
 import type { AgendaGroupId, AgendaViewMode } from './lib/grouping'
+import { groupCompletedByDay } from './lib/completedGrouping'
 import { useAgendaRealtime } from './hooks/useAgendaRealtime'
 import { useFamilyTodayRealtime } from './hooks/useFamilyTodayRealtime'
 import { AgendaGroup } from './ui/AgendaGroup'
+import { CompletedGroup } from './ui/CompletedGroup'
 import { AgendaHeader } from './ui/AgendaHeader'
 import type { AgendaPeopleOption } from './ui/AgendaHeader'
 import { QuickAddBar } from './ui/QuickAddBar'
@@ -48,7 +51,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const listId = parseListId(params.listId)
   const taskId = parseListId(params.taskId)
   const scopeKey = listId == null ? 'all' : `list-${listId}`
-  const closeTaskPath = listId != null ? `/lists/${listId}` : '/today'
+  const closeTaskPath = listId != null ? `/lists/${listId}` : '/'
 
   const { data, isLoading, isError, refetch } = useAgenda(listId)
   const { data: boards = [] } = useBoards()
@@ -60,7 +63,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const familyToday = useFamilyToday({ enabled: isDesktopPanel })
   const shoppingToggleMutation = useFamilyShoppingItemToggle()
   const assignableUsersQuery = useAssignableUsers(user)
-  const createCardMutation = useAgendaCreateCard(listId ?? 0)
+  const createCardMutation = useAgendaCreateCard(listId)
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
     try {
@@ -75,11 +78,17 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const [viewMode, setViewMode] = useState<AgendaViewMode>(() => {
     try {
       const raw = localStorage.getItem(VIEW_MODE_STORAGE_KEY)
-      return raw === 'today' || raw === 'week' || raw === 'all' ? raw : 'all'
+      return raw === 'today' || raw === 'week' || raw === 'all' || raw === 'completed' ? raw : 'all'
     } catch {
       return 'all'
     }
   })
+  const {
+    data: completedData,
+    isLoading: completedLoading,
+    isError: completedIsError,
+    refetch: refetchCompleted,
+  } = useCompletedAgenda(listId, { enabled: viewMode === 'completed' })
 
   useEffect(() => {
     try {
@@ -99,7 +108,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
 
   useEffect(() => {
     if (params.listId != null && listId == null) {
-      navigate('/today', { replace: true })
+      navigate('/', { replace: true })
     }
   }, [listId, navigate, params.listId])
 
@@ -150,6 +159,15 @@ export function AgendaPage({ user }: AgendaPageProps) {
   }, [activeAssigneeId, cards])
 
   const buckets = boundaries ? bucketAgendaCards(visibleCards, boundaries) : null
+
+  const completedCards = useMemo(() => completedData?.cards ?? [], [completedData?.cards])
+  const visibleCompletedCards = useMemo(() => {
+    if (activeAssigneeId == null) return completedCards
+    return completedCards.filter((card) => card.assignee?.id === activeAssigneeId)
+  }, [activeAssigneeId, completedCards])
+  const completedGroups = completedData
+    ? groupCompletedByDay(visibleCompletedCards, completedData.boundaries)
+    : []
 
   const completeBusy = completeMutation.isPending
   const deadlineBusy = deadlineMutation.isPending
@@ -225,18 +243,19 @@ export function AgendaPage({ user }: AgendaPageProps) {
   }
 
   const handleQuickAddCreate = (result: QuickAddResult) => {
-    if (listId == null) return
+    const targetListId = listId ?? result.listId
+    if (targetListId == null) return
     const placeholder = makeAgendaPlaceholderCard({
       id: -Date.now(),
       title: result.title,
-      list: listId,
+      list: targetListId,
       deadline: result.deadline,
       assignee: result.assigneeId != null ? { id: result.assigneeId, name: result.assigneeName } : null,
     })
     createCardMutation.mutate(
       {
         payload: {
-          board: listId,
+          board: targetListId,
           title: result.title,
           deadline: result.deadline,
           assignee: result.assigneeId,
@@ -294,7 +313,8 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const emptyByView =
     !emptyAgenda && !emptyByFilter && buckets != null && visibleGroups.every((group) => buckets[group].length === 0)
 
-  const mobileQuickAddEnabled = isMobileLayout && listId != null
+  const mobileQuickAddEnabled = isMobileLayout
+  const quickAddBoards = listId == null ? boards.map((board) => ({ id: board.id, name: board.name })) : undefined
 
   return (
     <div className="min-h-screen bg-background/80 pb-12 text-text" style={mobileQuickAddEnabled ? { paddingBottom: 'calc(9rem + env(safe-area-inset-bottom))' } : undefined}>
@@ -307,12 +327,13 @@ export function AgendaPage({ user }: AgendaPageProps) {
         onViewModeChange={setViewMode}
         viewMode={viewMode}
         quickAdd={
-          !isMobileLayout && listId != null
+          !isMobileLayout
             ? {
                 busy: createCardMutation.isPending,
                 onSubmit: handleQuickAddCreate,
                 people: assignableUsersQuery.data ?? [],
                 timeZone: boundaries?.timezone,
+                boards: quickAddBoards,
               }
             : null
         }
@@ -324,7 +345,46 @@ export function AgendaPage({ user }: AgendaPageProps) {
             {announcement}
           </div>
 
-          {emptyAgenda ? (
+          {viewMode === 'completed' ? (
+            completedLoading ? (
+              <div className="space-y-5">
+                {Array.from({ length: 2 }).map((_, index) => (
+                  <div key={index} className="space-y-1">
+                    <Skeleton className="h-10 w-40 rounded-control" />
+                    <Skeleton className="h-12 w-full rounded-control" />
+                    <Skeleton className="h-12 w-full rounded-control" />
+                  </div>
+                ))}
+              </div>
+            ) : completedIsError ? (
+              <ErrorState action={{ label: 'Повторить', onClick: () => void refetchCompleted() }}>
+                Не удалось загрузить выполненные задачи.
+              </ErrorState>
+            ) : completedCards.length === 0 ? (
+              <EmptyState title="Выполненных задач пока нет">
+                Здесь появятся задачи по мере их выполнения.
+              </EmptyState>
+            ) : visibleCompletedCards.length === 0 ? (
+              <EmptyState title="По фильтру ничего нет">
+                У выбранного исполнителя нет выполненных задач.
+              </EmptyState>
+            ) : (
+              <div className="space-y-5">
+                {completedGroups.map((group) => (
+                  <CompletedGroup
+                    key={group.key}
+                    boardsById={boardsById}
+                    boundaries={completedData!.boundaries}
+                    busy={completeBusy}
+                    deadlineBusy={deadlineBusy}
+                    group={group}
+                    onCompleteToggle={handleCompleteToggle}
+                    onDeadlineCommit={handleDeadlineCommit}
+                  />
+                ))}
+              </div>
+            )
+          ) : emptyAgenda ? (
             <div className="flex min-h-[calc(100vh-15rem)] items-center justify-center">
               <EmptyState title="На сегодня всё спокойно" className="w-full max-w-md">
                 Задач ни в одной группе нет. Новые задачи появятся здесь по мере добавления.
@@ -387,6 +447,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
             onSubmit={handleQuickAddCreate}
             people={assignableUsersQuery.data ?? []}
             timeZone={boundaries?.timezone}
+            boards={quickAddBoards}
           />
         </div>
       ) : null}

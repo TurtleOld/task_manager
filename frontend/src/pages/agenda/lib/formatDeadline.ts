@@ -22,7 +22,17 @@ export function formatDeadlineShort(deadline: string | null, boundaries: AgendaB
     month: 'short',
   }).format(date)
 
-  if (time >= todayStart && time < tomorrowStart) return `Сегодня, ${dayLabel}`
-  if (time >= tomorrowStart && time < dayAfterStart) return `Завтра, ${dayLabel}`
-  return dayLabel
+  const timeLabel = new Intl.DateTimeFormat('ru-RU', {
+    timeZone: tz,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+  // Полночь по местному времени — это дата без явного времени (например, из
+  // старых задач или быстрого добавления без времени): такие сроки не должны
+  // выглядеть так, будто дедлайн ровно в 00:00.
+  const withTime = (label: string) => (timeLabel === '00:00' ? label : `${label}, ${timeLabel}`)
+
+  if (time >= todayStart && time < tomorrowStart) return withTime(`Сегодня, ${dayLabel}`)
+  if (time >= tomorrowStart && time < dayAfterStart) return withTime(`Завтра, ${dayLabel}`)
+  return withTime(dayLabel)
 }

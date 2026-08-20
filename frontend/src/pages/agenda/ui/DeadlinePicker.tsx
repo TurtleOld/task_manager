@@ -16,27 +16,52 @@ interface DeadlinePickerProps {
   onCommit: (deadline: string | null) => void
 }
 
+const DEFAULT_TIME = '18:00'
+
+function timeOf(deadline: string | null, timeZone: string): string {
+  if (!deadline) return DEFAULT_TIME
+  const local = formatIsoForTimeZone(deadline, timeZone)
+  return local.split('T')[1] ?? DEFAULT_TIME
+}
+
 export function DeadlinePicker({ boundaries, busy = false, className, deadline, displayText, onCommit }: DeadlinePickerProps) {
   const [open, setOpen] = useState(false)
   const timeZone = boundaries.timezone
   const selected = deadline ? new Date(formatIsoForTimeZone(deadline, timeZone)) : undefined
 
-  const commit = (date: Date | undefined) => {
+  const [pendingTime, setPendingTime] = useState(() => timeOf(deadline, timeZone))
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next)
+    if (next) setPendingTime(timeOf(deadline, timeZone))
+  }
+
+  const commitClear = () => {
     setOpen(false)
-    if (!date) {
-      onCommit(null)
-      return
-    }
+    onCommit(null)
+  }
+
+  const toIso = (date: Date, time: string) => {
     const local = [
       date.getFullYear(),
       String(date.getMonth() + 1).padStart(2, '0'),
       String(date.getDate()).padStart(2, '0'),
-    ].join('-') + 'T00:00'
-    onCommit(zonedDateTimeLocalToIso(local, timeZone))
+    ].join('-') + `T${time}`
+    return zonedDateTimeLocalToIso(local, timeZone)
+  }
+
+  const commitDate = (date: Date | undefined) => {
+    setOpen(false)
+    onCommit(date ? toIso(date, pendingTime) : null)
+  }
+
+  const commitTime = (time: string) => {
+    setPendingTime(time)
+    if (selected) onCommit(toIso(selected, time))
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -57,13 +82,22 @@ export function DeadlinePicker({ boundaries, busy = false, className, deadline, 
             mode="single"
             selected={selected}
             defaultMonth={selected}
-            onSelect={(next) => commit(next)}
+            onSelect={(next) => commitDate(next)}
             autoFocus
           />
+          <label className="flex items-center gap-2 px-1 text-caption text-text-muted">
+            Время
+            <input
+              type="time"
+              value={pendingTime}
+              onChange={(event) => commitTime(event.target.value || DEFAULT_TIME)}
+              className="h-8 flex-1 rounded-control border border-border/90 bg-surface px-2 text-body-sm text-text"
+            />
+          </label>
           {deadline ? (
             <button
               type="button"
-              onClick={() => commit(undefined)}
+              onClick={commitClear}
               className="flex h-8 w-full items-center justify-center gap-1.5 rounded-control border border-border bg-surface px-3 text-caption text-text-muted transition hover:border-danger/40 hover:text-danger"
             >
               <CalendarX2 className="h-3.5 w-3.5" aria-hidden="true" />

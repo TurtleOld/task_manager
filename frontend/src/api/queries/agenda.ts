@@ -83,6 +83,19 @@ export function useAgenda(listId?: number | null) {
   })
 }
 
+/**
+ * Все выполненные задачи (не только за сегодня) — данные для вкладки
+ * «Выполнено», единственного места, где задача остаётся видимой после того,
+ * как выпадает из обычной агенды (см. docs/spec/agenda.md §3.2).
+ */
+export function useCompletedAgenda(listId: number | null | undefined, options: { enabled?: boolean } = {}) {
+  return useQuery<AgendaResponse>({
+    queryKey: queryKeys.completedAgenda(listId ?? undefined),
+    queryFn: () => api.getCompletedAgenda(listId ?? undefined),
+    enabled: options.enabled ?? true,
+  })
+}
+
 type AgendaMutationContext = { previous: AgendaResponse | undefined }
 
 function setAgendaCard(qc: ReturnType<typeof useQueryClient>, key: readonly unknown[], card: AgendaCard) {
@@ -129,6 +142,7 @@ export function useAgendaComplete(listId?: number | null, currentUserId?: number
     },
     onSuccess: (card) => {
       setAgendaCard(qc, key, toAgendaCard(card))
+      void qc.invalidateQueries({ queryKey: ['agenda', 'completed'] })
     },
   })
 }
@@ -168,9 +182,9 @@ export function useAgendaUpdateDeadline(listId?: number | null) {
  * появляется в своей группе сразу, заменяется настоящей после ответа сервера;
  * при ошибке заглушка убирается.
  */
-export function useAgendaCreateCard(listId: number) {
+export function useAgendaCreateCard(listId: number | null) {
   const qc = useQueryClient()
-  const key = queryKeys.agenda(listId)
+  const key = queryKeys.agenda(listId ?? undefined)
   return useMutation<
     Card,
     Error,

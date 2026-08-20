@@ -18,7 +18,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Board.objects.filter(is_inbox=False).order_by("id")
+        return Board.objects.all().order_by("id")
 
     def perform_create(self, serializer: BoardSerializer) -> None:
         # A new list starts empty — no default columns, no template data.
@@ -81,7 +81,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
 
     @action(detail=True, methods=["post"], url_path="unarchive")
     def unarchive(self, request: Request, pk: int | None = None) -> Response:
-        board = Board.with_archived.filter(pk=pk, is_inbox=False).first()
+        board = Board.with_archived.filter(pk=pk).first()
         if board is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         board.archived_at = None
@@ -100,7 +100,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
     @action(detail=True, methods=["delete"], url_path="force-delete")
     def force_delete(self, request: Request, pk: int | None = None) -> Response:
         """Hard-delete an archived board."""
-        board = Board.with_archived.filter(pk=pk, is_inbox=False).first()
+        board = Board.with_archived.filter(pk=pk).first()
         if board is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         actor = request.user if request.user.is_authenticated else None

@@ -51,7 +51,7 @@ export function AgendaRow({
   const checkboxId = useId()
   const completed = Boolean(card.completed_at)
   const hasPriority = card.priority !== 0 && card.priority != null
-  const deadlineTone = group === 'overdue' ? 'text-danger' : group === 'today' ? 'text-warning' : 'text-text-muted'
+  const deadlineTone = group === 'overdue' ? 'text-danger' : group === 'today' ? 'text-primary' : 'text-text-muted'
   const assignee = card.assignee
   const assigneeInitial = assignee ? (assignee.full_name || assignee.username || '?')[0]?.toUpperCase() : null
   const completerName =
@@ -109,7 +109,8 @@ export function AgendaRow({
           aria-label={completed ? `Снять отметку с задачи «${card.title}»` : `Отметить задачу «${card.title}» выполненной`}
           title={completerName ? `Выполнил(а): ${completerName}` : undefined}
           className={cn(
-            'relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-border-strong bg-surface text-text-inverse transition duration-fast ease-standard',
+            'relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 bg-surface text-text-inverse transition duration-fast ease-standard',
+            group === 'overdue' && !completed ? 'border-danger/60' : 'border-border-strong',
             'before:absolute before:-inset-3 before:content-[""] lg:before:content-none',
             'data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-text-inverse',
             'focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',

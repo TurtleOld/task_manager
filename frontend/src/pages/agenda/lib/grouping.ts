@@ -13,13 +13,16 @@ export const AGENDA_GROUP_LABELS: Record<AgendaGroupId, string> = {
   someday: 'Когда-нибудь',
 }
 
-export type AgendaViewMode = 'today' | 'week' | 'all'
+export type AgendaViewMode = 'today' | 'week' | 'all' | 'completed'
 
-/** Какие группы показывает каждая вкладка вида агенды («Сегодня / Неделя / Все дела»). */
+/** Какие группы показывает каждая вкладка вида агенды («Сегодня / Неделя / Все дела»).
+ * У вкладки «Выполнено» своя группировка по дате выполнения (см. `completedGrouping.ts`),
+ * поэтому здесь для неё групп нет. */
 export const AGENDA_VIEW_GROUPS: Record<AgendaViewMode, AgendaGroupId[]> = {
   today: ['overdue', 'today'],
   week: ['overdue', 'today', 'tomorrow', 'this-week'],
   all: AGENDA_GROUP_ORDER,
+  completed: [],
 }
 
 function parseDate(value: string): number {

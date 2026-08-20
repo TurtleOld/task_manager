@@ -1,7 +1,7 @@
 import { Component, Suspense, useEffect, useMemo, useState } from 'react'
 import type { ComponentType, ErrorInfo, ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Archive, CalendarDays, ChevronLeft, LayoutDashboard, ListTodo, Menu, Moon, Search, Settings, Sun } from 'lucide-react'
+import { Archive, CalendarDays, ChevronLeft, LayoutDashboard, Menu, Moon, Search, Settings, Sun, SunMedium } from 'lucide-react'
 import { useBoards } from '../api/queries/boards'
 import type { AuthUser } from '../api/types'
 import { CommandPalette } from './CommandPalette'
@@ -42,8 +42,9 @@ interface AppShellProps {
   onLogout: () => void
 }
 
-const pinnedViews = [
-  { to: '/today', label: 'Агенда', icon: ListTodo },
+const primaryViews = [
+  { to: '/', label: 'Мой день', icon: SunMedium, end: true },
+  { to: '/boards', label: 'Списки', icon: LayoutDashboard },
   { to: '/calendar', label: 'Календарь', icon: CalendarDays },
   { to: '/archive', label: 'Архив', icon: Archive },
 ]
@@ -192,9 +193,8 @@ function MobileTabBar({ onMoreClick }: { onMoreClick: () => void }) {
       className="fixed inset-x-0 bottom-0 z-sticky flex items-stretch border-t border-border/80 bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-elevated backdrop-blur-xl lg:hidden"
       aria-label="Нижняя навигация"
     >
-      <MobileTabLink to="/" label="Списки" icon={LayoutDashboard} end />
-      {pinnedViews.map((item) => (
-        <MobileTabLink key={item.to} to={item.to} label={item.label} icon={item.icon} />
+      {primaryViews.map((item) => (
+        <MobileTabLink key={item.to} to={item.to} label={item.label} icon={item.icon} end={item.end} />
       ))}
       <button
         type="button"
@@ -282,9 +282,8 @@ function ShellSidebar({ boards, boardsLoading, collapsed, mobile = false, onColl
       </div>
       <nav className="mt-5 flex-1 space-y-5 overflow-y-auto pr-1" aria-label="Разделы приложения">
         <NavSection title="Views" collapsed={collapsed && !mobile}>
-          <ShellNavItem to="/" label="Списки" icon={LayoutDashboard} collapsed={collapsed && !mobile} end />
-          {pinnedViews.map((item) => (
-            <ShellNavItem key={item.to} to={item.to} label={item.label} icon={item.icon} collapsed={collapsed && !mobile} />
+          {primaryViews.map((item) => (
+            <ShellNavItem key={item.to} to={item.to} label={item.label} icon={item.icon} collapsed={collapsed && !mobile} end={item.end} />
           ))}
         </NavSection>
 
@@ -390,11 +389,12 @@ function getListId(pathname: string) {
 
 function getPageTitle(pathname: string, boardName?: string) {
   if (pathname.startsWith('/lists/')) return boardName || 'Список'
-  if (pathname === '/today') return 'Агенда'
+  if (pathname === '/') return 'Мой день'
+  if (pathname === '/boards') return 'Списки'
   if (pathname === '/settings') return 'Настройки'
   if (pathname === '/calendar') return 'Календарь'
   if (pathname === '/archive') return 'Архив'
-  return 'Списки'
+  return 'Мой день'
 }
 
 function getBreadcrumbs(pathname: string, boardName?: string) {
@@ -402,14 +402,12 @@ function getBreadcrumbs(pathname: string, boardName?: string) {
     const match = pathname.match(/^\/lists\/(\d+)(?:\/tasks\/(\d+))?$/)
     if (match?.[2]) {
       return [
-        { label: 'Списки', to: '/' },
+        { label: 'Списки', to: '/boards' },
         { label: boardName || 'Список', to: `/lists/${match[1]}` },
         { label: 'Задача' },
       ]
     }
-    return [{ label: 'Списки', to: '/' }, { label: boardName || 'Список' }]
+    return [{ label: 'Списки', to: '/boards' }, { label: boardName || 'Список' }]
   }
-  if (pathname === '/') return [{ label: 'Списки' }]
-  if (pathname === '/today') return [{ label: 'Списки', to: '/' }, { label: 'Агенда' }]
-  return [{ label: 'Списки', to: '/' }, { label: getPageTitle(pathname, boardName) }]
+  return [{ label: getPageTitle(pathname, boardName) }]
 }

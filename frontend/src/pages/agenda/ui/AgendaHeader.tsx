@@ -1,15 +1,15 @@
 import { Link } from 'react-router-dom'
-import { ChipButton } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { AgendaViewMode } from '../lib/grouping'
 import { QuickAddBar } from './QuickAddBar'
 import type { QuickAddResult } from './QuickAddBar'
-import type { QuickAddPerson } from '../lib/quickAdd'
+import type { QuickAddBoard, QuickAddPerson } from '../lib/quickAdd'
 
 const VIEW_MODE_OPTIONS: { id: AgendaViewMode; label: string }[] = [
   { id: 'today', label: 'Сегодня' },
   { id: 'week', label: 'Неделя' },
   { id: 'all', label: 'Все дела' },
+  { id: 'completed', label: 'Выполнено' },
 ]
 
 export interface AgendaPeopleOption {
@@ -29,6 +29,7 @@ interface AgendaQuickAddProps {
   onSubmit: (result: QuickAddResult) => void
   people: QuickAddPerson[]
   timeZone?: string | null
+  boards?: QuickAddBoard[]
 }
 
 interface AgendaHeaderProps {
@@ -54,16 +55,26 @@ export function AgendaHeader({
 }: AgendaHeaderProps) {
   return (
     <header className="sticky top-16 z-sticky flex min-h-14 flex-wrap items-center gap-3 border-b border-border/80 bg-background/78 px-4 py-2 backdrop-blur-xl sm:flex-nowrap sm:py-0 sm:px-6">
-      <div className="order-0 flex shrink-0 items-center gap-1 py-1" role="group" aria-label="Вид агенды">
+      <div
+        className="order-0 flex shrink-0 items-center gap-0.5 rounded-full bg-background-subtle p-1"
+        role="group"
+        aria-label="Вид агенды"
+      >
         {VIEW_MODE_OPTIONS.map((option) => (
-          <ChipButton
+          <button
             key={option.id}
-            active={viewMode === option.id}
-            tone="primary"
+            type="button"
+            aria-pressed={viewMode === option.id}
             onClick={() => onViewModeChange(option.id)}
+            className={cn(
+              'rounded-full px-3 py-1.5 text-caption font-semibold transition duration-fast ease-standard compact:px-2.5 compact:py-1',
+              viewMode === option.id
+                ? 'bg-primary text-text-inverse shadow-surface'
+                : 'text-text-muted hover:text-text',
+            )}
           >
             {option.label}
-          </ChipButton>
+          </button>
         ))}
       </div>
 
@@ -73,7 +84,7 @@ export function AgendaHeader({
           !quickAdd && 'flex-1',
         )}
       >
-        <ScopeChip active={activeListId == null} label="Все списки" to="/today" />
+        <ScopeChip active={activeListId == null} label="Все списки" to="/" />
         {lists.map((list) => (
           <ScopeChip
             key={list.id}
@@ -86,12 +97,13 @@ export function AgendaHeader({
       </div>
 
       {quickAdd ? (
-        <div className="order-3 flex w-full min-w-0 overflow-x-auto sm:order-2 sm:w-auto sm:flex-1">
+        <div className="order-3 flex w-full min-w-0 sm:order-2 sm:w-auto sm:flex-1">
           <QuickAddBar
             busy={quickAdd.busy}
             onSubmit={quickAdd.onSubmit}
             people={quickAdd.people}
             timeZone={quickAdd.timeZone}
+            boards={quickAdd.boards}
           />
         </div>
       ) : null}

@@ -72,3 +72,19 @@ function extractMention(
 function normalizeSpaces(value: string) {
   return value.replace(/\s+/g, ' ').trim()
 }
+
+export interface QuickAddBoard {
+  id: number
+  name: string
+}
+
+/**
+ * В «Мой день» (без привязки к списку) `#тег` быстрого добавления означает
+ * не метку, а список назначения — задача не может остаться без списка.
+ * Сопоставление по префиксу имени, без учёта регистра, как у `@исполнитель`.
+ */
+export function matchBoardByTag(tag: string | null, boards: QuickAddBoard[]): QuickAddBoard | null {
+  if (!tag) return null
+  const lower = tag.toLowerCase()
+  return boards.find((board) => board.name.toLowerCase().startsWith(lower)) ?? null
+}

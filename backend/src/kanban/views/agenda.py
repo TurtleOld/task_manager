@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from ..agenda import (
     agenda_queryset,
+    completed_queryset,
     compute_agenda_boundaries,
     family_today_people,
     family_week_progress,
@@ -48,6 +49,28 @@ class AgendaView(APIView):
             return int(value)
         except ValueError:
             return None
+
+
+class CompletedAgendaView(APIView):
+    """All-time completed tasks, newest first — backs the agenda's «Выполнено» tab."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        profile, _ = NotificationProfile.objects.get_or_create(user=request.user)
+        boundaries = compute_agenda_boundaries(now=timezone.now(), tz_name=profile.timezone)
+
+        board_id = AgendaView._parse_int(request.query_params.get("list"))
+        assignee_id = AgendaView._parse_int(request.query_params.get("assignee"))
+
+        cards = completed_queryset(board_id=board_id, assignee_id=assignee_id)
+
+        return Response(
+            {
+                "boundaries": boundaries.as_dict(),
+                "cards": AgendaCardSerializer(cards, many=True).data,
+            }
+        )
 
 
 class FamilyTodayView(APIView):

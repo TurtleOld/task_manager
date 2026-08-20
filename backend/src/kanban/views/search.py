@@ -20,14 +20,11 @@ class SearchView(APIView):
             return Response({"cards": [], "boards": []})
 
         boards = list(
-            Board.objects.filter(is_inbox=False, name__icontains=query).order_by("name", "id")[:8]
+            Board.objects.filter(name__icontains=query).order_by("name", "id")[:8]
         )
         cards = list(
             Card.objects.select_related("board")
             .prefetch_related("labels")
-            .filter(
-                board__is_inbox=False,
-            )
             .filter(
                 Q(title__icontains=query)
                 | Q(description__icontains=query)
