@@ -51,7 +51,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const listId = parseListId(params.listId)
   const taskId = parseListId(params.taskId)
   const scopeKey = listId == null ? 'all' : `list-${listId}`
-  const closeTaskPath = listId != null ? `/lists/${listId}` : '/today'
+  const closeTaskPath = listId != null ? `/lists/${listId}` : '/'
 
   const { data, isLoading, isError, refetch } = useAgenda(listId)
   const { data: boards = [] } = useBoards()
@@ -63,7 +63,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const familyToday = useFamilyToday({ enabled: isDesktopPanel })
   const shoppingToggleMutation = useFamilyShoppingItemToggle()
   const assignableUsersQuery = useAssignableUsers(user)
-  const createCardMutation = useAgendaCreateCard(listId ?? 0)
+  const createCardMutation = useAgendaCreateCard(listId)
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(() => {
     try {
@@ -108,7 +108,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
 
   useEffect(() => {
     if (params.listId != null && listId == null) {
-      navigate('/today', { replace: true })
+      navigate('/', { replace: true })
     }
   }, [listId, navigate, params.listId])
 
@@ -243,18 +243,19 @@ export function AgendaPage({ user }: AgendaPageProps) {
   }
 
   const handleQuickAddCreate = (result: QuickAddResult) => {
-    if (listId == null) return
+    const targetListId = listId ?? result.listId
+    if (targetListId == null) return
     const placeholder = makeAgendaPlaceholderCard({
       id: -Date.now(),
       title: result.title,
-      list: listId,
+      list: targetListId,
       deadline: result.deadline,
       assignee: result.assigneeId != null ? { id: result.assigneeId, name: result.assigneeName } : null,
     })
     createCardMutation.mutate(
       {
         payload: {
-          board: listId,
+          board: targetListId,
           title: result.title,
           deadline: result.deadline,
           assignee: result.assigneeId,
@@ -312,7 +313,8 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const emptyByView =
     !emptyAgenda && !emptyByFilter && buckets != null && visibleGroups.every((group) => buckets[group].length === 0)
 
-  const mobileQuickAddEnabled = isMobileLayout && listId != null
+  const mobileQuickAddEnabled = isMobileLayout
+  const quickAddBoards = listId == null ? boards.map((board) => ({ id: board.id, name: board.name })) : undefined
 
   return (
     <div className="min-h-screen bg-background/80 pb-12 text-text" style={mobileQuickAddEnabled ? { paddingBottom: 'calc(9rem + env(safe-area-inset-bottom))' } : undefined}>
@@ -325,12 +327,13 @@ export function AgendaPage({ user }: AgendaPageProps) {
         onViewModeChange={setViewMode}
         viewMode={viewMode}
         quickAdd={
-          !isMobileLayout && listId != null
+          !isMobileLayout
             ? {
                 busy: createCardMutation.isPending,
                 onSubmit: handleQuickAddCreate,
                 people: assignableUsersQuery.data ?? [],
                 timeZone: boundaries?.timezone,
+                boards: quickAddBoards,
               }
             : null
         }
@@ -444,6 +447,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
             onSubmit={handleQuickAddCreate}
             people={assignableUsersQuery.data ?? []}
             timeZone={boundaries?.timezone}
+            boards={quickAddBoards}
           />
         </div>
       ) : null}

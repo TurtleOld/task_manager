@@ -22,8 +22,12 @@ describe('resolveLegacyRedirect', () => {
     expect(resolveLegacyRedirect('/boards/12', '#other')).toBe('/lists/12')
   })
 
-  it('maps the temporary all-lists agenda address to /today', () => {
-    expect(resolveLegacyRedirect('/agenda')).toBe('/today')
+  it('maps the temporary all-lists agenda address to the root («Мой день»)', () => {
+    expect(resolveLegacyRedirect('/agenda')).toBe('/')
+  })
+
+  it('maps the old /today address to the root («Мой день»)', () => {
+    expect(resolveLegacyRedirect('/today')).toBe('/')
   })
 
   it('maps the temporary single-list agenda address to the list agenda', () => {
@@ -32,7 +36,7 @@ describe('resolveLegacyRedirect', () => {
 
   it('returns null for current addresses so they are left untouched', () => {
     expect(resolveLegacyRedirect('/')).toBeNull()
-    expect(resolveLegacyRedirect('/today')).toBeNull()
+    expect(resolveLegacyRedirect('/boards')).toBeNull()
     expect(resolveLegacyRedirect('/lists/12')).toBeNull()
     expect(resolveLegacyRedirect('/lists/12/tasks/345')).toBeNull()
     expect(resolveLegacyRedirect('/calendar')).toBeNull()

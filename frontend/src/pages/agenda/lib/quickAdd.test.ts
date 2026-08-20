@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseQuickAdd } from './quickAdd'
+import { matchBoardByTag, parseQuickAdd } from './quickAdd'
 
 // Wednesday 2026-08-12, 12:00 UTC.
 const NOW = new Date('2026-08-12T12:00:00Z')
@@ -69,5 +69,24 @@ describe('parseQuickAdd', () => {
     const result = parseQuickAdd('разобрать шкаф', { now: NOW, timeZone: 'UTC', people: [] })
     expect(result.title).toBe('разобрать шкаф')
     expect(result.deadline).toBeNull()
+  })
+})
+
+const BOARDS = [
+  { id: 1, name: 'Мурчляндия' },
+  { id: 2, name: 'Разработка' },
+]
+
+describe('matchBoardByTag', () => {
+  it('находит список по префиксу имени без учёта регистра', () => {
+    expect(matchBoardByTag('мурч', BOARDS)).toEqual({ id: 1, name: 'Мурчляндия' })
+  })
+
+  it('возвращает null, если тег не указан', () => {
+    expect(matchBoardByTag(null, BOARDS)).toBeNull()
+  })
+
+  it('возвращает null для тега, не совпадающего ни с одним списком', () => {
+    expect(matchBoardByTag('покупки', BOARDS)).toBeNull()
   })
 })

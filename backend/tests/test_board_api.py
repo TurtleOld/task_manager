@@ -41,7 +41,7 @@ def test_boards_list_and_create(auth_client: APIClient) -> None:
 
 
 @pytest.mark.django_db()
-def test_boards_list_hides_inbox_boards(auth_client: APIClient, regular_user) -> None:
+def test_boards_list_includes_legacy_inbox_boards(auth_client: APIClient, regular_user) -> None:
     client = auth_client
     Board.objects.create(name="Home")
     Board.objects.create(owner=regular_user, is_inbox=True, name="Inbox")
@@ -50,4 +50,4 @@ def test_boards_list_hides_inbox_boards(auth_client: APIClient, regular_user) ->
 
     assert resp.status_code == 200
     names = [item["name"] for item in resp.json()]
-    assert names == ["Home"]
+    assert names == ["Home", "Inbox"]

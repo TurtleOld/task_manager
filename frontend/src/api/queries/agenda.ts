@@ -182,9 +182,9 @@ export function useAgendaUpdateDeadline(listId?: number | null) {
  * появляется в своей группе сразу, заменяется настоящей после ответа сервера;
  * при ошибке заглушка убирается.
  */
-export function useAgendaCreateCard(listId: number) {
+export function useAgendaCreateCard(listId: number | null) {
   const qc = useQueryClient()
-  const key = queryKeys.agenda(listId)
+  const key = queryKeys.agenda(listId ?? undefined)
   return useMutation<
     Card,
     Error,

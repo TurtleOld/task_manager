@@ -21,7 +21,7 @@ class ArchiveView(APIView):
             .prefetch_related("labels", "checklist_items")
             .filter(archived_at__isnull=False)
         )
-        boards = Board.with_archived.filter(archived_at__isnull=False, is_inbox=False)
+        boards = Board.with_archived.filter(archived_at__isnull=False)
 
         if board_id:
             cards = cards.filter(board_id=board_id)

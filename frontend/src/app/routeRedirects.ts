@@ -14,7 +14,7 @@ export function resolveLegacyRedirect(pathname: string, hash = ''): string | nul
   const boardCardMatch = BOARD_CARD_ROUTE.exec(pathname)
   if (boardCardMatch) return `/lists/${boardCardMatch[1]}/tasks/${boardCardMatch[2]}`
 
-  if (pathname === '/agenda') return '/today'
+  if (pathname === '/agenda' || pathname === '/today') return '/'
 
   const agendaListMatch = AGENDA_LIST_ROUTE.exec(pathname)
   if (agendaListMatch) return `/lists/${agendaListMatch[1]}`

@@ -184,7 +184,7 @@ export function CommandPalette({ boards, onLogout, onOpenChange, open }: Command
         <CommandSeparator />
 
         <CommandGroup heading="Действия">
-          <CommandItem value="open-today" onSelect={() => runCommand(() => navigate('/today'))}>
+          <CommandItem value="open-today" onSelect={() => runCommand(() => navigate('/'))}>
             <SunMedium className="h-4 w-4" aria-hidden="true" />
             <span>Открыть Мой день</span>
           </CommandItem>

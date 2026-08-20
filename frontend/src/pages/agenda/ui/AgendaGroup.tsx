@@ -23,11 +23,13 @@ interface AgendaGroupProps {
 
 const groupLabelTone: Partial<Record<AgendaGroupId, string>> = {
   overdue: 'text-danger',
-  today: 'text-warning',
+  today: 'text-primary',
 }
 
-const groupAccentGroups: Partial<Record<AgendaGroupId, true>> = {
+/** «Просрочено» и «Сегодня» — единственные группы, требующие мгновенного узнавания взглядом. */
+const emphasizedGroups: Partial<Record<AgendaGroupId, true>> = {
   overdue: true,
+  today: true,
 }
 
 export function AgendaGroup({ boardsById, boundaries, busy, cards, collapsed, deadlineBusy, group, label, onCompleteToggle, onDeadlineCommit, onSwipeComplete, onSwipeTomorrow, onToggle }: AgendaGroupProps) {
@@ -35,10 +37,14 @@ export function AgendaGroup({ boardsById, boundaries, busy, cards, collapsed, de
 
   if (cards.length === 0) return null
 
-  const accented = groupAccentGroups[group] === true
+  const isOverdue = group === 'overdue'
+  const emphasized = emphasizedGroups[group] === true
 
   return (
-    <section className="space-y-0.5" aria-label={label}>
+    <section
+      className={cn('space-y-0.5', isOverdue && 'rounded-[1.1rem] border border-danger/25 bg-danger/8 p-1')}
+      aria-label={label}
+    >
       <h2>
         <button
           type="button"
@@ -51,11 +57,24 @@ export function AgendaGroup({ boardsById, boundaries, busy, cards, collapsed, de
             className={cn('h-4 w-4 shrink-0 text-text-muted transition-transform duration-fast ease-standard', collapsed && '-rotate-90')}
             aria-hidden="true"
           />
-          {group === 'overdue' ? <AlertTriangle className="h-4 w-4 shrink-0 text-danger" aria-hidden="true" /> : null}
-          <span className={cn('text-body-sm font-semibold', groupLabelTone[group] ?? 'text-text', accented && 'uppercase tracking-wide')}>
+          {isOverdue ? <AlertTriangle className="h-4 w-4 shrink-0 text-danger" aria-hidden="true" /> : null}
+          <span
+            className={cn(
+              'font-semibold',
+              emphasized ? 'text-caption uppercase tracking-wide' : 'text-body-sm',
+              groupLabelTone[group] ?? 'text-text',
+            )}
+          >
             {label}
           </span>
-          <span className="ml-auto rounded-full bg-background-subtle px-2 py-0.5 text-caption text-text-muted">{cards.length}</span>
+          <span
+            className={cn(
+              'ml-auto rounded-full px-2 py-0.5 text-caption',
+              isOverdue ? 'bg-danger font-semibold text-text-inverse' : 'bg-background-subtle text-text-muted',
+            )}
+          >
+            {cards.length}
+          </span>
         </button>
       </h2>
       {!collapsed ? (
