@@ -1,4 +1,4 @@
-import { Component, Suspense, useEffect, useMemo, useState } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentType, ErrorInfo, ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Archive, CalendarDays, ChevronLeft, LayoutDashboard, Menu, Moon, Search, Settings, Sun, SunMedium } from 'lucide-react'
@@ -62,6 +62,19 @@ export function AppShell({ user, onLogout }: AppShellProps) {
     }
   })
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'))
+  const headerRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    const header = headerRef.current
+    if (!header) return
+    const updateHeight = () => {
+      document.documentElement.style.setProperty('--app-header-height', `${header.offsetHeight}px`)
+    }
+    updateHeight()
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(header)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     try {
@@ -109,7 +122,7 @@ export function AppShell({ user, onLogout }: AppShellProps) {
       <div className="hidden lg:block">{sidebar}</div>
 
       <div className={cn('min-h-screen transition-[padding] duration-normal ease-standard pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-72', collapsed && 'lg:pl-20')}>
-        <header className="sticky top-0 z-sticky border-b border-border/80 bg-background/78 px-4 py-3 backdrop-blur-xl sm:px-6">
+        <header ref={headerRef} className="sticky top-0 z-sticky border-b border-border/80 bg-background/78 px-4 py-3 backdrop-blur-xl sm:px-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>

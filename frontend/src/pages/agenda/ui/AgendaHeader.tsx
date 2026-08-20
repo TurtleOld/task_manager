@@ -54,7 +54,10 @@ export function AgendaHeader({
   viewMode,
 }: AgendaHeaderProps) {
   return (
-    <header className="sticky top-16 z-sticky flex min-h-14 flex-wrap items-center gap-3 border-b border-border/80 bg-background/78 px-4 py-2 backdrop-blur-xl sm:flex-nowrap sm:py-0 sm:px-6">
+    <header
+      className="sticky z-sticky flex min-h-14 flex-wrap items-center gap-3 border-b border-border/80 bg-background/78 px-4 py-2 backdrop-blur-xl sm:flex-nowrap sm:py-0 sm:px-6"
+      style={{ top: 'var(--app-header-height)' }}
+    >
       <div
         className="order-0 flex shrink-0 items-center gap-0.5 rounded-full bg-background-subtle p-1"
         role="group"
