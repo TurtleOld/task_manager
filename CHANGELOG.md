@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.1](https://github.com/TurtleOld/task_manager/compare/v1.7.0...v1.7.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* исправить перекрытие элементов в мобильной версии ([f6b14dc](https://github.com/TurtleOld/task_manager/commit/f6b14dc4ba912029ba3ebce93cf993c7b4fd4122))
+* перекрытие элементов в мобильной версии ([#94](https://github.com/TurtleOld/task_manager/issues/94)) ([f6b14dc](https://github.com/TurtleOld/task_manager/commit/f6b14dc4ba912029ba3ebce93cf993c7b4fd4122))
+
 ## [1.7.0](https://github.com/TurtleOld/task_manager/compare/v1.6.1...v1.7.0) (2026-08-20)
 
 
