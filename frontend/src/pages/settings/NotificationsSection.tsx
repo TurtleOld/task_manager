@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { BellOff, BellRing, Send } from 'lucide-react'
+import { BellOff, BellRing, RefreshCw, Send } from 'lucide-react'
 import { api } from '../../api/client'
 import type { PushDevice, PushTestResponse } from '../../api/types'
 import {
@@ -9,6 +9,7 @@ import {
   getNotificationPermission,
   getSavedDeviceId,
   hasActiveSubscription,
+  resubscribe,
 } from '../../lib/pushManager'
 import { Badge, Button, Card as SurfaceCard, EmptyState, Skeleton } from '@/components/ui'
 
@@ -24,6 +25,7 @@ export function NotificationsSection() {
   const [loading, setLoading] = useState(true)
   const [enabled, setEnabled] = useState(false)
   const [enabling, setEnabling] = useState(false)
+  const [resubscribing, setResubscribing] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<PushTestResponse | null>(null)
   const [error, setError] = useState('')
@@ -66,6 +68,21 @@ export function NotificationsSection() {
       toast.error('Не удалось включить уведомления')
     } finally {
       setEnabling(false)
+    }
+  }
+
+  const onResubscribe = async () => {
+    setResubscribing(true)
+    setError('')
+    try {
+      await resubscribe()
+      toast.success('Подписка обновлена')
+      await refresh()
+    } catch (e) {
+      setError((e as Error).message)
+      toast.error('Не удалось обновить подписку')
+    } finally {
+      setResubscribing(false)
     }
   }
 
@@ -133,8 +150,29 @@ export function NotificationsSection() {
               Новое устройство не отключает предыдущие. Последняя ошибка видна рядом с каждым.
             </p>
           </div>
-          <Button type="button" variant="secondary" size="sm" onClick={() => void refresh()}>Обновить</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="secondary" size="sm" onClick={() => void refresh()}>Обновить список</Button>
+            {enabled ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => void onResubscribe()}
+                loading={resubscribing}
+              >
+                <RefreshCw className="size-4" aria-hidden />
+                Обновить подписку
+              </Button>
+            ) : null}
+          </div>
         </div>
+        {enabled ? (
+          <p className="mt-3 text-caption text-text-muted">
+            Если уведомления перестали приходить именно на это устройство, а тестовое отправляется
+            без ошибок — нажмите «Обновить подписку»: Android иногда незаметно для сервера роняет
+            старую подписку, и обновление выпускает новую взамен.
+          </p>
+        ) : null}
 
         {loading ? (
           <div className="mt-4 space-y-2">

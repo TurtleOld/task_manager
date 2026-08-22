@@ -126,3 +126,36 @@ export async function disableCurrentDevice(): Promise<void> {
   localStorage.removeItem(DEVICE_ID_KEY)
   await clearPushAuth()
 }
+
+/**
+ * Force a fresh subscription on this browser and replace the old device row.
+ *
+ * Android Chrome can let a subscription go stale on the FCM side without ever
+ * telling either the browser or our server: `pushsubscriptionchange` does not
+ * fire, and FCM keeps answering `webpush()` with success for a message that
+ * never reaches the phone. The only known way out is to unsubscribe and
+ * subscribe again, which forces Chrome to obtain a new FCM registration
+ * token. This wraps that recovery in one call instead of requiring a person
+ * to delete the device and re-enable notifications by hand.
+ */
+export async function resubscribe(): Promise<PushDevice> {
+  const previousDeviceId = getSavedDeviceId()
+
+  const existing = await getCurrentSubscription()
+  if (existing) {
+    await existing.unsubscribe()
+  }
+
+  const device = await enableNotifications()
+
+  if (previousDeviceId !== null && previousDeviceId !== device.id) {
+    try {
+      await api.deletePushDevice(previousDeviceId)
+    } catch {
+      // The stale row is harmless if this fails — it will simply show up as
+      // a second, inactive-looking device until someone removes it by hand.
+    }
+  }
+
+  return device
+}
