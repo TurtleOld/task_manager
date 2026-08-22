@@ -50,3 +50,18 @@ Open tabs:
   backend/src/kanban/models.py
 </environment_details>
 ```
+
+## GitHub output rules
+
+GitHub issues, pull requests, and comments are technical artifacts, not chat messages.
+
+Do not include:
+
+- conversational remarks;
+- meta-commentary;
+- offers to do additional work;
+- explanations of what was not included;
+- "if needed", "I can also", "I didn't include", or equivalent phrases;
+- unnecessary conclusions or sign-offs.
+
+Write only information that belongs permanently in the issue or pull request.

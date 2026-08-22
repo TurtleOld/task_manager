@@ -126,3 +126,75 @@ export async function disableCurrentDevice(): Promise<void> {
   localStorage.removeItem(DEVICE_ID_KEY)
   await clearPushAuth()
 }
+
+/**
+ * Force a fresh subscription on this browser and replace the old device row.
+ *
+ * Android Chrome can let a subscription go stale on the FCM side without ever
+ * telling either the browser or our server: `pushsubscriptionchange` does not
+ * fire, and FCM keeps answering `webpush()` with success for a message that
+ * never reaches the phone. The only known way out is to unsubscribe and
+ * subscribe again, which forces Chrome to obtain a new FCM registration
+ * token. This wraps that recovery in one call instead of requiring a person
+ * to delete the device and re-enable notifications by hand.
+ */
+export async function resubscribe(): Promise<PushDevice> {
+  const previousDeviceId = getSavedDeviceId()
+
+  const existing = await getCurrentSubscription()
+  if (existing) {
+    await existing.unsubscribe()
+  }
+
+  const device = await enableNotifications()
+
+  if (previousDeviceId !== null && previousDeviceId !== device.id) {
+    try {
+      await api.deletePushDevice(previousDeviceId)
+    } catch {
+      // The stale row is harmless if this fails — it will simply show up as
+      // a second, inactive-looking device until someone removes it by hand.
+    }
+  }
+
+  return device
+}
+
+const LAST_AUTO_RESUBSCRIBE_KEY = 'push_last_auto_resubscribe_at'
+
+/**
+ * Chrome ships `pushsubscriptionchange` only since version 137 (2025), and
+ * even there its documented trigger is a revoked-then-regranted permission —
+ * not the FCM-side token staleness this app hit in production, which fired
+ * no event at all. Waiting for a reliable signal that may never come is not
+ * an option, so instead this refreshes the subscription unconditionally on
+ * a fixed cadence, the same mitigation push-notification providers document
+ * for this exact gap. Fourteen days keeps the worst-case silent window
+ * bounded without forcing every open tab to re-register on every load.
+ */
+const AUTO_RESUBSCRIBE_INTERVAL_DAYS = 14
+const AUTO_RESUBSCRIBE_INTERVAL_MS = AUTO_RESUBSCRIBE_INTERVAL_DAYS * 24 * 60 * 60 * 1000
+
+/**
+ * Silently refresh this browser's push subscription if enough time has
+ * passed since the last refresh. A no-op unless notifications are already
+ * enabled on this browser — this never asks for permission or surfaces
+ * anything to the user; `resubscribe()`'s own error handling already keeps
+ * a failed attempt from raising past this call site.
+ */
+export async function maybeAutoResubscribe(): Promise<void> {
+  if (getNotificationPermission() !== 'granted') return
+  if (getSavedDeviceId() === null) return
+
+  const storedAt = Number(localStorage.getItem(LAST_AUTO_RESUBSCRIBE_KEY) ?? 0)
+  const dueAt = (Number.isFinite(storedAt) ? storedAt : 0) + AUTO_RESUBSCRIBE_INTERVAL_MS
+  if (Date.now() < dueAt) return
+
+  try {
+    await resubscribe()
+    localStorage.setItem(LAST_AUTO_RESUBSCRIBE_KEY, String(Date.now()))
+  } catch {
+    // Leave the stored timestamp untouched so the next app load tries again
+    // instead of waiting out the full interval on a transient failure.
+  }
+}

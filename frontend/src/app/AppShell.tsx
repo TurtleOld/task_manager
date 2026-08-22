@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Archive, CalendarDays, ChevronLeft, LayoutDashboard, Menu, Moon, Search, Settings, Sun, SunMedium } from 'lucide-react'
 import { useBoards } from '../api/queries/boards'
 import type { AuthUser } from '../api/types'
+import { maybeAutoResubscribe } from '../lib/pushManager'
 import { CommandPalette } from './CommandPalette'
 import { NotificationInboxButton } from './NotificationInboxButton'
 import { toggleTheme } from './theme'
@@ -87,6 +88,12 @@ export function AppShell({ user, onLogout }: AppShellProps) {
   useEffect(() => {
     setMobileOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    // Runs once per app load, not per navigation — enough to bound how long
+    // a silently dead Android push subscription can go unnoticed.
+    void maybeAutoResubscribe()
+  }, [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
