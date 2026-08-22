@@ -66,6 +66,20 @@ def test_send_webpush_does_not_retry_a_real_http_error(webpush_settings, monkeyp
     assert calls == [10]
 
 
+def test_send_webpush_passes_ttl_and_urgency(webpush_settings, monkeypatch):
+    calls: list[dict] = []
+
+    def fake_webpush(**kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr("pywebpush.webpush", fake_webpush)
+
+    send_webpush(**_subscription_kwargs())
+
+    assert calls[0]["ttl"] == webpush_settings.WEBPUSH_TTL_SECONDS
+    assert calls[0]["headers"] == {"Urgency": webpush_settings.WEBPUSH_URGENCY}
+
+
 def test_send_webpush_retires_subscription_on_410(webpush_settings, monkeypatch):
     def fake_webpush(**kwargs):
         response = requests.Response()

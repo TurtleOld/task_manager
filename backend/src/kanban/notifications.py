@@ -1,15 +1,23 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, cast
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
+from django.db import connection
 from django.db.utils import IntegrityError
 
 from .models import Board, Card, Column, NotificationEvent, NotificationEventType
 
 User = get_user_model()
+
+logger = logging.getLogger(__name__)
+
+# Shared with `run_dispatcher`'s `LISTEN`. Not env-configurable — a channel
+# name is an implementation detail, not deployment configuration.
+NOTIFICATION_CHANNEL = "kanban_events"
 
 
 def build_frontend_link(board_id: int | None) -> str:
@@ -71,4 +79,26 @@ def create_notification_event(
     # already recorded the change that caused it. An outbox cannot lose it:
     # either the transaction committed and the row is there to be found, or it
     # rolled back and there was nothing to send.
+    _notify_dispatcher()
     return event
+
+
+def _notify_dispatcher() -> None:
+    """Wake a listening dispatcher early instead of waiting for its next poll.
+
+    This is not the Celery hand-off ADR 0002 rules out: `NOTIFY` in PostgreSQL
+    is transactional — a listener only receives it once this transaction
+    actually commits, and never if it rolls back. A signal that never arrives
+    (no listener connected, connection dropped) loses nothing, because the
+    `NotificationEvent` row is already the durable queue entry and the next
+    poll picks it up regardless. This only shortens the wait; the outbox is
+    still the only channel that carries the work itself.
+    """
+
+    if connection.vendor != "postgresql":
+        return
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT pg_notify(%s, '')", [NOTIFICATION_CHANNEL])
+    except Exception:  # noqa: BLE001 - a missed wakeup must not lose the event
+        logger.exception("notification_dispatcher_notify_failed")

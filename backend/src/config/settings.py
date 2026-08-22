@@ -225,6 +225,14 @@ VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
 # Push services (FCM, Mozilla) reject a request whose VAPID claims carry no
 # contact for the sender, so this must be a real "mailto:" or "https:" value.
 VAPID_CLAIM_EMAIL = os.getenv("VAPID_CLAIM_EMAIL", "")
+# Как долго push-сервис хранит недоставленное сообщение. `TTL: 0` (умолчание
+# pywebpush) означает «доставить сейчас или выбросить», из-за чего телефон со
+# спящим экраном не получал ничего. Два часа — тот же срок, что и
+# REMINDER_STALE_MINUTES: протухшее уведомление хуже тишины.
+WEBPUSH_TTL_SECONDS = int(os.getenv("WEBPUSH_TTL_SECONDS", "7200"))
+# `high` просит FCM разбудить устройство из Doze немедленно. С `normal`
+# сообщение ждёт окна обслуживания — на Android это минуты или часы.
+WEBPUSH_URGENCY = os.getenv("WEBPUSH_URGENCY", "high")
 
 # --- Notification dispatcher ---
 #

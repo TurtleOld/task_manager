@@ -12,6 +12,15 @@ unsubscribes people:
     The device is retired; the user must re-subscribe from the browser.
   * `PushDeliveryError` — anything else (network, 5xx, rate limit). Transient.
     The subscription stays and the send is retried later.
+
+`ttl` and the `Urgency` header are not cosmetic. `pywebpush.webpush()` defaults
+to `ttl=0`, which under RFC 8030 means "deliver this instant or discard it" —
+a phone with a sleeping screen is unreachable at that instant, so the push
+service drops the message outright, not late. `Urgency: normal` gets the same
+treatment on Android: FCM only wakes a device out of Doze for `high`. Skip
+either one and Android delivery is not degraded, it is silent, which is why
+`manage.py notifications_doctor` exists — the same class of failure that pytest
+and the healthcheck cannot see.
 """
 
 from __future__ import annotations
@@ -107,6 +116,8 @@ def send_webpush(*, endpoint: str, p256dh: str, auth: str, payload: str) -> None
                 vapid_private_key=settings.VAPID_PRIVATE_KEY,
                 vapid_claims=_vapid_claims(),
                 timeout=timeout,
+                ttl=settings.WEBPUSH_TTL_SECONDS,
+                headers={"Urgency": settings.WEBPUSH_URGENCY},
             )
         except WebPushException as exc:
             # The push service answered (with an error) — a retry can't fix
