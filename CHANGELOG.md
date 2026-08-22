@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.3](https://github.com/TurtleOld/task_manager/compare/v1.7.2...v1.7.3) (2026-08-22)
+
+
+### Bug Fixes
+
+* доставка Web Push не будила спящий Android и терялась в диспетчере ([#98](https://github.com/TurtleOld/task_manager/issues/98)) ([b42e5e3](https://github.com/TurtleOld/task_manager/commit/b42e5e31621fd0be0e2eb50a6319da2292235c31))
+
 ## [1.7.2](https://github.com/TurtleOld/task_manager/compare/v1.7.1...v1.7.2) (2026-08-20)
 
 
