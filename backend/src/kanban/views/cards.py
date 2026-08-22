@@ -325,7 +325,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         serializer.is_valid(raise_exception=True)
         comment = serializer.save(card=card, author=request.user)
         self._broadcast_comment(card, comment, "comment.created", request)
-        self._notify_comment_mentions(card, comment)
+        self._notify_comment(card, comment)
         return Response(
             CardCommentSerializer(comment, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
@@ -411,25 +411,41 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             },
         )
 
-    def _notify_comment_mentions(self, card: Card, comment: CardComment) -> None:
+    def _notify_comment(self, card: Card, comment: CardComment) -> None:
+        """Create the notification event for a new comment.
+
+        A mention narrows the recipients to the mentioned users (self-mentions
+        excluded below, since mentioning yourself is not a mention). No
+        mention still notifies — everyone but the comment's own author, which
+        `_event_recipients()` enforces via `EVENT_TYPES_WITHOUT_ACTOR`. Exactly
+        one event either way — the two branches are mutually exclusive, not
+        additive.
+        """
+
         usernames = {item.lower() for item in re.findall(r"@([\w.@+-]+)", comment.text)}
-        if not usernames:
-            return
-        mentioned_users = User.objects.filter(username__in=usernames).exclude(id=comment.author_id)
-        if not mentioned_users.exists():
-            return
+        mentioned_users = (
+            User.objects.filter(username__in=usernames).exclude(id=comment.author_id)
+            if usernames
+            else User.objects.none()
+        )
+        payload: dict[str, object] = {
+            "board": card.board.name,
+            "card": card.title,
+            "comment": comment.text[:500],
+        }
+        if mentioned_users.exists():
+            summary = f"Новый комментарий с упоминанием в задаче «{card.title}»"
+            payload["mention_user_ids"] = list(mentioned_users.values_list("id", flat=True))
+        else:
+            summary = f"Новый комментарий в задаче «{card.title}»"
+
         create_notification_event(
             event_type=NotificationEventType.COMMENT_CREATED.value,
             actor=comment.author,
             board=card.board,
             card=card,
-            summary=f"Новый комментарий с упоминанием в задаче «{card.title}»",
-            payload={
-                "board": card.board.name,
-                "card": card.title,
-                "comment": comment.text[:500],
-                "mention_user_ids": list(mentioned_users.values_list("id", flat=True)),
-            },
+            summary=summary,
+            payload=payload,
         )
 
     def perform_create(self, serializer: CardSerializer) -> None:

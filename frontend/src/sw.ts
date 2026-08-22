@@ -74,9 +74,13 @@ self.addEventListener('push', (event) => {
     body: payload.body ?? '',
     icon: '/web-app-manifest-192x192.png',
     badge: '/web-app-manifest-192x192.png',
-    // Re-notifying about the same task replaces the previous notification in
-    // the shade instead of stacking duplicates.
+    // `tag` replaces the previous notification about the same task instead of
+    // stacking duplicates in the shade; `renotify` restores the sound and
+    // vibration that a tag-replace otherwise suppresses, which is what makes
+    // an Android watch mirror the update at all. `renotify` requires a
+    // non-empty tag, hence the conditional spread.
     tag: payload.tag,
+    ...(payload.tag ? { renotify: true } : {}),
     data: { ...(payload.data ?? {}), link: payload.link ?? '' },
   }
 

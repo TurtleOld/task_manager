@@ -301,11 +301,23 @@ def process_due_reminders(*, now=None, limit: int | None = None) -> int:
 # --------------------------------------------------------------------------
 
 
+# Comment is the one event type its author does not get back: they just wrote
+# the text and are looking at it on screen. Every other event type addresses
+# the actor the same as any other recipient. Excluding it here — in address
+# resolution — rather than in the delivery loop also removes the author from
+# the inbox for their own comment, not just from push. That is intentional
+# and matches how a mentioning comment already behaves today: the author is
+# never in `mention_user_ids`, so they already get no inbox entry for it. A
+# comment without a mention now behaves the same way instead of differently.
+EVENT_TYPES_WITHOUT_ACTOR = {NotificationEventType.COMMENT_CREATED.value}
+
+
 def _event_recipients(event: NotificationEvent) -> list[int]:
     """Users this event is addressed to (mentions narrow it down).
 
-    The in-app inbox is written for every recipient, including the actor. The
-    actor is excluded only from device delivery, and only there.
+    Every recipient returned here gets both the in-app inbox entry and device
+    delivery — the two are no longer split. A comment additionally drops its
+    own author, see `EVENT_TYPES_WITHOUT_ACTOR`.
     """
 
     mention_user_ids = (
@@ -317,7 +329,10 @@ def _event_recipients(event: NotificationEvent) -> list[int]:
         if not mentioned:
             return []
         qs = qs.filter(id__in=mentioned)
-    return list(qs.values_list("id", flat=True))
+    recipient_ids = list(qs.values_list("id", flat=True))
+    if event.event_type in EVENT_TYPES_WITHOUT_ACTOR:
+        recipient_ids = [uid for uid in recipient_ids if uid != event.actor_id]
+    return recipient_ids
 
 
 def _event_title(event: NotificationEvent) -> str:
@@ -346,9 +361,12 @@ def _event_body(event: NotificationEvent) -> str:
 def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
     """Deliver one event to one person's devices over Web Push.
 
-    The actor is already excluded by the caller, and this function writes only
-    the device delivery record — the inbox entry is written separately and
-    unconditionally.
+    The actor is a recipient like any other here — with two people sharing a
+    board, a notification about your own action confirms it reached the other
+    device instead of being noise. `_event_recipients()` is the only place
+    that excludes anyone (currently just a comment's own author), so this
+    function writes the device delivery record for whoever it is given. The
+    inbox entry is written separately and unconditionally.
     """
 
     if not preferences_enabled_for_event_type(
@@ -442,11 +460,6 @@ def process_outbox_events(*, now=None, limit: int | None = None) -> int:
             )
 
             for user_id in recipient_ids:
-                # The person who caused the event already sees the result on
-                # their own screen; their phone must not buzz for their own
-                # action. Everyone else gets a device notification.
-                if user_id == event.actor_id:
-                    continue
                 _deliver_event_to_user(event, user_id)
         except Exception as exc:  # noqa: BLE001
             event.dispatch_attempts += 1

@@ -453,13 +453,15 @@ def test_one_failing_chore_does_not_skip_the_others(monkeypatch) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Event recipients (narrowing): everyone is notified on their device except the
-# actor, while the in-app inbox is written for everyone including the actor.
+# Event recipients: every recipient is notified on their device, including the
+# actor — the only exception is a comment's own author, tested separately
+# alongside comment fanout. The in-app inbox is written for everyone the
+# event is addressed to.
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.django_db()
-def test_event_reaches_other_persons_device_but_not_actors(
+def test_event_reaches_every_device_including_the_actors(
     board, regular_user, webpush_settings, monkeypatch
 ) -> None:
     other = User.objects.create_user(username="user2", password="pw")
@@ -481,7 +483,7 @@ def test_event_reaches_other_persons_device_but_not_actors(
 
     dispatcher.process_outbox_events()
 
-    assert actor_device.endpoint not in sent
+    assert actor_device.endpoint in sent
     assert other_device.endpoint in sent
 
 
