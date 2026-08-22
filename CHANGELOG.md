@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.4](https://github.com/TurtleOld/task_manager/compare/v1.7.3...v1.7.4) (2026-08-22)
+
+
+### Bug Fixes
+
+* добавить ручное обновление протухшей push-подписки на Android ([#100](https://github.com/TurtleOld/task_manager/issues/100)) ([03c2da0](https://github.com/TurtleOld/task_manager/commit/03c2da0360dbce79acf78b54c18fd3bb8c6c8772))
+
 ## [1.7.3](https://github.com/TurtleOld/task_manager/compare/v1.7.2...v1.7.3) (2026-08-22)
 
 
