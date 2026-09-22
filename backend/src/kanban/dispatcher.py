@@ -174,7 +174,9 @@ def process_due_reminders(*, now=None, limit: int | None = None) -> int:
     for reminder_id in due_ids:
         with transaction.atomic():
             reminder = (
-                CardDeadlineReminder.objects.select_for_update(skip_locked=True)
+                CardDeadlineReminder.objects.select_for_update(
+                    skip_locked=True, of=("self",)
+                )
                 .filter(id=reminder_id, status=CardDeadlineReminder.Status.SCHEDULED)
                 .select_related("card")
                 .first()
