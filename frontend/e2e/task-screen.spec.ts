@@ -67,11 +67,20 @@ test.describe('task screen', () => {
     await expect(dialog.getByText('Купить билеты')).toHaveClass(/line-through/)
 
     await dialog.getByRole('button', { name: 'Задать срок задачи' }).click()
-    await page.getByRole('gridcell', { name: '15' }).first().click()
+    const dayCell = page.getByRole('gridcell', { name: '15' }).first()
+    const isoDay = await dayCell.getAttribute('data-day')
+    expect(isoDay).toBeTruthy()
+    await dayCell.click()
+
+    // The calendar opens on the current month, so the label is derived from the
+    // date that was actually clicked instead of a hardcoded month.
+    const [year, month, dayOfMonth] = isoDay!.split('-').map(Number)
+    const expectedDayLabel = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' })
+      .format(new Date(year, month - 1, dayOfMonth))
 
     // The deadline popover closes on selection; wait for its own exit animation
     // to finish before Escape, so it targets the task dialog and not the popover.
-    await expect(dialog.getByRole('button', { name: 'Изменить срок задачи' })).toContainText('15 авг')
+    await expect(dialog.getByRole('button', { name: 'Изменить срок задачи' })).toContainText(expectedDayLabel)
     await expect(page.locator('[data-slot="popover-content"]')).toHaveCount(0)
 
     await page.keyboard.press('Escape')
