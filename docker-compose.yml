@@ -112,6 +112,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: ${FRONTEND_BUILD_TARGET:-production}
     image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/frontend:${IMAGE_TAG:-main}
     command:
       [
