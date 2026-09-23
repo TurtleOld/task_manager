@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("kanban", "0056_remove_legacy_channels"),
+        ("kanban", "0057_dispatcherheartbeat_last_maintenance_error"),
     ]
 
     operations = [
