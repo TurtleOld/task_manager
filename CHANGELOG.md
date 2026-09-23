@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.5](https://github.com/TurtleOld/task_manager/compare/v1.7.4...v1.7.5) (2026-09-23)
+
+
+### Bug Fixes
+
+* боевой фронтенд работает на vite preview вместо прод-сервера ([#114](https://github.com/TurtleOld/task_manager/issues/114)) ([1a93620](https://github.com/TurtleOld/task_manager/commit/1a936207421989f2bf06b3b7f6fcba59a4cead62))
+* боевой фронтенд работал на vite preview вместо прод-сервера ([1a93620](https://github.com/TurtleOld/task_manager/commit/1a936207421989f2bf06b3b7f6fcba59a4cead62))
+* генерация повторов падала на FOR UPDATE с outer join ([#108](https://github.com/TurtleOld/task_manager/issues/108)) ([8a3a488](https://github.com/TurtleOld/task_manager/commit/8a3a48875afafc56b468bde53f09ad853edcb69f))
+* доставка события дублировала push при повторной обработке ([#112](https://github.com/TurtleOld/task_manager/issues/112)) ([e3a9e58](https://github.com/TurtleOld/task_manager/commit/e3a9e582509232240dd7cbe8dcb7673beda03a80))
+* остановка фоновых джоб диспетчера не попадала в healthcheck ([#111](https://github.com/TurtleOld/task_manager/issues/111)) ([379d54a](https://github.com/TurtleOld/task_manager/commit/379d54a9045bde9969ee7f2c7d712ce839da6b52))
+* раздача /media в проде не работала вне DEBUG ([#113](https://github.com/TurtleOld/task_manager/issues/113)) ([da129dd](https://github.com/TurtleOld/task_manager/commit/da129dd73e99f0a1f7fa73eaeaefb6cf3c618e74))
+
 ## [1.7.4](https://github.com/TurtleOld/task_manager/compare/v1.7.3...v1.7.4) (2026-08-22)
 
 
