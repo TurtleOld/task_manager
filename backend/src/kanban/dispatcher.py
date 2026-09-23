@@ -379,6 +379,15 @@ def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
     ):
         return
 
+    channel = NotificationChannel.PUSH.value
+    # One delivery row per (event, user, channel): a retry of the whole
+    # event after a crash or another recipient's failure must not push to
+    # someone who already received it.
+    dedupe_key = f"event:{event.id}:{user_id}:{channel}"
+    delivery = NotificationDelivery.objects.filter(dedupe_key=dedupe_key).first()
+    if delivery and delivery.status == NotificationDelivery.Status.SENT:
+        return
+
     subject = str(Truncator(_event_title(event)).chars(120))
     body = _event_body(event)
 
@@ -399,16 +408,23 @@ def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
         # Not an error: this person simply has no push devices yet.
         return
 
-    delivery = NotificationDelivery.objects.create(
-        event=event, user_id=user_id, channel=NotificationChannel.PUSH.value
-    )
+    is_new = delivery is None
+    if is_new:
+        delivery = NotificationDelivery(
+            event=event, user_id=user_id, channel=channel, dedupe_key=dedupe_key
+        )
     if result.delivered:
         delivery.status = NotificationDelivery.Status.SENT
         delivery.sent_at = timezone.now()
+        delivery.error = ""
     else:
         delivery.status = NotificationDelivery.Status.FAILED
         delivery.error = result.summary()[:500]
-    delivery.save(update_fields=["status", "sent_at", "error"])
+
+    if is_new:
+        delivery.save()
+    else:
+        delivery.save(update_fields=["status", "sent_at", "error"])
 
 
 def process_outbox_events(*, now=None, limit: int | None = None) -> int:
@@ -560,9 +576,16 @@ def maintenance_tick() -> None:
 
     from .tasks import generate_recurring_cards, prune_card_activity, send_overdue_card_reminders
 
+    # Each job is caught on its own so one failing chore does not skip the
+    # rest, but the failure must still reach the heartbeat: previously it was
+    # only logged, so the health endpoint stayed green while these jobs died
+    # on every pass.
+    errors: list[str] = []
+
     try:
         generate_recurring_cards.apply(throw=True)
-    except Exception:  # noqa: BLE001 - one failing chore must not skip the rest
+    except Exception as exc:  # noqa: BLE001 - one failing chore must not skip the rest
+        errors.append(f"recurring_cards: {exc}")
         logger.exception("dispatcher_recurring_cards_failed")
 
     try:
@@ -570,7 +593,8 @@ def maintenance_tick() -> None:
         # within `SiteSettings.overdue_reminder_interval`, so calling it more
         # often than that interval costs a query and sends nothing.
         send_overdue_card_reminders.apply(throw=True)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"overdue_reminders: {exc}")
         logger.exception("dispatcher_overdue_reminders_failed")
 
     heartbeat, _ = DispatcherHeartbeat.objects.get_or_create(name="dispatcher")
@@ -580,8 +604,12 @@ def maintenance_tick() -> None:
     if due:
         try:
             prune_card_activity.apply(throw=True)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"prune_activity: {exc}")
             logger.exception("dispatcher_prune_activity_failed")
         else:
             heartbeat.last_prune_at = timezone.now()
             heartbeat.save(update_fields=["last_prune_at"])
+
+    heartbeat.last_maintenance_error = "; ".join(errors)[:500]
+    heartbeat.save(update_fields=["last_maintenance_error"])
