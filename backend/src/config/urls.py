@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
+from kanban.views.media import MediaView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -19,7 +20,6 @@ urlpatterns = [
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
+    # Attachments. Gated by IsAuthenticated in MediaView, not DEBUG.
+    path(f"{settings.MEDIA_URL.strip('/')}/<path:path>", MediaView.as_view()),
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
