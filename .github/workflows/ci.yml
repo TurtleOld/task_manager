@@ -44,6 +44,62 @@ jobs:
           name: backend-coverage
           path: backend/coverage.xml
 
+  # The `backend` job above runs on SQLite: fast, hermetic, and blind to
+  # everything the queue actually relies on. SQLite ignores
+  # `select_for_update()`, has no `SKIP LOCKED` and no `FOR UPDATE` restriction
+  # on outer joins — the class of bug that reached production twice (the
+  # dispatcher, then recurrence generation) is green there by construction.
+  # This job runs the same suite against the engine production uses, so those
+  # queries are executed for real.
+  backend-postgres:
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'branch'
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: task_manager
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Sync deps with uv (with cache)
+        run: |
+          uv venv
+          uv sync --all-extras
+      - name: Tests on PostgreSQL (pytest)
+        env:
+          DJANGO_SECRET_KEY: test
+          DJANGO_DEBUG: 'true'
+          # Without this the settings module replaces the database with SQLite
+          # `:memory:` under pytest, and the job would silently re-run the
+          # SQLite suite.
+          DJANGO_TEST_USE_ENV_DB: '1'
+          # The Postgres-only tests skip themselves on SQLite, so this job would
+          # stay green if it ever lost the variable above or the service. This
+          # flag makes that degeneration a test failure instead.
+          DJANGO_TEST_REQUIRE_POSTGRES: '1'
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/task_manager
+        run: uv run pytest -q
+
   frontend:
     runs-on: ubuntu-latest
     if: github.ref_type == 'branch'

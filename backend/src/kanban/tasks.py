@@ -146,8 +146,14 @@ def generate_recurring_cards(self) -> None:
 
 def _generate_recurring_card_for_rule(*, rule_id: int, now: datetime) -> None:
     with transaction.atomic():
+        # `card__assignee` is a nullable FK, so `select_related` compiles to a
+        # LEFT OUTER JOIN, and Postgres refuses `FOR UPDATE` on its nullable
+        # side. Without `of=("self",)` the whole job raises on every
+        # maintenance tick and no rule is ever processed.
         rule = (
-            RecurrenceRule.objects.select_for_update(skip_locked=True)
+            RecurrenceRule.objects.select_for_update(
+                skip_locked=True, of=("self",)
+            )
             .select_related("card", "card__column", "card__board", "card__assignee")
             .filter(id=rule_id)
             .first()

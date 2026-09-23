@@ -22,6 +22,20 @@
 
 - Keep Python lines at 80 characters when practical; the lint limit is 81 characters.
 
+## Backend Testing
+
+- The default `pytest` run uses SQLite `:memory:` (forced by `backend/src/config/settings.py`). It does not execute row locks: `select_for_update`, `SKIP LOCKED` and the `FOR UPDATE`/outer-join restriction are all invisible there.
+- Anything touching locks, constraints or concurrency must be verified on PostgreSQL. CI does this in the `backend-postgres` job; locally:
+
+  ```sh
+  docker run -d --rm --name tm-test-pg -e POSTGRES_PASSWORD=postgres \
+    -e POSTGRES_DB=task_manager -p 55432:5432 postgres:17
+  cd backend && DJANGO_SECRET_KEY=test DJANGO_DEBUG=true DJANGO_TEST_USE_ENV_DB=1 \
+    DATABASE_URL=postgres://postgres:postgres@127.0.0.1:55432/task_manager uv run pytest -q
+  ```
+
+- Postgres-only expectations live in `backend/tests/test_postgres_locking.py`; they skip on SQLite via `connection.vendor`.
+
 ## Android Testing
 
 - Before Android verification, ensure backend API is running and the mobile app points to the same environment as the backend used for manual testing.
