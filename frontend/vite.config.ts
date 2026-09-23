@@ -48,6 +48,10 @@ export default defineConfig(({ mode }) => {
           target: proxyTarget,
           changeOrigin: true,
         },
+        '/media': {
+          target: proxyTarget,
+          changeOrigin: true,
+        },
         '/ws': {
           target: proxyTarget,
           changeOrigin: true,
@@ -61,6 +65,10 @@ export default defineConfig(({ mode }) => {
       allowedHosts: allowedHost ? [allowedHost] : undefined,
       proxy: {
         '/api': {
+          target: proxyTarget,
+          changeOrigin: true,
+        },
+        '/media': {
           target: proxyTarget,
           changeOrigin: true,
         },
