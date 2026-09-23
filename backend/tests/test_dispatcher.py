@@ -452,6 +452,57 @@ def test_one_failing_chore_does_not_skip_the_others(monkeypatch) -> None:
     assert pruned == [1]
 
 
+@pytest.mark.django_db()
+def test_maintenance_failure_reaches_the_heartbeat(monkeypatch) -> None:
+    """A dead maintenance job must be visible, not just logged."""
+
+    monkeypatch.setattr(
+        "kanban.tasks.generate_recurring_cards.apply",
+        lambda **_kw: (_ for _ in ()).throw(RuntimeError("recurrence exploded")),
+    )
+    monkeypatch.setattr("kanban.tasks.send_overdue_card_reminders.apply", lambda **_kw: None)
+    monkeypatch.setattr("kanban.tasks.prune_card_activity.apply", lambda **_kw: None)
+
+    dispatcher.maintenance_tick()
+
+    heartbeat = DispatcherHeartbeat.objects.get(name="dispatcher")
+    assert "recurrence exploded" in heartbeat.last_maintenance_error
+
+
+@pytest.mark.django_db()
+def test_maintenance_success_clears_a_previous_error(monkeypatch) -> None:
+    DispatcherHeartbeat.objects.update_or_create(
+        name="dispatcher", defaults={"last_maintenance_error": "старая ошибка"}
+    )
+    monkeypatch.setattr("kanban.tasks.generate_recurring_cards.apply", lambda **_kw: None)
+    monkeypatch.setattr("kanban.tasks.send_overdue_card_reminders.apply", lambda **_kw: None)
+    monkeypatch.setattr("kanban.tasks.prune_card_activity.apply", lambda **_kw: None)
+
+    dispatcher.maintenance_tick()
+
+    heartbeat = DispatcherHeartbeat.objects.get(name="dispatcher")
+    assert heartbeat.last_maintenance_error == ""
+
+
+@pytest.mark.django_db()
+def test_a_failing_maintenance_error_survives_the_next_successful_tick(monkeypatch) -> None:
+    """`tick()` runs far more often than maintenance and must not clobber it."""
+
+    monkeypatch.setattr(
+        "kanban.tasks.generate_recurring_cards.apply",
+        lambda **_kw: (_ for _ in ()).throw(RuntimeError("recurrence exploded")),
+    )
+    monkeypatch.setattr("kanban.tasks.send_overdue_card_reminders.apply", lambda **_kw: None)
+    monkeypatch.setattr("kanban.tasks.prune_card_activity.apply", lambda **_kw: None)
+    dispatcher.maintenance_tick()
+
+    dispatcher.tick()
+
+    heartbeat = DispatcherHeartbeat.objects.get(name="dispatcher")
+    assert heartbeat.last_error == ""
+    assert "recurrence exploded" in heartbeat.last_maintenance_error
+
+
 # ---------------------------------------------------------------------------
 # Event recipients: every recipient is notified on their device, including the
 # actor — the only exception is a comment's own author, tested separately
