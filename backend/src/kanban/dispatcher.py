@@ -576,9 +576,16 @@ def maintenance_tick() -> None:
 
     from .tasks import generate_recurring_cards, prune_card_activity, send_overdue_card_reminders
 
+    # Each job is caught on its own so one failing chore does not skip the
+    # rest, but the failure must still reach the heartbeat: previously it was
+    # only logged, so the health endpoint stayed green while these jobs died
+    # on every pass.
+    errors: list[str] = []
+
     try:
         generate_recurring_cards.apply(throw=True)
-    except Exception:  # noqa: BLE001 - one failing chore must not skip the rest
+    except Exception as exc:  # noqa: BLE001 - one failing chore must not skip the rest
+        errors.append(f"recurring_cards: {exc}")
         logger.exception("dispatcher_recurring_cards_failed")
 
     try:
@@ -586,7 +593,8 @@ def maintenance_tick() -> None:
         # within `SiteSettings.overdue_reminder_interval`, so calling it more
         # often than that interval costs a query and sends nothing.
         send_overdue_card_reminders.apply(throw=True)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"overdue_reminders: {exc}")
         logger.exception("dispatcher_overdue_reminders_failed")
 
     heartbeat, _ = DispatcherHeartbeat.objects.get_or_create(name="dispatcher")
@@ -596,8 +604,12 @@ def maintenance_tick() -> None:
     if due:
         try:
             prune_card_activity.apply(throw=True)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"prune_activity: {exc}")
             logger.exception("dispatcher_prune_activity_failed")
         else:
             heartbeat.last_prune_at = timezone.now()
             heartbeat.save(update_fields=["last_prune_at"])
+
+    heartbeat.last_maintenance_error = "; ".join(errors)[:500]
+    heartbeat.save(update_fields=["last_maintenance_error"])

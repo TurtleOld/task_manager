@@ -482,6 +482,11 @@ class DispatcherHeartbeat(models.Model):
     # Housekeeping that must run rarely needs its own timestamp: the loop has
     # no memory across restarts, so "once a day" has to be recorded somewhere.
     last_prune_at = models.DateTimeField(null=True, blank=True)
+    # Separate from `last_error`: maintenance runs on its own, much slower
+    # cadence, so sharing one field would have every following successful
+    # tick (every few seconds) immediately clobber a maintenance failure
+    # (every few minutes) back to "ok".
+    last_maintenance_error = models.TextField(blank=True, default="")
 
     class Meta:
         ordering = ["name"]
