@@ -482,6 +482,11 @@ class DispatcherHeartbeat(models.Model):
     # Housekeeping that must run rarely needs its own timestamp: the loop has
     # no memory across restarts, so "once a day" has to be recorded somewhere.
     last_prune_at = models.DateTimeField(null=True, blank=True)
+    # Separate from `last_error`: maintenance runs on its own, much slower
+    # cadence, so sharing one field would have every following successful
+    # tick (every few seconds) immediately clobber a maintenance failure
+    # (every few minutes) back to "ok".
+    last_maintenance_error = models.TextField(blank=True, default="")
 
     class Meta:
         ordering = ["name"]
@@ -584,6 +589,12 @@ class NotificationDelivery(models.Model):
         QUEUED = "queued", "Queued"
         SENT = "sent", "Sent"
         FAILED = "failed", "Failed"
+
+    # Idempotency key for one (event, user, channel) delivery attempt. A
+    # retry of the whole event — after a crash or a later recipient's
+    # failure — must find the row a prior pass already sent and skip it
+    # instead of pushing to this person again.
+    dedupe_key = models.CharField(max_length=200, null=True, blank=True, unique=True)
 
     event = models.ForeignKey(NotificationEvent, on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
