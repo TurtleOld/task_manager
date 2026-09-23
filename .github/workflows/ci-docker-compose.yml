@@ -62,6 +62,7 @@ jobs:
         env:
           IMAGE_REGISTRY: ghcr.io/turtleold/task_manager
           IMAGE_TAG: ${{ steps.sha.outputs.value }}
+          FRONTEND_BUILD_TARGET: production
         run: docker compose build --pull backend frontend
 
       - name: Push images to GHCR

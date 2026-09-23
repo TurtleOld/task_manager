@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:20-slim AS build
 
 WORKDIR /app
 
@@ -21,4 +21,15 @@ EXPOSE 5173
 
 USER node
 
-CMD ["sh", "-lc", "npm run build && npm run preview -- --host 0.0.0.0 --port 5173"]
+FROM build AS bundle
+
+RUN npm run build
+
+FROM nginx:1.27-alpine AS production
+
+ENV BACKEND_UPSTREAM=backend:8000
+
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY --from=bundle /app/dist /usr/share/nginx/html
+
+EXPOSE 80
