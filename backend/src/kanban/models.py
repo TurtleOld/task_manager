@@ -585,6 +585,12 @@ class NotificationDelivery(models.Model):
         SENT = "sent", "Sent"
         FAILED = "failed", "Failed"
 
+    # Idempotency key for one (event, user, channel) delivery attempt. A
+    # retry of the whole event — after a crash or a later recipient's
+    # failure — must find the row a prior pass already sent and skip it
+    # instead of pushing to this person again.
+    dedupe_key = models.CharField(max_length=200, null=True, blank=True, unique=True)
+
     event = models.ForeignKey(NotificationEvent, on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     channel = models.CharField(max_length=20, choices=NotificationChannel.choices)

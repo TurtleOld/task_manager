@@ -379,6 +379,15 @@ def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
     ):
         return
 
+    channel = NotificationChannel.PUSH.value
+    # One delivery row per (event, user, channel): a retry of the whole
+    # event after a crash or another recipient's failure must not push to
+    # someone who already received it.
+    dedupe_key = f"event:{event.id}:{user_id}:{channel}"
+    delivery = NotificationDelivery.objects.filter(dedupe_key=dedupe_key).first()
+    if delivery and delivery.status == NotificationDelivery.Status.SENT:
+        return
+
     subject = str(Truncator(_event_title(event)).chars(120))
     body = _event_body(event)
 
@@ -399,16 +408,23 @@ def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
         # Not an error: this person simply has no push devices yet.
         return
 
-    delivery = NotificationDelivery.objects.create(
-        event=event, user_id=user_id, channel=NotificationChannel.PUSH.value
-    )
+    is_new = delivery is None
+    if is_new:
+        delivery = NotificationDelivery(
+            event=event, user_id=user_id, channel=channel, dedupe_key=dedupe_key
+        )
     if result.delivered:
         delivery.status = NotificationDelivery.Status.SENT
         delivery.sent_at = timezone.now()
+        delivery.error = ""
     else:
         delivery.status = NotificationDelivery.Status.FAILED
         delivery.error = result.summary()[:500]
-    delivery.save(update_fields=["status", "sent_at", "error"])
+
+    if is_new:
+        delivery.save()
+    else:
+        delivery.save(update_fields=["status", "sent_at", "error"])
 
 
 def process_outbox_events(*, now=None, limit: int | None = None) -> int:
