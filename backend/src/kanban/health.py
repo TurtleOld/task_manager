@@ -57,12 +57,20 @@ def _check_dispatcher() -> dict[str, Any]:
 
     age = (timezone.now() - heartbeat.last_tick_at).total_seconds()
     return {
-        "ok": age <= tolerance,
+        # Freshness alone is not liveness: `tick()` beats on every pass, even
+        # a failing one, so a wedged job looks as healthy as a working one
+        # unless the last error is checked too. Maintenance keeps its own
+        # error field since it runs on a much slower cadence than the tick
+        # that would otherwise clobber it back to "ok" within seconds.
+        "ok": age <= tolerance
+        and not heartbeat.last_error
+        and not heartbeat.last_maintenance_error,
         "last_tick_at": heartbeat.last_tick_at.isoformat(),
         "seconds_since_tick": int(age),
         "tolerance_seconds": tolerance,
         "ticks": heartbeat.ticks,
         "last_error": heartbeat.last_error,
+        "last_maintenance_error": heartbeat.last_maintenance_error,
     }
 
 
@@ -85,6 +93,28 @@ def _check_redis() -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "critical": False, "error": str(exc)[:200]}
     return {"ok": True, "critical": False}
+
+
+def _check_queue() -> dict[str, Any]:
+    """Notification queue depth and failure count.
+
+    Reported, not gated on: a growing queue is a symptom worth seeing before
+    it pages anyone, but some backlog is normal and must not flap the check.
+    """
+
+    from .models import NotificationEvent
+
+    try:
+        pending = NotificationEvent.objects.filter(
+            dispatch_status=NotificationEvent.Dispatch.PENDING
+        ).count()
+        failed = NotificationEvent.objects.filter(
+            dispatch_status=NotificationEvent.Dispatch.FAILED
+        ).count()
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "critical": False, "error": str(exc)[:200]}
+
+    return {"ok": True, "critical": False, "pending": pending, "failed": failed}
 
 
 def _check_push() -> dict[str, Any]:
@@ -123,6 +153,7 @@ def health_detail_view(_request):
         "database": _check_database(),
         "dispatcher": _check_dispatcher(),
         "redis": _check_redis(),
+        "queue": _check_queue(),
         "push": _check_push(),
     }
 
