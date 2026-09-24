@@ -21,6 +21,7 @@ dependencies = [
     "channels-redis>=4.2",
     "django-celery-beat>=2.6",
     "pywebpush>=2.0.3",
+    "django-axes>=8",
 ]
 
 [project.optional-dependencies]

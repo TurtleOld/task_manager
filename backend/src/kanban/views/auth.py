@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import authenticate, get_user_model, user_logged_in
 from django.contrib.auth.models import AnonymousUser
 from rest_framework import permissions, status
 from rest_framework.authtoken.models import Token
@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ..serializers import CurrentUserUpdateSerializer, RegisterSerializer, UserSerializer
+from ..throttling import LoginRateThrottle
 
 User = get_user_model()
 
@@ -48,6 +49,7 @@ class RegisterView(APIView):
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request: Request) -> Response:
         payload = request.data or {}
@@ -56,11 +58,19 @@ class LoginView(APIView):
         if not username or not password:
             return Response({"detail": "Username and password required"}, status=400)
         user = authenticate(request, username=username, password=password)
+        if getattr(request, "axes_locked_out", False):
+            return Response(
+                {"detail": "Слишком много неудачных попыток, попробуйте позже"},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         if user is None:
             return Response(
                 {"detail": "Неверный логин или пароль"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+        # Token login never calls django.contrib.auth.login(), so announce it
+        # ourselves: axes resets the failure counter, last_login is updated.
+        user_logged_in.send(sender=user.__class__, request=request, user=user)
         token, _ = Token.objects.get_or_create(user=user)
         is_owner = user.is_staff or user.is_superuser
         return Response(

@@ -44,7 +44,11 @@ def test_registration_status_with_existing_user(
 def test_first_user_registers_as_admin(api_client: APIClient) -> None:
     resp = api_client.post(
         "/api/v1/auth/register/",
-        data={"username": "alice", "password": "secret123", "full_name": "Alice"},
+        data={
+            "username": "alice",
+            "password": "blue-kettle-77",
+            "full_name": "Alice",
+        },
         format="json",
     )
     assert resp.status_code == 201
@@ -66,7 +70,7 @@ def test_second_user_registration_blocked_for_anonymous(
 ) -> None:
     resp = api_client.post(
         "/api/v1/auth/register/",
-        data={"username": "bob", "password": "secret123"},
+        data={"username": "bob", "password": "blue-kettle-77"},
         format="json",
     )
     assert resp.status_code == 403
@@ -76,7 +80,11 @@ def test_second_user_registration_blocked_for_anonymous(
 def test_admin_can_register_new_user(admin_client: APIClient) -> None:
     resp = admin_client.post(
         "/api/v1/auth/register/",
-        data={"username": "bob", "password": "secret123", "full_name": "Bob"},
+        data={
+            "username": "bob",
+            "password": "blue-kettle-77",
+            "full_name": "Bob",
+        },
         format="json",
     )
     assert resp.status_code == 201

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import socket
 import sys
+from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -38,6 +39,7 @@ INSTALLED_APPS = [
     "drf_spectacular_sidecar",
     "django_filters",
     "django_celery_beat",
+    "axes",
     # Local
     "kanban.apps.KanbanConfig",
 ]
@@ -50,6 +52,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "axes.middleware.AxesMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -100,7 +103,36 @@ if "pytest" in sys.modules and os.getenv("DJANGO_TEST_USE_ENV_DB", "").lower() n
     }
 
 
-AUTH_PASSWORD_VALIDATORS: list[dict[str, str]] = []
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation."
+        "UserAttributeSimilarityValidator"
+    },
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation."
+        "NumericPasswordValidator"
+    },
+]
+
+# Brute-force lockout keyed on username + client address, so a stranger
+# guessing a family member's password cannot lock that member out of their
+# own devices.
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(hours=1)
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_RESET_ON_SUCCESS = True
+# Retries by the locked-out member must not keep pushing the cool-off away.
+AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
+# Every token login would otherwise add an AccessLog row that nothing prunes.
+AXES_DISABLE_ACCESS_LOG = True
+AXES_CLIENT_IP_CALLABLE = "kanban.throttling.client_ip"
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
@@ -266,6 +298,9 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
+    # Traefik -> nginx (frontend container) -> daphne. X-Forwarded-For then
+    # reads "<spoofable>, client, traefik"; the client is 2nd from the end.
+    "NUM_PROXIES": 2,
     "DEFAULT_THROTTLE_RATES": {
         "anon": os.getenv("DRF_THROTTLE_ANON_RATE", "60/min"),
         "user": os.getenv("DRF_THROTTLE_USER_RATE", "600/min"),
