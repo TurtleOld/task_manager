@@ -350,6 +350,7 @@ def send_overdue_card_reminders(self) -> None:
                         "overdue": True,
                     },
                     "dedupe_key": dedupe_key,
+                    "dispatch_status": NotificationEvent.Dispatch.DONE,
                 },
             )
         except IntegrityError:

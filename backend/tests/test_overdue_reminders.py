@@ -7,6 +7,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
+from kanban import dispatcher
 from kanban.models import Board, Card, Column, NotificationProfile, PushDevice
 from kanban.tasks import send_overdue_card_reminders
 
@@ -82,5 +83,28 @@ def test_overdue_reminder_sends_for_open_card(webpush_settings) -> None:
 
     with patch("kanban.webpush.send_webpush") as send_push:
         send_overdue_card_reminders.run()
+
+    send_push.assert_called_once()
+
+
+@pytest.mark.django_db()
+def test_overdue_reminder_is_not_redelivered_by_dispatcher(
+    webpush_settings,
+) -> None:
+    board = Board.objects.create(name="Board")
+    column = Column.objects.create(board=board, name="To Do")
+    Card.objects.create(
+        column=column,
+        title="Still open",
+        deadline=timezone.now() - timedelta(hours=1),
+    )
+
+    user = User.objects.create_user(username="user1", password="secret123")
+    NotificationProfile.objects.create(user=user)
+    _device(user)
+
+    with patch("kanban.webpush.send_webpush") as send_push:
+        send_overdue_card_reminders.run()
+        dispatcher.tick()
 
     send_push.assert_called_once()
