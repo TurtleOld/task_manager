@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from django.http import HttpRequest
 from rest_framework.throttling import AnonRateThrottle, BaseThrottle
 
@@ -14,5 +16,9 @@ def client_ip(request: HttpRequest) -> str | None:
 
 
 class LoginRateThrottle(AnonRateThrottle):
+    # Anon-keyed, so users behind the same NAT/proxy share the bucket;
+    # axes (username + IP) is what actually stops brute-forcing one account.
+    # Set directly (not via DEFAULT_THROTTLE_RATES) so tests that blank
+    # that setting to disable throttling globally don't disable this too.
     scope = "login"
-    rate = "10/min"
+    rate = os.getenv("DRF_THROTTLE_LOGIN_RATE", "30/min")

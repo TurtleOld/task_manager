@@ -57,18 +57,18 @@ def test_spoofed_forwarded_for_does_not_reset_login_throttle(
             username=f"nobody{i}",
             spoofed=f"10.0.{i}.1",
         ).status_code
-        for i in range(11)
+        for i in range(31)
     ]
 
-    assert statuses[:10] == [401] * 10
-    assert statuses[10] == 429
+    assert statuses[:30] == [401] * 30
+    assert statuses[30] == 429
 
 
 def test_login_throttle_is_per_real_client(
     api_client: APIClient,
     family_user: object,
 ) -> None:
-    for i in range(10):
+    for i in range(30):
         _login(api_client, "guess", username=f"nobody{i}")
 
     resp = _login(api_client, "correct-horse-42", client_ip="198.51.100.9")
