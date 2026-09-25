@@ -1,32 +1,24 @@
 from __future__ import annotations
 
 import calendar
-import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from celery import shared_task
 from django.conf import settings
 from django.db import transaction
-from django.db.utils import IntegrityError
 from django.utils import timezone
 
 from .models import (
     Attachment,
     Card,
     CardActivity,
-    NotificationChannel,
-    NotificationDelivery,
-    NotificationEvent,
     NotificationEventType,
-    NotificationInboxEntry,
     NotificationProfile,
     RecurrenceFrequency,
     RecurrenceRule,
     SiteSettings,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def calculate_next_recurrence_due(
@@ -288,114 +280,60 @@ def prune_card_activity(self) -> None:
         CardActivity.objects.filter(card_id=card_id).exclude(id__in=keep_ids).delete()
 
 
+def _resolve_timezone_for_card(*, card: Card) -> str:
+    """Whose local time the overdue text is shown in.
+
+    The card has no reliable "author" trail (creation was never logged to
+    `CardActivity`), so `created_by` — set going forward, `None` for cards
+    created before it existed — is the primary source, and the board owner
+    covers every card it can't answer for.
+    """
+
+    user_id = card.created_by_id or card.board.owner_id
+    if not user_id:
+        return "UTC"
+    profile = NotificationProfile.objects.filter(user_id=user_id).first()
+    return (profile.timezone if profile else "") or "UTC"
+
+
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
 def send_overdue_card_reminders(self) -> None:
-    """Periodic task: send Web Push reminders for overdue cards not yet done."""
+    """Periodic task: raise one outbox event per overdue card per interval.
+
+    Recipients, preferences and push delivery are the outbox's job
+    (`dispatcher.process_outbox_events`), not this task's — it only decides
+    *that* a card is overdue and *how often* to say so again.
+    """
+    from .notifications import create_notification_event
+
     site_settings = SiteSettings.load()
     interval_minutes = site_settings.overdue_reminder_interval
 
     now = timezone.now()
-    cutoff = now - timezone.timedelta(minutes=interval_minutes)
-
-    overdue_cards = Card.objects.filter(deadline__lt=now, completed_at__isnull=True).select_related(
-        "board"
-    )
-
-    if not overdue_cards.exists():
-        return
-
-    from .notifications import build_frontend_link  # noqa: E402
-
-    profiles = NotificationProfile.objects.select_related("user")
-
-    if not profiles.exists():
-        return
+    overdue_cards = Card.objects.filter(
+        deadline__lt=now, completed_at__isnull=True
+    ).select_related("board")
 
     for card in overdue_cards:
-        recent_delivery = NotificationDelivery.objects.filter(
-            event__dedupe_key__startswith=f"card.overdue_reminder:{card.id}:",
-            event__created_at__gte=cutoff,
-            status=NotificationDelivery.Status.SENT,
-        ).exists()
-
-        if recent_delivery:
-            continue
-
         link = _build_card_link(card=card)
-        title = "Задача просрочена"
-        body_text = (
-            f"Задача «{card.title}» просрочена.\n"
-            f"Дедлайн: {_format_deadline_ru(dt=card.deadline, tz_name='Europe/Moscow')}\n"
-            f"Список: {card.board.name}\n\n"
-            f"Отметьте задачу выполненной, когда закончите.\n"
-            f"Открыть: {link}"
+        tz_name = _resolve_timezone_for_card(card=card)
+        deadline_text = _format_deadline_ru(dt=card.deadline, tz_name=tz_name)
+        summary = f"Задача «{card.title}» просрочена. Дедлайн был {deadline_text}."
+
+        # One event per card per interval: the bucket is the sole dedupe
+        # source of truth, so a repeated tick inside the same window returns
+        # the existing event instead of creating another one, regardless of
+        # whether delivery for it already succeeded.
+        bucket = int(now.timestamp() // (interval_minutes * 60))
+        dedupe_key = f"card.overdue:{card.id}:{bucket}"
+
+        create_notification_event(
+            event_type=NotificationEventType.CARD_OVERDUE.value,
+            actor=None,
+            board=card.board,
+            card=card,
+            summary=summary,
+            link=link,
+            payload={"board": card.board.name, "card": card.title, "overdue": True},
+            dedupe_key=dedupe_key,
         )
-
-        bucket = now.strftime("%Y%m%d%H%M")
-        dedupe_key = f"card.overdue_reminder:{card.id}:{bucket}"
-
-        try:
-            event, _created = NotificationEvent.objects.get_or_create(
-                dedupe_key=dedupe_key,
-                defaults={
-                    "event_type": NotificationEventType.CARD_DEADLINE_REMINDER.value,
-                    "actor": None,
-                    "board": card.board,
-                    "card": card,
-                    "summary": f"Задача «{card.title}» просрочена",
-                    "link": link or build_frontend_link(card.board_id),
-                    "payload": {
-                        "board": card.board.name,
-                        "card": card.title,
-                        "overdue": True,
-                    },
-                    "dedupe_key": dedupe_key,
-                    "dispatch_status": NotificationEvent.Dispatch.DONE,
-                },
-            )
-        except IntegrityError:
-            event = NotificationEvent.objects.filter(dedupe_key=dedupe_key).first()
-            if not event:
-                continue
-
-        if not event or not event.pk:
-            continue
-
-        # Delivery fans out over registered devices: a person may have a phone
-        # and a laptop browser, and reaching any one of them counts as delivered.
-        from .push_delivery import send_push_to_user
-
-        for profile in profiles:
-            NotificationInboxEntry.objects.get_or_create(event=event, user=profile.user)
-
-            delivery = NotificationDelivery.objects.create(
-                event=event,
-                user=profile.user,
-                channel=NotificationChannel.PUSH,
-            )
-            result = send_push_to_user(
-                user_id=profile.user_id,
-                title=title,
-                body=body_text,
-                link=link,
-                tag=f"card-{card.id}",
-                data={
-                    "eventType": event.event_type,
-                    "cardId": str(card.id),
-                    "boardId": str(card.board_id or ""),
-                },
-            )
-            if result.delivered:
-                delivery.status = NotificationDelivery.Status.SENT
-                delivery.sent_at = timezone.now()
-                delivery.save(update_fields=["status", "sent_at"])
-            else:
-                delivery.status = NotificationDelivery.Status.FAILED
-                delivery.error = result.summary()[:500]
-                delivery.save(update_fields=["status", "error"])
-                logger.warning(
-                    "overdue_push_failed card=%s user=%s reason=%s",
-                    card.id,
-                    profile.user_id,
-                    result.summary(),
-                )

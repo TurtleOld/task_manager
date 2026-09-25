@@ -149,6 +149,13 @@ class Card(TimestampedModel):
         null=True,
         blank=True,
     )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_cards",
+        null=True,
+        blank=True,
+    )
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     deadline = models.DateTimeField(null=True, blank=True)
@@ -337,6 +344,7 @@ class NotificationEventType(models.TextChoices):
     CARD_COMPLETED = "card.completed", "Card completed"
     COMMENT_CREATED = "comment.created", "Comment created"
     CARD_DEADLINE_REMINDER = "card.deadline_reminder", "Card deadline reminder"
+    CARD_OVERDUE = "card.overdue", "Card overdue"
 
 
 class CardComment(models.Model):

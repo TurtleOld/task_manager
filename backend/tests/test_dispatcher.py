@@ -120,6 +120,80 @@ def test_inbox_entry_is_written_even_when_push_fails(
 
 
 @pytest.mark.django_db()
+def test_transient_push_failure_retries_instead_of_marking_done(
+    board, regular_user, webpush_settings, monkeypatch
+) -> None:
+    """AUDIT-004: a transient push failure must not read as delivered.
+
+    Every device failing (none of them permanently gone) has to leave the
+    event PENDING with a scheduled retry, not DONE.
+    """
+
+    _device(regular_user)
+
+    def explode(**_kwargs):
+        raise PushDeliveryError("push service unavailable")
+
+    monkeypatch.setattr("kanban.webpush.send_webpush", explode)
+
+    event = create_notification_event(
+        event_type=NotificationEventType.CARD_CREATED,
+        actor=regular_user,
+        board=board,
+        summary="Создана задача",
+    )
+
+    dispatcher.process_outbox_events()
+
+    event.refresh_from_db()
+    assert event.dispatch_status == NotificationEvent.Dispatch.PENDING
+    assert event.dispatch_attempts == 1
+    assert event.next_attempt_at is not None
+
+
+@pytest.mark.django_db()
+def test_transient_push_failure_retry_skips_already_sent_recipients(
+    board, regular_user, webpush_settings, monkeypatch
+) -> None:
+    """The retry after a partial failure must not push twice to who already got it."""
+
+    other = User.objects.create_user(username="user2", password="pw")
+    _device(regular_user, "https://push.example.com/owner")
+    _device(other, "https://push.example.com/other")
+
+    sent_to: list[int] = []
+
+    def flaky(*, endpoint, **_kwargs):
+        if endpoint.endswith("/other"):
+            raise PushDeliveryError("push service unavailable")
+        sent_to.append(1)
+
+    monkeypatch.setattr("kanban.webpush.send_webpush", flaky)
+
+    event = create_notification_event(
+        event_type=NotificationEventType.CARD_CREATED,
+        actor=regular_user,
+        board=board,
+        summary="Создана задача",
+    )
+
+    dispatcher.process_outbox_events()
+    event.refresh_from_db()
+    assert event.dispatch_status == NotificationEvent.Dispatch.PENDING
+    assert len(sent_to) == 1
+
+    now = timezone.now()
+    NotificationEvent.objects.filter(id=event.id).update(next_attempt_at=now)
+    monkeypatch.setattr("kanban.webpush.send_webpush", lambda **_kwargs: None)
+    dispatcher.process_outbox_events(now=now)
+
+    event.refresh_from_db()
+    assert event.dispatch_status == NotificationEvent.Dispatch.DONE
+    # regular_user's device was never touched again on retry.
+    assert len(sent_to) == 1
+
+
+@pytest.mark.django_db()
 def test_failed_event_backs_off_then_gives_up(board, regular_user, monkeypatch) -> None:
     monkeypatch.setattr(
         dispatcher,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from kanban import dispatcher
 from kanban.models import (
@@ -153,8 +154,12 @@ def test_failed_delivery_is_retried_on_event_retry(
     assert delivery.status == NotificationDelivery.Status.FAILED
 
     monkeypatch.setattr("kanban.webpush.send_webpush", lambda **_kwargs: None)
+    # A transient failure now backs the event off on its own (AUDIT-004), so
+    # the retry here also has to jump past that backoff, same as the event
+    # would once `next_attempt_at` elapses on its own.
     NotificationEvent.objects.filter(id=event.id).update(
-        dispatch_status=NotificationEvent.Dispatch.PENDING
+        dispatch_status=NotificationEvent.Dispatch.PENDING,
+        next_attempt_at=timezone.now(),
     )
     dispatcher.process_outbox_events()
 

@@ -49,6 +49,7 @@ from .reminders import (
     reminder_channel_availability,
     resolve_delivery_channel,
 )
+from .webpush import PushDeliveryError
 
 User = get_user_model()
 
@@ -425,6 +426,15 @@ def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
         delivery.save()
     else:
         delivery.save(update_fields=["status", "sent_at", "error"])
+
+    if result.failed and not result.delivered:
+        # Every device failed and none of them was a permanent "gone" (that
+        # path is `result.retired`, not `result.failed`) — a transient outage
+        # (5xx, timeout, missing VAPID config) must not read as "delivered".
+        # Raising lets `process_outbox_events` retry the whole event with
+        # backoff; this delivery row's dedupe check above makes that retry a
+        # no-op for anyone who already got it.
+        raise PushDeliveryError(result.summary())
 
 
 def process_outbox_events(*, now=None, limit: int | None = None) -> int:
