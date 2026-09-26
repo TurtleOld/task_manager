@@ -264,12 +264,17 @@ def test_patch_card_increments_version(auth_client: APIClient, card: Card) -> No
 
 
 @pytest.mark.django_db()
-def test_patch_card_does_not_auto_create_notification_event(
+def test_patch_card_creates_pending_notification_event(
     auth_client: APIClient, card: Card
 ) -> None:
-    """PATCH must not create card.updated event — only explicit /notify-updated/ does."""
+    """PATCH creates its own card.updated event, coalesced and not yet due."""
     auth_client.patch(f"/api/v1/cards/{card.id}/", data={"title": "v2"}, format="json")
-    assert NotificationEvent.objects.filter(event_type="card.updated", card_id=card.id).count() == 0
+    events = NotificationEvent.objects.filter(event_type="card.updated", card_id=card.id)
+    assert events.count() == 1
+    event = events.get()
+    assert event.dispatch_status == NotificationEvent.Dispatch.PENDING
+    assert event.next_attempt_at > timezone.now()
+    assert "сделаны изменения" in event.summary
 
 
 # ---------------------------------------------------------------------------
@@ -288,11 +293,17 @@ def test_delete_card(auth_client: APIClient, card: Card) -> None:
 
 
 @pytest.mark.django_db()
-def test_delete_card_does_not_auto_create_notification_event(
+def test_delete_card_creates_card_archived_event_immediately(
     auth_client: APIClient, card: Card
 ) -> None:
     auth_client.delete(f"/api/v1/cards/{card.id}/")
-    assert NotificationEvent.objects.filter(event_type="card.deleted").count() == 0
+    events = NotificationEvent.objects.filter(event_type="card.archived", card_id=card.id)
+    assert events.count() == 1
+    event = events.get()
+    assert event.dispatch_status == NotificationEvent.Dispatch.PENDING
+    assert event.next_attempt_at <= timezone.now()
+    assert "в архиве" in event.summary
+    assert NotificationEvent.objects.filter(event_type="card.deleted", card_id=card.id).count() == 0
 
 
 # ---------------------------------------------------------------------------
@@ -315,75 +326,51 @@ def test_card_board_denormalized_on_save(column: Column) -> None:
 
 
 # ---------------------------------------------------------------------------
-# notify-updated endpoint
+# notify-updated endpoint: now a bodyless flush trigger, not a data source
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.django_db()
-def test_notify_updated_creates_event(auth_client: APIClient, card: Card) -> None:
-    # bump version first
+def test_notify_updated_flushes_pending_event(auth_client: APIClient, card: Card) -> None:
     auth_client.patch(f"/api/v1/cards/{card.id}/", data={"title": "v2"}, format="json")
-    card.refresh_from_db()
+    event = NotificationEvent.objects.get(event_type="card.updated", card_id=card.id)
+    assert event.next_attempt_at > timezone.now()
 
+    resp = auth_client.post(f"/api/v1/cards/{card.id}/notify-updated/")
+    assert resp.status_code == 200
+
+    event.refresh_from_db()
+    assert event.next_attempt_at <= timezone.now()
+
+
+@pytest.mark.django_db()
+def test_notify_updated_without_pending_event_is_a_noop(auth_client: APIClient, card: Card) -> None:
+    resp = auth_client.post(f"/api/v1/cards/{card.id}/notify-updated/")
+    assert resp.status_code == 200
+    assert NotificationEvent.objects.filter(event_type="card.updated", card_id=card.id).count() == 0
+
+
+@pytest.mark.django_db()
+def test_notify_updated_ignores_a_body(auth_client: APIClient, card: Card) -> None:
+    """Android still posts a body — it must not be validated or used."""
     resp = auth_client.post(
         f"/api/v1/cards/{card.id}/notify-updated/",
-        data={"version": card.version},
+        data={"version": 999, "changes": ["anything"]},
         format="json",
     )
     assert resp.status_code == 200
-    assert NotificationEvent.objects.filter(event_type="card.updated", card_id=card.id).count() == 1
 
 
 @pytest.mark.django_db()
-def test_notify_updated_version_conflict(auth_client: APIClient, card: Card) -> None:
-    resp = auth_client.post(
-        f"/api/v1/cards/{card.id}/notify-updated/",
-        data={"version": card.version + 99},
-        format="json",
-    )
-    assert resp.status_code == 409
-
-
-@pytest.mark.django_db()
-def test_notify_updated_missing_version(auth_client: APIClient, card: Card) -> None:
-    resp = auth_client.post(
-        f"/api/v1/cards/{card.id}/notify-updated/",
-        data={},
-        format="json",
-    )
-    assert resp.status_code == 400
-
-
-# ---------------------------------------------------------------------------
-# notify-deleted endpoint
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.django_db()
-def test_notify_deleted_creates_event(auth_client: APIClient, column: Column) -> None:
-    card = Card.objects.create(column=column, title="Temp")
-    card_id, version = card.id, card.version
-    auth_client.delete(f"/api/v1/cards/{card_id}/")
-
-    resp = auth_client.post(
-        "/api/v1/cards/notify-deleted/",
-        data={
-            "card_id": card_id,
-            "version": version,
-            "board": column.board_id,
-            "card_title": "Temp",
-        },
-        format="json",
-    )
-    assert resp.status_code == 200
-    assert NotificationEvent.objects.filter(event_type="card.deleted").count() == 1
-
-
-@pytest.mark.django_db()
-def test_notify_deleted_missing_required_fields(auth_client: APIClient) -> None:
+def test_notify_deleted_endpoint_removed(auth_client: APIClient) -> None:
     resp = auth_client.post(
         "/api/v1/cards/notify-deleted/",
         data={"card_id": 1},
         format="json",
     )
-    assert resp.status_code == 400
+    # No `notify-deleted` action is registered any more. The path still
+    # matches the router's generic `cards/{pk}/` detail route (pk="notify-
+    # deleted"), which does not allow POST, hence 405 rather than 404 — either
+    # way, no `card.deleted`/`card.archived` event can be created through it.
+    assert resp.status_code in {404, 405}
+    assert not NotificationEvent.objects.filter(event_type="card.deleted").exists()

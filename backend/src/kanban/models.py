@@ -341,6 +341,7 @@ class NotificationEventType(models.TextChoices):
     CARD_CREATED = "card.created", "Card created"
     CARD_UPDATED = "card.updated", "Card updated"
     CARD_DELETED = "card.deleted", "Card deleted"
+    CARD_ARCHIVED = "card.archived", "Card archived"
     CARD_COMPLETED = "card.completed", "Card completed"
     COMMENT_CREATED = "comment.created", "Comment created"
     CARD_DEADLINE_REMINDER = "card.deadline_reminder", "Card deadline reminder"

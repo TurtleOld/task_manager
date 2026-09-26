@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Archive, Check } from 'lucide-react'
@@ -25,7 +25,7 @@ import {
   useTaskUpdateField,
   useTaskUploadAttachments,
 } from '../../api/queries/task'
-import type { AgendaBoundaries, AuthUser, Card as CardModel } from '../../api/types'
+import type { AgendaBoundaries, AuthUser } from '../../api/types'
 import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { Badge, Button, Card as SurfaceCard, Checkbox, ChipButton, ErrorState, Field, Select, Skeleton, Textarea, TextInput } from '@/components/ui'
 import { Modal } from '@/components/ui'
@@ -85,39 +85,16 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
   const deleteComment = useTaskDeleteComment(taskId)
   const commentsBusy = addComment.isPending || updateComment.isPending || deleteComment.isPending
 
-  const pendingChangesRef = useRef<string[]>([])
-  const noteChange = (label: string) => {
-    pendingChangesRef.current.push(label)
-  }
   const handleClose = () => {
-    const changes = pendingChangesRef.current
-    pendingChangesRef.current = []
-    if (changes.length > 0) {
-      const latest = qc.getQueryData<CardModel>(queryKeys.card(taskId))
-      if (latest) {
-        api.notifyCardUpdated(taskId, { version: latest.version, changes }).catch(() => {})
-      }
-    }
+    api.notifyCardUpdated(taskId).catch(() => {})
     onClose()
   }
 
   const [confirmArchive, setConfirmArchive] = useState(false)
   const archiveMutation = useTaskArchive(taskId)
   const archiveTask = () => {
-    const latest = qc.getQueryData<CardModel>(queryKeys.card(taskId))
     archiveMutation.mutate(undefined, {
       onSuccess: () => {
-        if (latest) {
-          api
-            .notifyCardDeleted({
-              card_id: latest.id,
-              version: latest.version,
-              board: latest.board,
-              card_title: latest.title,
-            })
-            .catch(() => {})
-        }
-        pendingChangesRef.current = []
         setConfirmArchive(false)
         toast.success('Задача отправлена в архив')
         onClose()
@@ -197,13 +174,13 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
       setTitle(task.title)
       return
     }
-    updateField.mutate({ title: value }, { onSuccess: () => noteChange(`Название: «${value}»`) })
+    updateField.mutate({ title: value })
   }
 
   const commitDescription = () => {
     setDescriptionFocused(false)
     if (description === task.description) return
-    updateField.mutate({ description }, { onSuccess: () => noteChange('Изменено описание') })
+    updateField.mutate({ description })
   }
 
   return (
@@ -281,23 +258,14 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
               onAdd={(text) =>
                 checklistAdd.mutate(
                   { text },
-                  {
-                    onSuccess: () => noteChange(`Чек-лист: добавлен пункт «${text}»`),
-                    onError: () => toast.error('Не удалось добавить пункт'),
-                  },
+                  { onError: () => toast.error('Не удалось добавить пункт') },
                 )
               }
               onToggle={(id, done) => {
-                const label = task.checklist.find((item) => item.id === id)?.text ?? ''
-                checklistUpdate.mutate(
-                  { itemId: id, payload: { done } },
-                  { onSuccess: () => noteChange(`Чек-лист: «${label}» ${done ? 'отмечен' : 'снята отметка'}`) },
-                )
+                checklistUpdate.mutate({ itemId: id, payload: { done } })
               }}
               onDelete={(id) => {
-                const label = task.checklist.find((item) => item.id === id)?.text ?? ''
                 checklistDelete.mutate(id, {
-                  onSuccess: () => noteChange(`Чек-лист: удалён пункт «${label}»`),
                   onError: () => toast.error('Не удалось удалить пункт'),
                 })
               }}
@@ -328,12 +296,7 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                   boundaries={effectiveBoundaries}
                   deadline={task.deadline}
                   displayText={task.deadline ? formatDeadlineShort(task.deadline, effectiveBoundaries) : undefined}
-                  onCommit={(deadline) =>
-                    updateField.mutate(
-                      { deadline },
-                      { onSuccess: () => noteChange(`Срок: ${formatDeadlineValue(deadline)}`) },
-                    )
-                  }
+                  onCommit={(deadline) => updateField.mutate({ deadline })}
                   className="w-full justify-start"
                 />
               </Field>
@@ -345,11 +308,7 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                   onChange={(event) => {
                     const value = event.target.value
                     const assigneeId = value ? Number(value) : null
-                    const label = assigneeId ? resolveAssigneeName(assigneeId) : 'не назначен'
-                    updateField.mutate(
-                      { assignee: assigneeId },
-                      { onSuccess: () => noteChange(`Исполнитель: ${label}`) },
-                    )
+                    updateField.mutate({ assignee: assigneeId })
                   }}
                 >
                   <option value="">Не назначен</option>
@@ -368,12 +327,7 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                       active={task.priority === value}
                       role="radio"
                       aria-checked={task.priority === value}
-                      onClick={() =>
-                        updateField.mutate(
-                          { priority: value },
-                          { onSuccess: () => noteChange(`Приоритет: ${priorityToLabel(value)}`) },
-                        )
-                      }
+                      onClick={() => updateField.mutate({ priority: value })}
                     >
                       {priorityToLabel(value)}
                     </ChipButton>
@@ -393,7 +347,6 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                       {
                         onSuccess: () => {
                           void qc.invalidateQueries({ queryKey: queryKeys.familyToday() })
-                          noteChange(checked ? 'Включён список покупок' : 'Отключён список покупок')
                         },
                       },
                     )
@@ -410,20 +363,13 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
                 onAdd={(subtaskTitle) =>
                   addSubtaskMutation.mutate(
                     { title: subtaskTitle },
-                    {
-                      onSuccess: () => noteChange(`Добавлена подзадача «${subtaskTitle}»`),
-                      onError: () => toast.error('Не удалось добавить подзадачу'),
-                    },
+                    { onError: () => toast.error('Не удалось добавить подзадачу') },
                   )
                 }
                 onToggleComplete={(id, complete) => {
-                  const label = task.subtasks.find((item) => item.id === id)?.title ?? ''
                   subtaskCompleteMutation.mutate(
                     { id, complete },
-                    {
-                      onSuccess: () => noteChange(`Подзадача «${label}» ${complete ? 'выполнена' : 'возвращена в работу'}`),
-                      onError: () => toast.error('Не удалось изменить отметку подзадачи'),
-                    },
+                    { onError: () => toast.error('Не удалось изменить отметку подзадачи') },
                   )
                 }}
               />
@@ -434,22 +380,17 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
               busy={addAttachmentLink.isPending || uploadAttachments.isPending}
               onAddLink={(payload) =>
                 addAttachmentLink.mutate(payload, {
-                  onSuccess: () => noteChange('Добавлено вложение'),
                   onError: () => toast.error('Не удалось добавить вложение'),
                 })
               }
               onUpload={(files, type) =>
                 uploadAttachments.mutate(
                   { files, type },
-                  {
-                    onSuccess: () => noteChange('Добавлено вложение'),
-                    onError: () => toast.error('Не удалось загрузить файл'),
-                  },
+                  { onError: () => toast.error('Не удалось загрузить файл') },
                 )
               }
               onDelete={(attachmentId) =>
                 deleteAttachment.mutate(attachmentId, {
-                  onSuccess: () => noteChange('Удалено вложение'),
                   onError: () => toast.error('Не удалось удалить вложение'),
                 })
               }

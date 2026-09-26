@@ -21,7 +21,6 @@ from ..broadcast import broadcast_board_event
 from ..models import (
     Attachment,
     AttachmentType,
-    Board,
     Card,
     CardActivity,
     CardComment,
@@ -31,7 +30,11 @@ from ..models import (
     NotificationProfile,
     RecurrenceRule,
 )
-from ..notifications import create_notification_event
+from ..notifications import (
+    create_notification_event,
+    create_or_extend_pending_card_update_event,
+    flush_pending_card_update_event,
+)
 from ..reminders import (
     reminder_channel_availability,
     reschedule_enabled_reminders,
@@ -116,21 +119,29 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             )
             return Response(AttachmentSerializer(attachments, many=True).data)
 
+        actor = request.user if request.user.is_authenticated else None
         files = request.FILES.getlist("files") or request.FILES.getlist("file")
         if files:
-            self._create_file_attachments(card, files, request)
-            card_data = self._serialized_card(card.id)
-            broadcast_board_event(card.board_id, "card.updated", {"card": card_data})
+            with transaction.atomic():
+                self._create_file_attachments(card, files, request)
+                create_or_extend_pending_card_update_event(card=card, actor=actor)
+                card_data = self._serialized_card(card.id)
+                transaction.on_commit(
+                    lambda: broadcast_board_event(
+                        card.board_id, "card.updated", {"card": card_data}
+                    )
+                )
             return Response(card_data, status=status.HTTP_201_CREATED)
 
         serializer = AttachmentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(
-            card=card,
-            uploaded_by=request.user if request.user.is_authenticated else None,
-        )
-        card_data = self._serialized_card(card.id)
-        broadcast_board_event(card.board_id, "card.updated", {"card": card_data})
+        with transaction.atomic():
+            serializer.save(card=card, uploaded_by=actor)
+            create_or_extend_pending_card_update_event(card=card, actor=actor)
+            card_data = self._serialized_card(card.id)
+            transaction.on_commit(
+                lambda: broadcast_board_event(card.board_id, "card.updated", {"card": card_data})
+            )
         return Response(card_data, status=status.HTTP_201_CREATED)
 
     def _create_file_attachments(self, card: Card, files: list[Any], request: Request) -> None:
@@ -171,6 +182,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         if not attachment_id:
             return Response({"detail": "Card id and attachment id are required"}, status=400)
 
+        actor = request.user if request.user.is_authenticated else None
         with transaction.atomic():
             try:
                 attachment = Attachment.objects.select_for_update().get(id=attachment_id, card=card)
@@ -188,8 +200,12 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 except Exception:  # noqa: BLE001
                     pass
 
-        card_data = self._serialized_card(card.id)
-        broadcast_board_event(card.board_id, "card.updated", {"card": card_data})
+            create_or_extend_pending_card_update_event(card=card, actor=actor)
+            card_data = self._serialized_card(card.id)
+            transaction.on_commit(
+                lambda: broadcast_board_event(card.board_id, "card.updated", {"card": card_data})
+            )
+
         return Response(card_data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["get", "post"], url_path="checklist")
@@ -202,10 +218,13 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         serializer = ChecklistItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        last = ChecklistItem.objects.filter(card=card).order_by("-position").first()
-        position = (last.position + 1) if last else 0
-        item = serializer.save(card=card, position=position)
-        self._broadcast_checklist_update(card)
+        actor = request.user if request.user.is_authenticated else None
+        with transaction.atomic():
+            last = ChecklistItem.objects.filter(card=card).order_by("-position").first()
+            position = (last.position + 1) if last else 0
+            item = serializer.save(card=card, position=position)
+            create_or_extend_pending_card_update_event(card=card, actor=actor)
+            self._broadcast_checklist_update(card)
         return Response(ChecklistItemSerializer(item).data, status=status.HTTP_201_CREATED)
 
     @action(
@@ -225,24 +244,35 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         except ChecklistItem.DoesNotExist:
             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        actor = request.user if request.user.is_authenticated else None
+
         if request.method == "DELETE":
-            item.delete()
-            self._broadcast_checklist_update(card)
+            with transaction.atomic():
+                item.delete()
+                create_or_extend_pending_card_update_event(card=card, actor=actor)
+                self._broadcast_checklist_update(card)
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         serializer = ChecklistItemSerializer(item, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        self._broadcast_checklist_update(card)
+        with transaction.atomic():
+            serializer.save()
+            create_or_extend_pending_card_update_event(card=card, actor=actor)
+            self._broadcast_checklist_update(card)
         return Response(serializer.data)
 
     def _broadcast_checklist_update(self, card: Card) -> None:
-        card = (
-            Card.objects.select_related("board")
-            .prefetch_related(*CARD_PREFETCH_RELATED)
-            .get(pk=card.pk)
-        )
-        broadcast_board_event(card.board_id, "card.updated", {"card": CardSerializer(card).data})
+        def _broadcast() -> None:
+            refreshed = (
+                Card.objects.select_related("board")
+                .prefetch_related(*CARD_PREFETCH_RELATED)
+                .get(pk=card.pk)
+            )
+            broadcast_board_event(
+                refreshed.board_id, "card.updated", {"card": CardSerializer(refreshed).data}
+            )
+
+        transaction.on_commit(_broadcast)
 
     @action(detail=True, methods=["get", "post"], url_path="subtasks")
     def subtasks(self, request: Request, pk: str | None = None) -> Response:
@@ -259,7 +289,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         payload.setdefault("board", parent.board_id)
         serializer = self.get_serializer(data=payload)
         serializer.is_valid(raise_exception=True)
-        card = serializer.save()
+        actor = request.user if request.user.is_authenticated else None
+        with transaction.atomic():
+            card = serializer.save()
+            create_or_extend_pending_card_update_event(card=parent, actor=actor)
         self._broadcast_card_with_parent(card, "card.created")
         self._broadcast_parent_update(parent.id)
         return Response(self.get_serializer(card).data, status=status.HTTP_201_CREATED)
@@ -484,26 +517,43 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         self._broadcast_parent_update(card.parent_id)
 
     def perform_update(self, serializer: CardSerializer) -> None:
-        serializer.instance._activity_actor = (
-            self.request.user if self.request.user.is_authenticated else None
-        )
-        card = serializer.save()
-        reschedule_enabled_reminders(card=card)
-        card = (
-            Card.objects.select_related("board")
-            .prefetch_related(*CARD_PREFETCH_RELATED)
-            .get(pk=card.pk)
-        )
-        broadcast_board_event(card.board_id, "card.updated", {"card": CardSerializer(card).data})
+        actor = self.request.user if self.request.user.is_authenticated else None
+        serializer.instance._activity_actor = actor
+        with transaction.atomic():
+            card = serializer.save()
+            reschedule_enabled_reminders(card=card)
+            create_or_extend_pending_card_update_event(card=card, actor=actor)
+            card = (
+                Card.objects.select_related("board")
+                .prefetch_related(*CARD_PREFETCH_RELATED)
+                .get(pk=card.pk)
+            )
+            card_data = CardSerializer(card).data
+            transaction.on_commit(
+                lambda: broadcast_board_event(card.board_id, "card.updated", {"card": card_data})
+            )
         self._broadcast_parent_update(card.parent_id)
 
     def perform_destroy(self, instance: Card) -> None:
         board_id = instance.board_id
         card_id = instance.id
-        instance.archived_at = timezone.now()
-        instance.save(update_fields=["archived_at", "updated_at", "version"])
-        broadcast_board_event(board_id, "card.deleted", {"card_id": card_id})
-        self._broadcast_parent_update(instance.parent_id)
+        parent_id = instance.parent_id
+        actor = self.request.user if self.request.user.is_authenticated else None
+        with transaction.atomic():
+            instance.archived_at = timezone.now()
+            instance.save(update_fields=["archived_at", "updated_at", "version"])
+            create_notification_event(
+                event_type=NotificationEventType.CARD_ARCHIVED.value,
+                actor=actor,
+                board=instance.board,
+                card=instance,
+                summary=f"Задача «{instance.title}» в архиве",
+                payload={"board": instance.board.name, "card": instance.title},
+            )
+            transaction.on_commit(
+                lambda: broadcast_board_event(board_id, "card.deleted", {"card_id": card_id})
+            )
+        self._broadcast_parent_update(parent_id)
 
     @action(detail=True, methods=["post"], url_path="restore")
     def restore(self, request: Request, pk: str | None = None) -> Response:
@@ -587,108 +637,19 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
     @action(detail=True, methods=["post"], url_path="notify-updated")
     def notify_updated(self, request: Request, pk: str | None = None) -> Response:
+        """Flush the caller's open `card.updated` window right now, if any.
+
+        The body carries no data — the server is the source of both the
+        event's text and the decision to create it (see
+        `create_or_extend_pending_card_update_event`). This endpoint is kept
+        only as a "flush now" signal for the frozen Android app, which still
+        calls it; a missing window is not an error.
+        """
+
         card = self.get_object()
-        payload: dict[str, Any] = request.data or {}
-        version = payload.get("version")
-        if version is None:
-            return Response({"detail": "version is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            version_int = int(version)
-        except (TypeError, ValueError):
-            return Response(
-                {"detail": "version must be an integer"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if version_int != card.version:
-            return Response({"detail": "Version conflict"}, status=status.HTTP_409_CONFLICT)
-
         actor = request.user if request.user.is_authenticated else None
-        dedupe_key = f"card.updated:{card.id}:{version_int}"
-        description = payload.get("description")
-        changes = payload.get("changes")
-
-        summary_parts = [f'Обновлена задача "{card.title}"']
-        if isinstance(description, str) and description.strip():
-            summary_parts.append(f"\nОписание: {description.strip()}")
-        if isinstance(changes, list):
-            changes_text = "\n".join([str(item) for item in changes if str(item).strip()])
-            if changes_text:
-                summary_parts.append(f"\nИзменения:\n{changes_text}")
-
-        payload_updates: dict[str, Any] = {
-            "board": card.board.name,
-            "card": card.title,
-        }
-        if isinstance(description, str) and description.strip():
-            payload_updates["description"] = description.strip()
-        if isinstance(changes, list):
-            payload_updates["changes"] = changes
-        if isinstance(payload.get("changes_meta"), dict):
-            payload_updates["changes_meta"] = payload.get("changes_meta")
-
-        event = create_notification_event(
-            event_type=NotificationEventType.CARD_UPDATED.value,
-            actor=actor,
-            board=card.board,
-            card=card,
-            summary="".join(summary_parts),
-            payload=payload_updates,
-            dedupe_key=dedupe_key,
-        )
-        return Response(
-            {"event_id": getattr(event, "pk", None), "dedupe_key": dedupe_key},
-            status=200,
-        )
-
-    @action(detail=False, methods=["post"], url_path="notify-deleted")
-    def notify_deleted(self, request: Request) -> Response:
-        payload: dict[str, Any] = request.data or {}
-        board_id = payload.get("board")
-        card_title = payload.get("card_title")
-
-        missing = [k for k in ["card_id", "version"] if payload.get(k) is None]
-        if missing:
-            return Response(
-                {"detail": f"Missing fields: {', '.join(missing)}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            card_id_int = int(payload["card_id"])
-            version_int = int(payload["version"])
-        except (TypeError, ValueError):
-            return Response(
-                {"detail": "card_id and version must be integers"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        board: Board | None = None
-        if board_id is not None:
-            try:
-                board = Board.objects.get(id=int(board_id))
-            except Exception:  # noqa: BLE001
-                board = None
-
-        title = str(card_title) if card_title is not None else "(без названия)"
-        actor = request.user if request.user.is_authenticated else None
-        dedupe_key = f"card.deleted:{card_id_int}:{version_int}"
-        event = create_notification_event(
-            event_type=NotificationEventType.CARD_DELETED.value,
-            actor=actor,
-            board=board,
-            summary=f"Удалена задача «{title}»",
-            payload={
-                "board": getattr(board, "name", ""),
-                "card": title,
-            },
-            dedupe_key=dedupe_key,
-        )
-        return Response(
-            {"event_id": getattr(event, "pk", None), "dedupe_key": dedupe_key},
-            status=200,
-        )
+        flush_pending_card_update_event(card=card, actor=actor)
+        return Response(status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["post"], url_path="complete")
     def complete(self, request: Request, pk: str | None = None) -> Response:
@@ -705,6 +666,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 card.completed_by = actor
                 card.save(update_fields=["completed_at", "completed_by", "updated_at", "version"])
                 skip_reminders_for_completed_card(card_id=card.id)
+
+                if card.parent_id:
+                    parent = Card.objects.select_related("board").get(pk=card.parent_id)
+                    create_or_extend_pending_card_update_event(card=parent, actor=actor)
 
                 open_subtask_ids = list(
                     Card.objects.filter(
