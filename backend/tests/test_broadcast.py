@@ -118,24 +118,29 @@ def test_create_card_broadcasts(
 
 
 @pytest.mark.django_db()
-def test_update_card_broadcasts(auth_client: APIClient, card: Card) -> None:
+def test_update_card_broadcasts(
+    auth_client: APIClient, card: Card, django_capture_on_commit_callbacks
+) -> None:
     captured: list[dict] = []
 
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
     with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
-        auth_client.patch(
-            f"/api/v1/cards/{card.id}/",
-            data={"title": "Updated"},
-            format="json",
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            auth_client.patch(
+                f"/api/v1/cards/{card.id}/",
+                data={"title": "Updated"},
+                format="json",
+            )
 
     assert any(e["event_type"] == "card.updated" for e in captured)
 
 
 @pytest.mark.django_db()
-def test_delete_card_broadcasts(auth_client: APIClient, card: Card) -> None:
+def test_delete_card_broadcasts(
+    auth_client: APIClient, card: Card, django_capture_on_commit_callbacks
+) -> None:
     captured: list[dict] = []
 
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
@@ -144,7 +149,8 @@ def test_delete_card_broadcasts(auth_client: APIClient, card: Card) -> None:
     card_id = card.id
 
     with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
-        auth_client.delete(f"/api/v1/cards/{card_id}/")
+        with django_capture_on_commit_callbacks(execute=True):
+            auth_client.delete(f"/api/v1/cards/{card_id}/")
 
     assert any(
         e["event_type"] == "card.deleted" and e["data"]["card_id"] == card_id for e in captured

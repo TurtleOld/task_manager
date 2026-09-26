@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import Any, cast
 
 from django.conf import settings
@@ -8,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
 from django.db import connection
 from django.db.utils import IntegrityError
+from django.utils import timezone
 
 from .models import Board, Card, Column, NotificationEvent, NotificationEventType
 
@@ -18,6 +20,16 @@ logger = logging.getLogger(__name__)
 # Shared with `run_dispatcher`'s `LISTEN`. Not env-configurable — a channel
 # name is an implementation detail, not deployment configuration.
 NOTIFICATION_CHANNEL = "kanban_events"
+
+# `dedupe_key` prefix for a coalescing `card.updated` window, keyed by
+# `(card_id, actor_id)`. `process_outbox_events` clears the key once such an
+# event is actually dispatched, so the next edit starts a fresh window
+# instead of reusing the one already sent.
+PENDING_CARD_UPDATE_DEDUPE_PREFIX = "card.updated.pending:"
+
+# How long a coalescing window stays open after the last edit before the
+# dispatcher picks it up on its own, absent an explicit flush.
+PENDING_CARD_UPDATE_WINDOW = timedelta(minutes=5)
 
 
 def build_frontend_link(board_id: int | None) -> str:
@@ -81,6 +93,78 @@ def create_notification_event(
     # rolled back and there was nothing to send.
     _notify_dispatcher()
     return event
+
+
+def _pending_card_update_dedupe_key(*, card_id: int, actor: AbstractUser | None) -> str:
+    actor_id = getattr(actor, "id", None)
+    actor_part = actor_id if actor_id is not None else "none"
+    return f"{PENDING_CARD_UPDATE_DEDUPE_PREFIX}{card_id}:{actor_part}"
+
+
+def is_pending_card_update_window(event: NotificationEvent) -> bool:
+    """Whether `event` is a still-open `card.updated` coalescing window."""
+
+    return bool(event.dedupe_key) and event.dedupe_key.startswith(
+        PENDING_CARD_UPDATE_DEDUPE_PREFIX
+    )
+
+
+def create_or_extend_pending_card_update_event(
+    *, card: Card, actor: AbstractUser | None
+) -> NotificationEvent:
+    """Record that `card` changed, coalescing edits by the same actor.
+
+    Every server-side edit of a card calls this instead of creating its own
+    `card.updated` event. A row for `(card_id, actor_id)` is created on the
+    first edit and its `next_attempt_at` is pushed forward on every
+    subsequent one, so one editing session becomes one event rather than one
+    per field. `notify_updated` (empty-body flush) or, failing that, the
+    window elapsing is what makes the dispatcher actually pick the row up.
+    """
+
+    dedupe_key = _pending_card_update_dedupe_key(card_id=card.id, actor=actor)
+    ready_at = timezone.now() + PENDING_CARD_UPDATE_WINDOW
+    defaults = {
+        "event_type": NotificationEventType.CARD_UPDATED,
+        "actor": actor,
+        "board": card.board,
+        "card": card,
+        "summary": f"В «{card.title}» сделаны изменения",
+        "link": build_frontend_link(card.board_id),
+        "payload": {},
+        "dedupe_key": dedupe_key,
+        "next_attempt_at": ready_at,
+    }
+    try:
+        event, created = NotificationEvent.objects.get_or_create(
+            dedupe_key=dedupe_key, defaults=defaults
+        )
+    except IntegrityError:
+        event = NotificationEvent.objects.get(dedupe_key=dedupe_key)
+        created = False
+
+    if not created:
+        event.summary = defaults["summary"]
+        event.next_attempt_at = ready_at
+        event.save(update_fields=["summary", "next_attempt_at"])
+
+    return event
+
+
+def flush_pending_card_update_event(*, card: Card, actor: AbstractUser | None) -> None:
+    """Make an open `card.updated` window for `(card, actor)` due right now.
+
+    A no-op when there is no open window — closing the task screen without
+    having changed anything is not an error.
+    """
+
+    dedupe_key = _pending_card_update_dedupe_key(card_id=card.id, actor=actor)
+    updated = NotificationEvent.objects.filter(
+        dedupe_key=dedupe_key,
+        dispatch_status=NotificationEvent.Dispatch.PENDING,
+    ).update(next_attempt_at=timezone.now())
+    if updated:
+        _notify_dispatcher()
 
 
 def _notify_dispatcher() -> None:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from rest_framework.test import APIClient
 
-from kanban.models import Card, ChecklistItem, Column
+from kanban.models import Card, ChecklistItem, Column, NotificationEvent
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -99,6 +99,20 @@ def test_add_checklist_item_broadcasts_card_update(auth_client: APIClient, card:
     assert resp.status_code == 201
 
 
+@pytest.mark.django_db()
+def test_add_checklist_item_creates_pending_notification_event(
+    auth_client: APIClient, card: Card
+) -> None:
+    auth_client.post(
+        f"/api/v1/cards/{card.id}/checklist/",
+        data={"text": "Check me"},
+        format="json",
+    )
+    assert (
+        NotificationEvent.objects.filter(event_type="card.updated", card_id=card.id).count() == 1
+    )
+
+
 # ---------------------------------------------------------------------------
 # PATCH /cards/:id/checklist/:item_id/
 # ---------------------------------------------------------------------------
@@ -117,6 +131,12 @@ def test_patch_checklist_item_done(auth_client: APIClient, card_with_items: Card
     assert resp.json()["done"] is True
     item.refresh_from_db()
     assert item.done is True
+    assert (
+        NotificationEvent.objects.filter(
+            event_type="card.updated", card_id=card_with_items.id
+        ).count()
+        == 1
+    )
 
 
 @pytest.mark.django_db()
@@ -159,6 +179,12 @@ def test_delete_checklist_item(auth_client: APIClient, card_with_items: Card) ->
     resp = auth_client.delete(f"/api/v1/cards/{card_with_items.id}/checklist/{item.id}/")
     assert resp.status_code == 204
     assert not ChecklistItem.objects.filter(id=item.id).exists()
+    assert (
+        NotificationEvent.objects.filter(
+            event_type="card.updated", card_id=card_with_items.id
+        ).count()
+        == 1
+    )
 
 
 @pytest.mark.django_db()

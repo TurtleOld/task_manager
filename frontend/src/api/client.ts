@@ -317,30 +317,12 @@ export const api = {
     return json(res)
   },
 
-  notifyCardUpdated: async (
-    id: number,
-    payload: { version: number; description?: string; changes?: string[]; changes_meta?: Record<string, unknown> }
-  ): Promise<{ event_id: number | null; dedupe_key: string }> => {
+  notifyCardUpdated: async (id: number): Promise<void> => {
     const res = await fetch(`${V1}/cards/${id}/notify-updated/`, {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify(payload),
     })
-    return json(res)
-  },
-
-  notifyCardDeleted: async (payload: {
-    card_id: number
-    version: number
-    board?: number
-    card_title?: string
-  }): Promise<{ event_id: number | null; dedupe_key: string }> => {
-    const res = await fetch(`${V1}/cards/notify-deleted/`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify(payload),
-    })
-    return json(res)
+    return ok(res)
   },
 
   listArchive: async (boardId?: number): Promise<ArchiveResponse> => {

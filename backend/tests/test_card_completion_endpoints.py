@@ -89,6 +89,24 @@ def test_complete_card_creates_completed_notification_event(regular_user: User, 
 
 
 @pytest.mark.django_db()
+def test_completing_a_subtask_notes_a_pending_update_on_the_parent(
+    regular_user: User, column: Column
+) -> None:
+    parent = Card.objects.create(column=column, title="Parent")
+    subtask = Card.objects.create(column=column, parent=parent, title="Subtask")
+    client = _client_for(regular_user)
+
+    client.post(f"/api/v1/cards/{subtask.id}/complete/")
+
+    assert (
+        NotificationEvent.objects.filter(event_type="card.updated", card_id=parent.id).count() == 1
+    )
+    assert not NotificationEvent.objects.filter(
+        event_type="card.updated", card_id=subtask.id
+    ).exists()
+
+
+@pytest.mark.django_db()
 def test_completing_an_already_completed_card_is_a_noop(column: Column) -> None:
     first_actor = User.objects.create_user(username="first", password="pass")
     second_actor = User.objects.create_user(username="second", password="pass")

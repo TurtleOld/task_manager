@@ -43,6 +43,7 @@ from .models import (
     NotificationInboxEntry,
     NotificationProfile,
 )
+from .notifications import is_pending_card_update_window
 from .push_delivery import send_push_to_user
 from .reminders import (
     preferences_enabled_for_event_type,
@@ -530,7 +531,14 @@ def process_outbox_events(*, now=None, limit: int | None = None) -> int:
 
         event.dispatch_status = NotificationEvent.Dispatch.DONE
         event.dispatch_error = ""
-        event.save(update_fields=["dispatch_status", "dispatch_error"])
+        update_fields = ["dispatch_status", "dispatch_error"]
+        # A coalescing `card.updated` window is done once sent: freeing its
+        # `dedupe_key` lets the next edit of the same card by the same actor
+        # open a new window instead of matching this already-sent row.
+        if is_pending_card_update_window(event):
+            event.dedupe_key = None
+            update_fields.append("dedupe_key")
+        event.save(update_fields=update_fields)
         processed += 1
 
     return processed
