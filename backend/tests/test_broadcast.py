@@ -66,6 +66,29 @@ def test_board_group_name_format() -> None:
     assert board_group_name("99") == "board_99"
 
 
+def test_disconnect_user_websockets_no_op_when_no_channel_layer() -> None:
+    from kanban.broadcast import disconnect_user_websockets
+
+    with patch("kanban.broadcast.get_channel_layer", return_value=None):
+        disconnect_user_websockets(user_id=1)
+
+
+def test_disconnect_user_websockets_calls_group_send() -> None:
+    from kanban.broadcast import disconnect_user_websockets
+
+    mock_layer = MagicMock()
+    with (
+        patch("kanban.broadcast.get_channel_layer", return_value=mock_layer),
+        patch("kanban.broadcast.async_to_sync", side_effect=lambda f: f),
+    ):
+        disconnect_user_websockets(user_id=42)
+
+    mock_layer.group_send.assert_called_once()
+    call_args = mock_layer.group_send.call_args
+    assert call_args[0][0] == "user_42"
+    assert call_args[0][1]["type"] == "user.disconnect"
+
+
 # ---------------------------------------------------------------------------
 # Integration: CRUD actions trigger broadcast
 # ---------------------------------------------------------------------------

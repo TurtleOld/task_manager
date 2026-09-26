@@ -8,6 +8,10 @@ def board_group_name(board_id: int | str) -> str:
     return f"board_{board_id}"
 
 
+def user_group_name(user_id: int | str) -> str:
+    return f"user_{user_id}"
+
+
 class BoardConsumer(AsyncJsonWebsocketConsumer):
     """WebSocket consumer for a single board.
 
@@ -28,16 +32,24 @@ class BoardConsumer(AsyncJsonWebsocketConsumer):
             return
 
         self.user = user
+        self.user_group_name = user_group_name(user.id)
         await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.channel_layer.group_add(self.user_group_name, self.channel_name)
         await self.accept()
 
     async def disconnect(self, close_code: int) -> None:
         if hasattr(self, "group_name"):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        if hasattr(self, "user_group_name"):
+            await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
 
     # Receive a message from the group and forward it to the client
     async def board_event(self, event: dict) -> None:
         await self.send_json(event["data"])
+
+    # Sent to this user's group when their account is deactivated.
+    async def user_disconnect(self, event: dict) -> None:
+        await self.close(code=4001)
 
     async def _get_user(self):
         from channels.db import database_sync_to_async
