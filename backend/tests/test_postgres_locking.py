@@ -16,8 +16,11 @@ import threading
 from datetime import timedelta
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.db import connection, transaction
 from django.utils import timezone
+from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient
 
 from kanban import dispatcher
 from kanban.models import (
@@ -28,7 +31,10 @@ from kanban.models import (
     RecurrenceRule,
 )
 from kanban.notifications import create_notification_event
+from kanban.reminders import skip_reminders_for_completed_card
 from kanban.tasks import generate_recurring_cards
+
+User = get_user_model()
 
 requires_postgres = pytest.mark.skipif(
     connection.vendor != "postgresql",
@@ -120,9 +126,7 @@ def test_event_dispatch_locks_an_event_without_actor_card_or_column(
 
 @requires_postgres
 @pytest.mark.django_db(transaction=True)
-def test_event_locked_by_another_worker_is_skipped_and_stays_pending(
-    board, regular_user
-) -> None:
+def test_event_locked_by_another_worker_is_skipped_and_stays_pending(board, regular_user) -> None:
     """Two dispatchers must not deliver the same event twice."""
 
     event = create_notification_event(
@@ -138,9 +142,7 @@ def test_event_locked_by_another_worker_is_skipped_and_stays_pending(
     def hold_the_row() -> None:
         try:
             with transaction.atomic():
-                NotificationEvent.objects.select_for_update(of=("self",)).get(
-                    id=event.id
-                )
+                NotificationEvent.objects.select_for_update(of=("self",)).get(id=event.id)
                 locked.set()
                 release.wait(timeout=10)
         finally:
@@ -160,3 +162,69 @@ def test_event_locked_by_another_worker_is_skipped_and_stays_pending(
     assert processed == 0
     event.refresh_from_db()
     assert event.dispatch_status == NotificationEvent.Dispatch.PENDING
+
+
+# ---------------------------------------------------------------------------
+# Concurrent "complete" taps (AUDIT-026)
+# ---------------------------------------------------------------------------
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_complete_taps_only_one_wins(monkeypatch, column, regular_user) -> None:
+    """Two simultaneous taps on `complete` must not both count as a transition.
+
+    The first request is paused mid-transaction (row locked, not yet
+    committed) via a hook that only fires on the real completion path, so the
+    second request's `select_for_update` genuinely blocks on PostgreSQL and
+    then observes the already-completed row instead of racing it.
+    """
+
+    first_actor = regular_user
+    second_actor = User.objects.create_user(username="second-tapper", password="pass")
+    card = Card.objects.create(column=column, title="Купить хлеб")
+
+    locked = threading.Event()
+    release = threading.Event()
+    calls = 0
+
+    def paused_skip(*, card_id: int) -> None:
+        nonlocal calls
+        calls += 1
+        locked.set()
+        release.wait(timeout=10)
+        skip_reminders_for_completed_card(card_id=card_id)
+
+    monkeypatch.setattr("kanban.views.cards.skip_reminders_for_completed_card", paused_skip)
+
+    results: dict[str, object] = {}
+
+    def call_first() -> None:
+        try:
+            client = APIClient()
+            token, _ = Token.objects.get_or_create(user=first_actor)
+            client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+            results["first"] = client.post(f"/api/v1/cards/{card.id}/complete/")
+        finally:
+            connection.close()
+
+    worker = threading.Thread(target=call_first)
+    worker.start()
+    try:
+        assert locked.wait(timeout=10), "поток не успел взять блокировку"
+        client = APIClient()
+        token, _ = Token.objects.get_or_create(user=second_actor)
+        client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+        second_resp = client.post(f"/api/v1/cards/{card.id}/complete/")
+    finally:
+        release.set()
+        worker.join(timeout=10)
+
+    assert results["first"].status_code == 200
+    assert second_resp.status_code == 200
+    assert calls == 1, "второй запрос не должен доходить до реального перехода"
+    card.refresh_from_db()
+    assert card.completed_by_id == first_actor.id
+    assert (
+        NotificationEvent.objects.filter(event_type="card.completed", card_id=card.id).count() == 1
+    )
