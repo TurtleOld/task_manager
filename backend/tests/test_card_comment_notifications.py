@@ -148,6 +148,28 @@ def test_comment_with_mention_still_creates_exactly_one_event(
 
 
 @pytest.mark.django_db()
+def test_comment_with_mention_matches_username_regardless_of_case(
+    auth_client: APIClient, regular_user: User, board: Board, card: Card
+) -> None:
+    mentioned = User.objects.create_user(username="Masha", password="pw")
+
+    resp = auth_client.post(
+        f"/api/v1/cards/{card.id}/comments/",
+        data={"text": "@masha посмотри"},
+        format="json",
+    )
+    assert resp.status_code == 201
+
+    event = NotificationEvent.objects.get(
+        event_type=NotificationEventType.COMMENT_CREATED, card=card
+    )
+    assert event.payload["mention_user_ids"] == [mentioned.id]
+
+    recipients = set(dispatcher._event_recipients(event))
+    assert recipients == {mentioned.id}
+
+
+@pytest.mark.django_db()
 def test_actors_device_gets_card_completed_but_not_comment_created(
     regular_user: User, board: Board, card: Card, webpush_settings, monkeypatch: pytest.MonkeyPatch
 ) -> None:
