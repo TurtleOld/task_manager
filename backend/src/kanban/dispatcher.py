@@ -175,9 +175,7 @@ def process_due_reminders(*, now=None, limit: int | None = None) -> int:
     for reminder_id in due_ids:
         with transaction.atomic():
             reminder = (
-                CardDeadlineReminder.objects.select_for_update(
-                    skip_locked=True, of=("self",)
-                )
+                CardDeadlineReminder.objects.select_for_update(skip_locked=True, of=("self",))
                 .filter(id=reminder_id, status=CardDeadlineReminder.Status.SCHEDULED)
                 .select_related("card")
                 .first()
@@ -242,67 +240,81 @@ def process_due_reminders(*, now=None, limit: int | None = None) -> int:
                 _finalize_reminder(reminder, status=CardDeadlineReminder.Status.SENT)
                 continue
 
-            subject, body, link = _reminder_message(reminder, card)
+            # Claim the row and release the lock before talking to the
+            # network: DISPATCHED is recovered back to SCHEDULED by
+            # `recover_stuck()` if the process dies before the send finishes,
+            # the same way NotificationEvent.PROCESSING is.
+            reminder.status = CardDeadlineReminder.Status.DISPATCHED
+            reminder.save(update_fields=["status", "updated_at", "version"])
 
-            try:
-                _deliver_reminder_on_channel(
-                    reminder=reminder,
-                    card=card,
-                    channel=channel,
-                    subject=subject,
-                    body=body,
-                    link=link,
+            delivery.status = CardDeadlineReminderDelivery.Status.PROCESSING
+            delivery.started_at = now
+            delivery.save(update_fields=["status", "started_at"])
+
+        # Outside the transaction: sending talks to the network and must not
+        # hold a row lock for the duration.
+        subject, body, link = _reminder_message(reminder, card)
+
+        try:
+            _deliver_reminder_on_channel(
+                reminder=reminder,
+                card=card,
+                channel=channel,
+                subject=subject,
+                body=body,
+                link=link,
+            )
+        except Exception as exc:  # noqa: BLE001 - every failure is recorded, none escape
+            reminder.attempts += 1
+            delivery.status = CardDeadlineReminderDelivery.Status.FAILED
+            delivery.error = str(exc)[:500]
+            delivery.save(update_fields=["status", "error"])
+
+            if reminder.attempts >= settings.DISPATCHER_MAX_ATTEMPTS:
+                reminder.status = CardDeadlineReminder.Status.FAILED
+                reminder.next_attempt_at = None
+                logger.error(
+                    "reminder_failed_permanently reminder=%s attempts=%s error=%s",
+                    reminder.id,
+                    reminder.attempts,
+                    exc,
                 )
-            except Exception as exc:  # noqa: BLE001 - every failure is recorded, none escape
-                reminder.attempts += 1
-                delivery.status = CardDeadlineReminderDelivery.Status.FAILED
-                delivery.error = str(exc)[:500]
-                delivery.save(update_fields=["status", "error"])
-
-                if reminder.attempts >= settings.DISPATCHER_MAX_ATTEMPTS:
-                    reminder.status = CardDeadlineReminder.Status.FAILED
-                    reminder.next_attempt_at = None
-                    logger.error(
-                        "reminder_failed_permanently reminder=%s attempts=%s error=%s",
-                        reminder.id,
-                        reminder.attempts,
-                        exc,
-                    )
-                else:
-                    # Stay SCHEDULED so the next pass retries it.
-                    reminder.next_attempt_at = now + _backoff(reminder.attempts)
-                reminder.last_error = str(exc)[:500]
-                reminder.save(
-                    update_fields=[
-                        "status",
-                        "attempts",
-                        "next_attempt_at",
-                        "last_error",
-                        "updated_at",
-                        "version",
-                    ]
-                )
-                continue
-
-            delivery.status = CardDeadlineReminderDelivery.Status.SENT
-            delivery.sent_at = timezone.now()
-            delivery.save(update_fields=["status", "sent_at"])
-
-            reminder.status = CardDeadlineReminder.Status.SENT
-            reminder.sent_at = delivery.sent_at
-            reminder.last_error = ""
-            reminder.next_attempt_at = None
+            else:
+                # Back to SCHEDULED so the next pass retries it.
+                reminder.status = CardDeadlineReminder.Status.SCHEDULED
+                reminder.next_attempt_at = now + _backoff(reminder.attempts)
+            reminder.last_error = str(exc)[:500]
             reminder.save(
                 update_fields=[
                     "status",
-                    "sent_at",
-                    "last_error",
+                    "attempts",
                     "next_attempt_at",
+                    "last_error",
                     "updated_at",
                     "version",
                 ]
             )
-            sent += 1
+            continue
+
+        delivery.status = CardDeadlineReminderDelivery.Status.SENT
+        delivery.sent_at = timezone.now()
+        delivery.save(update_fields=["status", "sent_at"])
+
+        reminder.status = CardDeadlineReminder.Status.SENT
+        reminder.sent_at = delivery.sent_at
+        reminder.last_error = ""
+        reminder.next_attempt_at = None
+        reminder.save(
+            update_fields=[
+                "status",
+                "sent_at",
+                "last_error",
+                "next_attempt_at",
+                "updated_at",
+                "version",
+            ]
+        )
+        sent += 1
 
     return sent
 
@@ -540,7 +552,8 @@ def recover_stuck(*, now=None) -> int:
         dispatch_started_at__lt=cutoff,
     ).update(dispatch_status=NotificationEvent.Dispatch.PENDING, next_attempt_at=now)
 
-    # Legacy status from the Celery era: rows handed to a worker that died.
+    # A reminder claimed for sending but never finalized — the dispatcher
+    # died between marking it DISPATCHED and recording the outcome.
     recovered += CardDeadlineReminder.objects.filter(
         status=CardDeadlineReminder.Status.DISPATCHED,
         updated_at__lt=cutoff,

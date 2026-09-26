@@ -441,6 +441,70 @@ def test_due_reminder_for_completed_card_is_skipped(
 
 
 @pytest.mark.django_db()
+def test_reminder_is_committed_dispatched_before_the_network_call(
+    column, regular_user, webpush_settings, monkeypatch
+) -> None:
+    """The row lock must be released before the send, not held for its duration."""
+
+    seen_status = {}
+
+    def fake_send(*, endpoint, **_kwargs):
+        seen_status["status"] = CardDeadlineReminder.objects.get(id=reminder.id).status
+
+    monkeypatch.setattr("kanban.webpush.send_webpush", fake_send)
+    _device(regular_user)
+    NotificationProfile.objects.get_or_create(user=regular_user)
+
+    now = timezone.now()
+    card = Card.objects.create(
+        column=column, title="Полить цветы", deadline=now + timedelta(hours=1)
+    )
+    reminder = CardDeadlineReminder.objects.create(
+        card=card,
+        user=regular_user,
+        enabled=True,
+        offset_value=20,
+        status=CardDeadlineReminder.Status.SCHEDULED,
+        scheduled_at=now - timedelta(seconds=30),
+        schedule_token="55555555-5555-5555-5555-555555555555",
+    )
+
+    dispatcher.process_due_reminders(now=now)
+
+    assert seen_status["status"] == CardDeadlineReminder.Status.DISPATCHED
+
+
+@pytest.mark.django_db()
+def test_stuck_dispatched_reminder_is_recovered(column, regular_user, settings) -> None:
+    """A dispatcher killed mid-send leaves DISPATCHED behind; recovery retries it."""
+
+    now = timezone.now()
+    card = Card.objects.create(
+        column=column, title="Полить цветы", deadline=now + timedelta(hours=1)
+    )
+    reminder = CardDeadlineReminder.objects.create(
+        card=card,
+        user=regular_user,
+        enabled=True,
+        offset_value=20,
+        status=CardDeadlineReminder.Status.SCHEDULED,
+        scheduled_at=now - timedelta(seconds=30),
+        schedule_token="66666666-6666-6666-6666-666666666666",
+    )
+    stale = now - timedelta(minutes=settings.DISPATCHER_STUCK_MINUTES + 1)
+    CardDeadlineReminder.objects.filter(id=reminder.id).update(
+        status=CardDeadlineReminder.Status.DISPATCHED,
+        updated_at=stale,
+    )
+
+    recovered = dispatcher.recover_stuck()
+
+    reminder.refresh_from_db()
+    assert recovered == 1
+    assert reminder.status == CardDeadlineReminder.Status.SCHEDULED
+
+
+@pytest.mark.django_db()
 def test_reminder_retry_is_scheduled_after_a_failure(
     column, regular_user, webpush_settings, monkeypatch
 ) -> None:
