@@ -423,7 +423,6 @@ class CardSerializer(serializers.ModelSerializer[Card]):
         try:
             card.full_clean(exclude=["labels"])
         except DjangoValidationError as exc:
-            card.delete()
             raise serializers.ValidationError(exc.message_dict) from exc
         if labels is not None:
             card.labels.set(labels)
