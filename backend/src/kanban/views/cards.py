@@ -477,7 +477,9 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             )
             card_data = CardSerializer(card).data
             transaction.on_commit(
-                lambda: broadcast_board_event(card.board_id, "card.created", {"card": card_data})
+                lambda: broadcast_board_event(
+                    card.board_id, "card.created", {"card": card_data}
+                )
             )
         self._broadcast_parent_update(card.parent_id)
 
