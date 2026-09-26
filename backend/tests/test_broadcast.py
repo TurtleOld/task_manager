@@ -95,18 +95,21 @@ def test_disconnect_user_websockets_calls_group_send() -> None:
 
 
 @pytest.mark.django_db()
-def test_create_card_broadcasts(auth_client: APIClient, board: Board) -> None:
+def test_create_card_broadcasts(
+    auth_client: APIClient, board: Board, django_capture_on_commit_callbacks
+) -> None:
     captured: list[dict] = []
 
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
     with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
-        auth_client.post(
-            "/api/v1/cards/",
-            data={"board": board.id, "title": "WS Task"},
-            format="json",
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            auth_client.post(
+                "/api/v1/cards/",
+                data={"board": board.id, "title": "WS Task"},
+                format="json",
+            )
 
     assert len(captured) == 1
     assert captured[0]["event_type"] == "card.created"
@@ -149,24 +152,29 @@ def test_delete_card_broadcasts(auth_client: APIClient, card: Card) -> None:
 
 
 @pytest.mark.django_db()
-def test_update_board_broadcasts(auth_client: APIClient, board: Board) -> None:
+def test_update_board_broadcasts(
+    auth_client: APIClient, board: Board, django_capture_on_commit_callbacks
+) -> None:
     captured: list[dict] = []
 
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
     with patch("kanban.views.boards.broadcast_board_event", side_effect=fake_broadcast):
-        auth_client.patch(
-            f"/api/v1/boards/{board.id}/",
-            data={"name": "Renamed"},
-            format="json",
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            auth_client.patch(
+                f"/api/v1/boards/{board.id}/",
+                data={"name": "Renamed"},
+                format="json",
+            )
 
     assert any(e["event_type"] == "board.updated" for e in captured)
 
 
 @pytest.mark.django_db()
-def test_complete_card_broadcasts_card_completed(auth_client: APIClient, column: Column) -> None:
+def test_complete_card_broadcasts_card_completed(
+    auth_client: APIClient, column: Column, django_capture_on_commit_callbacks
+) -> None:
     card = Card.objects.create(column=column, title="Buy milk")
 
     captured: list[dict] = []
@@ -175,17 +183,19 @@ def test_complete_card_broadcasts_card_completed(auth_client: APIClient, column:
         captured.append({"board_id": board_id, "event_type": event_type, "data": data})
 
     with patch("kanban.views.cards.broadcast_board_event", side_effect=fake_broadcast):
-        auth_client.post(f"/api/v1/cards/{card.id}/complete/")
+        with django_capture_on_commit_callbacks(execute=True):
+            auth_client.post(f"/api/v1/cards/{card.id}/complete/")
 
     assert any(e["event_type"] == "card.completed" for e in captured)
 
 
 @pytest.mark.django_db()
 def test_uncomplete_card_broadcasts_card_updated_not_completed(
-    auth_client: APIClient, column: Column
+    auth_client: APIClient, column: Column, django_capture_on_commit_callbacks
 ) -> None:
     card = Card.objects.create(column=column, title="Buy milk")
-    auth_client.post(f"/api/v1/cards/{card.id}/complete/")
+    with django_capture_on_commit_callbacks(execute=True):
+        auth_client.post(f"/api/v1/cards/{card.id}/complete/")
 
     captured: list[dict] = []
 

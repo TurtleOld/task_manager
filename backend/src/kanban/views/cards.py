@@ -460,21 +460,25 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
     def perform_create(self, serializer: CardSerializer) -> None:
         actor = self.request.user if self.request.user.is_authenticated else None
-        card = serializer.save(created_by=actor)
-        create_notification_event(
-            event_type=NotificationEventType.CARD_CREATED.value,
-            actor=actor,
-            board=card.board,
-            card=card,
-            summary=f"Создана задача «{card.title}»",
-            payload={"board": card.board.name, "card": card.title},
-        )
-        card = (
-            Card.objects.select_related("board")
-            .prefetch_related(*CARD_PREFETCH_RELATED)
-            .get(pk=card.pk)
-        )
-        broadcast_board_event(card.board_id, "card.created", {"card": CardSerializer(card).data})
+        with transaction.atomic():
+            card = serializer.save(created_by=actor)
+            create_notification_event(
+                event_type=NotificationEventType.CARD_CREATED.value,
+                actor=actor,
+                board=card.board,
+                card=card,
+                summary=f"Создана задача «{card.title}»",
+                payload={"board": card.board.name, "card": card.title},
+            )
+            card = (
+                Card.objects.select_related("board")
+                .prefetch_related(*CARD_PREFETCH_RELATED)
+                .get(pk=card.pk)
+            )
+            card_data = CardSerializer(card).data
+            transaction.on_commit(
+                lambda: broadcast_board_event(card.board_id, "card.created", {"card": card_data})
+            )
         self._broadcast_parent_update(card.parent_id)
 
     def perform_update(self, serializer: CardSerializer) -> None:
@@ -727,23 +731,30 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                     for subtask_id in open_subtask_ids:
                         skip_reminders_for_completed_card(card_id=subtask_id)
 
-        card = (
-            Card.objects.select_related("board")
-            .prefetch_related(*CARD_PREFETCH_RELATED)
-            .get(pk=card.pk)
-        )
-        serializer = self.get_serializer(card)
+            card = (
+                Card.objects.select_related("board")
+                .prefetch_related(*CARD_PREFETCH_RELATED)
+                .get(pk=card.pk)
+            )
+            serializer = self.get_serializer(card)
+
+            if not already_completed:
+                create_notification_event(
+                    event_type=NotificationEventType.CARD_COMPLETED.value,
+                    actor=actor,
+                    board=card.board,
+                    card=card,
+                    summary=f"Задача «{card.title}» выполнена",
+                    payload={"board": card.board.name, "card": card.title},
+                )
+                card_data = serializer.data
+                transaction.on_commit(
+                    lambda: broadcast_board_event(
+                        card.board_id, "card.completed", {"card": card_data}
+                    )
+                )
 
         if not already_completed:
-            create_notification_event(
-                event_type=NotificationEventType.CARD_COMPLETED.value,
-                actor=actor,
-                board=card.board,
-                card=card,
-                summary=f"Задача «{card.title}» выполнена",
-                payload={"board": card.board.name, "card": card.title},
-            )
-            broadcast_board_event(card.board_id, "card.completed", {"card": serializer.data})
             self._broadcast_parent_update(card.parent_id)
         return Response(serializer.data)
 

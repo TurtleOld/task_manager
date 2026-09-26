@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -22,8 +23,9 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
 
     def perform_create(self, serializer: BoardSerializer) -> None:
         # A new list starts empty — no default columns, no template data.
-        board = serializer.save()
-        self._notify_board_created(board)
+        with transaction.atomic():
+            board = serializer.save()
+            self._notify_board_created(board)
 
     def _notify_board_created(self, board: Board) -> None:
         actor = self.request.user if self.request.user.is_authenticated else None
@@ -34,49 +36,62 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             summary=f"Создан список «{board.name}»",
             payload={"board": board.name},
         )
-        broadcast_board_event(board.id, "board.created", {"board": BoardSerializer(board).data})
+        board_data = BoardSerializer(board).data
+        transaction.on_commit(
+            lambda: broadcast_board_event(board.id, "board.created", {"board": board_data})
+        )
 
     def perform_update(self, serializer: BoardSerializer) -> None:
-        board = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
-        create_notification_event(
-            event_type=NotificationEventType.BOARD_UPDATED.value,
-            actor=actor,
-            board=board,
-            summary=f"Обновлён список «{board.name}»",
-            payload={"board": board.name},
-        )
-        broadcast_board_event(board.id, "board.updated", {"board": BoardSerializer(board).data})
+        with transaction.atomic():
+            board = serializer.save()
+            create_notification_event(
+                event_type=NotificationEventType.BOARD_UPDATED.value,
+                actor=actor,
+                board=board,
+                summary=f"Обновлён список «{board.name}»",
+                payload={"board": board.name},
+            )
+            board_data = BoardSerializer(board).data
+            transaction.on_commit(
+                lambda: broadcast_board_event(board.id, "board.updated", {"board": board_data})
+            )
 
     def perform_destroy(self, instance: Board) -> None:
         actor = self.request.user if self.request.user.is_authenticated else None
         summary = f"Удалён список «{instance.name}»"
         payload = {"board": instance.name}
         board_id = instance.id
-        instance.delete()
-        create_notification_event(
-            event_type=NotificationEventType.BOARD_DELETED.value,
-            actor=actor,
-            board=None,
-            summary=summary,
-            payload=payload,
-        )
-        broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
+        with transaction.atomic():
+            instance.delete()
+            create_notification_event(
+                event_type=NotificationEventType.BOARD_DELETED.value,
+                actor=actor,
+                board=None,
+                summary=summary,
+                payload=payload,
+            )
+            transaction.on_commit(
+                lambda: broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
+            )
 
     @action(detail=True, methods=["post"], url_path="archive")
     def archive(self, request: Request, pk: int | None = None) -> Response:
         board = self.get_object()
-        board.archived_at = timezone.now()
-        board.save(update_fields=["archived_at", "updated_at", "version"])
         actor = request.user if request.user.is_authenticated else None
-        create_notification_event(
-            event_type=NotificationEventType.BOARD_UPDATED.value,
-            actor=actor,
-            board=board,
-            summary=f"Архивирован список «{board.name}»",
-            payload={"board": board.name},
-        )
-        broadcast_board_event(board.id, "board.archived", {"board_id": board.id})
+        with transaction.atomic():
+            board.archived_at = timezone.now()
+            board.save(update_fields=["archived_at", "updated_at", "version"])
+            create_notification_event(
+                event_type=NotificationEventType.BOARD_UPDATED.value,
+                actor=actor,
+                board=board,
+                summary=f"Архивирован список «{board.name}»",
+                payload={"board": board.name},
+            )
+            transaction.on_commit(
+                lambda: broadcast_board_event(board.id, "board.archived", {"board_id": board.id})
+            )
         return Response(BoardSerializer(board).data)
 
     @action(detail=True, methods=["post"], url_path="unarchive")
@@ -84,17 +99,20 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         board = Board.with_archived.filter(pk=pk).first()
         if board is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        board.archived_at = None
-        board.save(update_fields=["archived_at", "updated_at", "version"])
         actor = request.user if request.user.is_authenticated else None
-        create_notification_event(
-            event_type=NotificationEventType.BOARD_UPDATED.value,
-            actor=actor,
-            board=board,
-            summary=f"Восстановлен список «{board.name}»",
-            payload={"board": board.name},
-        )
-        broadcast_board_event(board.id, "board.unarchived", {"board_id": board.id})
+        with transaction.atomic():
+            board.archived_at = None
+            board.save(update_fields=["archived_at", "updated_at", "version"])
+            create_notification_event(
+                event_type=NotificationEventType.BOARD_UPDATED.value,
+                actor=actor,
+                board=board,
+                summary=f"Восстановлен список «{board.name}»",
+                payload={"board": board.name},
+            )
+            transaction.on_commit(
+                lambda: broadcast_board_event(board.id, "board.unarchived", {"board_id": board.id})
+            )
         return Response(BoardSerializer(board).data)
 
     @action(detail=True, methods=["delete"], url_path="force-delete")
@@ -107,13 +125,16 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         summary = f"Удалён список «{board.name}»"
         payload = {"board": board.name}
         board_id = board.id
-        board.delete()
-        create_notification_event(
-            event_type=NotificationEventType.BOARD_DELETED.value,
-            actor=actor,
-            board=None,
-            summary=summary,
-            payload=payload,
-        )
-        broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
+        with transaction.atomic():
+            board.delete()
+            create_notification_event(
+                event_type=NotificationEventType.BOARD_DELETED.value,
+                actor=actor,
+                board=None,
+                summary=summary,
+                payload=payload,
+            )
+            transaction.on_commit(
+                lambda: broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
+            )
         return Response(status=status.HTTP_204_NO_CONTENT)
