@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.7.6](https://github.com/TurtleOld/task_manager/compare/v1.7.5...v1.7.6) (2026-09-26)
+
+
+### Bug Fixes
+
+* overdue reminders bypass preferences and ignore delivery failures ([#118](https://github.com/TurtleOld/task_manager/issues/118)) ([258193d](https://github.com/TurtleOld/task_manager/commit/258193d419651dcbc13ee40bd8d0029881b1f888))
+* защита входа от перебора за прокси и политика паролей ([#116](https://github.com/TurtleOld/task_manager/issues/116)) ([2cabd14](https://github.com/TurtleOld/task_manager/commit/2cabd14f33532bbd506e6105e9d42b2b60694ce9))
+* искать упомянутого пользователя без учёта регистра логина ([#123](https://github.com/TurtleOld/task_manager/issues/123)) ([974e6dc](https://github.com/TurtleOld/task_manager/commit/974e6dc3b48be8fa3440d953039cc0f34ca60e4b))
+* не отправлять уведомления и не пускать в WebSocket деактивированных пользователей ([#124](https://github.com/TurtleOld/task_manager/issues/124)) ([a4106b7](https://github.com/TurtleOld/task_manager/commit/a4106b708060b4b9f8b820fbc2c2de52d4558281))
+* обернуть изменение и создание NotificationEvent в единую транзакцию ([#125](https://github.com/TurtleOld/task_manager/issues/125)) ([a3c8e3f](https://github.com/TurtleOld/task_manager/commit/a3c8e3fc9a8ee1c4c2da8ef9f00c86295795b8a1))
+* отправлять напоминания о сроке вне транзакции с блокировкой ([#120](https://github.com/TurtleOld/task_manager/issues/120)) ([2d63666](https://github.com/TurtleOld/task_manager/commit/2d63666202ede7c64c5c0198bdd52fd1d4b12f22))
+* перепланировать напоминания при появлении канала push ([#121](https://github.com/TurtleOld/task_manager/issues/121)) ([67fbdcf](https://github.com/TurtleOld/task_manager/commit/67fbdcf22bb2987e3c7a0eb1becb83a7afbd3acd))
+* пропускать напоминание о сроке для уже выполненной задачи ([#119](https://github.com/TurtleOld/task_manager/issues/119)) ([06d42df](https://github.com/TurtleOld/task_manager/commit/06d42df86f49e78454cb3a14cfb880c7d5c10fcf))
+* сделать отметку задачи выполненной идемпотентной ([#122](https://github.com/TurtleOld/task_manager/issues/122)) ([219bb7f](https://github.com/TurtleOld/task_manager/commit/219bb7f01ad11d4b16a6f2cc8f876ff2ba18bf26))
+* события об изменении и архивации задачи создаёт сервер, а не клиент ([#126](https://github.com/TurtleOld/task_manager/issues/126)) ([3db42b0](https://github.com/TurtleOld/task_manager/commit/3db42b0353892d7619c5b708bf73877be4001308))
+* уведомление о просрочке больше не доставляется дважды ([#115](https://github.com/TurtleOld/task_manager/issues/115)) ([1f74d20](https://github.com/TurtleOld/task_manager/commit/1f74d201754a153bcda1bd50e1dec64766413ee4))
+
 ## [1.7.5](https://github.com/TurtleOld/task_manager/compare/v1.7.4...v1.7.5) (2026-09-23)
 
 
