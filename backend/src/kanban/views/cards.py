@@ -449,8 +449,8 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         )
 
     def perform_create(self, serializer: CardSerializer) -> None:
-        card = serializer.save()
         actor = self.request.user if self.request.user.is_authenticated else None
+        card = serializer.save(created_by=actor)
         create_notification_event(
             event_type=NotificationEventType.CARD_CREATED.value,
             actor=actor,

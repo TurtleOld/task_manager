@@ -256,6 +256,7 @@ export type NotificationEventType =
   | 'comment.updated'
   | 'comment.deleted'
   | 'card.deadline_reminder'
+  | 'card.overdue'
 
 export interface NotificationProfile {
   timezone: string
