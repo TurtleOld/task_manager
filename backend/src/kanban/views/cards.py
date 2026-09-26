@@ -686,38 +686,41 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         now = timezone.now()
 
         with transaction.atomic():
-            card._activity_actor = actor
-            card.completed_at = now
-            card.completed_by = actor
-            card.save(update_fields=["completed_at", "completed_by", "updated_at", "version"])
-            skip_reminders_for_completed_card(card_id=card.id)
+            card = Card.objects.select_for_update().get(pk=card.pk)
+            already_completed = card.completed_at is not None
+            if not already_completed:
+                card._activity_actor = actor
+                card.completed_at = now
+                card.completed_by = actor
+                card.save(update_fields=["completed_at", "completed_by", "updated_at", "version"])
+                skip_reminders_for_completed_card(card_id=card.id)
 
-            open_subtask_ids = list(
-                Card.objects.filter(
-                    parent_id=card.pk,
-                    completed_at__isnull=True,
-                    archived_at__isnull=True,
-                ).values_list("id", flat=True)
-            )
-            if open_subtask_ids:
-                Card.objects.filter(id__in=open_subtask_ids).update(
-                    completed_at=now,
-                    completed_by=actor,
-                    updated_at=now,
-                    version=F("version") + 1,
+                open_subtask_ids = list(
+                    Card.objects.filter(
+                        parent_id=card.pk,
+                        completed_at__isnull=True,
+                        archived_at__isnull=True,
+                    ).values_list("id", flat=True)
                 )
-                CardActivity.objects.bulk_create(
-                    CardActivity(
-                        card_id=subtask_id,
-                        actor=actor,
-                        action="card.updated",
-                        before={"completed_at": None},
-                        after={"completed_at": now.isoformat()},
+                if open_subtask_ids:
+                    Card.objects.filter(id__in=open_subtask_ids).update(
+                        completed_at=now,
+                        completed_by=actor,
+                        updated_at=now,
+                        version=F("version") + 1,
                     )
-                    for subtask_id in open_subtask_ids
-                )
-                for subtask_id in open_subtask_ids:
-                    skip_reminders_for_completed_card(card_id=subtask_id)
+                    CardActivity.objects.bulk_create(
+                        CardActivity(
+                            card_id=subtask_id,
+                            actor=actor,
+                            action="card.updated",
+                            before={"completed_at": None},
+                            after={"completed_at": now.isoformat()},
+                        )
+                        for subtask_id in open_subtask_ids
+                    )
+                    for subtask_id in open_subtask_ids:
+                        skip_reminders_for_completed_card(card_id=subtask_id)
 
         card = (
             Card.objects.select_related("board")
@@ -726,26 +729,33 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         )
         serializer = self.get_serializer(card)
 
-        create_notification_event(
-            event_type=NotificationEventType.CARD_COMPLETED.value,
-            actor=actor,
-            board=card.board,
-            card=card,
-            summary=f"Задача «{card.title}» выполнена",
-            payload={"board": card.board.name, "card": card.title},
-        )
-        broadcast_board_event(card.board_id, "card.completed", {"card": serializer.data})
-        self._broadcast_parent_update(card.parent_id)
+        if not already_completed:
+            create_notification_event(
+                event_type=NotificationEventType.CARD_COMPLETED.value,
+                actor=actor,
+                board=card.board,
+                card=card,
+                summary=f"Задача «{card.title}» выполнена",
+                payload={"board": card.board.name, "card": card.title},
+            )
+            broadcast_board_event(card.board_id, "card.completed", {"card": serializer.data})
+            self._broadcast_parent_update(card.parent_id)
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"], url_path="uncomplete")
     def uncomplete(self, request: Request, pk: str | None = None) -> Response:
         card = self.get_object()
-        card._activity_actor = request.user if request.user.is_authenticated else None
-        card.completed_at = None
-        card.completed_by = None
-        card.save(update_fields=["completed_at", "completed_by", "updated_at", "version"])
-        reschedule_enabled_reminders(card=card)
+        actor = request.user if request.user.is_authenticated else None
+
+        with transaction.atomic():
+            card = Card.objects.select_for_update().get(pk=card.pk)
+            was_completed = card.completed_at is not None
+            if was_completed:
+                card._activity_actor = actor
+                card.completed_at = None
+                card.completed_by = None
+                card.save(update_fields=["completed_at", "completed_by", "updated_at", "version"])
+                reschedule_enabled_reminders(card=card)
 
         card = (
             Card.objects.select_related("board")
@@ -754,6 +764,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         )
         serializer = self.get_serializer(card)
 
-        broadcast_board_event(card.board_id, "card.updated", {"card": serializer.data})
-        self._broadcast_parent_update(card.parent_id)
+        if was_completed:
+            broadcast_board_event(card.board_id, "card.updated", {"card": serializer.data})
+            self._broadcast_parent_update(card.parent_id)
         return Response(serializer.data)

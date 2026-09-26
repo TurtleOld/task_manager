@@ -88,6 +88,29 @@ def test_complete_card_creates_completed_notification_event(regular_user: User, 
     assert NotificationEvent.objects.filter(event_type="card.completed", card_id=card.id).exists()
 
 
+@pytest.mark.django_db()
+def test_completing_an_already_completed_card_is_a_noop(column: Column) -> None:
+    first_actor = User.objects.create_user(username="first", password="pass")
+    second_actor = User.objects.create_user(username="second", password="pass")
+    card = Card.objects.create(column=column, title="Buy bread")
+
+    _client_for(first_actor).post(f"/api/v1/cards/{card.id}/complete/")
+    card.refresh_from_db()
+    first_completed_at = card.completed_at
+    first_version = card.version
+
+    resp = _client_for(second_actor).post(f"/api/v1/cards/{card.id}/complete/")
+
+    assert resp.status_code == 200
+    card.refresh_from_db()
+    assert card.completed_at == first_completed_at
+    assert card.completed_by_id == first_actor.id
+    assert card.version == first_version
+    assert (
+        NotificationEvent.objects.filter(event_type="card.completed", card_id=card.id).count() == 1
+    )
+
+
 # ---------------------------------------------------------------------------
 # Uncomplete
 # ---------------------------------------------------------------------------
@@ -108,6 +131,19 @@ def test_uncomplete_card_clears_moment_and_actor(regular_user: User, card: Card)
     card.refresh_from_db()
     assert card.completed_at is None
     assert card.completed_by_id is None
+
+
+@pytest.mark.django_db()
+def test_uncompleting_an_already_open_card_is_a_noop(regular_user: User, card: Card) -> None:
+    client = _client_for(regular_user)
+    original_version = card.version
+
+    resp = client.post(f"/api/v1/cards/{card.id}/uncomplete/")
+
+    assert resp.status_code == 200
+    card.refresh_from_db()
+    assert card.completed_at is None
+    assert card.version == original_version
 
 
 # ---------------------------------------------------------------------------
