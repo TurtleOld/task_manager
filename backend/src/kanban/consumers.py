@@ -56,8 +56,8 @@ class BoardConsumer(AsyncJsonWebsocketConsumer):
         def fetch_user(key: str):
             try:
                 token = Token.objects.select_related("user").get(key=key)
-                return token.user
             except Token.DoesNotExist:
                 return None
+            return token.user if token.user.is_active else None
 
         return await fetch_user(token_key)

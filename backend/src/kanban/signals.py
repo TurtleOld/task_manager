@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from django.conf import settings
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 
-from .models import Card, CardActivity
+from .models import Card, CardActivity, PushDevice
 
 TRACKED_CARD_FIELDS = (
     "title",
@@ -64,3 +65,22 @@ def serialize_activity_value(value: object) -> object:
     if hasattr(value, "isoformat"):
         return value.isoformat()
     return value
+
+
+@receiver(pre_save, sender=settings.AUTH_USER_MODEL)
+def revoke_access_on_deactivation(
+    sender: type,
+    instance: object,
+    **kwargs: object,
+) -> None:
+    if not instance.pk:
+        return
+    try:
+        previous = sender.objects.get(pk=instance.pk)
+    except sender.DoesNotExist:
+        return
+    if previous.is_active and not instance.is_active:
+        from rest_framework.authtoken.models import Token
+
+        PushDevice.objects.filter(user=instance).delete()
+        Token.objects.filter(user=instance).delete()

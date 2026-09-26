@@ -346,7 +346,7 @@ def _event_recipients(event: NotificationEvent) -> list[int]:
     mention_user_ids = (
         event.payload.get("mention_user_ids") if isinstance(event.payload, dict) else None
     )
-    qs = User.objects.all().order_by("id")
+    qs = User.objects.filter(is_active=True).order_by("id")
     if isinstance(mention_user_ids, list) and mention_user_ids:
         mentioned = {int(item) for item in mention_user_ids if str(item).isdigit()}
         if not mentioned:
