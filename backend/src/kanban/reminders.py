@@ -229,3 +229,36 @@ def upsert_and_schedule_reminder(
     # The DB row above is the source of truth; the dispatcher polls it every
     # tick and delivers the reminder once it comes due.
     return reminder
+
+
+def reschedule_enabled_reminders(*, card: Card) -> None:
+    """Recompute every enabled reminder on a card against its current deadline."""
+
+    reminders = CardDeadlineReminder.objects.filter(card_id=card.id, enabled=True)
+    for reminder in reminders:
+        upsert_and_schedule_reminder(card=card, reminder=reminder)
+
+
+def skip_reminders_for_completed_card(*, card_id: int) -> None:
+    """Stop a scheduled reminder from firing about a task that is already done."""
+
+    reminders = CardDeadlineReminder.objects.filter(
+        card_id=card_id, status=CardDeadlineReminder.Status.SCHEDULED
+    )
+    for reminder in reminders:
+        reminder.status = CardDeadlineReminder.Status.SKIPPED
+        reminder.scheduled_at = None
+        reminder.schedule_token = None
+        reminder.last_error = "Пропущено: задача уже выполнена"
+        reminder.next_attempt_at = None
+        reminder.save(
+            update_fields=[
+                "status",
+                "scheduled_at",
+                "schedule_token",
+                "last_error",
+                "next_attempt_at",
+                "updated_at",
+                "version",
+            ]
+        )

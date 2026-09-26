@@ -402,6 +402,45 @@ def test_long_overdue_reminder_is_skipped_not_sent(
 
 
 @pytest.mark.django_db()
+def test_due_reminder_for_completed_card_is_skipped(
+    column, regular_user, webpush_settings, monkeypatch
+) -> None:
+    """Regression: a reminder must not fire for a task already marked done."""
+
+    sent: list[str] = []
+    monkeypatch.setattr(
+        "kanban.webpush.send_webpush",
+        lambda *, endpoint, **_kwargs: sent.append(endpoint),
+    )
+    _device(regular_user)
+
+    now = timezone.now()
+    card = Card.objects.create(
+        column=column,
+        title="Уже сделано",
+        deadline=now + timedelta(hours=1),
+        completed_at=now,
+        completed_by=regular_user,
+    )
+    reminder = CardDeadlineReminder.objects.create(
+        card=card,
+        user=regular_user,
+        enabled=True,
+        offset_value=20,
+        status=CardDeadlineReminder.Status.SCHEDULED,
+        scheduled_at=now - timedelta(seconds=30),
+        schedule_token="44444444-4444-4444-4444-444444444444",
+    )
+
+    dispatcher.process_due_reminders(now=now)
+
+    reminder.refresh_from_db()
+    assert sent == []
+    assert reminder.status == CardDeadlineReminder.Status.SKIPPED
+    assert "выполнена" in reminder.last_error.lower()
+
+
+@pytest.mark.django_db()
 def test_reminder_retry_is_scheduled_after_a_failure(
     column, regular_user, webpush_settings, monkeypatch
 ) -> None:
