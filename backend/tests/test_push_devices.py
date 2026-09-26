@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
-from kanban.models import PushDevice
+from kanban.models import Card, CardDeadlineReminder, NotificationProfile, PushDevice
+from kanban.reminders import upsert_and_schedule_reminder
 
 User = get_user_model()
 
@@ -24,9 +28,7 @@ def test_register_device_creates_record(auth_client, regular_user) -> None:
 
 
 @pytest.mark.django_db()
-def test_reregister_same_endpoint_updates_instead_of_duplicating(
-    auth_client, regular_user
-) -> None:
+def test_reregister_same_endpoint_updates_instead_of_duplicating(auth_client, regular_user) -> None:
     auth_client.post("/api/v1/push-devices/", data=SUBSCRIPTION, format="json")
     resp = auth_client.post("/api/v1/push-devices/", data=SUBSCRIPTION, format="json")
 
@@ -82,6 +84,33 @@ def test_test_send_reports_no_devices_separately(auth_client, regular_user) -> N
     payload = resp.json()
     assert payload["delivered"] is False
     assert payload["no_devices"] is True
+
+
+@pytest.mark.django_db()
+def test_registering_device_reschedules_stranded_reminder(
+    auth_client, regular_user, column
+) -> None:
+    NotificationProfile.objects.update_or_create(user=regular_user, defaults={})
+    card = Card.objects.create(
+        column=column,
+        title="Waiting for a device",
+        deadline=timezone.now() + timedelta(days=1),
+    )
+    reminder = CardDeadlineReminder.objects.create(
+        card=card,
+        user=regular_user,
+        enabled=True,
+        offset_value=20,
+    )
+    upsert_and_schedule_reminder(card=card, reminder=reminder)
+    reminder.refresh_from_db()
+    assert reminder.status == CardDeadlineReminder.Status.INVALID_CHANNEL
+
+    resp = auth_client.post("/api/v1/push-devices/", data=SUBSCRIPTION, format="json")
+
+    assert resp.status_code == 201
+    reminder.refresh_from_db()
+    assert reminder.status == CardDeadlineReminder.Status.SCHEDULED
 
 
 @pytest.mark.django_db()

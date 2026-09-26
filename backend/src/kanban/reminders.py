@@ -239,6 +239,23 @@ def reschedule_enabled_reminders(*, card: Card) -> None:
         upsert_and_schedule_reminder(card=card, reminder=reminder)
 
 
+def reschedule_invalid_channel_reminders(*, user_id: int) -> None:
+    """Retry every reminder stranded by a missing channel for this user.
+
+    A device registering or coming back active makes push available again,
+    but nothing else re-evaluates reminders already stuck in
+    INVALID_CHANNEL, so they would otherwise never fire.
+    """
+
+    reminders = CardDeadlineReminder.objects.filter(
+        user_id=user_id,
+        enabled=True,
+        status=CardDeadlineReminder.Status.INVALID_CHANNEL,
+    ).select_related("card")
+    for reminder in reminders:
+        upsert_and_schedule_reminder(card=reminder.card, reminder=reminder)
+
+
 def skip_reminders_for_completed_card(*, card_id: int) -> None:
     """Stop a scheduled reminder from firing about a task that is already done."""
 
