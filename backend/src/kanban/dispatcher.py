@@ -203,6 +203,14 @@ def process_due_reminders(*, now=None, limit: int | None = None) -> int:
                 _finalize_reminder(reminder, status=CardDeadlineReminder.Status.INVALID_NO_DEADLINE)
                 continue
 
+            if card.completed_at is not None:
+                _finalize_reminder(
+                    reminder,
+                    status=CardDeadlineReminder.Status.SKIPPED,
+                    error="Пропущено: задача уже выполнена",
+                )
+                continue
+
             availability = reminder_channel_availability(
                 user_id=reminder.user_id,
                 board_id=card.board_id,

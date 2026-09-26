@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
-from kanban.models import Board, Card, CardActivity, Column, NotificationEvent
+from kanban.models import (
+    Board,
+    Card,
+    CardActivity,
+    CardDeadlineReminder,
+    Column,
+    NotificationEvent,
+    NotificationProfile,
+    PushDevice,
+)
 
 User = get_user_model()
 
@@ -178,6 +190,39 @@ def test_uncompleting_parent_does_not_reopen_subtasks(regular_user: User, column
     sub.refresh_from_db()
     assert parent.completed_at is None
     assert sub.completed_at is not None
+
+
+# ---------------------------------------------------------------------------
+# Deadline reminders
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db()
+def test_uncomplete_reschedules_deadline_reminder(regular_user: User, column: Column) -> None:
+    NotificationProfile.objects.get_or_create(user=regular_user)
+    PushDevice.objects.create(
+        user=regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
+    )
+    now = timezone.now()
+    card = Card.objects.create(
+        column=column, title="Полить цветы", deadline=now + timedelta(hours=2)
+    )
+    reminder = CardDeadlineReminder.objects.create(
+        card=card,
+        user=regular_user,
+        enabled=True,
+        offset_value=20,
+        status=CardDeadlineReminder.Status.SCHEDULED,
+        scheduled_at=now + timedelta(hours=1, minutes=40),
+    )
+
+    client = _client_for(regular_user)
+    client.post(f"/api/v1/cards/{card.id}/complete/")
+    client.post(f"/api/v1/cards/{card.id}/uncomplete/")
+
+    reminder.refresh_from_db()
+    assert reminder.status == CardDeadlineReminder.Status.SCHEDULED
+    assert reminder.scheduled_at is not None
 
 
 @pytest.mark.django_db()

@@ -740,6 +740,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         card.completed_by = None
         card.save(update_fields=["completed_at", "completed_by", "updated_at", "version"])
 
+        reminders = CardDeadlineReminder.objects.filter(card_id=card.id, enabled=True)
+        for reminder in reminders:
+            upsert_and_schedule_reminder(card=card, reminder=reminder)
+
         card = (
             Card.objects.select_related("board")
             .prefetch_related(*CARD_PREFETCH_RELATED)
