@@ -198,6 +198,65 @@ def test_uncompleting_parent_does_not_reopen_subtasks(regular_user: User, column
 
 
 @pytest.mark.django_db()
+def test_complete_card_skips_scheduled_deadline_reminder(
+    regular_user: User, column: Column
+) -> None:
+    """The reminder must stop being live the moment the task is completed,
+    not only once the dispatcher's next tick notices completed_at."""
+    NotificationProfile.objects.get_or_create(user=regular_user)
+    PushDevice.objects.create(
+        user=regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
+    )
+    now = timezone.now()
+    card = Card.objects.create(
+        column=column, title="Полить цветы", deadline=now + timedelta(hours=2)
+    )
+    reminder = CardDeadlineReminder.objects.create(
+        card=card,
+        user=regular_user,
+        enabled=True,
+        offset_value=20,
+        status=CardDeadlineReminder.Status.SCHEDULED,
+        scheduled_at=now + timedelta(hours=1, minutes=40),
+    )
+
+    _client_for(regular_user).post(f"/api/v1/cards/{card.id}/complete/")
+
+    reminder.refresh_from_db()
+    assert reminder.status == CardDeadlineReminder.Status.SKIPPED
+    assert reminder.scheduled_at is None
+    assert "выполнена" in reminder.last_error.lower()
+
+
+@pytest.mark.django_db()
+def test_completing_parent_skips_subtask_deadline_reminders(
+    regular_user: User, column: Column
+) -> None:
+    NotificationProfile.objects.get_or_create(user=regular_user)
+    PushDevice.objects.create(
+        user=regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
+    )
+    now = timezone.now()
+    parent = Card.objects.create(column=column, title="Trip")
+    sub = Card.objects.create(
+        column=column, title="Book flights", parent=parent, deadline=now + timedelta(hours=2)
+    )
+    reminder = CardDeadlineReminder.objects.create(
+        card=sub,
+        user=regular_user,
+        enabled=True,
+        offset_value=20,
+        status=CardDeadlineReminder.Status.SCHEDULED,
+        scheduled_at=now + timedelta(hours=1, minutes=40),
+    )
+
+    _client_for(regular_user).post(f"/api/v1/cards/{parent.id}/complete/")
+
+    reminder.refresh_from_db()
+    assert reminder.status == CardDeadlineReminder.Status.SKIPPED
+
+
+@pytest.mark.django_db()
 def test_uncomplete_reschedules_deadline_reminder(regular_user: User, column: Column) -> None:
     NotificationProfile.objects.get_or_create(user=regular_user)
     PushDevice.objects.create(

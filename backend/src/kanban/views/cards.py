@@ -31,7 +31,12 @@ from ..models import (
     RecurrenceRule,
 )
 from ..notifications import create_notification_event
-from ..reminders import reminder_channel_availability, upsert_and_schedule_reminder
+from ..reminders import (
+    reminder_channel_availability,
+    reschedule_enabled_reminders,
+    skip_reminders_for_completed_card,
+    upsert_and_schedule_reminder,
+)
 from ..serializers import (
     AgendaCardSerializer,
     AttachmentSerializer,
@@ -472,9 +477,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             self.request.user if self.request.user.is_authenticated else None
         )
         card = serializer.save()
-        reminders = CardDeadlineReminder.objects.filter(card_id=card.id, enabled=True)
-        for reminder in reminders:
-            upsert_and_schedule_reminder(card=card, reminder=reminder)
+        reschedule_enabled_reminders(card=card)
         card = (
             Card.objects.select_related("board")
             .prefetch_related(*CARD_PREFETCH_RELATED)
@@ -687,6 +690,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             card.completed_at = now
             card.completed_by = actor
             card.save(update_fields=["completed_at", "completed_by", "updated_at", "version"])
+            skip_reminders_for_completed_card(card_id=card.id)
 
             open_subtask_ids = list(
                 Card.objects.filter(
@@ -712,6 +716,8 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                     )
                     for subtask_id in open_subtask_ids
                 )
+                for subtask_id in open_subtask_ids:
+                    skip_reminders_for_completed_card(card_id=subtask_id)
 
         card = (
             Card.objects.select_related("board")
@@ -739,10 +745,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         card.completed_at = None
         card.completed_by = None
         card.save(update_fields=["completed_at", "completed_by", "updated_at", "version"])
-
-        reminders = CardDeadlineReminder.objects.filter(card_id=card.id, enabled=True)
-        for reminder in reminders:
-            upsert_and_schedule_reminder(card=card, reminder=reminder)
+        reschedule_enabled_reminders(card=card)
 
         card = (
             Card.objects.select_related("board")
