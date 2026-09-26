@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import re
-from functools import reduce
-from operator import or_
 from typing import Any
 
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import F
+from django.db.models.functions import Lower
 from django.utils import timezone
 from django.utils.text import get_valid_filename
 from rest_framework import permissions, status, viewsets
@@ -429,11 +428,13 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         additive.
         """
 
-        usernames = set(re.findall(r"@([\w.@+-]+)", comment.text))
+        usernames = {
+            item.lower() for item in re.findall(r"@([\w.@+-]+)", comment.text)
+        }
         mentioned_users = (
-            User.objects.filter(
-                reduce(or_, (Q(username__iexact=name) for name in usernames))
-            ).exclude(id=comment.author_id)
+            User.objects.annotate(username_lower=Lower("username"))
+            .filter(username_lower__in=usernames)
+            .exclude(id=comment.author_id)
             if usernames
             else User.objects.none()
         )
