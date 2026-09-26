@@ -16,6 +16,7 @@ from ..models import (
     PushDevice,
 )
 from ..push_delivery import send_push_to_user
+from ..reminders import reschedule_invalid_channel_reminders
 from ..serializers import (
     NotificationInboxEntrySerializer,
     NotificationPreferenceSerializer,
@@ -135,8 +136,14 @@ class NotificationPreferenceViewSet(viewsets.ModelViewSet[NotificationPreference
             if enabled is not None and instance.enabled != enabled:
                 instance.enabled = enabled
                 instance.save(update_fields=["enabled"])
+            reschedule_invalid_channel_reminders(user_id=request.user.pk)
             return Response(self.get_serializer(instance).data, status=status.HTTP_200_OK)
+        reschedule_invalid_channel_reminders(user_id=request.user.pk)
         return Response(self.get_serializer(instance).data, status=status.HTTP_201_CREATED)
+
+    def perform_update(self, serializer: NotificationPreferenceSerializer) -> None:
+        serializer.save()
+        reschedule_invalid_channel_reminders(user_id=self.request.user.pk)
 
 
 class VapidPublicKeyView(APIView):
@@ -193,6 +200,7 @@ class PushDeviceViewSet(viewsets.ViewSet):
                 "last_error": "",
             },
         )
+        reschedule_invalid_channel_reminders(user_id=request.user.pk)
         return Response(
             PushDeviceSerializer(device).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
