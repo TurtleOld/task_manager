@@ -800,3 +800,33 @@ def test_reminder_is_delivered_only_to_its_owner(
     dispatcher.process_due_reminders(now=now)
 
     assert sent == [owner_device.endpoint]
+
+
+@pytest.mark.django_db()
+def test_deactivated_user_is_not_an_event_recipient(
+    board, regular_user, webpush_settings, monkeypatch
+) -> None:
+    other = User.objects.create_user(username="user2", password="pw", is_active=False)
+    _device(regular_user, "https://push.example.com/actor")
+    other_device = _device(other, "https://push.example.com/other")
+
+    sent: list[str] = []
+    monkeypatch.setattr(
+        "kanban.webpush.send_webpush",
+        lambda *, endpoint, **_kwargs: sent.append(endpoint),
+    )
+
+    event = create_notification_event(
+        event_type=NotificationEventType.CARD_CREATED,
+        actor=regular_user,
+        board=board,
+        summary="Создана задача",
+    )
+
+    dispatcher.process_outbox_events()
+
+    assert other_device.endpoint not in sent
+    recipients = set(
+        NotificationInboxEntry.objects.filter(event=event).values_list("user_id", flat=True)
+    )
+    assert other.id not in recipients

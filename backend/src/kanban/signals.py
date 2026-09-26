@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from django.db.models.signals import pre_save
+from django.conf import settings
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from rest_framework.authtoken.models import Token
 
-from .models import Card, CardActivity
+from .broadcast import disconnect_user_websockets
+from .models import Card, CardActivity, PushDevice
 
 TRACKED_CARD_FIELDS = (
     "title",
@@ -64,3 +67,37 @@ def serialize_activity_value(value: object) -> object:
     if hasattr(value, "isoformat"):
         return value.isoformat()
     return value
+
+
+@receiver(pre_save, sender=settings.AUTH_USER_MODEL)
+def _capture_previous_active_state(
+    sender: type,
+    instance: object,
+    **kwargs: object,
+) -> None:
+    if not instance.pk:
+        instance._was_active = None
+        return
+    try:
+        instance._was_active = sender.objects.get(pk=instance.pk).is_active
+    except sender.DoesNotExist:
+        instance._was_active = None
+
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def revoke_access_on_deactivation(
+    sender: type,
+    instance: object,
+    created: bool,
+    **kwargs: object,
+) -> None:
+    # post_save (not pre_save) so a save() that raises after the signal
+    # fires never leaves devices/tokens revoked for a user who is still
+    # active.
+    if created:
+        return
+    was_active = getattr(instance, "_was_active", None)
+    if was_active and not instance.is_active:
+        PushDevice.objects.filter(user=instance).delete()
+        Token.objects.filter(user=instance).delete()
+        disconnect_user_websockets(instance.id)

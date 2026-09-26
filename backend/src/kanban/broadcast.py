@@ -3,7 +3,7 @@ from __future__ import annotations
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
-from .consumers import board_group_name
+from .consumers import board_group_name, user_group_name
 
 
 def broadcast_board_event(board_id: int, event_type: str, data: dict) -> None:
@@ -28,4 +28,24 @@ def broadcast_board_event(board_id: int, event_type: str, data: dict) -> None:
         )
     except Exception:  # noqa: BLE001
         # Never let broadcast failures break the HTTP request/response cycle.
+        pass
+
+
+def disconnect_user_websockets(user_id: int) -> None:
+    """Close every open WebSocket connection belonging to this user.
+
+    Used when a user is deactivated: their token stops authenticating new
+    connections, but a connection opened before deactivation stays open
+    until something tells it to close.
+    """
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+
+    try:
+        async_to_sync(channel_layer.group_send)(
+            user_group_name(user_id),
+            {"type": "user.disconnect"},
+        )
+    except Exception:  # noqa: BLE001
         pass
