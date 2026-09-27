@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -44,8 +45,8 @@ def test_broadcast_calls_group_send() -> None:
     assert message["data"]["card"]["id"] == 1
 
 
-def test_broadcast_swallows_exceptions() -> None:
-    """A broken channel layer must not propagate errors to callers."""
+def test_broadcast_swallows_exceptions(caplog) -> None:
+    """A broken channel layer must not propagate errors, but must be logged."""
     from kanban.broadcast import broadcast_board_event
 
     mock_layer = MagicMock()
@@ -54,9 +55,11 @@ def test_broadcast_swallows_exceptions() -> None:
     with (
         patch("kanban.broadcast.get_channel_layer", return_value=mock_layer),
         patch("kanban.broadcast.async_to_sync", side_effect=lambda f: f),
+        caplog.at_level(logging.ERROR, logger="kanban.broadcast"),
     ):
-        # Should not raise
         broadcast_board_event(board_id=1, event_type="board.updated", data={})
+
+    assert "broadcast_board_event failed" in caplog.text
 
 
 def test_board_group_name_format() -> None:

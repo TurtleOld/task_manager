@@ -47,5 +47,6 @@ class AgendaCardSerializer(serializers.ModelSerializer[Card]):
             "checklist_total",
             "checklist_completed",
             "created_at",
+            "version",
         ]
         read_only_fields = fields

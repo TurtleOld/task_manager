@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from .consumers import board_group_name, user_group_name
+
+logger = logging.getLogger(__name__)
 
 
 def broadcast_board_event(board_id: int, event_type: str, data: dict) -> None:
@@ -27,8 +31,10 @@ def broadcast_board_event(board_id: int, event_type: str, data: dict) -> None:
             },
         )
     except Exception:  # noqa: BLE001
-        # Never let broadcast failures break the HTTP request/response cycle.
-        pass
+        # Never let broadcast failures break the HTTP request/response cycle,
+        # but do not hide them either: a dead channel layer otherwise looks
+        # exactly like "nothing is happening".
+        logger.exception("broadcast_board_event failed for board %s", board_id)
 
 
 def disconnect_user_websockets(user_id: int) -> None:
@@ -48,4 +54,4 @@ def disconnect_user_websockets(user_id: int) -> None:
             {"type": "user.disconnect"},
         )
     except Exception:  # noqa: BLE001
-        pass
+        logger.exception("disconnect_user_websockets failed for user %s", user_id)
