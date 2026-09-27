@@ -13,11 +13,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# NOTE: Some corporate environments intercept TLS with a custom CA.
-# You can override these build args as needed.
-ARG PIP_TRUSTED_HOST_1=pypi.org
-ARG PIP_TRUSTED_HOST_2=files.pythonhosted.org
-
 WORKDIR /app
 
 # Runtime defaults for entrypoint.sh
@@ -36,12 +31,8 @@ COPY backend/pyproject.toml ./pyproject.toml
 RUN python -m venv "$VIRTUAL_ENV" \
     && python -m pip install --upgrade pip \
     && python -c "import pathlib, tomllib; data=tomllib.loads(pathlib.Path('pyproject.toml').read_text('utf-8')); print('\\n'.join(data.get('project', {}).get('dependencies', [])))" > /tmp/requirements.txt \
-    && python -m pip install \
-        --trusted-host "$PIP_TRUSTED_HOST_1" \
-        --trusted-host "$PIP_TRUSTED_HOST_2" \
-        -r /tmp/requirements.txt
+    && python -m pip install -r /tmp/requirements.txt
 
-# Copy project source
 COPY backend/manage.py ./manage.py
 COPY backend/src ./src
 

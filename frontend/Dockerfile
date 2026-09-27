@@ -6,8 +6,6 @@ WORKDIR /app
 # Ensure /app is writable even when running as non-root.
 RUN chown -R node:node /app
 
-RUN npm config set strict-ssl false
-
 COPY package.json package-lock.json ./
 RUN npm cache clean --force \
   && npm ci --include=optional \

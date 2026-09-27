@@ -641,9 +641,9 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         The body carries no data — the server is the source of both the
         event's text and the decision to create it (see
-        `create_or_extend_pending_card_update_event`). This endpoint is kept
-        only as a "flush now" signal for the frozen Android app, which still
-        calls it; a missing window is not an error.
+        `create_or_extend_pending_card_update_event`). The frontend calls it
+        as a "flush now" signal when the task screen closes; a missing window
+        is not an error.
         """
 
         card = self.get_object()
