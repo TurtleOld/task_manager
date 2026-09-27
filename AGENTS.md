@@ -20,7 +20,7 @@
 
 ## Code Style
 
-- Keep Python lines at 80 characters when practical; the lint limit is 81 characters.
+- Keep Python lines within the 100-character limit enforced by ruff (`line-length = 100`).
 
 ## Backend Testing
 

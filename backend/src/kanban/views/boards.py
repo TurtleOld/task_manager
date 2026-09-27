@@ -38,9 +38,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         )
         board_data = BoardSerializer(board).data
         transaction.on_commit(
-            lambda: broadcast_board_event(
-                board.id, "board.created", {"board": board_data}
-            )
+            lambda: broadcast_board_event(board.id, "board.created", {"board": board_data})
         )
 
     def perform_update(self, serializer: BoardSerializer) -> None:
@@ -56,9 +54,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             )
             board_data = BoardSerializer(board).data
             transaction.on_commit(
-                lambda: broadcast_board_event(
-                    board.id, "board.updated", {"board": board_data}
-                )
+                lambda: broadcast_board_event(board.id, "board.updated", {"board": board_data})
             )
 
     def perform_destroy(self, instance: Board) -> None:
@@ -76,9 +72,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
                 payload=payload,
             )
             transaction.on_commit(
-                lambda: broadcast_board_event(
-                    board_id, "board.deleted", {"board_id": board_id}
-                )
+                lambda: broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
             )
 
     @action(detail=True, methods=["post"], url_path="archive")
@@ -96,9 +90,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
                 payload={"board": board.name},
             )
             transaction.on_commit(
-                lambda: broadcast_board_event(
-                    board.id, "board.archived", {"board_id": board.id}
-                )
+                lambda: broadcast_board_event(board.id, "board.archived", {"board_id": board.id})
             )
         return Response(BoardSerializer(board).data)
 
@@ -119,9 +111,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
                 payload={"board": board.name},
             )
             transaction.on_commit(
-                lambda: broadcast_board_event(
-                    board.id, "board.unarchived", {"board_id": board.id}
-                )
+                lambda: broadcast_board_event(board.id, "board.unarchived", {"board_id": board.id})
             )
         return Response(BoardSerializer(board).data)
 
@@ -145,8 +135,6 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
                 payload=payload,
             )
             transaction.on_commit(
-                lambda: broadcast_board_event(
-                    board_id, "board.deleted", {"board_id": board_id}
-                )
+                lambda: broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
             )
         return Response(status=status.HTTP_204_NO_CONTENT)

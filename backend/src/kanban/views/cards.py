@@ -461,9 +461,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         additive.
         """
 
-        usernames = {
-            item.lower() for item in re.findall(r"@([\w.@+-]+)", comment.text)
-        }
+        usernames = {item.lower() for item in re.findall(r"@([\w.@+-]+)", comment.text)}
         mentioned_users = (
             User.objects.annotate(username_lower=Lower("username"))
             .filter(username_lower__in=usernames)
@@ -510,9 +508,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             )
             card_data = CardSerializer(card).data
             transaction.on_commit(
-                lambda: broadcast_board_event(
-                    card.board_id, "card.created", {"card": card_data}
-                )
+                lambda: broadcast_board_event(card.board_id, "card.created", {"card": card_data})
             )
         self._broadcast_parent_update(card.parent_id)
 

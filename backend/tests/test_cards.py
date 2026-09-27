@@ -264,9 +264,7 @@ def test_patch_card_increments_version(auth_client: APIClient, card: Card) -> No
 
 
 @pytest.mark.django_db()
-def test_patch_card_creates_pending_notification_event(
-    auth_client: APIClient, card: Card
-) -> None:
+def test_patch_card_creates_pending_notification_event(auth_client: APIClient, card: Card) -> None:
     """PATCH creates its own card.updated event, coalesced and not yet due."""
     auth_client.patch(f"/api/v1/cards/{card.id}/", data={"title": "v2"}, format="json")
     events = NotificationEvent.objects.filter(event_type="card.updated", card_id=card.id)
