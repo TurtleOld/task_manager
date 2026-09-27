@@ -106,4 +106,5 @@ def webpush_settings(settings):
     settings.VAPID_PUBLIC_KEY = "test-public"
     settings.VAPID_PRIVATE_KEY = "test-private"
     settings.VAPID_CLAIM_EMAIL = "mailto:test@example.com"
+    settings.WEBPUSH_ALLOWED_HOSTS = [*settings.WEBPUSH_ALLOWED_HOSTS, "push.example.com"]
     return settings

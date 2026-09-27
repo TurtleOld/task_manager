@@ -13,6 +13,7 @@ from ..models import (
     NotificationProfile,
     PushDevice,
 )
+from ..webpush import is_allowed_push_endpoint
 
 
 class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProfile]):
@@ -201,6 +202,13 @@ class PushSubscriptionSerializer(serializers.Serializer[dict[str, Any]]):
     endpoint = serializers.URLField(max_length=1000)
     keys = serializers.DictField(child=serializers.CharField(max_length=200))
     label = serializers.CharField(max_length=120, required=False, allow_blank=True)
+
+    def validate_endpoint(self, value: str) -> str:
+        if not is_allowed_push_endpoint(value):
+            raise serializers.ValidationError(
+                "Разрешены только HTTPS-адреса известных push-сервисов"
+            )
+        return value
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         keys = attrs.get("keys") or {}
