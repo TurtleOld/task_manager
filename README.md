@@ -119,7 +119,6 @@ OPENAPI_URL=http://localhost:8000/api/schema npm run generate:openapi
 - **Web Push (VAPID)** — основной канал. Уведомление попадает в системную шторку
   телефона и оттуда зеркалится на часы (Wear OS, Apple Watch), даже когда
   вкладка закрыта. На iOS требуется 16.4+ и установка на домашний экран.
-- Push через FCM — legacy-канал для Android-приложения.
 - Email (SMTP)
 - Telegram (бот через HTTP API)
 
@@ -143,7 +142,6 @@ OPENAPI_URL=http://localhost:8000/api/schema npm run generate:openapi
 - FRONTEND_BASE_URL — базовый URL фронтенда для ссылок в уведомлениях
 - EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_USE_TLS, EMAIL_USE_SSL, DEFAULT_FROM_EMAIL
 - TELEGRAM_BOT_TOKEN — токен бота
-- FCM_SERVICE_ACCOUNT_FILE, FCM_PROJECT_ID — legacy-канал Android-приложения
 
 Web Push:
 
@@ -260,51 +258,4 @@ Celery остаётся в кодовой базе для повторяющих
 
 - `backend/` — Django API
 - `frontend/` — React UI
-- `android/` — Android (Kotlin + Jetpack Compose, WebView + OneSignal push)
 - `docker-compose.yml` — инфраструктура для разработки
-
-## Mobile (Android)
-
-### Требования
-
-- JDK 17
-- Android SDK (локально) или Docker (для сборки через compose)
-
-### Переменные окружения
-
-- `ANDROID_API_BASE_URL` — base URL API (по умолчанию `http://10.0.2.2:8000` для эмулятора)
-- `ONESIGNAL_APP_ID` — App ID из OneSignal (для push)
-
-### Firebase / google-services.json
-
-- Файл [`android/app/google-services.json`](android/app/google-services.json) не хранится в Git.
-- Для локальной разработки положите свой файл вручную в [`android/app/google-services.json`](android/app/google-services.json).
-- Для CI используется секрет `GOOGLE_SERVICES_JSON_B64` (base64 от содержимого файла), из которого на этапе сборки восстанавливается [`android/app/google-services.json`](android/app/google-services.json).
-
-Пример получения base64 для секрета:
-
-```bash
-base64 -w 0 android/app/google-services.json
-```
-
-Проверка перед локальной сборкой (файл обязателен при подключенном Firebase plugin):
-
-```bash
-test -f android/app/google-services.json || (echo "Missing android/app/google-services.json" && exit 1)
-```
-
-### Локальная сборка
-
-```bash
-cd android
-./gradlew :app:assembleDebug
-./gradlew :app:bundleRelease
-```
-
-### Сборка через Docker Compose
-
-```bash
-docker compose build android
-```
-
-APK/AAB находятся в `android/app/build/outputs`.
