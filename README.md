@@ -46,7 +46,33 @@ docker compose up --build
 - `POSTGRES_DB` (по умолчанию `task_manager`)
 - `DJANGO_SECRET_KEY` (по умолчанию `dev`)
 - `DJANGO_DEBUG` (по умолчанию `true`)
-- `DJANGO_ALLOWED_HOSTS` (по умолчанию `*`)
+- `DJANGO_ALLOWED_HOSTS` (в dev по умолчанию `*`; в
+  `docker-compose.prod.yml` — `PUBLIC_HOST`)
+- `DJANGO_CSRF_TRUSTED_ORIGINS` — дополнительные origin через запятую, которым
+  разрешены небезопасные запросы с сессионной аутентификацией (admin, DRF
+  SessionAuthentication). Origin из `FRONTEND_BASE_URL` добавляется сам.
+
+## Работа за HTTPS-прокси
+
+В проде TLS терминирует Traefik и передаёт исходную схему в заголовке
+`X-Forwarded-Proto`. Backend доверяет этому заголовку
+(`SECURE_PROXY_SSL_HEADER`), поэтому `request.is_secure()` и проверка Origin у
+CSRF работают так же, как при прямом HTTPS. При `DJANGO_DEBUG=false` сессионная
+и CSRF-cookie помечаются `Secure` и по HTTP не отправляются.
+
+Чтобы это работало, в `.env` прод-развёртывания задайте реальный домен:
+
+- `PUBLIC_HOST` — публичный домен (обязателен для `docker-compose.prod.yml`);
+- `DJANGO_ALLOWED_HOSTS` — по умолчанию равен `PUBLIC_HOST`, поэтому
+  `AllowedHostsOriginValidator` для WebSocket пропускает только его;
+- `FRONTEND_BASE_URL` — HTTPS-URL этого домена; его origin автоматически
+  попадает в `CSRF_TRUSTED_ORIGINS`.
+
+Проверить конфигурацию можно командой `python manage.py check --deploy` с
+`DJANGO_DEBUG=false`. Предупреждения `security.W004` (HSTS) и `security.W008`
+(редирект на HTTPS) остаются намеренно: и то и другое делает Traefik на
+внешнем крае, а внутри сети backend слушает HTTP и не должен редиректить
+собственный healthcheck.
 
 ## Dev-разработка (локально без Docker)
 
@@ -119,7 +145,6 @@ OPENAPI_URL=http://localhost:8000/api/schema npm run generate:openapi
 - **Web Push (VAPID)** — основной канал. Уведомление попадает в системную шторку
   телефона и оттуда зеркалится на часы (Wear OS, Apple Watch), даже когда
   вкладка закрыта. На iOS требуется 16.4+ и установка на домашний экран.
-- Push через FCM — legacy-канал для Android-приложения.
 - Email (SMTP)
 - Telegram (бот через HTTP API)
 
@@ -143,7 +168,6 @@ OPENAPI_URL=http://localhost:8000/api/schema npm run generate:openapi
 - FRONTEND_BASE_URL — базовый URL фронтенда для ссылок в уведомлениях
 - EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_USE_TLS, EMAIL_USE_SSL, DEFAULT_FROM_EMAIL
 - TELEGRAM_BOT_TOKEN — токен бота
-- FCM_SERVICE_ACCOUNT_FILE, FCM_PROJECT_ID — legacy-канал Android-приложения
 
 Web Push:
 
@@ -260,51 +284,4 @@ Celery остаётся в кодовой базе для повторяющих
 
 - `backend/` — Django API
 - `frontend/` — React UI
-- `android/` — Android (Kotlin + Jetpack Compose, WebView + OneSignal push)
 - `docker-compose.yml` — инфраструктура для разработки
-
-## Mobile (Android)
-
-### Требования
-
-- JDK 17
-- Android SDK (локально) или Docker (для сборки через compose)
-
-### Переменные окружения
-
-- `ANDROID_API_BASE_URL` — base URL API (по умолчанию `http://10.0.2.2:8000` для эмулятора)
-- `ONESIGNAL_APP_ID` — App ID из OneSignal (для push)
-
-### Firebase / google-services.json
-
-- Файл [`android/app/google-services.json`](android/app/google-services.json) не хранится в Git.
-- Для локальной разработки положите свой файл вручную в [`android/app/google-services.json`](android/app/google-services.json).
-- Для CI используется секрет `GOOGLE_SERVICES_JSON_B64` (base64 от содержимого файла), из которого на этапе сборки восстанавливается [`android/app/google-services.json`](android/app/google-services.json).
-
-Пример получения base64 для секрета:
-
-```bash
-base64 -w 0 android/app/google-services.json
-```
-
-Проверка перед локальной сборкой (файл обязателен при подключенном Firebase plugin):
-
-```bash
-test -f android/app/google-services.json || (echo "Missing android/app/google-services.json" && exit 1)
-```
-
-### Локальная сборка
-
-```bash
-cd android
-./gradlew :app:assembleDebug
-./gradlew :app:bundleRelease
-```
-
-### Сборка через Docker Compose
-
-```bash
-docker compose build android
-```
-
-APK/AAB находятся в `android/app/build/outputs`.
