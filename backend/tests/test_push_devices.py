@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
+import requests
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from pywebpush import WebPushException
 
 from kanban.models import Card, CardDeadlineReminder, NotificationProfile, PushDevice
 from kanban.reminders import upsert_and_schedule_reminder
@@ -12,11 +14,53 @@ from kanban.reminders import upsert_and_schedule_reminder
 User = get_user_model()
 
 
-SUBSCRIPTION = {
-    "endpoint": "https://push.example.com/sub",
-    "keys": {"p256dh": "p256dh-key", "auth": "auth-key"},
-    "label": "Chrome на Android",
-}
+def _subscription(endpoint: str, *, label: str = "") -> dict:
+    payload = {
+        "endpoint": endpoint,
+        "keys": {"p256dh": "p256dh-key", "auth": "auth-key"},
+    }
+    if label:
+        payload["label"] = label
+    return payload
+
+
+SUBSCRIPTION = _subscription(
+    "https://fcm.googleapis.com/fcm/send/sub",
+    label="Chrome на Android",
+)
+
+
+@pytest.mark.django_db()
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "http://fcm.googleapis.com/fcm/send/sub",
+        "https://evil.example.com/sub",
+        "https://fcm.googleapis.com.evil.example/sub",
+        "https://127.0.0.1/sub",
+        "https://dispatcher:8000/sub",
+    ],
+)
+def test_register_rejects_endpoint_outside_allowlist(auth_client, endpoint) -> None:
+    resp = auth_client.post("/api/v1/push-devices/", data=_subscription(endpoint), format="json")
+
+    assert resp.status_code == 400
+    assert "endpoint" in resp.json()
+
+
+@pytest.mark.django_db()
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "https://fcm.googleapis.com/fcm/send/sub",
+        "https://wns2-par02p.notify.windows.com/w/?token=x",
+        "https://updates.push.services.mozilla.com/wpush/v2/x",
+    ],
+)
+def test_register_accepts_known_push_service_hosts(auth_client, endpoint) -> None:
+    resp = auth_client.post("/api/v1/push-devices/", data=_subscription(endpoint), format="json")
+
+    assert resp.status_code == 201
 
 
 @pytest.mark.django_db()
@@ -111,6 +155,28 @@ def test_registering_device_reschedules_stranded_reminder(
     assert resp.status_code == 201
     reminder.refresh_from_db()
     assert reminder.status == CardDeadlineReminder.Status.SCHEDULED
+
+
+@pytest.mark.django_db()
+def test_test_send_does_not_reflect_push_service_body(
+    auth_client, webpush_settings, monkeypatch
+) -> None:
+    auth_client.post("/api/v1/push-devices/", data=SUBSCRIPTION, format="json")
+
+    def fake_webpush(**_kwargs):
+        response = requests.Response()
+        response.status_code = 500
+        response._content = b"INTERNAL-SECRET-BODY"
+        raise WebPushException("boom", response=response)
+
+    monkeypatch.setattr("pywebpush.webpush", fake_webpush)
+
+    resp = auth_client.post("/api/v1/push-devices/test/")
+
+    assert resp.status_code == 502
+    assert "INTERNAL-SECRET-BODY" not in resp.text
+    device = PushDevice.objects.get()
+    assert "INTERNAL-SECRET-BODY" not in device.last_error
 
 
 @pytest.mark.django_db()

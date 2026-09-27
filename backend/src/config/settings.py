@@ -265,6 +265,21 @@ WEBPUSH_TTL_SECONDS = int(os.getenv("WEBPUSH_TTL_SECONDS", "7200"))
 # `high` просит FCM разбудить устройство из Doze немедленно. С `normal`
 # сообщение ждёт окна обслуживания — на Android это минуты или часы.
 WEBPUSH_URGENCY = os.getenv("WEBPUSH_URGENCY", "high")
+# Endpoint подписки выбирает браузер, а не сервер, поэтому это недоверенный
+# ввод: без allowlist диспетчер и POST /push-devices/test/ отправят запрос по
+# любому адресу, включая имена Docker-сервисов и metadata-эндпоинты (SSRF).
+# Разрешены только эти хосты и их поддомены. Свой push-сервис добавляется
+# через WEBPUSH_ALLOWED_HOSTS.
+WEBPUSH_ALLOWED_HOSTS = [
+    host.strip().lower()
+    for host in os.getenv(
+        "WEBPUSH_ALLOWED_HOSTS",
+        "fcm.googleapis.com,android.googleapis.com,"
+        "updates.push.services.mozilla.com,notify.windows.com,"
+        "web.push.apple.com",
+    ).split(",")
+    if host.strip()
+]
 
 # --- Notification dispatcher ---
 #

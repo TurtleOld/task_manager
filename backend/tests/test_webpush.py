@@ -90,3 +90,18 @@ def test_send_webpush_retires_subscription_on_410(webpush_settings, monkeypatch)
 
     with pytest.raises(PushSubscriptionGoneError):
         send_webpush(**_subscription_kwargs())
+
+
+def test_error_message_does_not_leak_response_body(webpush_settings, monkeypatch):
+    def fake_webpush(**kwargs):
+        response = requests.Response()
+        response.status_code = 500
+        response._content = b"INTERNAL-SECRET-BODY"
+        raise WebPushException("boom", response=response)
+
+    monkeypatch.setattr("pywebpush.webpush", fake_webpush)
+
+    with pytest.raises(PushDeliveryError) as excinfo:
+        send_webpush(**_subscription_kwargs())
+
+    assert "INTERNAL-SECRET-BODY" not in str(excinfo.value)
