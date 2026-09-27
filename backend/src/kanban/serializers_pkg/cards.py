@@ -365,6 +365,12 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "completed_by_detail",
         ]
 
+    def get_fields(self) -> dict[str, serializers.Field]:
+        fields = super().get_fields()
+        if self.instance is not None:
+            fields["board"].read_only = True
+        return fields
+
     def get_checklist(self, obj: Card) -> list[dict[str, Any]]:
         # checklist_items is prefetched in the viewset queryset
         items = getattr(obj, "_prefetched_objects_cache", {}).get("checklist_items")
@@ -400,7 +406,13 @@ class CardSerializer(serializers.ModelSerializer[Card]):
                 raise serializers.ValidationError({"parent": "A card cannot be its own parent."})
             if parent.parent_id is not None:
                 raise serializers.ValidationError(
-                    {"parent": "Only two subtask levels are allowed."}
+                    {"parent": "Subtasks cannot have their own subtasks."}
+                )
+            if instance is not None and Card.with_archived.filter(
+                parent=instance
+            ).exists():
+                raise serializers.ValidationError(
+                    {"parent": "A card with subtasks cannot be a subtask."}
                 )
             target_board = board or getattr(instance, "board", None)
             if target_board is not None and parent.board_id != target_board.id:
