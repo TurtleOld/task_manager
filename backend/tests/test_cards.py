@@ -4,10 +4,12 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from kanban.models import Board, Card, Column, NotificationEvent
+from kanban.serializers import CardSerializer
 
 User = get_user_model()
 
@@ -278,6 +280,98 @@ def test_patch_card_creates_pending_notification_event(
 
 
 # ---------------------------------------------------------------------------
+# Board and parent invariants
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db()
+def test_card_board_is_writable_on_create_read_only_on_update(
+    card: Card,
+) -> None:
+    created = CardSerializer()
+    assert created.fields["board"].read_only is False
+
+    updated = CardSerializer(card, data={"title": "x"}, partial=True)
+    assert updated.fields["board"].read_only is True
+
+
+@pytest.mark.django_db()
+def test_patch_board_does_not_move_card(
+    auth_client: APIClient, card: Card
+) -> None:
+    board_id = card.board_id
+    other_board = Board.objects.create(name="Other board")
+    resp = auth_client.patch(
+        f"/api/v1/cards/{card.id}/",
+        data={"board": other_board.id},
+        format="json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["board"] == board_id
+    card.refresh_from_db()
+    assert card.board_id == board_id
+
+
+@pytest.mark.django_db()
+def test_patch_parent_on_card_with_subtasks_rejected(
+    auth_client: APIClient, card: Card
+) -> None:
+    Card.objects.create(column=card.column, parent=card, title="Child")
+    other = Card.objects.create(column=card.column, title="Other")
+    resp = auth_client.patch(
+        f"/api/v1/cards/{card.id}/",
+        data={"parent": other.id},
+        format="json",
+    )
+    assert resp.status_code == 400
+    assert "parent" in resp.json()
+    card.refresh_from_db()
+    assert card.parent_id is None
+
+
+@pytest.mark.django_db()
+def test_patch_parent_rejected_when_subtasks_are_archived(
+    auth_client: APIClient, card: Card
+) -> None:
+    child = Card.objects.create(column=card.column, parent=card, title="Child")
+    child.archived_at = timezone.now()
+    child.save(update_fields=["archived_at", "updated_at", "version"])
+    other = Card.objects.create(column=card.column, title="Other")
+    resp = auth_client.patch(
+        f"/api/v1/cards/{card.id}/",
+        data={"parent": other.id},
+        format="json",
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.django_db()
+def test_patch_parent_under_a_subtask_rejected(
+    auth_client: APIClient, card: Card
+) -> None:
+    parent = Card.objects.create(column=card.column, title="Parent")
+    subtask = Card.objects.create(column=card.column, parent=parent, title="Sub")
+    resp = auth_client.patch(
+        f"/api/v1/cards/{card.id}/",
+        data={"parent": subtask.id},
+        format="json",
+    )
+    assert resp.status_code == 400
+    assert resp.json()["parent"] == [
+        "Subtasks cannot have their own subtasks."
+    ]
+
+
+@pytest.mark.django_db()
+def test_card_clean_rejects_parent_when_card_has_subtasks(card: Card) -> None:
+    Card.objects.create(column=card.column, parent=card, title="Child")
+    parent = Card.objects.create(column=card.column, title="Parent")
+    card.parent = parent
+    with pytest.raises(DjangoValidationError):
+        card.clean()
+
+
+# ---------------------------------------------------------------------------
 # Delete
 # ---------------------------------------------------------------------------
 
@@ -352,7 +446,7 @@ def test_notify_updated_without_pending_event_is_a_noop(auth_client: APIClient, 
 
 @pytest.mark.django_db()
 def test_notify_updated_ignores_a_body(auth_client: APIClient, card: Card) -> None:
-    """Android still posts a body — it must not be validated or used."""
+    """A body, if sent, must not be validated or used."""
     resp = auth_client.post(
         f"/api/v1/cards/{card.id}/notify-updated/",
         data={"version": 999, "changes": ["anything"]},

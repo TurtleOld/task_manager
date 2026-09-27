@@ -299,6 +299,27 @@ def test_gone_subscription_retires_only_that_device(
 
 
 @pytest.mark.django_db()
+def test_disallowed_endpoint_is_never_contacted(
+    regular_user, webpush_settings, monkeypatch
+) -> None:
+    device = _device(regular_user, "http://169.254.169.254/latest/meta-data/")
+    calls: list[str] = []
+
+    def record(*, endpoint: str, **_kwargs):
+        calls.append(endpoint)
+
+    monkeypatch.setattr("kanban.webpush.send_webpush", record)
+
+    result = send_push_to_user(user_id=regular_user.pk, title="t", body="b")
+
+    device.refresh_from_db()
+    assert calls == []
+    assert result.sent == 0
+    assert result.retired == 1
+    assert device.active is False
+
+
+@pytest.mark.django_db()
 def test_transient_failure_keeps_the_device(regular_user, webpush_settings, monkeypatch) -> None:
     """A network blip must never cost someone their subscription."""
 
