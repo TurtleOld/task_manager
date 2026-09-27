@@ -44,6 +44,19 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   return registration
 }
 
+/**
+ * Register the worker as soon as the app boots, so the precache and offline
+ * shell exist even for people who never enable notifications. Only in the
+ * production build: the dev server does not emit `sw.js`.
+ */
+export function registerServiceWorkerOnStartup(): void {
+  if (!import.meta.env.PROD) return
+  if (!('serviceWorker' in navigator)) return
+  void registerServiceWorker().catch(() => {
+    // Best effort: a failed registration only costs the offline shell.
+  })
+}
+
 export function getNotificationPermission(): NotificationPermission {
   if (!('Notification' in window)) return 'denied'
   return Notification.permission
