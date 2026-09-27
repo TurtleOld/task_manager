@@ -10,6 +10,14 @@ server {
     resolver 127.0.0.11 valid=10s;
     set $backend_upstream ${BACKEND_UPSTREAM};
 
+    # Traefik terminates TLS and passes the original scheme in
+    # X-Forwarded-Proto. Forward it upstream untouched; fall back to the
+    # local scheme so a proxy-less run still reports plain HTTP.
+    set $forwarded_proto $http_x_forwarded_proto;
+    if ($forwarded_proto = "") {
+        set $forwarded_proto $scheme;
+    }
+
     gzip on;
     gzip_types text/css application/javascript application/json image/svg+xml;
 
@@ -33,7 +41,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
     }
 
     location /media/ {
@@ -41,7 +49,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
     }
 
     location /ws/ {
@@ -52,7 +60,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
         proxy_read_timeout 3600s;
     }
 }
