@@ -28,6 +28,13 @@ server {
         try_files $uri /index.html;
     }
 
+    # AUDIT-028: the detail endpoint leaks DB/Redis errors and queue counters.
+    # Only the aggregate /api/health is served publicly; the details stay on
+    # the internal network and never through this edge.
+    location ~ ^/api/health/detail/?$ {
+        return 404;
+    }
+
     location /api/ {
         proxy_pass http://$backend_upstream;
         proxy_set_header Host $host;
