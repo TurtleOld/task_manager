@@ -7,6 +7,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     # Ensure Django project packages (./src/config, ./src/kanban, etc.) are importable
     # for process entrypoints that don't go through manage.py (e.g. daphne, celery).
     PYTHONPATH=/app/src \
+    UV_PROJECT_ENVIRONMENT=/app/.venv \
+    UV_LINK_MODE=copy \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 
@@ -29,19 +31,13 @@ ENV APP_ROOT=/app \
     LOGS_DIR=/app/logs \
     TMP_DIR=/app/tmp
 
-# Pre-install deps (production only) for better layer caching
-COPY backend/pyproject.toml ./pyproject.toml
+COPY backend/pyproject.toml backend/uv.lock ./
 
-# Create venv and install runtime deps (no dev extras)
-RUN python -m venv "$VIRTUAL_ENV" \
-    && python -m pip install --upgrade pip \
-    && python -c "import pathlib, tomllib; data=tomllib.loads(pathlib.Path('pyproject.toml').read_text('utf-8')); print('\\n'.join(data.get('project', {}).get('dependencies', [])))" > /tmp/requirements.txt \
-    && python -m pip install \
+RUN python -m pip install --upgrade pip uv \
         --trusted-host "$PIP_TRUSTED_HOST_1" \
         --trusted-host "$PIP_TRUSTED_HOST_2" \
-        -r /tmp/requirements.txt
+    && uv sync --frozen --no-dev
 
-# Copy project source
 COPY backend/manage.py ./manage.py
 COPY backend/src ./src
 
