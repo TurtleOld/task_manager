@@ -1,5 +1,4 @@
 VERSION_FILE := version.txt
-ANDROID_VERSION_FILE := android/version.txt
 
 ifeq ($(OS),Windows_NT)
 PYTHON ?= py -3
@@ -7,7 +6,7 @@ else
 PYTHON ?= python3
 endif
 
-.PHONY: uv-venv uv-sync dev migrate run lint typecheck test test-coverage openapi-export version android-version
+.PHONY: uv-venv uv-sync dev migrate run lint typecheck test test-coverage openapi-export version
 
 uv-venv:
 	uv venv --python 3.13
@@ -40,7 +39,3 @@ openapi-export:
 
 version:
 	@$(PYTHON) -c "from pathlib import Path; print(Path(r'$(VERSION_FILE)').read_text(encoding='utf-8').strip())"
-
-android-version:
-	@$(PYTHON) -c "from pathlib import Path; print(Path(r'$(ANDROID_VERSION_FILE)').read_text(encoding='utf-8').strip())"
-

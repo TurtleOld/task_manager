@@ -446,7 +446,7 @@ def test_notify_updated_without_pending_event_is_a_noop(auth_client: APIClient, 
 
 @pytest.mark.django_db()
 def test_notify_updated_ignores_a_body(auth_client: APIClient, card: Card) -> None:
-    """Android still posts a body — it must not be validated or used."""
+    """A body, if sent, must not be validated or used."""
     resp = auth_client.post(
         f"/api/v1/cards/{card.id}/notify-updated/",
         data={"version": 999, "changes": ["anything"]},

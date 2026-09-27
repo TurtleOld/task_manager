@@ -22,6 +22,7 @@ from .webpush import (
     PushNotConfiguredError,
     PushSubscriptionGoneError,
     build_payload,
+    is_allowed_push_endpoint,
     webpush_configured,
 )
 
@@ -31,6 +32,10 @@ logger = logging.getLogger(__name__)
 # explicit "gone" from the push service. Protects the dispatcher from spending
 # every tick retrying an endpoint that is never coming back.
 MAX_CONSECUTIVE_FAILURES = 10
+
+
+class PushEndpointNotAllowedError(RuntimeError):
+    """The stored endpoint is not an allowlisted push service. Never contact it."""
 
 
 @dataclass
@@ -117,6 +122,11 @@ def send_push_to_user(
 
     for device in devices:
         try:
+            if not is_allowed_push_endpoint(device.endpoint):
+                # Rows can predate the serializer allowlist. Retrying an
+                # address we refuse to contact is pointless, so park the
+                # device like a gone subscription.
+                raise PushEndpointNotAllowedError
             if not webpush_configured():
                 raise PushNotConfiguredError("VAPID keys are not configured")
             from .webpush import send_webpush
@@ -126,6 +136,18 @@ def send_push_to_user(
                 p256dh=device.p256dh,
                 auth=device.auth,
                 payload=payload,
+            )
+        except PushEndpointNotAllowedError:
+            _mark_failure(
+                device,
+                "Адрес push-сервиса не входит в список разрешённых",
+                retire=True,
+            )
+            result.retired += 1
+            logger.warning(
+                "push_device_endpoint_not_allowed device=%s user=%s",
+                device.pk,
+                user_id,
             )
         except PushSubscriptionGoneError as exc:
             # The subscription is permanently gone: retire this device only.
