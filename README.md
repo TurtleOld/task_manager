@@ -46,7 +46,33 @@ docker compose up --build
 - `POSTGRES_DB` (по умолчанию `task_manager`)
 - `DJANGO_SECRET_KEY` (по умолчанию `dev`)
 - `DJANGO_DEBUG` (по умолчанию `true`)
-- `DJANGO_ALLOWED_HOSTS` (по умолчанию `*`)
+- `DJANGO_ALLOWED_HOSTS` (в dev по умолчанию `*`; в
+  `docker-compose.prod.yml` — `PUBLIC_HOST`)
+- `DJANGO_CSRF_TRUSTED_ORIGINS` — дополнительные origin через запятую, которым
+  разрешены небезопасные запросы с сессионной аутентификацией (admin, DRF
+  SessionAuthentication). Origin из `FRONTEND_BASE_URL` добавляется сам.
+
+## Работа за HTTPS-прокси
+
+В проде TLS терминирует Traefik и передаёт исходную схему в заголовке
+`X-Forwarded-Proto`. Backend доверяет этому заголовку
+(`SECURE_PROXY_SSL_HEADER`), поэтому `request.is_secure()` и проверка Origin у
+CSRF работают так же, как при прямом HTTPS. При `DJANGO_DEBUG=false` сессионная
+и CSRF-cookie помечаются `Secure` и по HTTP не отправляются.
+
+Чтобы это работало, в `.env` прод-развёртывания задайте реальный домен:
+
+- `PUBLIC_HOST` — публичный домен (обязателен для `docker-compose.prod.yml`);
+- `DJANGO_ALLOWED_HOSTS` — по умолчанию равен `PUBLIC_HOST`, поэтому
+  `AllowedHostsOriginValidator` для WebSocket пропускает только его;
+- `FRONTEND_BASE_URL` — HTTPS-URL этого домена; его origin автоматически
+  попадает в `CSRF_TRUSTED_ORIGINS`.
+
+Проверить конфигурацию можно командой `python manage.py check --deploy` с
+`DJANGO_DEBUG=false`. Предупреждения `security.W004` (HSTS) и `security.W008`
+(редирект на HTTPS) остаются намеренно: и то и другое делает Traefik на
+внешнем крае, а внутри сети backend слушает HTTP и не должен редиректить
+собственный healthcheck.
 
 ## Dev-разработка (локально без Docker)
 
