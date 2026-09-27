@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
+from urllib.parse import urlsplit
 
 from django.conf import settings
 
@@ -49,6 +50,30 @@ class PushNotConfiguredError(RuntimeError):
 def webpush_configured() -> bool:
     return bool(
         settings.VAPID_PRIVATE_KEY and settings.VAPID_PUBLIC_KEY and settings.VAPID_CLAIM_EMAIL
+    )
+
+
+def is_allowed_push_endpoint(endpoint: str) -> bool:
+    """Accept an endpoint only if it is HTTPS on an allowlisted host.
+
+    The endpoint reaches us from the browser, so it is attacker-controlled.
+    `urlsplit().hostname` strips userinfo and port, which closes tricks like
+    `https://fcm.googleapis.com@evil.example/`. Subdomains are accepted only
+    with a leading dot, so `fcm.googleapis.com.evil.example` does not match.
+    """
+
+    try:
+        parts = urlsplit(endpoint)
+        host = (parts.hostname or "").lower()
+    except ValueError:
+        return False
+    if parts.scheme != "https":
+        return False
+    if not host:
+        return False
+    return any(
+        host == allowed or host.endswith(f".{allowed}")
+        for allowed in settings.WEBPUSH_ALLOWED_HOSTS
     )
 
 
@@ -171,4 +196,6 @@ def _raise_from_webpush_exception(exc: Any, *, endpoint: str) -> None:
         endpoint[:80],
         body[:300],
     )
-    raise PushDeliveryError(f"Web Push error: HTTP {status}; body={body[:300]}") from exc
+    # The response body is remote data about a service we do not control; it
+    # stays in the server log and never reaches the caller.
+    raise PushDeliveryError(f"Web Push error: HTTP {status}") from exc
