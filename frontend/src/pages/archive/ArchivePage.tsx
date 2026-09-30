@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { RotateCcw, Trash2 } from 'lucide-react'
-import { useBoards, useUnarchiveBoard, useForceDeleteBoard } from '../../api/queries/boards'
+import { useBoards, useUnarchiveBoard, useDeleteBoard } from '../../api/queries/boards'
 import { useArchive, useRestoreArchiveCard } from '../../api/queries/cards'
 import type { ArchivedCard, Board } from '../../api/types'
 import { formatTaskCount } from '../../shared/lib/formatTaskCount'
@@ -23,7 +23,7 @@ export function ArchivePage() {
   const { data, isLoading: archiveLoading, isError, refetch } = useArchive(selectedBoardId)
   const restoreCard = useRestoreArchiveCard(selectedBoardId)
   const unarchiveBoard = useUnarchiveBoard()
-  const forceDeleteBoard = useForceDeleteBoard()
+  const deleteBoard = useDeleteBoard()
   const [restoringKey, setRestoringKey] = useState<string | null>(null)
   const [deletingBoard, setDeletingBoard] = useState<Board | null>(null)
 
@@ -57,9 +57,9 @@ export function ArchivePage() {
     }
   }
 
-  const forceDeleteArchivedBoard = async (board: Board) => {
+  const removeArchivedBoard = async (board: Board) => {
     try {
-      await forceDeleteBoard.mutateAsync(board.id)
+      await deleteBoard.mutateAsync(board.id)
       toast.success(`Список «${board.name}» удалён`)
       void refetch()
     } catch (error) {
@@ -91,7 +91,8 @@ export function ArchivePage() {
             </div>
             <div>
               <p className="max-w-3xl text-body-sm text-text-muted">
-                Удаление теперь не стирает данные. Архивированные элементы скрываются со списков и могут быть восстановлены.
+                Здесь лежат элементы, убранные с глаз. Архивирование обратимо: данные целы, элемент можно восстановить.
+                Безвозвратно удалить можно только отсюда.
               </p>
             </div>
           </div>
@@ -183,8 +184,8 @@ export function ArchivePage() {
             <Button variant="secondary" onClick={() => setDeletingBoard(null)}>Отмена</Button>
             <Button
               variant="danger"
-              loading={forceDeleteBoard.isPending}
-              onClick={() => deletingBoard && void forceDeleteArchivedBoard(deletingBoard)}
+              loading={deleteBoard.isPending}
+              onClick={() => deletingBoard && void removeArchivedBoard(deletingBoard)}
             >
               <Trash2 className="h-4 w-4" />
               Удалить навсегда
@@ -223,7 +224,7 @@ function ArchivedBoardItem({ board, restoring, onRestore, onDelete }: {
             <RotateCcw className="h-4 w-4" />
             Восстановить
           </Button>
-          <Button type="button" variant="danger" size="sm" onClick={onDelete}>
+          <Button type="button" variant="danger" size="sm" onClick={onDelete} aria-label={`Удалить список «${board.name}» навсегда`}>
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
