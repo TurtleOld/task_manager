@@ -72,6 +72,7 @@ export function useArchiveBoard() {
       qc.setQueryData<Board[]>(queryKeys.boards(), (prev) =>
         prev?.filter((b) => b.id !== board.id),
       )
+      qc.invalidateQueries({ queryKey: ['archive'] })
     },
   })
 }
@@ -85,6 +86,7 @@ export function useUnarchiveBoard() {
         prev ? [...prev, board] : [board],
       )
       qc.invalidateQueries({ queryKey: queryKeys.boards() })
+      qc.invalidateQueries({ queryKey: ['archive'] })
     },
   })
 }
