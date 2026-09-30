@@ -130,13 +130,6 @@ export const api = {
     })
     return json(res)
   },
-  forceDeleteBoard: async (id: number): Promise<void> => {
-    const res = await fetch(`${V1}/boards/${id}/force-delete/`, {
-      method: 'DELETE',
-      headers: authHeaders(),
-    })
-    return ok(res)
-  },
 
   // Cards
   listCards: async (): Promise<Card[]> => {
