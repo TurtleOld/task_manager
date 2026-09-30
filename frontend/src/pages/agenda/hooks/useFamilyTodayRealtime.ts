@@ -36,7 +36,8 @@ export function useFamilyTodayRealtime({ boardIds, token }: FamilyTodayRealtimeO
         event.type === 'card.created' ||
         event.type === 'card.updated' ||
         event.type === 'card.completed' ||
-        event.type === 'card.deleted'
+        event.type === 'card.deleted' ||
+        event.type === 'card.archived'
       ) {
         void qc.invalidateQueries({ queryKey: queryKeys.familyToday() })
       }

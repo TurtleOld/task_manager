@@ -555,8 +555,8 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             )
         self._broadcast_parent_update(parent_id)
 
-    @action(detail=True, methods=["post"], url_path="restore")
-    def restore(self, request: Request, pk: str | None = None) -> Response:
+    @action(detail=True, methods=["post"], url_path="archive")
+    def archive(self, request: Request, pk: str | None = None) -> Response:
         try:
             card = (
                 Card.with_archived.select_related("board")
@@ -567,13 +567,71 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
         if card.archived_at is not None:
-            card.archived_at = None
-            card.save(update_fields=["archived_at", "updated_at", "version"])
-            card = (
-                Card.objects.select_related("board")
-                .prefetch_related(*CARD_PREFETCH_RELATED)
-                .get(pk=card.pk)
+            return Response(
+                {"detail": "Card is already archived"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
+
+        actor = request.user if request.user.is_authenticated else None
+        now = timezone.now()
+        card_id = card.id
+        board_id = card.board_id
+        with transaction.atomic():
+            card.archived_at = now
+            card.save(update_fields=["archived_at", "updated_at", "version"])
+            open_subtask_ids = list(
+                Card.with_archived.filter(
+                    parent=card,
+                    archived_at__isnull=True,
+                ).values_list("id", flat=True)
+            )
+            if open_subtask_ids:
+                Card.with_archived.filter(id__in=open_subtask_ids).update(
+                    archived_at=now,
+                    updated_at=now,
+                    version=F("version") + 1,
+                )
+            create_notification_event(
+                event_type=NotificationEventType.CARD_ARCHIVED.value,
+                actor=actor,
+                board=card.board,
+                card=card,
+                summary=f"Задача «{card.title}» в архиве",
+                payload={"board": card.board.name, "card": card.title},
+            )
+            transaction.on_commit(
+                lambda: broadcast_board_event(
+                    board_id, "card.archived", {"card_id": card_id}
+                )
+            )
+        self._broadcast_parent_update(card.parent_id)
+        card.refresh_from_db()
+        return Response(self.get_serializer(card).data)
+
+    @action(detail=True, methods=["post"], url_path="unarchive")
+    def unarchive(self, request: Request, pk: str | None = None) -> Response:
+        try:
+            card = (
+                Card.with_archived.select_related("board")
+                .prefetch_related(*CARD_PREFETCH_RELATED)
+                .get(pk=pk)
+            )
+        except Card.DoesNotExist:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if card.archived_at is None:
+            return Response(
+                {"detail": "Card is not archived"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        card.archived_at = None
+        card.save(update_fields=["archived_at", "updated_at", "version"])
+        card = (
+            Card.with_archived.select_related("board")
+            .prefetch_related(*CARD_PREFETCH_RELATED)
+            .get(pk=card.pk)
+        )
 
         data = self.get_serializer(card).data
         broadcast_board_event(card.board_id, "card.created", {"card": data})

@@ -59,7 +59,7 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
         return
       }
 
-      if (event.type === 'card.deleted') {
+      if (event.type === 'card.deleted' || event.type === 'card.archived') {
         qc.setQueryData<AgendaResponse>(key, (prev) => {
           if (!prev) return prev
           return { ...prev, cards: prev.cards.filter((item) => item.id !== event.card_id) }
