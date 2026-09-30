@@ -1,5 +1,11 @@
 import { expect, test } from '@playwright/test'
+import type { Locator } from '@playwright/test'
 import { ensureBoard, ensureUser, signInPage } from './helpers'
+
+async function clickCentered(locator: Locator) {
+  await locator.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+  await locator.click()
+}
 
 test.describe('board archive lifecycle', () => {
   test('archives a board from the list and permanently deletes it from the archive', async ({ page, request }) => {
@@ -11,7 +17,7 @@ test.describe('board archive lifecycle', () => {
 
     const card = page.getByRole('article').filter({ hasText: board.name })
     await expect(card).toBeVisible()
-    await card.getByRole('button', { name: 'В архив' }).click()
+    await clickCentered(card.getByRole('button', { name: 'В архив' }))
 
     const archiveDialog = page.getByRole('dialog')
     await expect(archiveDialog.getByText('Убрать список в архив?')).toBeVisible()
@@ -23,7 +29,8 @@ test.describe('board archive lifecycle', () => {
     const archived = page.getByRole('article').filter({ hasText: board.name })
     await expect(archived).toBeVisible()
 
-    await archived.getByRole('button', { name: `Удалить список «${board.name}» навсегда` }).click()
+    const deleteButton = archived.getByRole('button', { name: `Удалить список «${board.name}» навсегда` })
+    await clickCentered(deleteButton)
 
     const deleteDialog = page.getByRole('dialog')
     await expect(deleteDialog.getByText('Удалить список навсегда?')).toBeVisible()
