@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { RotateCcw, Trash2 } from 'lucide-react'
 import { useBoards, useUnarchiveBoard, useDeleteBoard } from '../../api/queries/boards'
-import { useArchive, useRestoreArchiveCard } from '../../api/queries/cards'
+import { useArchive, useUnarchiveCard } from '../../api/queries/cards'
 import type { ArchivedCard, Board } from '../../api/types'
 import { formatTaskCount } from '../../shared/lib/formatTaskCount'
 import { priorityToLabel, priorityToMarker, priorityToTone } from '../../shared/lib/priority'
@@ -21,7 +21,7 @@ export function ArchivePage() {
   const [boardFilter, setBoardFilter] = useState('all')
   const selectedBoardId = boardFilter === 'all' ? undefined : Number(boardFilter)
   const { data, isLoading: archiveLoading, isError, refetch } = useArchive(selectedBoardId)
-  const restoreCard = useRestoreArchiveCard(selectedBoardId)
+  const unarchiveCard = useUnarchiveCard(selectedBoardId)
   const unarchiveBoard = useUnarchiveBoard()
   const deleteBoard = useDeleteBoard()
   const [restoringKey, setRestoringKey] = useState<string | null>(null)
@@ -32,10 +32,10 @@ export function ArchivePage() {
   const totalCount = cards.length + archivedBoards.length
   const isLoading = boardsLoading || archiveLoading
 
-  const restoreArchivedCard = async (card: ArchivedCard) => {
+  const unarchiveArchivedCard = async (card: ArchivedCard) => {
     setRestoringKey(`card-${card.id}`)
     try {
-      await restoreCard.mutateAsync(card.id)
+      await unarchiveCard.mutateAsync(card.id)
       toast.success('Задача восстановлена')
     } catch (error) {
       toast.error((error as Error).message || 'Не удалось восстановить задачу')
@@ -165,7 +165,7 @@ export function ArchivePage() {
                 key={card.id}
                 card={card}
                 restoring={restoringKey === `card-${card.id}`}
-                onRestore={() => void restoreArchivedCard(card)}
+                onRestore={() => void unarchiveArchivedCard(card)}
               />
             ))}
           </div>

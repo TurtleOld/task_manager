@@ -302,8 +302,15 @@ export const api = {
     })
     return ok(res)
   },
-  restoreCard: async (id: number): Promise<Card> => {
-    const res = await fetch(`${V1}/cards/${id}/restore/`, {
+  archiveCard: async (id: number): Promise<Card> => {
+    const res = await fetch(`${V1}/cards/${id}/archive/`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    return json(res)
+  },
+  unarchiveCard: async (id: number): Promise<Card> => {
+    const res = await fetch(`${V1}/cards/${id}/unarchive/`, {
       method: 'POST',
       headers: authHeaders(),
     })

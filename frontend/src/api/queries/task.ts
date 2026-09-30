@@ -280,8 +280,8 @@ export function useTaskDeleteComment(taskId: number) {
 }
 
 export function useTaskArchive(taskId: number) {
-  return useMutation<void, Error, void>({
-    mutationFn: () => api.deleteCard(taskId),
+  return useMutation<Card, Error, void>({
+    mutationFn: () => api.archiveCard(taskId),
   })
 }
 

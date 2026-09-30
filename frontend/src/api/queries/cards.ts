@@ -54,10 +54,10 @@ export function useArchive(boardId?: number) {
   })
 }
 
-export function useRestoreArchiveCard(boardId?: number) {
+export function useUnarchiveCard(boardId?: number) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => api.restoreCard(id),
+    mutationFn: (id: number) => api.unarchiveCard(id),
     onSuccess: (card) => {
       qc.setQueryData<ArchiveResponse>(queryKeys.archive(boardId), (prev) => {
         if (!prev) return prev

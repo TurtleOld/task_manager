@@ -251,6 +251,7 @@ export type NotificationEventType =
   | 'card.created'
   | 'card.updated'
   | 'card.deleted'
+  | 'card.archived'
   | 'card.completed'
   | 'comment.created'
   | 'comment.updated'
