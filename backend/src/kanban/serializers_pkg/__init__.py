@@ -20,8 +20,6 @@ from .notifications import (
 )
 from .site_settings import SiteSettingsSerializer
 from .users import (
-    PERMISSION_MAP,
-    ROLE_PRESETS,
     CurrentUserUpdateSerializer,
     PasswordChangeSerializer,
     RegisterSerializer,
@@ -46,10 +44,8 @@ __all__ = [
     "NotificationPreferenceSerializer",
     "NotificationProfileSerializer",
     "PasswordChangeSerializer",
-    "PERMISSION_MAP",
     "RecurrenceRuleSerializer",
     "RegisterSerializer",
-    "ROLE_PRESETS",
     "SiteSettingsSerializer",
     "UserSerializer",
     "UserUpdateSerializer",
