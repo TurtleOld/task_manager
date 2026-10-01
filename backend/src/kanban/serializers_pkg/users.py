@@ -12,65 +12,21 @@ from ..models import NotificationProfile
 
 User = get_user_model()
 
-PERMISSION_MAP: dict[str, tuple[str, str]] = {
-    "boards:view": ("kanban", "view_board"),
-    "boards:add": ("kanban", "add_board"),
-    "boards:edit": ("kanban", "change_board"),
-    "boards:delete": ("kanban", "delete_board"),
-    "cards:view": ("kanban", "view_card"),
-    "cards:add": ("kanban", "add_card"),
-    "cards:edit": ("kanban", "change_card"),
-    "cards:delete": ("kanban", "delete_card"),
-}
-
-ROLE_PRESETS: dict[str, list[str]] = {
-    "admin": list(PERMISSION_MAP.keys()),
-    "manager": [
-        "boards:view",
-        "boards:add",
-        "boards:edit",
-        "cards:view",
-        "cards:add",
-        "cards:edit",
-        "cards:delete",
-    ],
-    "editor": [
-        "boards:view",
-        "cards:view",
-        "cards:add",
-        "cards:edit",
-    ],
-    "viewer": ["boards:view", "cards:view"],
-}
-
 
 class UserSerializer(serializers.ModelSerializer[AbstractUser]):
     full_name = serializers.CharField(source="first_name")
     is_admin = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
-    permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "username", "full_name", "is_admin", "role", "permissions"]
+        fields = ["id", "username", "full_name", "is_admin", "role"]
 
     def get_is_admin(self, obj: AbstractUser) -> bool:
         return bool(obj.is_staff or obj.is_superuser)
 
     def get_role(self, obj: AbstractUser) -> str:
         return "owner" if (obj.is_superuser or obj.is_staff) else "member"
-
-    def get_permissions(self, obj: AbstractUser) -> list[str]:
-        return sorted(
-            [
-                key
-                for key, pair in PERMISSION_MAP.items()
-                if obj.user_permissions.filter(
-                    content_type__app_label=pair[0],
-                    codename=pair[1],
-                ).exists()
-            ]
-        )
 
 
 class UserUpdateSerializer(serializers.Serializer):
