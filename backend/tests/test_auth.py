@@ -167,15 +167,11 @@ def test_login_token_is_reused(api_client: APIClient, regular_user: object) -> N
 
 @pytest.mark.django_db()
 def test_user_responses_expose_no_permission_registry(
-    api_client: APIClient, admin_client: APIClient, regular_user: User
+    admin_client: APIClient, regular_user: User
 ) -> None:
-    login = api_client.post(
-        "/api/v1/auth/login/",
-        data={"username": "user1", "password": "pass1"},
-        format="json",
-    )
-    assert login.status_code == 200
-    assert "permissions" not in login.json()
+    me = admin_client.get("/api/v1/auth/me/")
+    assert me.status_code == 200
+    assert "permissions" not in me.json()
 
     listing = admin_client.get("/api/v1/users/")
     assert listing.status_code == 200
