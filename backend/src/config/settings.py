@@ -5,6 +5,7 @@ import socket
 import sys
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import dj_database_url
 from celery.schedules import crontab
@@ -22,7 +23,44 @@ BASE_DIR = Path(__file__).resolve().parent.parent  # points to backend/src
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret")
 DEBUG = os.getenv("DJANGO_DEBUG", "false").lower() in {"1", "true", "yes", "on"}
 
-ALLOWED_HOSTS = [h for h in os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",") if h]
+
+def _env_list(name: str, default: str = "") -> list[str]:
+    raw = os.getenv(name, default)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+ALLOWED_HOSTS = _env_list("DJANGO_ALLOWED_HOSTS", "*")
+
+# Django only configures loggers under `django.*`. Without this, our own
+# `kanban.*` logger output is dropped down to the unformatted `lastResort`
+# handler, losing every INFO line the dispatcher emits about its ticks.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "WARNING",
+    },
+    "loggers": {
+        "kanban": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -158,6 +196,29 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
+
+
+def _origin(url: str) -> str:
+    parsed = urlsplit(url)
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    return f"{parsed.scheme}://{parsed.netloc}"
+
+
+# Traefik terminates TLS and forwards the original scheme; without this Django
+# sees every proxied request as plain HTTP.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Secure cookies are meaningless over the plain-HTTP local dev and test
+# servers, so the flags follow DEBUG.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+# Django rejects session-authenticated unsafe requests whose Origin is not
+# trusted, which is what breaks /admin/ behind an HTTPS proxy. Trust the
+# public frontend origin plus any explicitly configured origins.
+_csrf_trusted_urls = _env_list("DJANGO_CSRF_TRUSTED_ORIGINS") + [FRONTEND_BASE_URL]
+CSRF_TRUSTED_ORIGINS = [
+    origin for origin in (_origin(url) for url in _csrf_trusted_urls) if origin
+]
 
 REDIS_URL = os.getenv("REDIS_URL") or os.getenv("CELERY_BROKER_URL") or "redis://localhost:6379/0"
 

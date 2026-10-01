@@ -218,23 +218,12 @@ export interface UserProfile {
 
 export type UserRole = 'owner' | 'member'
 
-export type PermissionKey =
-  | 'boards:view'
-  | 'boards:add'
-  | 'boards:edit'
-  | 'boards:delete'
-  | 'cards:view'
-  | 'cards:add'
-  | 'cards:edit'
-  | 'cards:delete'
-
 export interface AdminUser {
   id: number
   username: string
   full_name: string
   is_admin: boolean
   role: UserRole
-  permissions: PermissionKey[]
 }
 
 export interface RegistrationStatus {
@@ -252,6 +241,7 @@ export type NotificationEventType =
   | 'card.created'
   | 'card.updated'
   | 'card.deleted'
+  | 'card.archived'
   | 'card.completed'
   | 'comment.created'
   | 'comment.updated'
