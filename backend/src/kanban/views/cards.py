@@ -534,21 +534,37 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             )
         self._broadcast_parent_update(card.parent_id)
 
+    def destroy(self, request: Request, pk: str | None = None) -> Response:
+        try:
+            card = Card.with_archived.filter(pk=pk).first()
+        except (TypeError, ValueError):
+            card = None
+        if card is None:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        if card.archived_at is None:
+            return Response(
+                {"detail": "Сначала переместите задачу в архив."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        self.perform_destroy(card)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def perform_destroy(self, instance: Card) -> None:
         board_id = instance.board_id
         card_id = instance.id
         parent_id = instance.parent_id
+        title = instance.title
+        board = instance.board
         actor = self.request.user if self.request.user.is_authenticated else None
         with transaction.atomic():
-            instance.archived_at = timezone.now()
-            instance.save(update_fields=["archived_at", "updated_at", "version"])
+            instance.delete()
             create_notification_event(
-                event_type=NotificationEventType.CARD_ARCHIVED.value,
+                event_type=NotificationEventType.CARD_DELETED.value,
                 actor=actor,
-                board=instance.board,
-                card=instance,
-                summary=f"Задача «{instance.title}» в архиве",
-                payload={"board": instance.board.name, "card": instance.title},
+                board=board,
+                card=None,
+                summary=f"Удалена задача «{title}»",
+                payload={"board": board.name, "card": title},
             )
             transaction.on_commit(
                 lambda: broadcast_board_event(board_id, "card.deleted", {"card_id": card_id})
