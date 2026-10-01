@@ -86,13 +86,17 @@ def test_board_destroy_rolls_back_when_event_creation_fails(
     auth_client: APIClient, board: Board
 ) -> None:
     auth_client.raise_request_exception = False
+    from django.utils import timezone
+
+    board.archived_at = timezone.now()
+    board.save(update_fields=["archived_at"])
     board_id = board.id
 
     with patch("kanban.views.boards.create_notification_event", side_effect=_raise_boom):
         resp = auth_client.delete(f"/api/v1/boards/{board_id}/")
 
     assert resp.status_code == 500
-    assert Board.objects.filter(id=board_id).exists()
+    assert Board.with_archived.filter(id=board_id).exists()
     assert not NotificationEvent.objects.filter(event_type="board.deleted").exists()
 
 
@@ -128,22 +132,3 @@ def test_board_unarchive_rolls_back_when_event_creation_fails(
     board.refresh_from_db()
     assert board.archived_at is not None
     assert not NotificationEvent.objects.filter(event_type="board.updated").exists()
-
-
-@pytest.mark.django_db()
-def test_board_force_delete_rolls_back_when_event_creation_fails(
-    auth_client: APIClient, board: Board
-) -> None:
-    auth_client.raise_request_exception = False
-    from django.utils import timezone
-
-    board.archived_at = timezone.now()
-    board.save(update_fields=["archived_at"])
-    board_id = board.id
-
-    with patch("kanban.views.boards.create_notification_event", side_effect=_raise_boom):
-        resp = auth_client.delete(f"/api/v1/boards/{board_id}/force-delete/")
-
-    assert resp.status_code == 500
-    assert Board.with_archived.filter(id=board_id).exists()
-    assert not NotificationEvent.objects.filter(event_type="board.deleted").exists()

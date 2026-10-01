@@ -136,12 +136,16 @@ def _check_push() -> dict[str, Any]:
 
 
 def health_view(_request):
-    """Liveness for the container healthcheck: can this process serve?"""
+    """Liveness for the container healthcheck: can this process serve?
 
-    database = _check_database()
-    healthy = database["ok"]
+    Deliberately aggregate-only: the public response must not carry the
+    database host or the raw error text. That detail stays on
+    `/api/health/detail`, which the public edge does not expose.
+    """
+
+    healthy = _check_database()["ok"]
     return JsonResponse(
-        {"status": "ok" if healthy else "error", "database": database},
+        {"status": "ok" if healthy else "error"},
         status=200 if healthy else 503,
     )
 

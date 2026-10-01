@@ -221,7 +221,13 @@ class Card(TimestampedModel):
         if self.pk and self.parent_id == self.pk:
             raise ValidationError({"parent": "A card cannot be its own parent."})
         if self.parent and self.parent.parent_id is not None:
-            raise ValidationError({"parent": "Only two subtask levels are allowed."})
+            raise ValidationError(
+                {"parent": "Subtasks cannot have their own subtasks."}
+            )
+        if self.pk and Card.with_archived.filter(parent=self).exists():
+            raise ValidationError(
+                {"parent": "A card with subtasks cannot be a subtask."}
+            )
 
 
 class InboxSchedule(TimestampedModel):
