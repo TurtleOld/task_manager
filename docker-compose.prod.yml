@@ -90,9 +90,7 @@ services:
     healthcheck:
       test:
         - "CMD-SHELL"
-        - >-
-          /app/.venv/bin/python /app/manage.py shell -c
-          "import sys;from django.utils import timezone;from kanban.models import DispatcherHeartbeat;h=DispatcherHeartbeat.objects.filter(name='dispatcher').first();sys.exit(0 if h and h.last_tick_at and (timezone.now()-h.last_tick_at).total_seconds()<180 else 1)"
+        - /app/.venv/bin/python /app/manage.py check_dispatcher_health
       interval: 60s
       timeout: 30s
       retries: 3

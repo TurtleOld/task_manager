@@ -130,3 +130,22 @@ def test_health_detail_tolerates_missing_redis(client: Client, settings) -> None
 
     assert data["checks"]["redis"]["ok"] is False
     assert "redis" not in data["failing"]
+
+
+@pytest.mark.django_db()
+def test_check_dispatcher_health_command_fails_without_a_heartbeat() -> None:
+    from django.core.management import call_command
+
+    with pytest.raises(SystemExit):
+        call_command("check_dispatcher_health")
+
+
+@pytest.mark.django_db()
+def test_check_dispatcher_health_command_passes_with_a_fresh_heartbeat() -> None:
+    from django.core.management import call_command
+
+    from kanban.dispatcher import beat
+
+    beat()
+
+    call_command("check_dispatcher_health")

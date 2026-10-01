@@ -34,7 +34,7 @@ def _check_database() -> dict[str, Any]:
     return {"ok": True}
 
 
-def _check_dispatcher() -> dict[str, Any]:
+def check_dispatcher() -> dict[str, Any]:
     """Is the notification dispatcher still running?
 
     Stale means "the loop has not completed a pass in several intervals". That
@@ -155,7 +155,7 @@ def health_detail_view(_request):
 
     checks = {
         "database": _check_database(),
-        "dispatcher": _check_dispatcher(),
+        "dispatcher": check_dispatcher(),
         "redis": _check_redis(),
         "queue": _check_queue(),
         "push": _check_push(),
