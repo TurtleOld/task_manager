@@ -70,6 +70,20 @@ export function useUnarchiveCard(boardId?: number) {
   })
 }
 
+export function useDeleteCard(boardId?: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.deleteCard(id),
+    onSuccess: (_data, id) => {
+      qc.setQueryData<ArchiveResponse>(queryKeys.archive(boardId), (prev) => {
+        if (!prev) return prev
+        return { ...prev, cards: prev.cards.filter((item) => item.id !== id) }
+      })
+      void qc.invalidateQueries({ queryKey: ['archive'] })
+    },
+  })
+}
+
 export function useMyToday() {
   return useQuery<MyTodayResponse>({
     queryKey: queryKeys.myToday(),

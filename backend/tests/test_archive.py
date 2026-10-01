@@ -13,7 +13,7 @@ def test_archive_lists_archived_cards_without_columns(auth_client: APIClient) ->
     column = Column.objects.create(board=board, name="To Do")
     card = Card.objects.create(column=column, title="Old task")
 
-    auth_client.delete(f"/api/v1/cards/{card.id}/")
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
     # Columns are an internal implementation detail now — there is no API to
     # archive one, but the archive response still must not surface it.
     column.archived_at = timezone.now()
@@ -78,6 +78,9 @@ def test_archive_action_creates_card_archived_event(
 
     events = NotificationEvent.objects.filter(event_type="card.archived", card_id=card.id)
     assert events.count() == 1
+    assert not NotificationEvent.objects.filter(
+        event_type="card.deleted", card_id=card.id
+    ).exists()
 
 
 @pytest.mark.django_db()

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { RotateCcw, Trash2 } from 'lucide-react'
 import { useBoards, useUnarchiveBoard, useDeleteBoard } from '../../api/queries/boards'
-import { useArchive, useUnarchiveCard } from '../../api/queries/cards'
+import { useArchive, useDeleteCard, useUnarchiveCard } from '../../api/queries/cards'
 import type { ArchivedCard, Board } from '../../api/types'
 import { formatTaskCount } from '../../shared/lib/formatTaskCount'
 import { priorityToLabel, priorityToMarker, priorityToTone } from '../../shared/lib/priority'
@@ -22,10 +22,12 @@ export function ArchivePage() {
   const selectedBoardId = boardFilter === 'all' ? undefined : Number(boardFilter)
   const { data, isLoading: archiveLoading, isError, refetch } = useArchive(selectedBoardId)
   const unarchiveCard = useUnarchiveCard(selectedBoardId)
+  const deleteCard = useDeleteCard(selectedBoardId)
   const unarchiveBoard = useUnarchiveBoard()
   const deleteBoard = useDeleteBoard()
   const [restoringKey, setRestoringKey] = useState<string | null>(null)
   const [deletingBoard, setDeletingBoard] = useState<Board | null>(null)
+  const [deletingCard, setDeletingCard] = useState<ArchivedCard | null>(null)
 
   const cards = data?.cards ?? []
   const archivedBoards = data?.boards ?? []
@@ -66,6 +68,17 @@ export function ArchivePage() {
       toast.error((error as Error).message || 'Не удалось удалить список')
     } finally {
       setDeletingBoard(null)
+    }
+  }
+
+  const removeArchivedCard = async (card: ArchivedCard) => {
+    try {
+      await deleteCard.mutateAsync(card.id)
+      toast.success(`Задача «${card.title}» удалена`)
+    } catch (error) {
+      toast.error((error as Error).message || 'Не удалось удалить задачу')
+    } finally {
+      setDeletingCard(null)
     }
   }
 
@@ -166,6 +179,7 @@ export function ArchivePage() {
                 card={card}
                 restoring={restoringKey === `card-${card.id}`}
                 onRestore={() => void unarchiveArchivedCard(card)}
+                onDelete={() => setDeletingCard(card)}
               />
             ))}
           </div>
@@ -186,6 +200,28 @@ export function ArchivePage() {
               variant="danger"
               loading={deleteBoard.isPending}
               onClick={() => deletingBoard && void removeArchivedBoard(deletingBoard)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Удалить навсегда
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deletingCard !== null} onOpenChange={(open) => !open && setDeletingCard(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Удалить задачу навсегда?</DialogTitle>
+            <DialogDescription>
+              Задача «{deletingCard?.title}» и все её подзадачи будут удалены безвозвратно. Это действие нельзя отменить.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeletingCard(null)}>Отмена</Button>
+            <Button
+              variant="danger"
+              loading={deleteCard.isPending}
+              onClick={() => deletingCard && void removeArchivedCard(deletingCard)}
             >
               <Trash2 className="h-4 w-4" />
               Удалить навсегда
@@ -233,7 +269,12 @@ function ArchivedBoardItem({ board, restoring, onRestore, onDelete }: {
   )
 }
 
-function ArchivedCardItem({ card, restoring, onRestore }: { card: ArchivedCard; restoring: boolean; onRestore: () => void }) {
+function ArchivedCardItem({ card, restoring, onRestore, onDelete }: {
+  card: ArchivedCard
+  restoring: boolean
+  onRestore: () => void
+  onDelete: () => void
+}) {
   const priorityTone = priorityToTone(card.priority)
   return (
     <article className="rounded-[1.2rem] border border-border/75 bg-surface/90 p-4 shadow-surface backdrop-blur">
@@ -247,9 +288,14 @@ function ArchivedCardItem({ card, restoring, onRestore }: { card: ArchivedCard; 
           {card.description ? <p className="mt-2 line-clamp-3 text-body-sm text-text-muted">{card.description}</p> : null}
           <p className="mt-3 text-caption text-text-muted">В архиве с {formatDateTime(card.archived_at)}</p>
         </div>
-        <Button type="button" variant="secondary" size="sm" loading={restoring} disabled={restoring} onClick={onRestore} className="shrink-0">
-          Восстановить
-        </Button>
+        <div className="flex shrink-0 gap-2">
+          <Button type="button" variant="secondary" size="sm" loading={restoring} disabled={restoring} onClick={onRestore}>
+            Восстановить
+          </Button>
+          <Button type="button" variant="danger" size="sm" onClick={onDelete} aria-label={`Удалить задачу «${card.title}» навсегда`}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </article>
   )

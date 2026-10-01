@@ -8,7 +8,16 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from kanban.models import Board, Card, Column, NotificationEvent
+from kanban.models import (
+    Attachment,
+    Board,
+    Card,
+    CardActivity,
+    CardComment,
+    ChecklistItem,
+    Column,
+    NotificationEvent,
+)
 from kanban.serializers import CardSerializer
 
 User = get_user_model()
@@ -377,27 +386,79 @@ def test_card_clean_rejects_parent_when_card_has_subtasks(card: Card) -> None:
 
 
 @pytest.mark.django_db()
-def test_delete_card(auth_client: APIClient, card: Card) -> None:
-    card_id = card.id
-    resp = auth_client.delete(f"/api/v1/cards/{card_id}/")
-    assert resp.status_code == 204
-    assert not Card.objects.filter(id=card_id).exists()
-    archived = Card.with_archived.get(id=card_id)
-    assert archived.archived_at is not None
+def test_delete_active_card_returns_400(auth_client: APIClient, card: Card) -> None:
+    resp = auth_client.delete(f"/api/v1/cards/{card.id}/")
+
+    assert resp.status_code == 400
+    assert Card.with_archived.filter(id=card.id).exists()
+    assert Card.with_archived.get(id=card.id).archived_at is None
 
 
 @pytest.mark.django_db()
-def test_delete_card_creates_card_archived_event_immediately(
+def test_delete_missing_card_returns_404(auth_client: APIClient) -> None:
+    resp = auth_client.delete("/api/v1/cards/99999/")
+    assert resp.status_code == 404
+
+
+@pytest.mark.django_db()
+def test_delete_archived_card_removes_it(auth_client: APIClient, card: Card) -> None:
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+    card_id = card.id
+
+    resp = auth_client.delete(f"/api/v1/cards/{card_id}/")
+
+    assert resp.status_code == 204
+    assert not Card.with_archived.filter(id=card_id).exists()
+
+
+@pytest.mark.django_db()
+def test_delete_archived_parent_deletes_subtasks(auth_client: APIClient, card: Card) -> None:
+    subtask = Card.objects.create(column=card.column, parent=card, title="Sub")
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+
+    resp = auth_client.delete(f"/api/v1/cards/{card.id}/")
+
+    assert resp.status_code == 204
+    assert not Card.with_archived.filter(id__in=[card.id, subtask.id]).exists()
+
+
+@pytest.mark.django_db()
+def test_delete_archived_card_removes_related_data(
     auth_client: APIClient, card: Card
 ) -> None:
+    author = User.objects.create_user(username="commenter", password="x")
+    CardComment.objects.create(card=card, author=author, text="hi")
+    ChecklistItem.objects.create(card=card, text="step", position=1)
+    Attachment.objects.create(
+        card=card, name="file.txt", type="link", url="https://example.com"
+    )
+    CardActivity.objects.create(card=card, action="card.updated")
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+
+    resp = auth_client.delete(f"/api/v1/cards/{card.id}/")
+
+    assert resp.status_code == 204
+    assert not CardComment.objects.filter(card_id=card.id).exists()
+    assert not ChecklistItem.objects.filter(card_id=card.id).exists()
+    assert not Attachment.objects.filter(card_id=card.id).exists()
+    assert not CardActivity.objects.filter(card_id=card.id).exists()
+
+
+@pytest.mark.django_db()
+def test_delete_archived_card_creates_card_deleted_event_immediately(
+    auth_client: APIClient, card: Card
+) -> None:
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+
     auth_client.delete(f"/api/v1/cards/{card.id}/")
-    events = NotificationEvent.objects.filter(event_type="card.archived", card_id=card.id)
+
+    events = NotificationEvent.objects.filter(event_type="card.deleted")
     assert events.count() == 1
     event = events.get()
     assert event.dispatch_status == NotificationEvent.Dispatch.PENDING
     assert event.next_attempt_at <= timezone.now()
-    assert "в архиве" in event.summary
-    assert NotificationEvent.objects.filter(event_type="card.deleted", card_id=card.id).count() == 0
+    assert "Удалена задача" in event.summary
+    assert event.card is None
 
 
 # ---------------------------------------------------------------------------
