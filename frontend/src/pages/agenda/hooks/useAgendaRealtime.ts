@@ -4,6 +4,7 @@ import { queryKeys } from '../../../api/queries/keys'
 import { toAgendaCard, upsertAgendaCard } from '../../../api/queries/agenda'
 import type { AgendaResponse } from '../../../api/types'
 import { shouldApplyCardVersion } from '../../../lib/cardVersion'
+import { shouldReconnectAfterClose } from '../../../app/session'
 import { getWsBase } from '../../../useBoardWebSocket'
 import type { BoardEvent } from '../../../useBoardWebSocket'
 
@@ -90,7 +91,8 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
         }
       }
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        if (!shouldReconnectAfterClose(event.code)) return
         if (!unmounted) {
           timers.push(setTimeout(() => connect(boardId, true), RECONNECT_DELAY_MS))
         }

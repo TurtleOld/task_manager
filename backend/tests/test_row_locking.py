@@ -27,11 +27,7 @@ def _unscoped_locks() -> list[str]:
         if "migrations" in path.parts:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        parents = {
-            child: node
-            for node in ast.walk(tree)
-            for child in ast.iter_child_nodes(node)
-        }
+        parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue

@@ -275,9 +275,7 @@ def test_patch_card_increments_version(auth_client: APIClient, card: Card) -> No
 
 
 @pytest.mark.django_db()
-def test_patch_card_creates_pending_notification_event(
-    auth_client: APIClient, card: Card
-) -> None:
+def test_patch_card_creates_pending_notification_event(auth_client: APIClient, card: Card) -> None:
     """PATCH creates its own card.updated event, coalesced and not yet due."""
     auth_client.patch(f"/api/v1/cards/{card.id}/", data={"title": "v2"}, format="json")
     events = NotificationEvent.objects.filter(event_type="card.updated", card_id=card.id)
@@ -305,9 +303,7 @@ def test_card_board_is_writable_on_create_read_only_on_update(
 
 
 @pytest.mark.django_db()
-def test_patch_board_does_not_move_card(
-    auth_client: APIClient, card: Card
-) -> None:
+def test_patch_board_does_not_move_card(auth_client: APIClient, card: Card) -> None:
     board_id = card.board_id
     other_board = Board.objects.create(name="Other board")
     resp = auth_client.patch(
@@ -322,9 +318,7 @@ def test_patch_board_does_not_move_card(
 
 
 @pytest.mark.django_db()
-def test_patch_parent_on_card_with_subtasks_rejected(
-    auth_client: APIClient, card: Card
-) -> None:
+def test_patch_parent_on_card_with_subtasks_rejected(auth_client: APIClient, card: Card) -> None:
     Card.objects.create(column=card.column, parent=card, title="Child")
     other = Card.objects.create(column=card.column, title="Other")
     resp = auth_client.patch(
@@ -355,9 +349,7 @@ def test_patch_parent_rejected_when_subtasks_are_archived(
 
 
 @pytest.mark.django_db()
-def test_patch_parent_under_a_subtask_rejected(
-    auth_client: APIClient, card: Card
-) -> None:
+def test_patch_parent_under_a_subtask_rejected(auth_client: APIClient, card: Card) -> None:
     parent = Card.objects.create(column=card.column, title="Parent")
     subtask = Card.objects.create(column=card.column, parent=parent, title="Sub")
     resp = auth_client.patch(
@@ -366,9 +358,7 @@ def test_patch_parent_under_a_subtask_rejected(
         format="json",
     )
     assert resp.status_code == 400
-    assert resp.json()["parent"] == [
-        "Subtasks cannot have their own subtasks."
-    ]
+    assert resp.json()["parent"] == ["Subtasks cannot have their own subtasks."]
 
 
 @pytest.mark.django_db()
@@ -423,15 +413,11 @@ def test_delete_archived_parent_deletes_subtasks(auth_client: APIClient, card: C
 
 
 @pytest.mark.django_db()
-def test_delete_archived_card_removes_related_data(
-    auth_client: APIClient, card: Card
-) -> None:
+def test_delete_archived_card_removes_related_data(auth_client: APIClient, card: Card) -> None:
     author = User.objects.create_user(username="commenter", password="x")
     CardComment.objects.create(card=card, author=author, text="hi")
     ChecklistItem.objects.create(card=card, text="step", position=1)
-    Attachment.objects.create(
-        card=card, name="file.txt", type="link", url="https://example.com"
-    )
+    Attachment.objects.create(card=card, name="file.txt", type="link", url="https://example.com")
     CardActivity.objects.create(card=card, action="card.updated")
     auth_client.post(f"/api/v1/cards/{card.id}/archive/")
 

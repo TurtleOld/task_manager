@@ -184,9 +184,7 @@ def test_user_responses_expose_no_permission_registry(
 
 
 @pytest.mark.django_db()
-def test_admin_can_switch_user_between_roles(
-    admin_client: APIClient, regular_user: User
-) -> None:
+def test_admin_can_switch_user_between_roles(admin_client: APIClient, regular_user: User) -> None:
     promoted = admin_client.patch(
         f"/api/v1/users/{regular_user.id}/",
         data={"role": "owner"},

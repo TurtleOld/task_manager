@@ -119,8 +119,7 @@ class Command(BaseCommand):
             for event in failed[:10]:
                 self.stdout.write(
                     self.style.ERROR(
-                        f"  event={event.id} type={event.event_type} "
-                        f"error={event.dispatch_error}"
+                        f"  event={event.id} type={event.event_type} error={event.dispatch_error}"
                     )
                 )
 
@@ -176,10 +175,9 @@ class Command(BaseCommand):
 
     def _recent_deliveries(self, *, limit: int) -> None:
         self._section(f"== Последние доставки (лимит {limit}) ==")
-        deliveries = (
-            NotificationDelivery.objects.select_related("user", "event")
-            .order_by("-id")[:limit]
-        )
+        deliveries = NotificationDelivery.objects.select_related("user", "event").order_by("-id")[
+            :limit
+        ]
         if not deliveries:
             self.stdout.write("Пусто.")
             return

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -45,7 +44,7 @@ def test_broadcast_calls_group_send() -> None:
     assert message["data"]["card"]["id"] == 1
 
 
-def test_broadcast_swallows_exceptions(caplog) -> None:
+def test_broadcast_swallows_exceptions() -> None:
     """A broken channel layer must not propagate errors, but must be logged."""
     from kanban.broadcast import broadcast_board_event
 
@@ -55,11 +54,12 @@ def test_broadcast_swallows_exceptions(caplog) -> None:
     with (
         patch("kanban.broadcast.get_channel_layer", return_value=mock_layer),
         patch("kanban.broadcast.async_to_sync", side_effect=lambda f: f),
-        caplog.at_level(logging.ERROR, logger="kanban.broadcast"),
+        patch("kanban.broadcast.logger") as mock_logger,
     ):
         broadcast_board_event(board_id=1, event_type="board.updated", data={})
 
-    assert "broadcast_board_event failed" in caplog.text
+    mock_logger.exception.assert_called_once()
+    assert "broadcast_board_event failed" in mock_logger.exception.call_args[0][0]
 
 
 def test_board_group_name_format() -> None:
@@ -177,16 +177,13 @@ def test_archive_card_broadcasts_archived_event(
             auth_client.post(f"/api/v1/cards/{card_id}/archive/")
 
     assert any(
-        e["event_type"] == "card.archived" and e["data"]["card_id"] == card_id
-        for e in captured
+        e["event_type"] == "card.archived" and e["data"]["card_id"] == card_id for e in captured
     )
     assert not any(e["event_type"] == "card.deleted" for e in captured)
 
 
 @pytest.mark.django_db()
-def test_unarchive_card_broadcasts_created_event(
-    auth_client: APIClient, card: Card
-) -> None:
+def test_unarchive_card_broadcasts_created_event(auth_client: APIClient, card: Card) -> None:
     captured: list[dict] = []
 
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
@@ -199,8 +196,7 @@ def test_unarchive_card_broadcasts_created_event(
         auth_client.post(f"/api/v1/cards/{card_id}/unarchive/")
 
     assert any(
-        e["event_type"] == "card.created" and e["data"]["card"]["id"] == card_id
-        for e in captured
+        e["event_type"] == "card.created" and e["data"]["card"]["id"] == card_id for e in captured
     )
 
 
