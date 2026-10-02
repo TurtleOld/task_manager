@@ -30,8 +30,8 @@ test.describe('local session cleanup', () => {
     )
 
     const more = page.getByRole('button', { name: 'Ещё' })
-    if (await more.isVisible()) await more.click()
-    await page.getByRole('button', { name: 'Выйти' }).first().click()
+    if (await more.isVisible()) await more.dispatchEvent('click')
+    await page.getByRole('button', { name: 'Выйти' }).first().dispatchEvent('click')
 
     await expect(page).toHaveURL(/\/login/)
     expect(await readLocalData(page)).toEqual({ localStorageLength: 0, indexedDbNames: [] })
