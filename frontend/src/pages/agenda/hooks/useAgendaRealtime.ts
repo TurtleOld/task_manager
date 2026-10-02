@@ -2,9 +2,8 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../../api/queries/keys'
 import { toAgendaCard, upsertAgendaCard } from '../../../api/queries/agenda'
-import type { AgendaResponse } from '../../../api/types'
+import type { AgendaResponse, BoardEvent } from '../../../api/types'
 import { openBoardSocket } from '../../../lib/boardSocket'
-import type { BoardEvent } from '../../../useBoardWebSocket'
 
 interface AgendaRealtimeOptions {
   boardIds: number[]

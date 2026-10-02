@@ -1,10 +1,10 @@
 import { clearLocalSession } from '../app/session'
-import type { BoardEvent } from '../useBoardWebSocket'
+import type { BoardEvent } from '../api/types'
 
 type ViteImportMeta = ImportMeta & { env?: { VITE_WS_BASE_URL?: string } }
 
 const RECONNECT_DELAY_MS = 3000
-export const SESSION_CLOSED_CODE = 4001
+const SESSION_CLOSED_CODE = 4001
 
 export function getWsBase(): string {
   const meta = import.meta as ViteImportMeta

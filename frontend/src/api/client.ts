@@ -1,3 +1,4 @@
+import { AUTH_TOKEN_KEY } from '../app/auth'
 import { clearLocalSession } from '../app/session'
 import type {
   Board,
@@ -37,7 +38,7 @@ const BASE = (import.meta as ViteImportMeta).env?.VITE_API_BASE_URL || '/api'
 const V1 = `${BASE}/v1`
 
 function dropSessionOnUnauthorized(res: Response) {
-  if (res.status === 401 && localStorage.getItem('auth_token')) {
+  if (res.status === 401 && localStorage.getItem(AUTH_TOKEN_KEY)) {
     void clearLocalSession()
   }
 }

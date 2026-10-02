@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../../api/queries/keys'
+import type { BoardEvent } from '../../../api/types'
 import { openBoardSocket } from '../../../lib/boardSocket'
-import type { BoardEvent } from '../../../useBoardWebSocket'
 
 interface FamilyTodayRealtimeOptions {
   boardIds: number[]

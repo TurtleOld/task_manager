@@ -119,15 +119,18 @@ export async function enableNotifications(): Promise<PushDevice> {
 /** Turn notifications off on the current browser: delete its device on the server, then unsubscribe. */
 export async function disableCurrentDevice(): Promise<void> {
   const deviceId = getSavedDeviceId()
-  if (deviceId !== null) {
-    await api.deletePushDevice(deviceId)
+  try {
+    if (deviceId !== null) {
+      await api.deletePushDevice(deviceId)
+    }
+  } finally {
+    const subscription = await getCurrentSubscription()
+    if (subscription) {
+      await subscription.unsubscribe()
+    }
+    localStorage.removeItem(DEVICE_ID_KEY)
+    await clearPushAuth()
   }
-  const subscription = await getCurrentSubscription()
-  if (subscription) {
-    await subscription.unsubscribe()
-  }
-  localStorage.removeItem(DEVICE_ID_KEY)
-  await clearPushAuth()
 }
 
 /**
