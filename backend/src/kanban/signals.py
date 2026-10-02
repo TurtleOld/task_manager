@@ -114,4 +114,4 @@ def label_session_with_user_agent(
     if request is None or not isinstance(request.session, SessionStore):
         return
     user_agent = request.META.get("HTTP_USER_AGENT", "")
-    request.session.user_agent_label = label_from_user_agent(user_agent)
+    request.session.mark_login(label_from_user_agent(user_agent))

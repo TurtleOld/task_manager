@@ -1,20 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import timedelta
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
-from django.utils import timezone
 
 from .session_engine import SessionStore
 
-EXTEND_AFTER = timedelta(days=1)
-
 
 class SlidingSessionMiddleware:
-    """Renews an authenticated session at most once a day."""
-
     def __init__(
         self, get_response: Callable[[HttpRequest], HttpResponse]
     ) -> None:
@@ -29,16 +23,11 @@ class SlidingSessionMiddleware:
 
     def _extend_if_due(self, request: HttpRequest) -> bool:
         session = request.session
-        if not isinstance(session, SessionStore):
+        if not isinstance(session, SessionStore) or session.session_key is None:
             return False
-        if not request.user.is_authenticated:
+        if not request.user.is_authenticated or not session.is_extension_due():
             return False
-        if session.session_key is None or session.last_activity is None:
-            return False
-        if timezone.now() - session.last_activity <= EXTEND_AFTER:
-            return False
-        session.extend()
-        return True
+        return session.extend()
 
     def _refresh_cookie(
         self, request: HttpRequest, response: HttpResponse

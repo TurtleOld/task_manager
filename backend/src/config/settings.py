@@ -209,12 +209,12 @@ def _origin(url: str) -> str:
 # Traefik terminates TLS and forwards the original scheme; without this Django
 # sees every proxied request as plain HTTP.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-# Secure cookies are meaningless over the plain-HTTP local dev and test
-# servers, so the flags follow DEBUG.
 SESSION_ENGINE = "kanban.session_engine"
 SESSION_COOKIE_AGE = 90 * 24 * 60 * 60
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
+# Secure cookies are meaningless over the plain-HTTP local dev and test
+# servers, so the flags follow DEBUG.
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = not DEBUG

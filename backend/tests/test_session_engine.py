@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from datetime import timedelta
+import subprocess
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -8,6 +11,7 @@ from django.test import Client
 from django.utils import timezone
 
 from kanban.models import UserSession
+from kanban.session_engine import SessionStore
 from kanban.user_agent import UNKNOWN_LABEL, label_from_user_agent
 
 pytestmark = pytest.mark.django_db
@@ -35,11 +39,11 @@ def admin_login(staff: User, user_agent: str = ANDROID_CHROME) -> Client:
     return client
 
 
-def only_session() -> UserSession:
+def logged_in_session() -> UserSession:
     return UserSession.objects.get(user__isnull=False)
 
 
-def at(monkeypatch: pytest.MonkeyPatch, moment) -> None:
+def freeze_now(monkeypatch: pytest.MonkeyPatch, moment: datetime) -> None:
     monkeypatch.setattr("django.utils.timezone.now", lambda: moment)
 
 
@@ -49,7 +53,7 @@ def test_admin_login_creates_session_with_user_label_and_login_time(
     before = timezone.now()
     admin_login(staff)
 
-    session = only_session()
+    session = logged_in_session()
     assert session.user_id == staff.id
     assert session.user_agent_label == "Chrome на Android"
     assert before <= session.login_at <= timezone.now()
@@ -57,26 +61,26 @@ def test_admin_login_creates_session_with_user_label_and_login_time(
 
 def test_request_within_a_day_does_not_write_sessions(staff: User) -> None:
     client = admin_login(staff)
-    stamp = only_session().last_activity
+    stamp = logged_in_session().last_activity
 
     client.get("/admin/")
 
-    assert only_session().last_activity == stamp
+    assert logged_in_session().last_activity == stamp
 
 
 def test_request_after_a_day_extends_expiry_and_activity(
     staff: User, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client = admin_login(staff)
-    session = only_session()
+    session = logged_in_session()
     login_at = session.login_at
     later = timezone.now() + timedelta(days=2)
-    at(monkeypatch, later)
+    freeze_now(monkeypatch, later)
 
     response = client.get("/admin/")
 
     assert response.status_code == 200
-    session = only_session()
+    session = logged_in_session()
     assert session.last_activity == later
     assert session.expire_date == later + timedelta(days=90)
     assert session.login_at == login_at
@@ -87,7 +91,7 @@ def test_session_idle_for_ninety_days_does_not_authenticate(
     staff: User, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client = admin_login(staff)
-    at(monkeypatch, timezone.now() + timedelta(days=91))
+    freeze_now(monkeypatch, timezone.now() + timedelta(days=91))
 
     response = client.get("/admin/")
 
@@ -101,7 +105,7 @@ def test_session_survives_ninety_days_when_used_regularly(
     client = admin_login(staff)
     start = timezone.now()
     for day in range(2, 200, 2):
-        at(monkeypatch, start + timedelta(days=day))
+        freeze_now(monkeypatch, start + timedelta(days=day))
         assert client.get("/admin/").status_code == 200
 
 
@@ -114,9 +118,6 @@ def test_session_cookie_flags(staff: User) -> None:
 
 
 def test_session_cookie_is_secure_outside_debug() -> None:
-    import subprocess
-    import sys
-
     code = (
         "import os; os.environ['DJANGO_DEBUG']='false';"
         "os.environ['DJANGO_SECRET_KEY']='x';"
@@ -128,7 +129,7 @@ def test_session_cookie_is_secure_outside_debug() -> None:
         [sys.executable, "-c", code],
         capture_output=True,
         text=True,
-        cwd="src",
+        cwd=Path(__file__).resolve().parents[1] / "src",
     )
     assert out.stdout.strip().endswith("True True"), out.stderr
 
@@ -158,3 +159,42 @@ def test_session_cookie_is_secure_outside_debug() -> None:
 )
 def test_user_agent_label(user_agent: str, label: str) -> None:
     assert label_from_user_agent(user_agent) == label
+
+
+def test_login_time_is_the_login_not_the_anonymous_session(
+    staff: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = Client()
+    start = timezone.now()
+    freeze_now(monkeypatch, start)
+    client.get("/admin/login/")
+    session = client.session
+    session["anonymous"] = True
+    session.save()
+    login_time = start + timedelta(hours=3)
+    freeze_now(monkeypatch, login_time)
+
+    client.force_login(staff)
+
+    assert logged_in_session().login_at == login_time
+
+
+def test_concurrent_extension_is_not_rolled_back_by_a_stale_save(
+    staff: User, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = admin_login(staff)
+    stale = SessionStore(client.cookies["sessionid"].value)
+    stale["touched"] = True
+    later = timezone.now() + timedelta(days=2)
+    freeze_now(monkeypatch, later)
+    client.get("/admin/")
+
+    stale.save()
+
+    assert logged_in_session().last_activity == later
+
+
+def test_session_without_a_cookie_is_not_loaded(staff: User) -> None:
+    response = Client().get("/admin/login/")
+
+    assert "sessionid" not in response.cookies
