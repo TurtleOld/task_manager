@@ -9,9 +9,7 @@ from .session_engine import SessionStore
 
 
 class SlidingSessionMiddleware:
-    def __init__(
-        self, get_response: Callable[[HttpRequest], HttpResponse]
-    ) -> None:
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
@@ -29,9 +27,7 @@ class SlidingSessionMiddleware:
             return False
         return session.extend()
 
-    def _refresh_cookie(
-        self, request: HttpRequest, response: HttpResponse
-    ) -> None:
+    def _refresh_cookie(self, request: HttpRequest, response: HttpResponse) -> None:
         if settings.SESSION_COOKIE_NAME in response.cookies:
             return
         response.set_cookie(

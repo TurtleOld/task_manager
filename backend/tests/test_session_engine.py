@@ -150,8 +150,7 @@ def test_session_cookie_is_secure_outside_debug() -> None:
             "Safari на iOS",
         ),
         (
-            "Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 "
-            "Firefox/127.0",
+            "Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0",
             "Firefox на Linux",
         ),
         ("", UNKNOWN_LABEL),
