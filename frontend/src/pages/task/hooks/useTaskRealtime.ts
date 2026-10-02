@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../../api/queries/keys'
 import type { Card, CardComment } from '../../../api/types'
+import { shouldReconnectAfterClose } from '../../../app/session'
 import { getWsBase } from '../../../useBoardWebSocket'
 import type { BoardEvent } from '../../../useBoardWebSocket'
 
@@ -68,7 +69,8 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
         }
       }
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        if (!shouldReconnectAfterClose(event.code)) return
         if (!unmounted) timer = setTimeout(connect, RECONNECT_DELAY_MS)
       }
       ws.onerror = () => ws?.close()

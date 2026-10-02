@@ -24,7 +24,6 @@ def backfill_completion_fields(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("kanban", "0048_completion_fields"),
     ]

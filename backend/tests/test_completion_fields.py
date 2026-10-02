@@ -94,9 +94,7 @@ def _run_backfill(apps: object | None = None) -> None:
 
     from django.apps import apps as live_apps
 
-    backfill_module = importlib.import_module(
-        "kanban.migrations.0049_backfill_completion_fields"
-    )
+    backfill_module = importlib.import_module("kanban.migrations.0049_backfill_completion_fields")
     backfill_module.backfill_completion_fields(apps or live_apps, None)
 
 

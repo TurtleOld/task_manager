@@ -174,16 +174,13 @@ def test_archive_card_broadcasts_archived_event(
             auth_client.post(f"/api/v1/cards/{card_id}/archive/")
 
     assert any(
-        e["event_type"] == "card.archived" and e["data"]["card_id"] == card_id
-        for e in captured
+        e["event_type"] == "card.archived" and e["data"]["card_id"] == card_id for e in captured
     )
     assert not any(e["event_type"] == "card.deleted" for e in captured)
 
 
 @pytest.mark.django_db()
-def test_unarchive_card_broadcasts_created_event(
-    auth_client: APIClient, card: Card
-) -> None:
+def test_unarchive_card_broadcasts_created_event(auth_client: APIClient, card: Card) -> None:
     captured: list[dict] = []
 
     def fake_broadcast(board_id: int, event_type: str, data: dict) -> None:
@@ -196,8 +193,7 @@ def test_unarchive_card_broadcasts_created_event(
         auth_client.post(f"/api/v1/cards/{card_id}/unarchive/")
 
     assert any(
-        e["event_type"] == "card.created" and e["data"]["card"]["id"] == card_id
-        for e in captured
+        e["event_type"] == "card.created" and e["data"]["card"]["id"] == card_id for e in captured
     )
 
 

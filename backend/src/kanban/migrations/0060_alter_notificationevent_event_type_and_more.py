@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("kanban", "0059_card_created_by_alter_notificationevent_event_type_and_more"),
     ]
