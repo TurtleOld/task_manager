@@ -36,6 +36,7 @@ function makeCard(overrides: Partial<AgendaCard>): AgendaCard {
     checklist_total: 0,
     checklist_completed: 0,
     created_at: '2026-08-12T10:00:00+00:00',
+    version: 1,
     ...overrides,
   }
 }

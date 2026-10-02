@@ -2,7 +2,8 @@ x-app-env: &app-env
   PYTHONPATH: /app/src
   DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?DJANGO_SECRET_KEY must be set}
   DJANGO_DEBUG: ${DJANGO_DEBUG:-false}
-  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-${PUBLIC_HOST:?PUBLIC_HOST must be set}}
+  DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
   DATABASE_URL: ${DATABASE_URL:?DATABASE_URL must be set}
   FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL must be set}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -87,9 +88,7 @@ services:
     healthcheck:
       test:
         - "CMD-SHELL"
-        - >-
-          /app/.venv/bin/python /app/manage.py shell -c
-          "import sys;from django.utils import timezone;from kanban.models import DispatcherHeartbeat;h=DispatcherHeartbeat.objects.filter(name='dispatcher').first();sys.exit(0 if h and h.last_tick_at and (timezone.now()-h.last_tick_at).total_seconds()<180 else 1)"
+        - /app/.venv/bin/python /app/manage.py check_dispatcher_health
       interval: 60s
       timeout: 30s
       retries: 3

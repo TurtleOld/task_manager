@@ -141,9 +141,7 @@ def _generate_recurring_card_for_rule(*, rule_id: int, now: datetime) -> None:
         # side. Without `of=("self",)` the whole job raises on every
         # maintenance tick and no rule is ever processed.
         rule = (
-            RecurrenceRule.objects.select_for_update(
-                skip_locked=True, of=("self",)
-            )
+            RecurrenceRule.objects.select_for_update(skip_locked=True, of=("self",))
             .select_related("card", "card__column", "card__board", "card__assignee")
             .filter(id=rule_id)
             .first()
@@ -306,9 +304,9 @@ def send_overdue_card_reminders() -> None:
     interval_minutes = site_settings.overdue_reminder_interval
 
     now = timezone.now()
-    overdue_cards = Card.objects.filter(
-        deadline__lt=now, completed_at__isnull=True
-    ).select_related("board")
+    overdue_cards = Card.objects.filter(deadline__lt=now, completed_at__isnull=True).select_related(
+        "board"
+    )
 
     for card in overdue_cards:
         link = _build_card_link(card=card)

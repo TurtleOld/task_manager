@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../../api/queries/keys'
 import type { Card, CardComment } from '../../../api/types'
+import { shouldApplyCardVersion } from '../../../lib/cardVersion'
+import { shouldReconnectAfterClose } from '../../../app/session'
 import { getWsBase } from '../../../useBoardWebSocket'
 import type { BoardEvent } from '../../../useBoardWebSocket'
 
@@ -33,6 +35,8 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
 
     const applyCard = (card: Card) => {
       if (card.id !== taskId) return
+      const current = qc.getQueryData<Card>(key)
+      if (!shouldApplyCardVersion(card.version, current?.version)) return
       qc.setQueryData<Card>(key, card)
     }
 
@@ -51,9 +55,18 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
       })
     }
 
-    const connect = () => {
+    const connect = (isReconnect: boolean) => {
       if (unmounted) return
       ws = new WebSocket(`${getWsBase()}/ws/boards/${boardId}/?token=${token}`)
+
+      ws.onopen = () => {
+        // Events published while the socket was down are lost, so a reconnect
+        // can only be healed by refetching the task and its comments.
+        if (isReconnect) {
+          void qc.invalidateQueries({ queryKey: key })
+          void qc.invalidateQueries({ queryKey: commentsKey })
+        }
+      }
 
       ws.onmessage = (message) => {
         try {
@@ -68,13 +81,14 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
         }
       }
 
-      ws.onclose = () => {
-        if (!unmounted) timer = setTimeout(connect, RECONNECT_DELAY_MS)
+      ws.onclose = (event) => {
+        if (!shouldReconnectAfterClose(event.code)) return
+        if (!unmounted) timer = setTimeout(() => connect(true), RECONNECT_DELAY_MS)
       }
       ws.onerror = () => ws?.close()
     }
 
-    connect()
+    connect(false)
 
     return () => {
       unmounted = true

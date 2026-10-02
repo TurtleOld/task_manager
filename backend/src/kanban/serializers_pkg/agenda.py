@@ -10,8 +10,7 @@ class AgendaUserSerializer(UserSerializer):
     """Minimal person representation for an agenda row.
 
     Trims `UserSerializer` down to what a row needs, which also means the
-    `role`/`permissions`/`is_admin` method fields never run — no per-row
-    permission lookups.
+    `role`/`is_admin` method fields never run.
     """
 
     class Meta(UserSerializer.Meta):
@@ -47,5 +46,6 @@ class AgendaCardSerializer(serializers.ModelSerializer[Card]):
             "checklist_total",
             "checklist_completed",
             "created_at",
+            "version",
         ]
         read_only_fields = fields

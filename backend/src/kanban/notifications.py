@@ -104,9 +104,7 @@ def _pending_card_update_dedupe_key(*, card_id: int, actor: AbstractUser | None)
 def is_pending_card_update_window(event: NotificationEvent) -> bool:
     """Whether `event` is a still-open `card.updated` coalescing window."""
 
-    return bool(event.dedupe_key) and event.dedupe_key.startswith(
-        PENDING_CARD_UPDATE_DEDUPE_PREFIX
-    )
+    return bool(event.dedupe_key) and event.dedupe_key.startswith(PENDING_CARD_UPDATE_DEDUPE_PREFIX)
 
 
 def create_or_extend_pending_card_update_event(

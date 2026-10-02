@@ -617,9 +617,7 @@ def test_prune_is_throttled_to_once_a_day(monkeypatch) -> None:
     pruned: list[int] = []
     monkeypatch.setattr("kanban.tasks.generate_recurring_cards", lambda: None)
     monkeypatch.setattr("kanban.tasks.send_overdue_card_reminders", lambda: None)
-    monkeypatch.setattr(
-        "kanban.tasks.prune_card_activity", lambda: pruned.append(1)
-    )
+    monkeypatch.setattr("kanban.tasks.prune_card_activity", lambda: pruned.append(1))
 
     dispatcher.maintenance_tick()
     dispatcher.maintenance_tick()
@@ -643,9 +641,7 @@ def test_one_failing_chore_does_not_skip_the_others(monkeypatch) -> None:
         lambda: (_ for _ in ()).throw(RuntimeError("recurrence exploded")),
     )
     monkeypatch.setattr("kanban.tasks.send_overdue_card_reminders", lambda: None)
-    monkeypatch.setattr(
-        "kanban.tasks.prune_card_activity", lambda: pruned.append(1)
-    )
+    monkeypatch.setattr("kanban.tasks.prune_card_activity", lambda: pruned.append(1))
 
     dispatcher.maintenance_tick()
 

@@ -446,7 +446,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
                     <Badge variant="neutral">Access control</Badge>
                   </div>
                   <h2 className="mt-3 text-h3 text-text">Пользователи</h2>
-                  <p className="mt-1 text-body-sm text-text-muted">Управляйте ролями, профилями и правами доступа команды.</p>
+                  <p className="mt-1 text-body-sm text-text-muted">Управляйте ролями и профилями команды.</p>
                 </div>
                 <Link to="/register" className="inline-flex min-h-11 items-center gap-2 rounded-control bg-[image:var(--gradient-primary)] px-4 py-2 text-button text-text-inverse shadow-elevated transition duration-fast ease-standard hover:brightness-[1.03]">
                   Создать пользователя
@@ -502,7 +502,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
                         </div>
                         {selectedUser.is_admin ? <Badge variant="success">Админ</Badge> : <Badge variant="neutral">Участник</Badge>}
                       </div>
-                      <p className="text-body-sm text-text-muted">Откройте полный профиль, чтобы управлять ролью, правами и паролем пользователя.</p>
+                      <p className="text-body-sm text-text-muted">Откройте полный профиль, чтобы управлять ролью и паролем пользователя.</p>
                       <div className="flex flex-wrap items-center gap-2">
                         <Button type="button" onClick={() => setProfileOpen(true)}>Открыть профиль</Button>
                         <Button type="button" variant="secondary" onClick={() => setPasswordOpen(true)}>Сменить пароль</Button>

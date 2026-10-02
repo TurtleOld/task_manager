@@ -6,7 +6,6 @@ export interface E2EUser {
   full_name: string
   is_admin: boolean
   role: string
-  permissions: string[]
   token: string
 }
 

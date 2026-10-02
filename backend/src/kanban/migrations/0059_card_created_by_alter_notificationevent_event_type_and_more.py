@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("kanban", "0058_notificationdelivery_dedupe_key"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),

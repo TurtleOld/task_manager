@@ -4,10 +4,21 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from kanban.models import Board, Card, Column, NotificationEvent
+from kanban.models import (
+    Attachment,
+    Board,
+    Card,
+    CardActivity,
+    CardComment,
+    ChecklistItem,
+    Column,
+    NotificationEvent,
+)
+from kanban.serializers import CardSerializer
 
 User = get_user_model()
 
@@ -264,9 +275,7 @@ def test_patch_card_increments_version(auth_client: APIClient, card: Card) -> No
 
 
 @pytest.mark.django_db()
-def test_patch_card_creates_pending_notification_event(
-    auth_client: APIClient, card: Card
-) -> None:
+def test_patch_card_creates_pending_notification_event(auth_client: APIClient, card: Card) -> None:
     """PATCH creates its own card.updated event, coalesced and not yet due."""
     auth_client.patch(f"/api/v1/cards/{card.id}/", data={"title": "v2"}, format="json")
     events = NotificationEvent.objects.filter(event_type="card.updated", card_id=card.id)
@@ -278,32 +287,164 @@ def test_patch_card_creates_pending_notification_event(
 
 
 # ---------------------------------------------------------------------------
+# Board and parent invariants
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db()
+def test_card_board_is_writable_on_create_read_only_on_update(
+    card: Card,
+) -> None:
+    created = CardSerializer()
+    assert created.fields["board"].read_only is False
+
+    updated = CardSerializer(card, data={"title": "x"}, partial=True)
+    assert updated.fields["board"].read_only is True
+
+
+@pytest.mark.django_db()
+def test_patch_board_does_not_move_card(auth_client: APIClient, card: Card) -> None:
+    board_id = card.board_id
+    other_board = Board.objects.create(name="Other board")
+    resp = auth_client.patch(
+        f"/api/v1/cards/{card.id}/",
+        data={"board": other_board.id},
+        format="json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["board"] == board_id
+    card.refresh_from_db()
+    assert card.board_id == board_id
+
+
+@pytest.mark.django_db()
+def test_patch_parent_on_card_with_subtasks_rejected(auth_client: APIClient, card: Card) -> None:
+    Card.objects.create(column=card.column, parent=card, title="Child")
+    other = Card.objects.create(column=card.column, title="Other")
+    resp = auth_client.patch(
+        f"/api/v1/cards/{card.id}/",
+        data={"parent": other.id},
+        format="json",
+    )
+    assert resp.status_code == 400
+    assert "parent" in resp.json()
+    card.refresh_from_db()
+    assert card.parent_id is None
+
+
+@pytest.mark.django_db()
+def test_patch_parent_rejected_when_subtasks_are_archived(
+    auth_client: APIClient, card: Card
+) -> None:
+    child = Card.objects.create(column=card.column, parent=card, title="Child")
+    child.archived_at = timezone.now()
+    child.save(update_fields=["archived_at", "updated_at", "version"])
+    other = Card.objects.create(column=card.column, title="Other")
+    resp = auth_client.patch(
+        f"/api/v1/cards/{card.id}/",
+        data={"parent": other.id},
+        format="json",
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.django_db()
+def test_patch_parent_under_a_subtask_rejected(auth_client: APIClient, card: Card) -> None:
+    parent = Card.objects.create(column=card.column, title="Parent")
+    subtask = Card.objects.create(column=card.column, parent=parent, title="Sub")
+    resp = auth_client.patch(
+        f"/api/v1/cards/{card.id}/",
+        data={"parent": subtask.id},
+        format="json",
+    )
+    assert resp.status_code == 400
+    assert resp.json()["parent"] == ["Subtasks cannot have their own subtasks."]
+
+
+@pytest.mark.django_db()
+def test_card_clean_rejects_parent_when_card_has_subtasks(card: Card) -> None:
+    Card.objects.create(column=card.column, parent=card, title="Child")
+    parent = Card.objects.create(column=card.column, title="Parent")
+    card.parent = parent
+    with pytest.raises(DjangoValidationError):
+        card.clean()
+
+
+# ---------------------------------------------------------------------------
 # Delete
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.django_db()
-def test_delete_card(auth_client: APIClient, card: Card) -> None:
-    card_id = card.id
-    resp = auth_client.delete(f"/api/v1/cards/{card_id}/")
-    assert resp.status_code == 204
-    assert not Card.objects.filter(id=card_id).exists()
-    archived = Card.with_archived.get(id=card_id)
-    assert archived.archived_at is not None
+def test_delete_active_card_returns_400(auth_client: APIClient, card: Card) -> None:
+    resp = auth_client.delete(f"/api/v1/cards/{card.id}/")
+
+    assert resp.status_code == 400
+    assert Card.with_archived.filter(id=card.id).exists()
+    assert Card.with_archived.get(id=card.id).archived_at is None
 
 
 @pytest.mark.django_db()
-def test_delete_card_creates_card_archived_event_immediately(
+def test_delete_missing_card_returns_404(auth_client: APIClient) -> None:
+    resp = auth_client.delete("/api/v1/cards/99999/")
+    assert resp.status_code == 404
+
+
+@pytest.mark.django_db()
+def test_delete_archived_card_removes_it(auth_client: APIClient, card: Card) -> None:
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+    card_id = card.id
+
+    resp = auth_client.delete(f"/api/v1/cards/{card_id}/")
+
+    assert resp.status_code == 204
+    assert not Card.with_archived.filter(id=card_id).exists()
+
+
+@pytest.mark.django_db()
+def test_delete_archived_parent_deletes_subtasks(auth_client: APIClient, card: Card) -> None:
+    subtask = Card.objects.create(column=card.column, parent=card, title="Sub")
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+
+    resp = auth_client.delete(f"/api/v1/cards/{card.id}/")
+
+    assert resp.status_code == 204
+    assert not Card.with_archived.filter(id__in=[card.id, subtask.id]).exists()
+
+
+@pytest.mark.django_db()
+def test_delete_archived_card_removes_related_data(auth_client: APIClient, card: Card) -> None:
+    author = User.objects.create_user(username="commenter", password="x")
+    CardComment.objects.create(card=card, author=author, text="hi")
+    ChecklistItem.objects.create(card=card, text="step", position=1)
+    Attachment.objects.create(card=card, name="file.txt", type="link", url="https://example.com")
+    CardActivity.objects.create(card=card, action="card.updated")
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+
+    resp = auth_client.delete(f"/api/v1/cards/{card.id}/")
+
+    assert resp.status_code == 204
+    assert not CardComment.objects.filter(card_id=card.id).exists()
+    assert not ChecklistItem.objects.filter(card_id=card.id).exists()
+    assert not Attachment.objects.filter(card_id=card.id).exists()
+    assert not CardActivity.objects.filter(card_id=card.id).exists()
+
+
+@pytest.mark.django_db()
+def test_delete_archived_card_creates_card_deleted_event_immediately(
     auth_client: APIClient, card: Card
 ) -> None:
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+
     auth_client.delete(f"/api/v1/cards/{card.id}/")
-    events = NotificationEvent.objects.filter(event_type="card.archived", card_id=card.id)
+
+    events = NotificationEvent.objects.filter(event_type="card.deleted")
     assert events.count() == 1
     event = events.get()
     assert event.dispatch_status == NotificationEvent.Dispatch.PENDING
     assert event.next_attempt_at <= timezone.now()
-    assert "в архиве" in event.summary
-    assert NotificationEvent.objects.filter(event_type="card.deleted", card_id=card.id).count() == 0
+    assert "Удалена задача" in event.summary
+    assert event.card is None
 
 
 # ---------------------------------------------------------------------------
@@ -352,7 +493,7 @@ def test_notify_updated_without_pending_event_is_a_noop(auth_client: APIClient, 
 
 @pytest.mark.django_db()
 def test_notify_updated_ignores_a_body(auth_client: APIClient, card: Card) -> None:
-    """Android still posts a body — it must not be validated or used."""
+    """A body, if sent, must not be validated or used."""
     resp = auth_client.post(
         f"/api/v1/cards/{card.id}/notify-updated/",
         data={"version": 999, "changes": ["anything"]},

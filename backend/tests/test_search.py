@@ -45,7 +45,7 @@ def test_search_hides_archived_cards(
     board = Board.objects.create(name="Visible board")
     column = Column.objects.create(board=board, name="To Do")
     archived = Card.objects.create(column=column, title="Hidden needle")
-    auth_client.delete(f"/api/v1/cards/{archived.id}/")
+    auth_client.post(f"/api/v1/cards/{archived.id}/archive/")
 
     resp = auth_client.get("/api/v1/search/?q=needle")
 

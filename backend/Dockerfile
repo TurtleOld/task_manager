@@ -7,16 +7,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     # Ensure Django project packages (./src/config, ./src/kanban, etc.) are importable
     # for process entrypoints that don't go through manage.py (e.g. daphne).
     PYTHONPATH=/app/src \
+    UV_PROJECT_ENVIRONMENT=/app/.venv \
+    UV_LINK_MODE=copy \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates && rm -rf /var/lib/apt/lists/*
-
-# NOTE: Some corporate environments intercept TLS with a custom CA.
-# You can override these build args as needed.
-ARG PIP_TRUSTED_HOST_1=pypi.org
-ARG PIP_TRUSTED_HOST_2=files.pythonhosted.org
 
 WORKDIR /app
 
@@ -29,19 +26,12 @@ ENV APP_ROOT=/app \
     LOGS_DIR=/app/logs \
     TMP_DIR=/app/tmp
 
+COPY backend/pyproject.toml backend/uv.lock ./
+
 # Pre-install deps (production only) for better layer caching
-COPY backend/pyproject.toml ./pyproject.toml
+RUN python -m pip install --upgrade pip uv \
+    && uv sync --frozen --no-dev
 
-# Create venv and install runtime deps (no dev extras)
-RUN python -m venv "$VIRTUAL_ENV" \
-    && python -m pip install --upgrade pip \
-    && python -c "import pathlib, tomllib; data=tomllib.loads(pathlib.Path('pyproject.toml').read_text('utf-8')); print('\\n'.join(data.get('project', {}).get('dependencies', [])))" > /tmp/requirements.txt \
-    && python -m pip install \
-        --trusted-host "$PIP_TRUSTED_HOST_1" \
-        --trusted-host "$PIP_TRUSTED_HOST_2" \
-        -r /tmp/requirements.txt
-
-# Copy project source
 COPY backend/manage.py ./manage.py
 COPY backend/src ./src
 
