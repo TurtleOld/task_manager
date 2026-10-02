@@ -8,7 +8,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("kanban", "0061_remove_deprecated_permission_grants"),
+        ("kanban", "0062_drop_celery_beat_tables"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
