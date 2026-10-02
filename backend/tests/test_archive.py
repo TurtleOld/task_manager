@@ -30,9 +30,7 @@ def test_archive_lists_archived_cards_without_columns(auth_client: APIClient) ->
 
 
 @pytest.mark.django_db()
-def test_archive_active_card_moves_it_to_archive(
-    auth_client: APIClient, card: Card
-) -> None:
+def test_archive_active_card_moves_it_to_archive(auth_client: APIClient, card: Card) -> None:
     resp = auth_client.post(f"/api/v1/cards/{card.id}/archive/")
 
     assert resp.status_code == 200
@@ -58,9 +56,7 @@ def test_archive_missing_card_returns_404(auth_client: APIClient) -> None:
 
 
 @pytest.mark.django_db()
-def test_archive_parent_archives_subtasks(
-    auth_client: APIClient, card: Card
-) -> None:
+def test_archive_parent_archives_subtasks(auth_client: APIClient, card: Card) -> None:
     subtask = Card.objects.create(column=card.column, parent=card, title="Sub")
 
     resp = auth_client.post(f"/api/v1/cards/{card.id}/archive/")
@@ -71,16 +67,12 @@ def test_archive_parent_archives_subtasks(
 
 
 @pytest.mark.django_db()
-def test_archive_action_creates_card_archived_event(
-    auth_client: APIClient, card: Card
-) -> None:
+def test_archive_action_creates_card_archived_event(auth_client: APIClient, card: Card) -> None:
     auth_client.post(f"/api/v1/cards/{card.id}/archive/")
 
     events = NotificationEvent.objects.filter(event_type="card.archived", card_id=card.id)
     assert events.count() == 1
-    assert not NotificationEvent.objects.filter(
-        event_type="card.deleted", card_id=card.id
-    ).exists()
+    assert not NotificationEvent.objects.filter(event_type="card.deleted", card_id=card.id).exists()
 
 
 @pytest.mark.django_db()

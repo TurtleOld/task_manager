@@ -20,7 +20,6 @@ def delete_legacy_devices_and_preferences(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("kanban", "0055_dispatcher_prune_timestamp"),
     ]

@@ -408,9 +408,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
                 raise serializers.ValidationError(
                     {"parent": "Subtasks cannot have their own subtasks."}
                 )
-            if instance is not None and Card.with_archived.filter(
-                parent=instance
-            ).exists():
+            if instance is not None and Card.with_archived.filter(parent=instance).exists():
                 raise serializers.ValidationError(
                     {"parent": "A card with subtasks cannot be a subtask."}
                 )

@@ -23,9 +23,7 @@ def _archive(board: Board) -> None:
 
 
 @pytest.mark.django_db()
-def test_archive_active_board_moves_it_to_archive(
-    auth_client: APIClient, board: Board
-) -> None:
+def test_archive_active_board_moves_it_to_archive(auth_client: APIClient, board: Board) -> None:
     resp = auth_client.post(f"/api/v1/boards/{board.id}/archive/")
 
     assert resp.status_code == 200
@@ -52,9 +50,7 @@ def test_unarchive_archived_board_returns_it_to_active(
 
 
 @pytest.mark.django_db()
-def test_delete_archived_board_removes_all_content(
-    auth_client: APIClient, regular_user
-) -> None:
+def test_delete_archived_board_removes_all_content(auth_client: APIClient, regular_user) -> None:
     board = Board.objects.create(name="Doomed")
     column = Column.objects.create(board=board, name="To Do")
     card = Card.objects.create(column=column, title="Task")
@@ -83,9 +79,7 @@ def test_delete_active_board_returns_400(auth_client: APIClient, board: Board) -
 
 
 @pytest.mark.django_db()
-def test_unarchive_active_board_returns_400(
-    auth_client: APIClient, board: Board
-) -> None:
+def test_unarchive_active_board_returns_400(auth_client: APIClient, board: Board) -> None:
     resp = auth_client.post(f"/api/v1/boards/{board.id}/unarchive/")
 
     assert resp.status_code == 400
@@ -94,9 +88,7 @@ def test_unarchive_active_board_returns_400(
 
 
 @pytest.mark.django_db()
-def test_archive_archived_board_returns_400(
-    auth_client: APIClient, board: Board
-) -> None:
+def test_archive_archived_board_returns_400(auth_client: APIClient, board: Board) -> None:
     _archive(board)
     archived_at = board.archived_at
 

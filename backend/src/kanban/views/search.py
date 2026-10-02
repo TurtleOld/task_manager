@@ -19,9 +19,7 @@ class SearchView(APIView):
         if len(query) < 2:
             return Response({"cards": [], "boards": []})
 
-        boards = list(
-            Board.objects.filter(name__icontains=query).order_by("name", "id")[:8]
-        )
+        boards = list(Board.objects.filter(name__icontains=query).order_by("name", "id")[:8])
         cards = list(
             Card.objects.select_related("board")
             .prefetch_related("labels")
