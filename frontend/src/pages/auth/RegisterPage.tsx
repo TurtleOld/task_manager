@@ -89,7 +89,7 @@ export function RegisterPage({ user }: RegisterPageProps) {
             </div>
             <div>
               <h1 className="text-h1 text-text">Создание пользователя</h1>
-              <p className="mt-2 max-w-3xl text-body-sm text-text-muted">Заполните карточку доступа, выберите роль и при необходимости настройте права вручную.</p>
+              <p className="mt-2 max-w-3xl text-body-sm text-text-muted">Заполните карточку доступа и выберите роль.</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -128,7 +128,7 @@ export function RegisterPage({ user }: RegisterPageProps) {
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="success">Permissions</Badge>
+                  <Badge variant="success">Roles</Badge>
                   <Badge variant="neutral">Security</Badge>
                 </div>
                 <h2 className="mt-3 text-h3 text-text">Роли и доступ</h2>

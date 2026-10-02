@@ -32,9 +32,8 @@ def _no_throttle(settings: pytest.FixtureRequest) -> None:
 # ---------------------------------------------------------------------------
 
 
-# No Celery stub is needed any more: `create_notification_event()` writes an
-# outbox row and returns. Nothing is enqueued, so nothing has to be faked —
-# a test that wants delivery to happen calls `dispatcher.tick()` explicitly.
+# `create_notification_event()` only writes an outbox row; a test that wants
+# delivery to happen calls `dispatcher.tick()` explicitly.
 
 
 @pytest.fixture(autouse=True)

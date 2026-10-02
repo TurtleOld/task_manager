@@ -38,9 +38,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         )
         board_data = BoardSerializer(board).data
         transaction.on_commit(
-            lambda: broadcast_board_event(
-                board.id, "board.created", {"board": board_data}
-            )
+            lambda: broadcast_board_event(board.id, "board.created", {"board": board_data})
         )
 
     def perform_update(self, serializer: BoardSerializer) -> None:
@@ -56,10 +54,20 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
             )
             board_data = BoardSerializer(board).data
             transaction.on_commit(
-                lambda: broadcast_board_event(
-                    board.id, "board.updated", {"board": board_data}
-                )
+                lambda: broadcast_board_event(board.id, "board.updated", {"board": board_data})
             )
+
+    def destroy(self, request: Request, pk: int | None = None) -> Response:
+        board = Board.with_archived.filter(pk=pk).first()
+        if board is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if board.archived_at is None:
+            return Response(
+                {"detail": "Сначала переместите список в архив."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        self.perform_destroy(board)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def perform_destroy(self, instance: Board) -> None:
         actor = self.request.user if self.request.user.is_authenticated else None
@@ -76,14 +84,19 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
                 payload=payload,
             )
             transaction.on_commit(
-                lambda: broadcast_board_event(
-                    board_id, "board.deleted", {"board_id": board_id}
-                )
+                lambda: broadcast_board_event(board_id, "board.deleted", {"board_id": board_id})
             )
 
     @action(detail=True, methods=["post"], url_path="archive")
     def archive(self, request: Request, pk: int | None = None) -> Response:
-        board = self.get_object()
+        board = Board.with_archived.filter(pk=pk).first()
+        if board is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if board.archived_at is not None:
+            return Response(
+                {"detail": "Список уже в архиве."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         actor = request.user if request.user.is_authenticated else None
         with transaction.atomic():
             board.archived_at = timezone.now()
@@ -96,9 +109,7 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
                 payload={"board": board.name},
             )
             transaction.on_commit(
-                lambda: broadcast_board_event(
-                    board.id, "board.archived", {"board_id": board.id}
-                )
+                lambda: broadcast_board_event(board.id, "board.archived", {"board_id": board.id})
             )
         return Response(BoardSerializer(board).data)
 
@@ -107,6 +118,11 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         board = Board.with_archived.filter(pk=pk).first()
         if board is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if board.archived_at is None:
+            return Response(
+                {"detail": "Список не в архиве."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         actor = request.user if request.user.is_authenticated else None
         with transaction.atomic():
             board.archived_at = None
@@ -119,34 +135,6 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
                 payload={"board": board.name},
             )
             transaction.on_commit(
-                lambda: broadcast_board_event(
-                    board.id, "board.unarchived", {"board_id": board.id}
-                )
+                lambda: broadcast_board_event(board.id, "board.unarchived", {"board_id": board.id})
             )
         return Response(BoardSerializer(board).data)
-
-    @action(detail=True, methods=["delete"], url_path="force-delete")
-    def force_delete(self, request: Request, pk: int | None = None) -> Response:
-        """Hard-delete an archived board."""
-        board = Board.with_archived.filter(pk=pk).first()
-        if board is None:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        actor = request.user if request.user.is_authenticated else None
-        summary = f"Удалён список «{board.name}»"
-        payload = {"board": board.name}
-        board_id = board.id
-        with transaction.atomic():
-            board.delete()
-            create_notification_event(
-                event_type=NotificationEventType.BOARD_DELETED.value,
-                actor=actor,
-                board=None,
-                summary=summary,
-                payload=payload,
-            )
-            transaction.on_commit(
-                lambda: broadcast_board_event(
-                    board_id, "board.deleted", {"board_id": board_id}
-                )
-            )
-        return Response(status=status.HTTP_204_NO_CONTENT)

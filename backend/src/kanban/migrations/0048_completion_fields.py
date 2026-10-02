@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("kanban", "0047_sync_inbox_schedule_index_names"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),

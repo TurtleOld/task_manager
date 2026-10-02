@@ -18,14 +18,16 @@ class ActiveColumnManager(models.Manager["Column"]):
 
 class ActiveCardManager(models.Manager["Card"]):
     def get_queryset(self) -> models.QuerySet["Card"]:
-        return self.active_regardless_of_list().filter(
-            board__archived_at__isnull=True
-        )
+        return self.active_regardless_of_list().filter(board__archived_at__isnull=True)
 
     def active_regardless_of_list(self) -> models.QuerySet["Card"]:
-        return super().get_queryset().filter(
-            archived_at__isnull=True,
-            column__archived_at__isnull=True,
+        return (
+            super()
+            .get_queryset()
+            .filter(
+                archived_at__isnull=True,
+                column__archived_at__isnull=True,
+            )
         )
 
 
@@ -222,13 +224,9 @@ class Card(TimestampedModel):
         if self.pk and self.parent_id == self.pk:
             raise ValidationError({"parent": "A card cannot be its own parent."})
         if self.parent and self.parent.parent_id is not None:
-            raise ValidationError(
-                {"parent": "Subtasks cannot have their own subtasks."}
-            )
+            raise ValidationError({"parent": "Subtasks cannot have their own subtasks."})
         if self.pk and Card.with_archived.filter(parent=self).exists():
-            raise ValidationError(
-                {"parent": "A card with subtasks cannot be a subtask."}
-            )
+            raise ValidationError({"parent": "A card with subtasks cannot be a subtask."})
 
 
 class InboxSchedule(TimestampedModel):
@@ -704,8 +702,8 @@ class CardDeadlineReminder(TimestampedModel):
     last_error = models.TextField(blank=True, default="")
     sent_at = models.DateTimeField(null=True, blank=True)
 
-    # Retry bookkeeping. Celery used to own this; now the row does, so a
-    # restart of the dispatcher cannot forget how many attempts were made.
+    # Retry bookkeeping lives on the row, so a restart of the dispatcher
+    # cannot forget how many attempts were made.
     attempts = models.PositiveIntegerField(default=0)
     next_attempt_at = models.DateTimeField(null=True, blank=True)
 

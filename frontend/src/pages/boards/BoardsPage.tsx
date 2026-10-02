@@ -1,8 +1,18 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useBoards, useCreateBoard } from '../../api/queries/boards'
+import { Archive } from 'lucide-react'
+import { useBoards, useCreateBoard, useArchiveBoard } from '../../api/queries/boards'
+import type { Board } from '../../api/types'
 import { Badge, Button, Card as SurfaceCard, EmptyState, Field, PageShell, Skeleton, TextInput } from '@/components/ui'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 const BOARD_ICONS = ['📋', '🏡', '🛒', '🛠️', '🏖️', '💰', '🎯', '📚', '🚗', '🐾', '🌱', '🎁']
 const BOARD_COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed', '#0891b2', '#db2777', '#4f46e5']
@@ -10,9 +20,22 @@ const BOARD_COLORS = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#7c3aed', '#0
 export function BoardsPage() {
   const { data: boards = [], isLoading } = useBoards()
   const createBoardMutation = useCreateBoard()
+  const archiveBoardMutation = useArchiveBoard()
   const [name, setName] = useState('')
   const [icon, setIcon] = useState(BOARD_ICONS[0] ?? '📋')
   const [color, setColor] = useState(BOARD_COLORS[0] ?? '#2563eb')
+  const [archivingBoard, setArchivingBoard] = useState<Board | null>(null)
+
+  const onArchive = async (board: Board) => {
+    try {
+      await archiveBoardMutation.mutateAsync(board.id)
+      toast.success(`Список «${board.name}» в архиве`)
+    } catch (error) {
+      toast.error((error as Error).message || 'Не удалось архивировать список')
+    } finally {
+      setArchivingBoard(null)
+    }
+  }
 
   const onCreate = async () => {
     if (!name.trim()) return
@@ -125,25 +148,60 @@ export function BoardsPage() {
         ) : (
           <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {boards.map((board) => (
-              <Link key={board.id} to={`/lists/${board.id}`} className="group rounded-[1.35rem] border border-border/80 bg-[image:var(--gradient-surface)] p-5 shadow-surface backdrop-blur transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="primary">Список</Badge>
-                      <Badge>#{board.id}</Badge>
+              <article key={board.id} className="group flex flex-col justify-between rounded-[1.35rem] border border-border/80 bg-[image:var(--gradient-surface)] p-5 shadow-surface backdrop-blur transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-elevated">
+                <Link to={`/lists/${board.id}`} className="block">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="primary">Список</Badge>
+                        <Badge>#{board.id}</Badge>
+                      </div>
+                      <div>
+                        <h3 className="truncate text-h3 text-text group-hover:text-primary">{board.name}</h3>
+                        <p className="mt-2 text-body-sm text-text-muted">Перейти к задачам и realtime-обновлениям.</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="truncate text-h3 text-text group-hover:text-primary">{board.name}</h3>
-                      <p className="mt-2 text-body-sm text-text-muted">Перейти к задачам и realtime-обновлениям.</p>
-                    </div>
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl text-white shadow-surface" style={{ backgroundColor: board.color || '#2563eb' }} aria-hidden="true">{board.icon || '📋'}</span>
                   </div>
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-xl text-white shadow-surface" style={{ backgroundColor: board.color || '#2563eb' }} aria-hidden="true">{board.icon || '📋'}</span>
+                </Link>
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setArchivingBoard(board)}
+                  >
+                    <Archive className="h-4 w-4" />
+                    В архив
+                  </Button>
                 </div>
-              </Link>
+              </article>
             ))}
           </section>
         )}
       </section>
+
+      <Dialog open={archivingBoard !== null} onOpenChange={(open) => !open && setArchivingBoard(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Убрать список в архив?</DialogTitle>
+            <DialogDescription>
+              Список «{archivingBoard?.name}» скроется с экрана списков. Данные сохранятся, список можно будет восстановить из архива.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setArchivingBoard(null)}>Отмена</Button>
+            <Button
+              variant="primary"
+              loading={archiveBoardMutation.isPending}
+              onClick={() => archivingBoard && void onArchive(archivingBoard)}
+            >
+              <Archive className="h-4 w-4" />
+              В архив
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </PageShell>
   )
 }

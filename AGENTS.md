@@ -13,11 +13,11 @@
 - Never bump versions or create release tags manually: release-please opens a release PR; merging it updates version files, CHANGELOG.md, and creates the tag.
 - Versions are derived from conventional commit messages on `main`: `fix:` bumps patch, `feat:` bumps minor, `feat!:`/`BREAKING CHANGE:` bumps major. Commits of other types (`chore:`, `refactor:`, `docs:`, ...) do not trigger a release.
 - The version lives in `version.txt`, mirrored into `frontend/package.json`, `backend/pyproject.toml`, and `backend/src/config/settings.py` (line annotated with `x-release-please-version`). Tag format: `v<version>`.
-- The `v<version>` tag triggers Docker image build/push for backend, celery, and frontend.
+- The `v<version>` tag triggers Docker image build/push for backend and frontend.
 
 ## Code Style
 
-- Keep Python lines at 80 characters when practical; the lint limit is 81 characters.
+- Keep Python lines within the 100-character limit enforced by ruff (`line-length = 100`).
 
 ## Backend Testing
 

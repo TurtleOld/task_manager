@@ -32,7 +32,7 @@ def test_archive_lists_archived_cards_without_columns(auth_client: APIClient) ->
     column = Column.objects.create(board=board, name="To Do")
     card = Card.objects.create(column=column, title="Old task")
 
-    auth_client.delete(f"/api/v1/cards/{card.id}/")
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
     # Columns are an internal implementation detail now — there is no API to
     # archive one, but the archive response still must not surface it.
     column.archived_at = timezone.now()
@@ -49,16 +49,82 @@ def test_archive_lists_archived_cards_without_columns(auth_client: APIClient) ->
 
 
 @pytest.mark.django_db()
-def test_restore_archived_card(auth_client: APIClient, column: Column) -> None:
-    card = Card.objects.create(column=column, title="Restore me")
-    auth_client.delete(f"/api/v1/cards/{card.id}/")
+def test_archive_active_card_moves_it_to_archive(auth_client: APIClient, card: Card) -> None:
+    resp = auth_client.post(f"/api/v1/cards/{card.id}/archive/")
 
-    resp = auth_client.post(f"/api/v1/cards/{card.id}/restore/")
+    assert resp.status_code == 200
+    assert resp.json()["id"] == card.id
+    assert not Card.objects.filter(id=card.id).exists()
+    archived = Card.with_archived.get(id=card.id)
+    assert archived.archived_at is not None
+
+
+@pytest.mark.django_db()
+def test_archive_archived_card_returns_400(auth_client: APIClient, card: Card) -> None:
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+
+    resp = auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+
+    assert resp.status_code == 400
+
+
+@pytest.mark.django_db()
+def test_archive_missing_card_returns_404(auth_client: APIClient) -> None:
+    resp = auth_client.post("/api/v1/cards/99999/archive/")
+    assert resp.status_code == 404
+
+
+@pytest.mark.django_db()
+def test_archive_parent_archives_subtasks(auth_client: APIClient, card: Card) -> None:
+    subtask = Card.objects.create(column=card.column, parent=card, title="Sub")
+
+    resp = auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+
+    assert resp.status_code == 200
+    assert Card.with_archived.get(id=subtask.id).archived_at is not None
+    assert resp.json()["subtasks"] == []
+
+
+@pytest.mark.django_db()
+def test_archive_action_creates_card_archived_event(auth_client: APIClient, card: Card) -> None:
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+
+    events = NotificationEvent.objects.filter(event_type="card.archived", card_id=card.id)
+    assert events.count() == 1
+    assert not NotificationEvent.objects.filter(event_type="card.deleted", card_id=card.id).exists()
+
+
+@pytest.mark.django_db()
+def test_unarchive_archived_card_restores_it(auth_client: APIClient, card: Card) -> None:
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+
+    resp = auth_client.post(f"/api/v1/cards/{card.id}/unarchive/")
 
     assert resp.status_code == 200
     assert resp.json()["id"] == card.id
     restored = Card.objects.get(id=card.id)
     assert restored.archived_at is None
+
+
+@pytest.mark.django_db()
+def test_unarchive_active_card_returns_400(auth_client: APIClient, card: Card) -> None:
+    resp = auth_client.post(f"/api/v1/cards/{card.id}/unarchive/")
+    assert resp.status_code == 400
+
+
+@pytest.mark.django_db()
+def test_unarchive_missing_card_returns_404(auth_client: APIClient) -> None:
+    resp = auth_client.post("/api/v1/cards/99999/unarchive/")
+    assert resp.status_code == 404
+
+
+@pytest.mark.django_db()
+def test_restore_endpoint_removed(auth_client: APIClient, card: Card) -> None:
+    auth_client.post(f"/api/v1/cards/{card.id}/archive/")
+
+    resp = auth_client.post(f"/api/v1/cards/{card.id}/restore/")
+
+    assert resp.status_code in {404, 405}
 
 
 @pytest.mark.django_db()
@@ -85,9 +151,7 @@ def test_agenda_all_lists_and_list_scope_exclude_archived_list(
 ) -> None:
     board = Board.objects.create(name="Vacation 2025")
     column = Column.objects.create(board=board, name="To Do")
-    card = Card.objects.create(
-        column=column, title="Buy tickets", deadline=timezone.now()
-    )
+    card = Card.objects.create(column=column, title="Buy tickets", deadline=timezone.now())
 
     visible = auth_client.get("/api/v1/agenda/").json()["cards"]
     assert card.id in [item["id"] for item in visible]
@@ -103,9 +167,7 @@ def test_agenda_all_lists_and_list_scope_exclude_archived_list(
 def test_completed_agenda_excludes_archived_list(auth_client: APIClient) -> None:
     board = Board.objects.create(name="Vacation")
     column = Column.objects.create(board=board, name="To Do")
-    card = Card.objects.create(
-        column=column, title="Buy tickets", completed_at=timezone.now()
-    )
+    card = Card.objects.create(column=column, title="Buy tickets", completed_at=timezone.now())
 
     before = auth_client.get("/api/v1/agenda/completed/").json()["cards"]
     assert card.id in [item["id"] for item in before]
@@ -116,9 +178,7 @@ def test_completed_agenda_excludes_archived_list(auth_client: APIClient) -> None
 
 
 @pytest.mark.django_db()
-def test_family_today_excludes_archived_list(
-    auth_client: APIClient, regular_user: User
-) -> None:
+def test_family_today_excludes_archived_list(auth_client: APIClient, regular_user: User) -> None:
     boundaries = compute_agenda_boundaries(now=timezone.now(), tz_name="UTC")
     board = Board.objects.create(name="Vacation")
     column = Column.objects.create(board=board, name="To Do")
@@ -144,9 +204,7 @@ def test_family_today_excludes_archived_list(
 def test_shopping_list_ignores_card_on_archived_list() -> None:
     board = Board.objects.create(name="Vacation")
     column = Column.objects.create(board=board, name="To Do")
-    card = Card.objects.create(
-        column=column, title="Покупки", is_shopping_list=True
-    )
+    card = Card.objects.create(column=column, title="Покупки", is_shopping_list=True)
 
     assert shopping_list_card() == card
 
@@ -167,11 +225,9 @@ def test_overdue_reminders_skip_tasks_of_archived_list(webpush_settings) -> None
 
     _archive_board(board)
 
-    send_overdue_card_reminders.run()
+    send_overdue_card_reminders()
 
-    overdue = NotificationEvent.objects.filter(
-        dedupe_key__startswith="card.overdue:"
-    )
+    overdue = NotificationEvent.objects.filter(dedupe_key__startswith="card.overdue:")
     assert list(overdue) == []
 
 
@@ -227,4 +283,3 @@ def test_task_of_archived_list_is_still_reachable_by_id(
 
     assert resp.status_code == 200
     assert resp.json()["id"] == card.id
-
