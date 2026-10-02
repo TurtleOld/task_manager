@@ -66,7 +66,8 @@ CARD_PREFETCH_RELATED = (
 
 class CardViewSet(viewsets.ModelViewSet[Card]):
     queryset = (
-        Card.objects.select_related("board")
+        Card.objects.active_regardless_of_list()
+        .select_related("board")
         .prefetch_related(*CARD_PREFETCH_RELATED)
         .all()
         .order_by("position", "id")
@@ -76,8 +77,14 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        if self.action == "list" and self.request.query_params.get("board"):
+        if self.action != "list":
+            return super().get_queryset()
+        queryset = (
+            Card.objects.select_related("board")
+            .prefetch_related(*CARD_PREFETCH_RELATED)
+            .order_by("position", "id")
+        )
+        if self.request.query_params.get("board"):
             return queryset.filter(parent__isnull=True)
         return queryset
 
@@ -264,7 +271,8 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
     def _broadcast_checklist_update(self, card: Card) -> None:
         def _broadcast() -> None:
             refreshed = (
-                Card.objects.select_related("board")
+                Card.objects.active_regardless_of_list()
+                .select_related("board")
                 .prefetch_related(*CARD_PREFETCH_RELATED)
                 .get(pk=card.pk)
             )
@@ -298,8 +306,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         return Response(self.get_serializer(card).data, status=status.HTTP_201_CREATED)
 
     def _card_queryset_for_payload(self):
-        return Card.objects.select_related("board").prefetch_related(
-            *CARD_PREFETCH_RELATED,
+        return (
+            Card.objects.active_regardless_of_list()
+            .select_related("board")
+            .prefetch_related(*CARD_PREFETCH_RELATED)
         )
 
     def _broadcast_card_with_parent(self, card: Card, event_type: str) -> None:
@@ -502,7 +512,8 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 payload={"board": card.board.name, "card": card.title},
             )
             card = (
-                Card.objects.select_related("board")
+                Card.objects.active_regardless_of_list()
+                .select_related("board")
                 .prefetch_related(*CARD_PREFETCH_RELATED)
                 .get(pk=card.pk)
             )
@@ -520,7 +531,8 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             reschedule_enabled_reminders(card=card)
             create_or_extend_pending_card_update_event(card=card, actor=actor)
             card = (
-                Card.objects.select_related("board")
+                Card.objects.active_regardless_of_list()
+                .select_related("board")
                 .prefetch_related(*CARD_PREFETCH_RELATED)
                 .get(pk=card.pk)
             )
@@ -726,7 +738,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         now = timezone.now()
 
         with transaction.atomic():
-            card = Card.objects.select_for_update().get(pk=card.pk)
+            card = Card.objects.active_regardless_of_list().select_for_update().get(pk=card.pk)
             already_completed = card.completed_at is not None
             if not already_completed:
                 card._activity_actor = actor
@@ -736,18 +748,24 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 skip_reminders_for_completed_card(card_id=card.id)
 
                 if card.parent_id:
-                    parent = Card.objects.select_related("board").get(pk=card.parent_id)
+                    parent = (
+                        Card.objects.active_regardless_of_list()
+                        .select_related("board")
+                        .get(pk=card.parent_id)
+                    )
                     create_or_extend_pending_card_update_event(card=parent, actor=actor)
 
                 open_subtask_ids = list(
-                    Card.objects.filter(
+                    Card.objects.active_regardless_of_list()
+                    .filter(
                         parent_id=card.pk,
                         completed_at__isnull=True,
                         archived_at__isnull=True,
-                    ).values_list("id", flat=True)
+                    )
+                    .values_list("id", flat=True)
                 )
                 if open_subtask_ids:
-                    Card.objects.filter(id__in=open_subtask_ids).update(
+                    Card.objects.active_regardless_of_list().filter(id__in=open_subtask_ids).update(
                         completed_at=now,
                         completed_by=actor,
                         updated_at=now,
@@ -767,7 +785,8 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                         skip_reminders_for_completed_card(card_id=subtask_id)
 
             card = (
-                Card.objects.select_related("board")
+                Card.objects.active_regardless_of_list()
+                .select_related("board")
                 .prefetch_related(*CARD_PREFETCH_RELATED)
                 .get(pk=card.pk)
             )
@@ -799,7 +818,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         actor = request.user if request.user.is_authenticated else None
 
         with transaction.atomic():
-            card = Card.objects.select_for_update().get(pk=card.pk)
+            card = Card.objects.active_regardless_of_list().select_for_update().get(pk=card.pk)
             was_completed = card.completed_at is not None
             if was_completed:
                 card._activity_actor = actor
@@ -809,7 +828,8 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 reschedule_enabled_reminders(card=card)
 
         card = (
-            Card.objects.select_related("board")
+            Card.objects.active_regardless_of_list()
+            .select_related("board")
             .prefetch_related(*CARD_PREFETCH_RELATED)
             .get(pk=card.pk)
         )

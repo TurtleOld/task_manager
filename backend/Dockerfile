@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     VIRTUAL_ENV=/app/.venv \
     PATH=/app/.venv/bin:$PATH \
     # Ensure Django project packages (./src/config, ./src/kanban, etc.) are importable
-    # for process entrypoints that don't go through manage.py (e.g. daphne, celery).
+    # for process entrypoints that don't go through manage.py (e.g. daphne).
     PYTHONPATH=/app/src \
     UV_PROJECT_ENVIRONMENT=/app/.venv \
     UV_LINK_MODE=copy \

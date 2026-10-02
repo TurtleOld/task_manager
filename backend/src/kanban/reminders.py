@@ -223,11 +223,9 @@ def upsert_and_schedule_reminder(
         ]
     )
 
-    # No broker-side ETA here on purpose. Celery's `eta` keeps the message in
-    # the worker's memory until it fires, which occupies a prefetch slot for
-    # the whole wait and loses the reminder whenever the worker restarts.
     # The DB row above is the source of truth; the dispatcher polls it every
-    # tick and delivers the reminder once it comes due.
+    # tick and delivers the reminder once it comes due. Nothing is scheduled in
+    # memory, so a restart cannot drop a pending reminder.
     return reminder
 
 

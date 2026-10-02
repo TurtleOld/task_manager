@@ -19,6 +19,9 @@ class ActiveColumnManager(models.Manager["Column"]):
 
 class ActiveCardManager(models.Manager["Card"]):
     def get_queryset(self) -> models.QuerySet["Card"]:
+        return self.active_regardless_of_list().filter(board__archived_at__isnull=True)
+
+    def active_regardless_of_list(self) -> models.QuerySet["Card"]:
         return (
             super()
             .get_queryset()
@@ -700,8 +703,8 @@ class CardDeadlineReminder(TimestampedModel):
     last_error = models.TextField(blank=True, default="")
     sent_at = models.DateTimeField(null=True, blank=True)
 
-    # Retry bookkeeping. Celery used to own this; now the row does, so a
-    # restart of the dispatcher cannot forget how many attempts were made.
+    # Retry bookkeeping lives on the row, so a restart of the dispatcher
+    # cannot forget how many attempts were made.
     attempts = models.PositiveIntegerField(default=0)
     next_attempt_at = models.DateTimeField(null=True, blank=True)
 
