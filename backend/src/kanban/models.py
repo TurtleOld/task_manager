@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.conf import settings
+from django.contrib.sessions.base_session import AbstractBaseSession
 from django.db import models
 from django.utils import timezone
 
@@ -784,3 +785,24 @@ class SiteSettings(models.Model):
     def load(cls) -> SiteSettings:
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+class UserSession(AbstractBaseSession):
+    """A login on one browser or device, keyed by the session cookie."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="user_sessions",
+    )
+    user_agent_label = models.CharField(max_length=100, blank=True, default="")
+    login_at = models.DateTimeField(default=timezone.now)
+    last_activity = models.DateTimeField(default=timezone.now)
+
+    @classmethod
+    def get_session_store_class(cls) -> type[Any]:
+        from .session_engine import SessionStore
+
+        return SessionStore
