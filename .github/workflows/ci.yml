@@ -150,7 +150,6 @@ jobs:
           DJANGO_SECRET_KEY: test
           DJANGO_DEBUG: 'true'
           DATABASE_URL: sqlite:///${{ github.workspace }}/backend/e2e.sqlite3
-          CELERY_TASK_ALWAYS_EAGER: 'true'
         run: uv run python manage.py migrate --noinput
       - name: Start backend
         working-directory: backend
@@ -158,7 +157,6 @@ jobs:
           DJANGO_SECRET_KEY: test
           DJANGO_DEBUG: 'true'
           DATABASE_URL: sqlite:///${{ github.workspace }}/backend/e2e.sqlite3
-          CELERY_TASK_ALWAYS_EAGER: 'true'
           FRONTEND_BASE_URL: http://127.0.0.1:5173
         run: |
           uv run python manage.py runserver 127.0.0.1:8000 > ../backend-e2e.log 2>&1 &
