@@ -26,6 +26,9 @@ import type {
   CardActivity,
 } from './types'
 
+import { AUTH_TOKEN_KEY } from '../app/auth'
+import { notifySessionExpired } from '../app/session'
+
 type ViteImportMeta = ImportMeta & {
   env?: {
     VITE_API_BASE_URL?: string
@@ -35,19 +38,23 @@ type ViteImportMeta = ImportMeta & {
 const BASE = (import.meta as ViteImportMeta).env?.VITE_API_BASE_URL || '/api'
 const V1 = `${BASE}/v1`
 
-async function json<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    throw new Error(await errorDetail(res))
+async function ensureOk(res: Response): Promise<void> {
+  if (res.ok) return
+  if (res.status === 401 && localStorage.getItem(AUTH_TOKEN_KEY)) {
+    notifySessionExpired()
   }
+  throw new Error(await errorDetail(res))
+}
+
+async function json<T>(res: Response): Promise<T> {
+  await ensureOk(res)
   const text = await res.text()
   if (!text.trim()) return null as T
   return JSON.parse(text) as T
 }
 
 async function ok(res: Response): Promise<void> {
-  if (!res.ok) {
-    throw new Error(await errorDetail(res))
-  }
+  await ensureOk(res)
 }
 
 async function errorDetail(res: Response): Promise<string> {
@@ -129,13 +136,6 @@ export const api = {
       headers: authHeaders(),
     })
     return json(res)
-  },
-  forceDeleteBoard: async (id: number): Promise<void> => {
-    const res = await fetch(`${V1}/boards/${id}/force-delete/`, {
-      method: 'DELETE',
-      headers: authHeaders(),
-    })
-    return ok(res)
   },
 
   // Cards
@@ -309,8 +309,15 @@ export const api = {
     })
     return ok(res)
   },
-  restoreCard: async (id: number): Promise<Card> => {
-    const res = await fetch(`${V1}/cards/${id}/restore/`, {
+  archiveCard: async (id: number): Promise<Card> => {
+    const res = await fetch(`${V1}/cards/${id}/archive/`, {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+    return json(res)
+  },
+  unarchiveCard: async (id: number): Promise<Card> => {
+    const res = await fetch(`${V1}/cards/${id}/unarchive/`, {
       method: 'POST',
       headers: authHeaders(),
     })
@@ -367,7 +374,7 @@ export const api = {
       method: 'POST',
       headers: authHeaders(),
     })
-    if (!res.ok) throw new Error(`${res.status}`)
+    return ok(res)
   },
   updateCurrentUser: async (payload: Partial<{ full_name: string }>): Promise<UserProfile> => {
     const res = await fetch(`${V1}/auth/me/`, {

@@ -108,9 +108,7 @@ def test_add_checklist_item_creates_pending_notification_event(
         data={"text": "Check me"},
         format="json",
     )
-    assert (
-        NotificationEvent.objects.filter(event_type="card.updated", card_id=card.id).count() == 1
-    )
+    assert NotificationEvent.objects.filter(event_type="card.updated", card_id=card.id).count() == 1
 
 
 # ---------------------------------------------------------------------------

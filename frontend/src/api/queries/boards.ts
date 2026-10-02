@@ -59,6 +59,7 @@ export function useDeleteBoard() {
       qc.setQueryData<Board[]>(queryKeys.boards(), (prev) =>
         prev?.filter((b) => b.id !== id),
       )
+      qc.invalidateQueries({ queryKey: ['archive'] })
     },
   })
 }
@@ -71,6 +72,7 @@ export function useArchiveBoard() {
       qc.setQueryData<Board[]>(queryKeys.boards(), (prev) =>
         prev?.filter((b) => b.id !== board.id),
       )
+      qc.invalidateQueries({ queryKey: ['archive'] })
     },
   })
 }
@@ -84,16 +86,7 @@ export function useUnarchiveBoard() {
         prev ? [...prev, board] : [board],
       )
       qc.invalidateQueries({ queryKey: queryKeys.boards() })
-    },
-  })
-}
-
-export function useForceDeleteBoard() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: number) => api.forceDeleteBoard(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.boards() })
+      qc.invalidateQueries({ queryKey: ['archive'] })
     },
   })
 }

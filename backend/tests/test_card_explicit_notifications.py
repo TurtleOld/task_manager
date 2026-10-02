@@ -28,9 +28,7 @@ def test_edits_in_one_session_coalesce_into_one_event(auth_client: APIClient) ->
         format="json",
     ).json()
 
-    first = auth_client.patch(
-        f"/api/v1/cards/{card['id']}/", data={"title": "A2"}, format="json"
-    )
+    first = auth_client.patch(f"/api/v1/cards/{card['id']}/", data={"title": "A2"}, format="json")
     assert first.status_code == 200
     event = NotificationEvent.objects.get(event_type="card.updated", card_id=card["id"])
     first_ready_at = event.next_attempt_at
@@ -40,9 +38,9 @@ def test_edits_in_one_session_coalesce_into_one_event(auth_client: APIClient) ->
     )
     assert second.status_code == 200
 
-    assert NotificationEvent.objects.filter(
-        event_type="card.updated", card_id=card["id"]
-    ).count() == 1
+    assert (
+        NotificationEvent.objects.filter(event_type="card.updated", card_id=card["id"]).count() == 1
+    )
     event.refresh_from_db()
     assert event.next_attempt_at >= first_ready_at
 
@@ -147,9 +145,7 @@ def test_deleting_an_attachment_creates_a_pending_update_event(auth_client: APIC
         format="json",
     ).json()["attachments"][-1]
 
-    resp = auth_client.delete(
-        f"/api/v1/cards/{card['id']}/attachments/{attachment['id']}/"
-    )
+    resp = auth_client.delete(f"/api/v1/cards/{card['id']}/attachments/{attachment['id']}/")
     assert resp.status_code == 200
     # One coalesced event covers both the add and the delete — same actor,
     # same open window.
@@ -174,9 +170,7 @@ def test_adding_a_subtask_notes_a_pending_update_on_the_parent(auth_client: APIC
     )
     assert resp.status_code == 201
     assert (
-        NotificationEvent.objects.filter(
-            event_type="card.updated", card_id=parent["id"]
-        ).count()
+        NotificationEvent.objects.filter(event_type="card.updated", card_id=parent["id"]).count()
         == 1
     )
 
@@ -217,6 +211,6 @@ def test_direct_api_call_still_creates_the_event(auth_client: APIClient) -> None
         format="json",
     )
     assert resp.status_code == 201
-    assert NotificationEvent.objects.filter(
-        event_type="card.updated", card_id=card["id"]
-    ).count() == 1
+    assert (
+        NotificationEvent.objects.filter(event_type="card.updated", card_id=card["id"]).count() == 1
+    )
