@@ -54,10 +54,10 @@ export function useArchive(boardId?: number) {
   })
 }
 
-export function useRestoreArchiveCard(boardId?: number) {
+export function useUnarchiveCard(boardId?: number) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => api.restoreCard(id),
+    mutationFn: (id: number) => api.unarchiveCard(id),
     onSuccess: (card) => {
       qc.setQueryData<ArchiveResponse>(queryKeys.archive(boardId), (prev) => {
         if (!prev) return prev
@@ -66,6 +66,20 @@ export function useRestoreArchiveCard(boardId?: number) {
       qc.setQueryData<Card[]>(queryKeys.cards(card.board), (prev) => upsertCard(prev, card))
       void qc.invalidateQueries({ queryKey: queryKeys.myToday() })
       void qc.invalidateQueries({ queryKey: queryKeys.calendarCards() })
+    },
+  })
+}
+
+export function useDeleteCard(boardId?: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.deleteCard(id),
+    onSuccess: (_data, id) => {
+      qc.setQueryData<ArchiveResponse>(queryKeys.archive(boardId), (prev) => {
+        if (!prev) return prev
+        return { ...prev, cards: prev.cards.filter((item) => item.id !== id) }
+      })
+      void qc.invalidateQueries({ queryKey: ['archive'] })
     },
   })
 }

@@ -461,9 +461,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         additive.
         """
 
-        usernames = {
-            item.lower() for item in re.findall(r"@([\w.@+-]+)", comment.text)
-        }
+        usernames = {item.lower() for item in re.findall(r"@([\w.@+-]+)", comment.text)}
         mentioned_users = (
             User.objects.annotate(username_lower=Lower("username"))
             .filter(username_lower__in=usernames)
@@ -510,9 +508,7 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             )
             card_data = CardSerializer(card).data
             transaction.on_commit(
-                lambda: broadcast_board_event(
-                    card.board_id, "card.created", {"card": card_data}
-                )
+                lambda: broadcast_board_event(card.board_id, "card.created", {"card": card_data})
             )
         self._broadcast_parent_update(card.parent_id)
 
@@ -534,29 +530,45 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             )
         self._broadcast_parent_update(card.parent_id)
 
+    def destroy(self, request: Request, pk: str | None = None) -> Response:
+        try:
+            card = Card.with_archived.filter(pk=pk).first()
+        except (TypeError, ValueError):
+            card = None
+        if card is None:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        if card.archived_at is None:
+            return Response(
+                {"detail": "Сначала переместите задачу в архив."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        self.perform_destroy(card)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def perform_destroy(self, instance: Card) -> None:
         board_id = instance.board_id
         card_id = instance.id
         parent_id = instance.parent_id
+        title = instance.title
+        board = instance.board
         actor = self.request.user if self.request.user.is_authenticated else None
         with transaction.atomic():
-            instance.archived_at = timezone.now()
-            instance.save(update_fields=["archived_at", "updated_at", "version"])
+            instance.delete()
             create_notification_event(
-                event_type=NotificationEventType.CARD_ARCHIVED.value,
+                event_type=NotificationEventType.CARD_DELETED.value,
                 actor=actor,
-                board=instance.board,
-                card=instance,
-                summary=f"Задача «{instance.title}» в архиве",
-                payload={"board": instance.board.name, "card": instance.title},
+                board=board,
+                card=None,
+                summary=f"Удалена задача «{title}»",
+                payload={"board": board.name, "card": title},
             )
             transaction.on_commit(
                 lambda: broadcast_board_event(board_id, "card.deleted", {"card_id": card_id})
             )
         self._broadcast_parent_update(parent_id)
 
-    @action(detail=True, methods=["post"], url_path="restore")
-    def restore(self, request: Request, pk: str | None = None) -> Response:
+    @action(detail=True, methods=["post"], url_path="archive")
+    def archive(self, request: Request, pk: str | None = None) -> Response:
         try:
             card = (
                 Card.with_archived.select_related("board")
@@ -567,13 +579,69 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
         if card.archived_at is not None:
-            card.archived_at = None
-            card.save(update_fields=["archived_at", "updated_at", "version"])
-            card = (
-                Card.objects.select_related("board")
-                .prefetch_related(*CARD_PREFETCH_RELATED)
-                .get(pk=card.pk)
+            return Response(
+                {"detail": "Card is already archived"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
+
+        actor = request.user if request.user.is_authenticated else None
+        now = timezone.now()
+        card_id = card.id
+        board_id = card.board_id
+        with transaction.atomic():
+            card.archived_at = now
+            card.save(update_fields=["archived_at", "updated_at", "version"])
+            open_subtask_ids = list(
+                Card.with_archived.filter(
+                    parent=card,
+                    archived_at__isnull=True,
+                ).values_list("id", flat=True)
+            )
+            if open_subtask_ids:
+                Card.with_archived.filter(id__in=open_subtask_ids).update(
+                    archived_at=now,
+                    updated_at=now,
+                    version=F("version") + 1,
+                )
+            create_notification_event(
+                event_type=NotificationEventType.CARD_ARCHIVED.value,
+                actor=actor,
+                board=card.board,
+                card=card,
+                summary=f"Задача «{card.title}» в архиве",
+                payload={"board": card.board.name, "card": card.title},
+            )
+            transaction.on_commit(
+                lambda: broadcast_board_event(board_id, "card.archived", {"card_id": card_id})
+            )
+        self._broadcast_parent_update(card.parent_id)
+        card.refresh_from_db()
+        return Response(self.get_serializer(card).data)
+
+    @action(detail=True, methods=["post"], url_path="unarchive")
+    def unarchive(self, request: Request, pk: str | None = None) -> Response:
+        try:
+            card = (
+                Card.with_archived.select_related("board")
+                .prefetch_related(*CARD_PREFETCH_RELATED)
+                .get(pk=pk)
+            )
+        except Card.DoesNotExist:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if card.archived_at is None:
+            return Response(
+                {"detail": "Card is not archived"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        card.archived_at = None
+        card.save(update_fields=["archived_at", "updated_at", "version"])
+        card = (
+            Card.with_archived.select_related("board")
+            .prefetch_related(*CARD_PREFETCH_RELATED)
+            .get(pk=card.pk)
+        )
 
         data = self.get_serializer(card).data
         broadcast_board_event(card.board_id, "card.created", {"card": data})
@@ -641,9 +709,9 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
 
         The body carries no data — the server is the source of both the
         event's text and the decision to create it (see
-        `create_or_extend_pending_card_update_event`). This endpoint is kept
-        only as a "flush now" signal for the frozen Android app, which still
-        calls it; a missing window is not an error.
+        `create_or_extend_pending_card_update_event`). The frontend calls it
+        as a "flush now" signal when the task screen closes; a missing window
+        is not an error.
         """
 
         card = self.get_object()

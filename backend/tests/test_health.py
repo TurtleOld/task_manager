@@ -13,8 +13,26 @@ def test_health_ok(client: Client) -> None:
     resp = client.get("/api/health")
     assert resp.status_code == 200
     data = json.loads(resp.content)
-    assert data["status"] == "ok"
-    assert data["database"]["ok"] is True
+    assert data == {"status": "ok"}
+
+
+@pytest.mark.django_db()
+def test_health_does_not_leak_database_errors(
+    client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The public aggregate must not include the raw failure text."""
+
+    monkeypatch.setattr(
+        "kanban.health._check_database",
+        lambda: {"ok": False, "error": "host db:5432 refused"},
+    )
+
+    resp = client.get("/api/health")
+
+    assert resp.status_code == 503
+    data = json.loads(resp.content)
+    assert data == {"status": "error"}
+    assert b"db:5432" not in resp.content
 
 
 @pytest.mark.django_db()
@@ -112,3 +130,22 @@ def test_health_detail_tolerates_missing_redis(client: Client, settings) -> None
 
     assert data["checks"]["redis"]["ok"] is False
     assert "redis" not in data["failing"]
+
+
+@pytest.mark.django_db()
+def test_check_dispatcher_health_command_fails_without_a_heartbeat() -> None:
+    from django.core.management import call_command
+
+    with pytest.raises(SystemExit):
+        call_command("check_dispatcher_health")
+
+
+@pytest.mark.django_db()
+def test_check_dispatcher_health_command_passes_with_a_fresh_heartbeat() -> None:
+    from django.core.management import call_command
+
+    from kanban.dispatcher import beat
+
+    beat()
+
+    call_command("check_dispatcher_health")

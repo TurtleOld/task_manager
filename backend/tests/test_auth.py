@@ -158,3 +158,47 @@ def test_login_token_is_reused(api_client: APIClient, regular_user: object) -> N
     ).json()
     assert r1["token"] == r2["token"]
     assert Token.objects.filter(user__username="user1").count() == 1
+
+
+# ---------------------------------------------------------------------------
+# /api/v1/users/ — role model
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db()
+def test_user_responses_expose_no_permission_registry(
+    admin_client: APIClient, regular_user: User
+) -> None:
+    me = admin_client.get("/api/v1/auth/me/")
+    assert me.status_code == 200
+    assert "permissions" not in me.json()
+
+    listing = admin_client.get("/api/v1/users/")
+    assert listing.status_code == 200
+    assert listing.json()
+    assert all("permissions" not in row for row in listing.json())
+
+    detail = admin_client.get(f"/api/v1/users/{regular_user.id}/")
+    assert detail.status_code == 200
+    assert "permissions" not in detail.json()
+
+
+@pytest.mark.django_db()
+def test_admin_can_switch_user_between_roles(admin_client: APIClient, regular_user: User) -> None:
+    promoted = admin_client.patch(
+        f"/api/v1/users/{regular_user.id}/",
+        data={"role": "owner"},
+        format="json",
+    )
+    assert promoted.status_code == 200
+    assert promoted.json()["role"] == "owner"
+    assert promoted.json()["is_admin"] is True
+
+    demoted = admin_client.patch(
+        f"/api/v1/users/{regular_user.id}/",
+        data={"role": "member"},
+        format="json",
+    )
+    assert demoted.status_code == 200
+    assert demoted.json()["role"] == "member"
+    assert demoted.json()["is_admin"] is False

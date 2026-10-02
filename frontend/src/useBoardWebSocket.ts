@@ -18,6 +18,7 @@ export type BoardEvent =
   | { type: 'card.created'; card: Card }
   | { type: 'card.updated'; card: Card }
   | { type: 'card.deleted'; card_id: number }
+  | { type: 'card.archived'; card_id: number }
   | { type: 'card.completed'; card: Card }
   | { type: 'comment.created'; card_id: number; comment: CardComment }
   | { type: 'comment.updated'; card_id: number; comment: CardComment }
