@@ -34,7 +34,7 @@ def _check_database() -> dict[str, Any]:
     return {"ok": True}
 
 
-def _check_dispatcher() -> dict[str, Any]:
+def check_dispatcher() -> dict[str, Any]:
     """Is the notification dispatcher still running?
 
     Stale means "the loop has not completed a pass in several intervals". That
@@ -136,12 +136,16 @@ def _check_push() -> dict[str, Any]:
 
 
 def health_view(_request):
-    """Liveness for the container healthcheck: can this process serve?"""
+    """Liveness for the container healthcheck: can this process serve?
 
-    database = _check_database()
-    healthy = database["ok"]
+    Deliberately aggregate-only: the public response must not carry the
+    database host or the raw error text. That detail stays on
+    `/api/health/detail`, which the public edge does not expose.
+    """
+
+    healthy = _check_database()["ok"]
     return JsonResponse(
-        {"status": "ok" if healthy else "error", "database": database},
+        {"status": "ok" if healthy else "error"},
         status=200 if healthy else 503,
     )
 
@@ -151,7 +155,7 @@ def health_detail_view(_request):
 
     checks = {
         "database": _check_database(),
-        "dispatcher": _check_dispatcher(),
+        "dispatcher": check_dispatcher(),
         "redis": _check_redis(),
         "queue": _check_queue(),
         "push": _check_push(),
