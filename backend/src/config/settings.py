@@ -147,16 +147,10 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation."
-        "UserAttributeSimilarityValidator"
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
-    {
-        "NAME": "django.contrib.auth.password_validation."
-        "NumericPasswordValidator"
-    },
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
 # Brute-force lockout keyed on username + client address, so a stranger
@@ -216,9 +210,7 @@ CSRF_COOKIE_SECURE = not DEBUG
 # trusted, which is what breaks /admin/ behind an HTTPS proxy. Trust the
 # public frontend origin plus any explicitly configured origins.
 _csrf_trusted_urls = _env_list("DJANGO_CSRF_TRUSTED_ORIGINS") + [FRONTEND_BASE_URL]
-CSRF_TRUSTED_ORIGINS = [
-    origin for origin in (_origin(url) for url in _csrf_trusted_urls) if origin
-]
+CSRF_TRUSTED_ORIGINS = [origin for origin in (_origin(url) for url in _csrf_trusted_urls) if origin]
 
 REDIS_URL = os.getenv("REDIS_URL") or os.getenv("CELERY_BROKER_URL") or "redis://localhost:6379/0"
 
