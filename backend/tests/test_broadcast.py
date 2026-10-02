@@ -45,7 +45,7 @@ def test_broadcast_calls_group_send() -> None:
 
 
 def test_broadcast_swallows_exceptions() -> None:
-    """A broken channel layer must not propagate errors to callers."""
+    """A broken channel layer must not propagate errors, but must be logged."""
     from kanban.broadcast import broadcast_board_event
 
     mock_layer = MagicMock()
@@ -54,9 +54,12 @@ def test_broadcast_swallows_exceptions() -> None:
     with (
         patch("kanban.broadcast.get_channel_layer", return_value=mock_layer),
         patch("kanban.broadcast.async_to_sync", side_effect=lambda f: f),
+        patch("kanban.broadcast.logger") as mock_logger,
     ):
-        # Should not raise
         broadcast_board_event(board_id=1, event_type="board.updated", data={})
+
+    mock_logger.exception.assert_called_once()
+    assert "broadcast_board_event failed" in mock_logger.exception.call_args[0][0]
 
 
 def test_board_group_name_format() -> None:

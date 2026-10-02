@@ -242,6 +242,7 @@ def test_agenda_card_carries_row_fields(
     assert item["is_recurring"] is False
     assert item["checklist_total"] == 2
     assert item["checklist_completed"] == 1
+    assert item["version"] == card.version
 
 
 @pytest.mark.django_db()
