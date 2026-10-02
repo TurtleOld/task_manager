@@ -18,6 +18,9 @@ class ActiveColumnManager(models.Manager["Column"]):
 
 class ActiveCardManager(models.Manager["Card"]):
     def get_queryset(self) -> models.QuerySet["Card"]:
+        return self.active_regardless_of_list().filter(board__archived_at__isnull=True)
+
+    def active_regardless_of_list(self) -> models.QuerySet["Card"]:
         return (
             super()
             .get_queryset()

@@ -69,6 +69,20 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
           if (!prev) return prev
           return { ...prev, cards: prev.cards.filter((item) => item.id !== event.card_id) }
         })
+        return
+      }
+
+      if (event.type === 'board.archived' || event.type === 'board.unarchived') {
+        qc.invalidateQueries({ queryKey: key })
+        return
+      }
+
+      if (event.type === 'board.deleted') {
+        qc.setQueryData<AgendaResponse>(key, (prev) => {
+          if (!prev) return prev
+          return { ...prev, cards: prev.cards.filter((item) => item.list !== event.board_id) }
+        })
+        qc.invalidateQueries({ queryKey: key })
       }
     }
 
