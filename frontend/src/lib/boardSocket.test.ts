@@ -55,6 +55,18 @@ describe('openBoardSocket', () => {
     expect(clearLocalSession).not.toHaveBeenCalled()
   })
 
+  it('tells onOpen whether the socket is a reconnect', () => {
+    const onOpen = vi.fn()
+    openBoardSocket({ boardId: 1, token: 't', onEvent: vi.fn(), onOpen })
+
+    first().onopen?.()
+    first().onclose?.({ code: 1006 })
+    vi.advanceTimersByTime(3000)
+    FakeSocket.instances[1]!.onopen?.()
+
+    expect(onOpen.mock.calls).toEqual([[false], [true]])
+  })
+
   it('cleans the session and stops on close code 4001', () => {
     openBoardSocket({ boardId: 1, token: 't', onEvent: vi.fn() })
 

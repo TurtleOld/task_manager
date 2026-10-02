@@ -1,5 +1,3 @@
-import { AUTH_TOKEN_KEY } from '../app/auth'
-import { clearLocalSession } from '../app/session'
 import type {
   Board,
   Card,
@@ -28,6 +26,9 @@ import type {
   CardActivity,
 } from './types'
 
+import { AUTH_TOKEN_KEY } from '../app/auth'
+import { clearLocalSession } from '../app/session'
+
 type ViteImportMeta = ImportMeta & {
   env?: {
     VITE_API_BASE_URL?: string
@@ -37,27 +38,23 @@ type ViteImportMeta = ImportMeta & {
 const BASE = (import.meta as ViteImportMeta).env?.VITE_API_BASE_URL || '/api'
 const V1 = `${BASE}/v1`
 
-function dropSessionOnUnauthorized(res: Response) {
+async function ensureOk(res: Response): Promise<void> {
+  if (res.ok) return
   if (res.status === 401 && localStorage.getItem(AUTH_TOKEN_KEY)) {
     void clearLocalSession()
   }
+  throw new Error(await errorDetail(res))
 }
 
 async function json<T>(res: Response): Promise<T> {
-  dropSessionOnUnauthorized(res)
-  if (!res.ok) {
-    throw new Error(await errorDetail(res))
-  }
+  await ensureOk(res)
   const text = await res.text()
   if (!text.trim()) return null as T
   return JSON.parse(text) as T
 }
 
 async function ok(res: Response): Promise<void> {
-  dropSessionOnUnauthorized(res)
-  if (!res.ok) {
-    throw new Error(await errorDetail(res))
-  }
+  await ensureOk(res)
 }
 
 async function errorDetail(res: Response): Promise<string> {
@@ -377,8 +374,7 @@ export const api = {
       method: 'POST',
       headers: authHeaders(),
     })
-    dropSessionOnUnauthorized(res)
-    if (!res.ok) throw new Error(`${res.status}`)
+    return ok(res)
   },
   updateCurrentUser: async (payload: Partial<{ full_name: string }>): Promise<UserProfile> => {
     const res = await fetch(`${V1}/auth/me/`, {

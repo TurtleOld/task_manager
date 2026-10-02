@@ -2,8 +2,6 @@ import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { ensureBoard, ensureUser, signInPage } from './helpers'
 
-const apiURL = process.env.PLAYWRIGHT_API_URL || 'http://127.0.0.1:8000/api/v1'
-
 async function readLocalData(page: Page) {
   return page.evaluate(async () => {
     const databases = (await indexedDB.databases?.()) ?? []
@@ -31,6 +29,8 @@ test.describe('local session cleanup', () => {
         }),
     )
 
+    const more = page.getByRole('button', { name: 'Ещё' })
+    if (await more.isVisible()) await more.click()
     await page.getByRole('button', { name: 'Выйти' }).first().click()
 
     await expect(page).toHaveURL(/\/login/)
@@ -43,7 +43,7 @@ test.describe('local session cleanup', () => {
 
     await signInPage(page, user)
     await page.goto(`/lists/${board.id}`)
-    await page.route(`${apiURL}/**`, (route) => route.fulfill({ status: 401, json: { detail: 'Invalid token.' } }))
+    await page.route('**/api/v1/**', (route) => route.fulfill({ status: 401, json: { detail: 'Invalid token.' } }))
     await page.reload()
 
     await expect(page).toHaveURL(/\/login/)

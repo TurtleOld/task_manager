@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../../api/queries/keys'
 import type { BoardEvent, Card, CardComment } from '../../../api/types'
+import { shouldApplyCardVersion } from '../../../lib/cardVersion'
 import { openBoardSocket } from '../../../lib/boardSocket'
 
 interface TaskRealtimeOptions {
@@ -26,6 +27,8 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
     const commentsKey = queryKeys.cardComments(taskId)
     const applyCard = (card: Card) => {
       if (card.id !== taskId) return
+      const current = qc.getQueryData<Card>(key)
+      if (!shouldApplyCardVersion(card.version, current?.version)) return
       qc.setQueryData<Card>(key, card)
     }
 
@@ -53,6 +56,13 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
         } else {
           applyComment(event)
         }
+      },
+      // Events published while the socket was down are lost, so a reconnect
+      // can only be healed by refetching the task and its comments.
+      onOpen: (isReconnect) => {
+        if (!isReconnect) return
+        void qc.invalidateQueries({ queryKey: key })
+        void qc.invalidateQueries({ queryKey: commentsKey })
       },
     })
   }, [boardId, taskId, token, qc])

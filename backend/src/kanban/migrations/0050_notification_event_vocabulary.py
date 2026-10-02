@@ -16,7 +16,6 @@ def delete_stale_preferences(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("kanban", "0049_backfill_completion_fields"),
     ]

@@ -17,7 +17,7 @@ interface BoardSocketOptions {
   boardId: number
   token: string
   onEvent: (event: BoardEvent) => void
-  onOpen?: () => void
+  onOpen?: (isReconnect: boolean) => void
 }
 
 /**
@@ -29,13 +29,14 @@ export function openBoardSocket({ boardId, token, onEvent, onOpen }: BoardSocket
   let ws: WebSocket | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
   let closed = false
+  let reconnecting = false
 
   const connect = () => {
     if (closed) return
     const socket = new WebSocket(`${getWsBase()}/ws/boards/${boardId}/?token=${token}`)
     ws = socket
 
-    socket.onopen = () => onOpen?.()
+    socket.onopen = () => onOpen?.(reconnecting)
 
     socket.onmessage = (message) => {
       try {
@@ -52,6 +53,7 @@ export function openBoardSocket({ boardId, token, onEvent, onOpen }: BoardSocket
         void clearLocalSession()
         return
       }
+      reconnecting = true
       timer = setTimeout(connect, RECONNECT_DELAY_MS)
     }
 

@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { applyAppFontSize, applyCompactMode, loadAppFontSize, loadCompactMode } from './app/preferences'
 import { queryClient } from './app/queryClient'
+import { registerServiceWorkerOnStartup } from './lib/pushManager'
 import App from './App'
 import { Toaster } from '@/components/ui/sonner'
 import './index.css'
@@ -22,6 +23,8 @@ try {
 } catch {
   // ignore: localStorage can be unavailable in private mode / blocked
 }
+
+registerServiceWorkerOnStartup()
 
 const container = document.getElementById('root')!
 const root = createRoot(container)

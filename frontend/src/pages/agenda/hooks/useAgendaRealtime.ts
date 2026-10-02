@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../../api/queries/keys'
 import { toAgendaCard, upsertAgendaCard } from '../../../api/queries/agenda'
 import type { AgendaResponse, BoardEvent } from '../../../api/types'
+import { shouldApplyCardVersion } from '../../../lib/cardVersion'
 import { openBoardSocket } from '../../../lib/boardSocket'
 
 interface AgendaRealtimeOptions {
@@ -32,10 +33,13 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
     const key = queryKeys.agenda(listId ?? undefined)
     const applyCardEvent = (event: BoardEvent) => {
       if (event.type === 'card.updated' || event.type === 'card.completed') {
+        const next = toAgendaCard(event.card)
         qc.setQueryData<AgendaResponse>(key, (prev) => {
           if (!prev) return prev
-          if (!prev.cards.some((item) => item.id === event.card.id)) return prev
-          return { ...prev, cards: upsertAgendaCard(prev.cards, toAgendaCard(event.card)) }
+          const current = prev.cards.find((item) => item.id === event.card.id)
+          if (!current) return prev
+          if (!shouldApplyCardVersion(next.version, current.version)) return prev
+          return { ...prev, cards: upsertAgendaCard(prev.cards, next) }
         })
         return
       }
@@ -57,13 +61,49 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
           if (!prev) return prev
           return { ...prev, cards: prev.cards.filter((item) => item.id !== event.card_id) }
         })
+        return
+      }
+
+      if (event.type === 'board.archived' || event.type === 'board.unarchived') {
+        qc.invalidateQueries({ queryKey: key })
+        return
+      }
+
+      if (event.type === 'board.deleted') {
+        qc.setQueryData<AgendaResponse>(key, (prev) => {
+          if (!prev) return prev
+          return { ...prev, cards: prev.cards.filter((item) => item.list !== event.board_id) }
+        })
+        qc.invalidateQueries({ queryKey: key })
       }
     }
 
     const closers = ids.map((boardId) =>
-      openBoardSocket({ boardId, token, onEvent: applyCardEvent }),
+      openBoardSocket({
+        boardId,
+        token,
+        onEvent: applyCardEvent,
+        // The socket carries no sequence number, so anything published while it
+        // was down is lost. A reconnect can only be healed by a full refetch.
+        onOpen: (isReconnect) => {
+          if (isReconnect) void qc.invalidateQueries({ queryKey: key })
+        },
+      }),
     )
 
-    return () => closers.forEach((close) => close())
+    // A PWA resumed from the background keeps its WebSocket open but stops
+    // receiving for a while, so the cached agenda can be stale by the time the
+    // screen comes back.
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void qc.invalidateQueries({ queryKey: key })
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      closers.forEach((close) => close())
+    }
   }, [boardIdsKey, listId, qc, token])
 }
