@@ -27,7 +27,7 @@ import type {
 } from './types'
 
 import { AUTH_TOKEN_KEY } from '../app/auth'
-import { notifySessionExpired } from '../app/session'
+import { clearLocalSession } from '../app/session'
 
 type ViteImportMeta = ImportMeta & {
   env?: {
@@ -41,7 +41,7 @@ const V1 = `${BASE}/v1`
 async function ensureOk(res: Response): Promise<void> {
   if (res.ok) return
   if (res.status === 401 && localStorage.getItem(AUTH_TOKEN_KEY)) {
-    notifySessionExpired()
+    void clearLocalSession()
   }
   throw new Error(await errorDetail(res))
 }

@@ -19,11 +19,6 @@ export function storeAuth(user: AuthUser) {
   localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user))
 }
 
-export function clearAuth() {
-  localStorage.removeItem(AUTH_TOKEN_KEY)
-  localStorage.removeItem(AUTH_USER_KEY)
-}
-
 export function loadLanguagePreference() {
   return localStorage.getItem(LANGUAGE_KEY) || 'ru'
 }

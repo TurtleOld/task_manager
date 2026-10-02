@@ -1,10 +1,8 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../../api/queries/keys'
-import { getWsBase } from '../../../useBoardWebSocket'
-import type { BoardEvent } from '../../../useBoardWebSocket'
-
-const RECONNECT_DELAY_MS = 3000
+import type { BoardEvent } from '../../../api/types'
+import { openBoardSocket } from '../../../lib/boardSocket'
 
 interface FamilyTodayRealtimeOptions {
   boardIds: number[]
@@ -27,10 +25,6 @@ export function useFamilyTodayRealtime({ boardIds, token }: FamilyTodayRealtimeO
       .filter((value) => Number.isFinite(value) && value > 0)
     if (ids.length === 0) return
 
-    const sockets: WebSocket[] = []
-    const timers: ReturnType<typeof setTimeout>[] = []
-    let unmounted = false
-
     const invalidate = (event: BoardEvent) => {
       if (
         event.type === 'card.created' ||
@@ -43,34 +37,10 @@ export function useFamilyTodayRealtime({ boardIds, token }: FamilyTodayRealtimeO
       }
     }
 
-    const connect = (boardId: number) => {
-      const ws = new WebSocket(`${getWsBase()}/ws/boards/${boardId}/?token=${token}`)
-      sockets.push(ws)
+    const closers = ids.map((boardId) =>
+      openBoardSocket({ boardId, token, onEvent: invalidate }),
+    )
 
-      ws.onmessage = (message) => {
-        try {
-          const data = JSON.parse(message.data) as BoardEvent
-          invalidate(data)
-        } catch {
-          // ignore malformed messages
-        }
-      }
-
-      ws.onclose = () => {
-        if (!unmounted) {
-          timers.push(setTimeout(() => connect(boardId), RECONNECT_DELAY_MS))
-        }
-      }
-
-      ws.onerror = () => ws.close()
-    }
-
-    for (const id of ids) connect(id)
-
-    return () => {
-      unmounted = true
-      timers.forEach((timer) => clearTimeout(timer))
-      sockets.forEach((socket) => socket.close())
-    }
+    return () => closers.forEach((close) => close())
   }, [boardIdsKey, qc, token])
 }
