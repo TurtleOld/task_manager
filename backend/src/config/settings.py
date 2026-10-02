@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Load env vars from repo root `.env` (preferred, used by docker-compose by default).
@@ -196,6 +197,23 @@ def _origin(url: str) -> str:
         return ""
     return f"{parsed.scheme}://{parsed.netloc}"
 
+
+_DEV_WEBSOCKET_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+WEBSOCKET_ALLOWED_ORIGINS = [
+    origin
+    for origin in dict.fromkeys(
+        [_origin(FRONTEND_BASE_URL), *(_DEV_WEBSOCKET_ORIGINS if DEBUG else [])]
+    )
+    if origin
+]
+if not WEBSOCKET_ALLOWED_ORIGINS:
+    raise ImproperlyConfigured(
+        "WebSocket origin allowlist is empty: set FRONTEND_BASE_URL to the "
+        "public frontend URL, e.g. https://tasks.example.com"
+    )
 
 # Traefik terminates TLS and forwards the original scheme; without this Django
 # sees every proxied request as plain HTTP.
