@@ -5,7 +5,8 @@
 // else — receiving a push, opening the right task on click, and re-registering
 // a renewed subscription — is here on purpose, because the generated mode has
 // nowhere to put a custom delivery handler.
-import { cleanupOutdatedCaches, precacheAndRoute } from 'workbox-precaching'
+import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching'
+import { NavigationRoute, registerRoute } from 'workbox-routing'
 
 import { subscriptionToRegistrationBody } from './lib/push'
 import { loadPushAuth } from './lib/pushIdb'
@@ -35,6 +36,11 @@ declare const self: {
 
 precacheAndRoute(self.__WB_MANIFEST)
 cleanupOutdatedCaches()
+
+// Deep links like /lists/1/tasks/2 are not precached as their own files; serve
+// the shell for every navigation so an offline launch lands on the app instead
+// of the browser error page.
+registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html')))
 
 // Automatic updates, no "update available" banner: a new worker takes over as
 // soon as it is installed and activated.
@@ -103,9 +109,12 @@ self.addEventListener('notificationclick', (event) => {
       // Prefer an open tab that already shows the target task, then any open
       // tab, and open a new one only when the app has no window at all.
       const alreadyThere = clientList.find((client) => client.url === target)
-      const client = alreadyThere ?? clientList[0]
+      if (alreadyThere) return alreadyThere.focus()
+      const client = clientList[0]
       if (client) {
-        return client.navigate(target).then(() => client.focus())
+        // `navigate()` rejects on a window the worker does not control, so a
+        // notification click must be able to fall back to opening a new one.
+        return client.navigate(target).then(() => client.focus()).catch(() => self.clients.openWindow(target))
       }
       return self.clients.openWindow(target)
     }),

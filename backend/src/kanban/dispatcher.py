@@ -607,11 +607,7 @@ PRUNE_INTERVAL_HOURS = 24
 
 
 def maintenance_tick() -> None:
-    """Everything the Celery beat schedule used to own, except reminders.
-
-    These are the last three periodic jobs, so once they run here the beat and
-    worker containers have nothing left to do.
-    """
+    """Run the periodic maintenance jobs."""
 
     from .tasks import generate_recurring_cards, prune_card_activity, send_overdue_card_reminders
 
@@ -622,7 +618,7 @@ def maintenance_tick() -> None:
     errors: list[str] = []
 
     try:
-        generate_recurring_cards.apply(throw=True)
+        generate_recurring_cards()
     except Exception as exc:  # noqa: BLE001 - one failing chore must not skip the rest
         errors.append(f"recurring_cards: {exc}")
         logger.exception("dispatcher_recurring_cards_failed")
@@ -631,7 +627,7 @@ def maintenance_tick() -> None:
         # Self-rate-limiting: the task skips any card it already notified about
         # within `SiteSettings.overdue_reminder_interval`, so calling it more
         # often than that interval costs a query and sends nothing.
-        send_overdue_card_reminders.apply(throw=True)
+        send_overdue_card_reminders()
     except Exception as exc:  # noqa: BLE001
         errors.append(f"overdue_reminders: {exc}")
         logger.exception("dispatcher_overdue_reminders_failed")
@@ -642,7 +638,7 @@ def maintenance_tick() -> None:
     )
     if due:
         try:
-            prune_card_activity.apply(throw=True)
+            prune_card_activity()
         except Exception as exc:  # noqa: BLE001
             errors.append(f"prune_activity: {exc}")
             logger.exception("dispatcher_prune_activity_failed")

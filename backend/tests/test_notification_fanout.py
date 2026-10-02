@@ -107,9 +107,7 @@ def test_delivery_is_idempotent_on_event_retry(
     other = User.objects.create_user(username="user2", password="pw")
     _device(other)
     send_calls = []
-    monkeypatch.setattr(
-        "kanban.webpush.send_webpush", lambda **kwargs: send_calls.append(kwargs)
-    )
+    monkeypatch.setattr("kanban.webpush.send_webpush", lambda **kwargs: send_calls.append(kwargs))
     event = _event(regular_user, board)
 
     dispatcher.process_outbox_events()

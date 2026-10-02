@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Card, Board, CardComment } from './api/types'
+import { shouldReconnectAfterClose } from './app/session'
 
 type ViteImportMeta = ImportMeta & { env?: { VITE_WS_BASE_URL?: string; VITE_API_BASE_URL?: string } }
 
@@ -24,6 +25,8 @@ export type BoardEvent =
   | { type: 'comment.deleted'; card_id: number; comment_id: number }
   | { type: 'board.created'; board: Board }
   | { type: 'board.updated'; board: Board }
+  | { type: 'board.archived'; board_id: number }
+  | { type: 'board.unarchived'; board_id: number }
   | { type: 'board.deleted'; board_id: number }
 
 interface Options {
@@ -69,7 +72,8 @@ export function useBoardWebSocket({ boardId, token, onEvent, onOpen }: Options) 
         }
       }
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        if (!shouldReconnectAfterClose(event.code)) return
         if (!unmountedRef.current) {
           reconnectTimerRef.current = setTimeout(connect, RECONNECT_DELAY_MS)
         }

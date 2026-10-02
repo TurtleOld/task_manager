@@ -104,9 +104,7 @@ def _pending_card_update_dedupe_key(*, card_id: int, actor: AbstractUser | None)
 def is_pending_card_update_window(event: NotificationEvent) -> bool:
     """Whether `event` is a still-open `card.updated` coalescing window."""
 
-    return bool(event.dedupe_key) and event.dedupe_key.startswith(
-        PENDING_CARD_UPDATE_DEDUPE_PREFIX
-    )
+    return bool(event.dedupe_key) and event.dedupe_key.startswith(PENDING_CARD_UPDATE_DEDUPE_PREFIX)
 
 
 def create_or_extend_pending_card_update_event(
@@ -170,7 +168,7 @@ def flush_pending_card_update_event(*, card: Card, actor: AbstractUser | None) -
 def _notify_dispatcher() -> None:
     """Wake a listening dispatcher early instead of waiting for its next poll.
 
-    This is not the Celery hand-off ADR 0002 rules out: `NOTIFY` in PostgreSQL
+    This is not a broker hand-off: `NOTIFY` in PostgreSQL
     is transactional — a listener only receives it once this transaction
     actually commits, and never if it rolls back. A signal that never arrives
     (no listener connected, connection dropped) loses nothing, because the
