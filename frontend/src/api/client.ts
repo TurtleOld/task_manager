@@ -1,3 +1,4 @@
+import { clearLocalSession } from '../app/session'
 import type {
   Board,
   Card,
@@ -35,7 +36,14 @@ type ViteImportMeta = ImportMeta & {
 const BASE = (import.meta as ViteImportMeta).env?.VITE_API_BASE_URL || '/api'
 const V1 = `${BASE}/v1`
 
+function dropSessionOnUnauthorized(res: Response) {
+  if (res.status === 401 && localStorage.getItem('auth_token')) {
+    void clearLocalSession()
+  }
+}
+
 async function json<T>(res: Response): Promise<T> {
+  dropSessionOnUnauthorized(res)
   if (!res.ok) {
     throw new Error(await errorDetail(res))
   }
@@ -45,6 +53,7 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 async function ok(res: Response): Promise<void> {
+  dropSessionOnUnauthorized(res)
   if (!res.ok) {
     throw new Error(await errorDetail(res))
   }
@@ -367,6 +376,7 @@ export const api = {
       method: 'POST',
       headers: authHeaders(),
     })
+    dropSessionOnUnauthorized(res)
     if (!res.ok) throw new Error(`${res.status}`)
   },
   updateCurrentUser: async (payload: Partial<{ full_name: string }>): Promise<UserProfile> => {

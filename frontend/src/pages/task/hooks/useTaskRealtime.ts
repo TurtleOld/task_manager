@@ -2,10 +2,8 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../../api/queries/keys'
 import type { Card, CardComment } from '../../../api/types'
-import { getWsBase } from '../../../useBoardWebSocket'
+import { openBoardSocket } from '../../../lib/boardSocket'
 import type { BoardEvent } from '../../../useBoardWebSocket'
-
-const RECONNECT_DELAY_MS = 3000
 
 interface TaskRealtimeOptions {
   boardId: number | null
@@ -27,10 +25,6 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
 
     const key = queryKeys.card(taskId)
     const commentsKey = queryKeys.cardComments(taskId)
-    let ws: WebSocket | null = null
-    let timer: ReturnType<typeof setTimeout> | null = null
-    let unmounted = false
-
     const applyCard = (card: Card) => {
       if (card.id !== taskId) return
       qc.setQueryData<Card>(key, card)
@@ -51,35 +45,16 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
       })
     }
 
-    const connect = () => {
-      if (unmounted) return
-      ws = new WebSocket(`${getWsBase()}/ws/boards/${boardId}/?token=${token}`)
-
-      ws.onmessage = (message) => {
-        try {
-          const data = JSON.parse(message.data) as BoardEvent
-          if (data.type === 'card.updated' || data.type === 'card.completed') {
-            applyCard(data.card)
-          } else {
-            applyComment(data)
-          }
-        } catch {
-          // ignore malformed messages
+    return openBoardSocket({
+      boardId,
+      token,
+      onEvent: (event) => {
+        if (event.type === 'card.updated' || event.type === 'card.completed') {
+          applyCard(event.card)
+        } else {
+          applyComment(event)
         }
-      }
-
-      ws.onclose = () => {
-        if (!unmounted) timer = setTimeout(connect, RECONNECT_DELAY_MS)
-      }
-      ws.onerror = () => ws?.close()
-    }
-
-    connect()
-
-    return () => {
-      unmounted = true
-      if (timer) clearTimeout(timer)
-      ws?.close()
-    }
+      },
+    })
   }, [boardId, taskId, token, qc])
 }

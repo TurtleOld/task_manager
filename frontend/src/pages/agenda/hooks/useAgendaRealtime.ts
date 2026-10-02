@@ -3,10 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../../api/queries/keys'
 import { toAgendaCard, upsertAgendaCard } from '../../../api/queries/agenda'
 import type { AgendaResponse } from '../../../api/types'
-import { getWsBase } from '../../../useBoardWebSocket'
+import { openBoardSocket } from '../../../lib/boardSocket'
 import type { BoardEvent } from '../../../useBoardWebSocket'
-
-const RECONNECT_DELAY_MS = 3000
 
 interface AgendaRealtimeOptions {
   boardIds: number[]
@@ -33,10 +31,6 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
     if (ids.length === 0) return
 
     const key = queryKeys.agenda(listId ?? undefined)
-    const sockets: WebSocket[] = []
-    const timers: ReturnType<typeof setTimeout>[] = []
-    let unmounted = false
-
     const applyCardEvent = (event: BoardEvent) => {
       if (event.type === 'card.updated' || event.type === 'card.completed') {
         qc.setQueryData<AgendaResponse>(key, (prev) => {
@@ -67,34 +61,10 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
       }
     }
 
-    const connect = (boardId: number) => {
-      const ws = new WebSocket(`${getWsBase()}/ws/boards/${boardId}/?token=${token}`)
-      sockets.push(ws)
+    const closers = ids.map((boardId) =>
+      openBoardSocket({ boardId, token, onEvent: applyCardEvent }),
+    )
 
-      ws.onmessage = (message) => {
-        try {
-          const data = JSON.parse(message.data) as BoardEvent
-          applyCardEvent(data)
-        } catch {
-          // ignore malformed messages
-        }
-      }
-
-      ws.onclose = () => {
-        if (!unmounted) {
-          timers.push(setTimeout(() => connect(boardId), RECONNECT_DELAY_MS))
-        }
-      }
-
-      ws.onerror = () => ws.close()
-    }
-
-    for (const id of ids) connect(id)
-
-    return () => {
-      unmounted = true
-      timers.forEach((timer) => clearTimeout(timer))
-      sockets.forEach((socket) => socket.close())
-    }
+    return () => closers.forEach((close) => close())
   }, [boardIdsKey, listId, qc, token])
 }

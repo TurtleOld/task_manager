@@ -59,7 +59,6 @@ export async function hasActiveSubscription(): Promise<boolean> {
   return (await getCurrentSubscription()) !== null
 }
 
-/** The id of the device this browser last registered (if any). */
 export function getSavedDeviceId(): number | null {
   const raw = localStorage.getItem(DEVICE_ID_KEY)
   const parsed = raw ? Number(raw) : NaN
@@ -117,8 +116,12 @@ export async function enableNotifications(): Promise<PushDevice> {
   return device
 }
 
-/** Turn notifications off on the current browser (unsubscribe + revoke). */
+/** Turn notifications off on the current browser: delete its device on the server, then unsubscribe. */
 export async function disableCurrentDevice(): Promise<void> {
+  const deviceId = getSavedDeviceId()
+  if (deviceId !== null) {
+    await api.deletePushDevice(deviceId)
+  }
   const subscription = await getCurrentSubscription()
   if (subscription) {
     await subscription.unsubscribe()

@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { AUTH_TOKEN_KEY, clearAuth, loadAuthUser, storeAuth } from '../../app/auth'
+import { useEffect, useState } from 'react'
+import { AUTH_TOKEN_KEY, loadAuthUser, storeAuth } from '../../app/auth'
+import { clearLocalSession, onSessionCleared } from '../../app/session'
 import type { AuthUser } from '../../api/types'
 
 export function useAuthState() {
@@ -12,10 +13,17 @@ export function useAuthState() {
     setToken(next.token)
   }
 
+  useEffect(
+    () =>
+      onSessionCleared(() => {
+        setUser(null)
+        setToken(null)
+      }),
+    [],
+  )
+
   const logout = () => {
-    clearAuth()
-    setUser(null)
-    setToken(null)
+    void clearLocalSession()
   }
 
   const updateUser = (next: AuthUser) => {
