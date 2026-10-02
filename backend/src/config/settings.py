@@ -88,6 +88,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "kanban.middleware.SlidingSessionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "axes.middleware.AxesMiddleware",
@@ -210,7 +211,12 @@ def _origin(url: str) -> str:
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Secure cookies are meaningless over the plain-HTTP local dev and test
 # servers, so the flags follow DEBUG.
+SESSION_ENGINE = "kanban.session_engine"
+SESSION_COOKIE_AGE = 90 * 24 * 60 * 60
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = not DEBUG
 # Django rejects session-authenticated unsafe requests whose Origin is not
 # trusted, which is what breaks /admin/ behind an HTTPS proxy. Trust the
