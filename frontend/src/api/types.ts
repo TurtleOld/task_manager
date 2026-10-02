@@ -79,6 +79,7 @@ export interface AgendaCard {
   checklist_total: number
   checklist_completed: number
   created_at: string
+  version: number
 }
 
 export interface AgendaBoundaries {

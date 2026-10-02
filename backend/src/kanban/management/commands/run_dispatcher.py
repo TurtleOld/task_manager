@@ -1,7 +1,6 @@
 """Run the notification dispatcher loop.
 
-Replaces `celery worker` + `celery beat`. One process, one database, no broker
-in the path a notification has to travel.
+One process, one database, no broker in the path a notification has to travel.
 
     python manage.py run_dispatcher
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
-from django.conf import settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -16,11 +15,6 @@ from kanban.models import (
     RecurrenceRule,
 )
 from kanban.tasks import generate_recurring_cards
-
-
-@pytest.mark.django_db()
-def test_generate_recurring_cards_runs_every_minute() -> None:
-    assert settings.CELERY_BEAT_SCHEDULE["generate-recurring-cards"]["schedule"] == 60.0
 
 
 @pytest.mark.django_db()

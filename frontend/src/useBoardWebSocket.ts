@@ -25,6 +25,8 @@ export type BoardEvent =
   | { type: 'comment.deleted'; card_id: number; comment_id: number }
   | { type: 'board.created'; board: Board }
   | { type: 'board.updated'; board: Board }
+  | { type: 'board.archived'; board_id: number }
+  | { type: 'board.unarchived'; board_id: number }
   | { type: 'board.deleted'; board_id: number }
 
 interface Options {
