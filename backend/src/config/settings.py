@@ -72,7 +72,6 @@ INSTALLED_APPS = [
     # Third-party
     "channels",
     "rest_framework",
-    "rest_framework.authtoken",
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "django_filters",
@@ -162,7 +161,7 @@ AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_RESET_ON_SUCCESS = True
 # Retries by the locked-out member must not keep pushing the cool-off away.
 AXES_RESET_COOL_OFF_ON_FAILURE_DURING_LOCKOUT = False
-# Every token login would otherwise add an AccessLog row that nothing prunes.
+# Every login would otherwise add an AccessLog row that nothing prunes.
 AXES_DISABLE_ACCESS_LOG = True
 AXES_CLIENT_IP_CALLABLE = "kanban.throttling.client_ip"
 
@@ -318,8 +317,7 @@ DISPATCHER_STUCK_MINUTES = int(os.getenv("DISPATCHER_STUCK_MINUTES", "10"))
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.TokenAuthentication",
-        "rest_framework.authentication.SessionAuthentication",
+        "kanban.authentication.SessionAuthentication",
     ],
     # Without this, DRF's own default is AllowAny — any view that forgets to
     # set its own permission_classes is open to the internet. Views that need

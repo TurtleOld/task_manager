@@ -6,18 +6,17 @@ import { openBoardSocket } from '../../../lib/boardSocket'
 
 interface FamilyTodayRealtimeOptions {
   boardIds: number[]
-  token: string | null
 }
 
 // Панель охватывает всю семью, поэтому слушает каналы всех списков, а не
 // только открытый в агенде. Снимок агрегированный (счётчики, чек-лист),
 // точечный патч кэша не окупается — события просто его инвалидируют.
-export function useFamilyTodayRealtime({ boardIds, token }: FamilyTodayRealtimeOptions) {
+export function useFamilyTodayRealtime({ boardIds }: FamilyTodayRealtimeOptions) {
   const qc = useQueryClient()
   const boardIdsKey = boardIds.join(',')
 
   useEffect(() => {
-    if (!token || !boardIdsKey) return
+    if (!boardIdsKey) return
 
     const ids = boardIdsKey
       .split(',')
@@ -38,9 +37,9 @@ export function useFamilyTodayRealtime({ boardIds, token }: FamilyTodayRealtimeO
     }
 
     const closers = ids.map((boardId) =>
-      openBoardSocket({ boardId, token, onEvent: invalidate }),
+      openBoardSocket({ boardId, onEvent: invalidate }),
     )
 
     return () => closers.forEach((close) => close())
-  }, [boardIdsKey, qc, token])
+  }, [boardIdsKey, qc])
 }

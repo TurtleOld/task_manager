@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
-from rest_framework.authtoken.models import Token
+from django.conf import settings
+from django.utils.crypto import constant_time_compare
+
+PROTOCOL = "tm.v1"
+SESSION_CLOSED_CODE = 4001
 
 
 def board_group_name(board_id: int | str) -> str:
@@ -13,29 +17,25 @@ def user_group_name(user_id: int | str) -> str:
 
 
 class BoardConsumer(AsyncJsonWebsocketConsumer):
-    """WebSocket consumer for a single board.
+    """Live events of one board, for the session in the cookie.
 
-    URL pattern: ws/boards/<board_id>/
-    Authentication: Token passed as query param `token=<key>` or
-                    Authorization header (header auth is not available in WS
-                    from browsers, so query param is the primary method).
+    A browser attaches cookies to cross-site WebSocket handshakes too, so the
+    client must also prove it can read the CSRF cookie: it offers the
+    subprotocols ``[PROTOCOL, <csrftoken>]`` (double submit).
     """
 
     async def connect(self) -> None:
-        self.board_id = self.scope["url_route"]["kwargs"]["board_id"]
-        self.group_name = board_group_name(self.board_id)
-
-        # Authenticate via token query param
-        user = await self._get_user()
-        if user is None:
-            await self.close(code=4001)
+        user = self.scope.get("user")
+        if user is None or not user.is_authenticated or not self._csrf_matches():
+            await self._close_session()
             return
 
-        self.user = user
+        self.board_id = self.scope["url_route"]["kwargs"]["board_id"]
+        self.group_name = board_group_name(self.board_id)
         self.user_group_name = user_group_name(user.id)
         await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.channel_layer.group_add(self.user_group_name, self.channel_name)
-        await self.accept()
+        await self.accept(subprotocol=PROTOCOL)
 
     async def disconnect(self, close_code: int) -> None:
         if hasattr(self, "group_name"):
@@ -43,33 +43,24 @@ class BoardConsumer(AsyncJsonWebsocketConsumer):
         if hasattr(self, "user_group_name"):
             await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
 
-    # Receive a message from the group and forward it to the client
     async def board_event(self, event: dict) -> None:
         await self.send_json(event["data"])
 
     # Sent to this user's group when their account is deactivated.
     async def user_disconnect(self, event: dict) -> None:
-        await self.close(code=4001)
+        await self.close(code=SESSION_CLOSED_CODE)
 
-    async def _get_user(self):
-        from channels.db import database_sync_to_async
+    def _csrf_matches(self) -> bool:
+        offered = self.scope.get("subprotocols") or []
+        cookie = self.scope.get("cookies", {}).get(settings.CSRF_COOKIE_NAME, "")
+        if len(offered) != 2 or offered[0] != PROTOCOL or not cookie:
+            return False
+        return constant_time_compare(offered[1], cookie)
 
-        query_string = self.scope.get("query_string", b"").decode()
-        token_key = None
-        for part in query_string.split("&"):
-            if part.startswith("token="):
-                token_key = part[len("token=") :]
-                break
-
-        if not token_key:
-            return None
-
-        @database_sync_to_async
-        def fetch_user(key: str):
-            try:
-                token = Token.objects.select_related("user").get(key=key)
-            except Token.DoesNotExist:
-                return None
-            return token.user if token.user.is_active else None
-
-        return await fetch_user(token_key)
+    async def _close_session(self) -> None:
+        # Closing before accept() turns into an HTTP 403 that browsers report
+        # as 1006, and the client would keep reconnecting. Accept first so the
+        # client sees 4001 and signs out instead.
+        offered = self.scope.get("subprotocols") or []
+        await self.accept(subprotocol=PROTOCOL if PROTOCOL in offered else None)
+        await self.close(code=SESSION_CLOSED_CODE)

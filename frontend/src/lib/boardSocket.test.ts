@@ -12,7 +12,10 @@ class FakeSocket {
   onclose: ((event: { code: number }) => void) | null = null
   onerror: (() => void) | null = null
   close = vi.fn()
-  constructor(readonly url: string) {
+  constructor(
+    readonly url: string,
+    readonly protocols?: string[],
+  ) {
     FakeSocket.instances.push(this)
   }
 }
@@ -24,6 +27,7 @@ beforeEach(() => {
   vi.useFakeTimers()
   vi.stubGlobal('WebSocket', FakeSocket)
   vi.stubGlobal('window', { location: { protocol: 'https:', host: 'example.test' } })
+  vi.stubGlobal('document', { cookie: 'csrftoken=csrf-secret' })
 })
 
 afterEach(() => {
@@ -33,12 +37,13 @@ afterEach(() => {
 })
 
 describe('openBoardSocket', () => {
-  it('connects to the board channel and delivers parsed events', () => {
+  it('connects with the CSRF token as a subprotocol and delivers parsed events', () => {
     const onEvent = vi.fn()
-    openBoardSocket({ boardId: 7, token: 'tok', onEvent })
+    openBoardSocket({ boardId: 7, onEvent })
 
     const socket = first()
-    expect(socket.url).toBe('wss://example.test/ws/boards/7/?token=tok')
+    expect(socket.url).toBe('wss://example.test/ws/boards/7/')
+    expect(socket.protocols).toEqual(['tm.v1', 'csrf-secret'])
     socket.onmessage?.({ data: JSON.stringify({ type: 'card.deleted', card_id: 1 }) })
     socket.onmessage?.({ data: 'not json' })
 
@@ -46,7 +51,7 @@ describe('openBoardSocket', () => {
   })
 
   it('reconnects after an ordinary close', () => {
-    openBoardSocket({ boardId: 1, token: 't', onEvent: vi.fn() })
+    openBoardSocket({ boardId: 1, onEvent: vi.fn() })
 
     first().onclose?.({ code: 1006 })
     vi.advanceTimersByTime(3000)
@@ -57,7 +62,7 @@ describe('openBoardSocket', () => {
 
   it('tells onOpen whether the socket is a reconnect', () => {
     const onOpen = vi.fn()
-    openBoardSocket({ boardId: 1, token: 't', onEvent: vi.fn(), onOpen })
+    openBoardSocket({ boardId: 1, onEvent: vi.fn(), onOpen })
 
     first().onopen?.()
     first().onclose?.({ code: 1006 })
@@ -68,7 +73,7 @@ describe('openBoardSocket', () => {
   })
 
   it('cleans the session and stops on close code 4001', () => {
-    openBoardSocket({ boardId: 1, token: 't', onEvent: vi.fn() })
+    openBoardSocket({ boardId: 1, onEvent: vi.fn() })
 
     first().onclose?.({ code: 4001 })
     vi.advanceTimersByTime(10_000)
@@ -78,7 +83,7 @@ describe('openBoardSocket', () => {
   })
 
   it('does not reconnect after being closed by the caller', () => {
-    const close = openBoardSocket({ boardId: 1, token: 't', onEvent: vi.fn() })
+    const close = openBoardSocket({ boardId: 1, onEvent: vi.fn() })
 
     close()
     first().onclose?.({ code: 1000 })

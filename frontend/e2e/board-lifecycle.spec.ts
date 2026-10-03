@@ -1,12 +1,11 @@
 import { expect, test } from '@playwright/test'
-import { ensureBoard, ensureUser, signInPage } from './helpers'
+import { ensureBoard, signIn } from './helpers'
 
 test.describe('board archive lifecycle', () => {
-  test('archives a board from the list and permanently deletes it from the archive', async ({ page, request }) => {
-    const user = await ensureUser(request)
-    const { board } = await ensureBoard(request, user)
+  test('archives a board from the list and permanently deletes it from the archive', async ({ page }) => {
+    await signIn(page)
+    const { board } = await ensureBoard(page)
 
-    await signInPage(page, user)
     await page.goto('/boards')
 
     const card = page.getByRole('article').filter({ hasText: board.name })

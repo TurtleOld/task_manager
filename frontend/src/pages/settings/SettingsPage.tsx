@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LANGUAGE_KEY, loadLanguagePreference } from '../../app/auth'
+import { clearLocalSession } from '../../app/session'
 import { applyAppFontSize, applyCompactMode, DEFAULT_FONT_SIZE_PX, loadAppFontSize, loadCompactMode, MAX_FONT_SIZE_PX, MIN_FONT_SIZE_PX } from '../../app/preferences'
 import { api } from '../../api/client'
 import type { AdminUser, AuthUser, NotificationProfile, UserRole } from '../../api/types'
@@ -12,10 +13,9 @@ import { NotificationsSection } from './NotificationsSection'
 interface SettingsPageProps {
   user: AuthUser
   onUserUpdate: (user: AuthUser) => void
-  onLogout: () => void
 }
 
-export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps) {
+export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [usersError, setUsersError] = useState('')
@@ -195,7 +195,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
     try {
       await api.terminateSessions()
     } finally {
-      onLogout()
+      void clearLocalSession()
     }
   }
 

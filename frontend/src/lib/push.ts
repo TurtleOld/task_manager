@@ -43,6 +43,21 @@ export function subscriptionToRegistrationBody(
   }
 }
 
+/** "Chrome на Android" style hint so a person can tell their devices apart. */
+export function deviceLabel(userAgent: string): string {
+  const isAndroid = /android/i.test(userAgent)
+  const browser = /edg\//i.test(userAgent)
+    ? 'Edge'
+    : /firefox\//i.test(userAgent)
+      ? 'Firefox'
+      : /chrome\//i.test(userAgent)
+        ? 'Chrome'
+        : /safari\//i.test(userAgent)
+          ? 'Safari'
+          : 'Браузер'
+  return isAndroid ? `${browser} на Android` : browser
+}
+
 /** Compare two service worker script URLs, ignoring query/hash differences. */
 export function isSameScriptURL(a: string, b: string): boolean {
   try {

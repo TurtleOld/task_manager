@@ -8,7 +8,6 @@ import { openBoardSocket } from '../../../lib/boardSocket'
 interface TaskRealtimeOptions {
   boardId: number | null
   taskId: number | null
-  token: string | null
 }
 
 /**
@@ -17,11 +16,11 @@ interface TaskRealtimeOptions {
  * отметка родителя, закрывающая подзадачи, видна без перезагрузки: сервер
  * присылает родителя с уже обновлённым `subtasks`.
  */
-export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions) {
+export function useTaskRealtime({ boardId, taskId }: TaskRealtimeOptions) {
   const qc = useQueryClient()
 
   useEffect(() => {
-    if (!token || boardId == null || taskId == null) return
+    if (boardId == null || taskId == null) return
 
     const key = queryKeys.card(taskId)
     const commentsKey = queryKeys.cardComments(taskId)
@@ -49,7 +48,6 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
 
     return openBoardSocket({
       boardId,
-      token,
       onEvent: (event) => {
         if (event.type === 'card.updated' || event.type === 'card.completed') {
           applyCard(event.card)
@@ -65,5 +63,5 @@ export function useTaskRealtime({ boardId, taskId, token }: TaskRealtimeOptions)
         void qc.invalidateQueries({ queryKey: commentsKey })
       },
     })
-  }, [boardId, taskId, token, qc])
+  }, [boardId, taskId, qc])
 }

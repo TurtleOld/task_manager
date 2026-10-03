@@ -26,7 +26,6 @@ import {
   useTaskUploadAttachments,
 } from '../../api/queries/task'
 import type { AgendaBoundaries, AuthUser } from '../../api/types'
-import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { Badge, Button, Card as SurfaceCard, Checkbox, ChipButton, ErrorState, Field, Select, Skeleton, Textarea, TextInput } from '@/components/ui'
 import { Modal } from '@/components/ui'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
@@ -65,8 +64,7 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
     queryFn: () => api.listCardActivity(taskId),
   })
 
-  const wsToken = localStorage.getItem(AUTH_TOKEN_KEY)
-  useTaskRealtime({ boardId: task?.board ?? null, taskId, token: wsToken })
+  useTaskRealtime({ boardId: task?.board ?? null, taskId })
 
   const updateField = useTaskUpdateField(taskId)
   const completeMutation = useTaskComplete(taskId, user.id)

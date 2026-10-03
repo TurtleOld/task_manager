@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import pytest
 from django.contrib.auth import get_user_model
-from rest_framework.authtoken.models import Token
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from kanban.models import Board, Card, Column
+from tests.auth_helpers import login_client
 
 User = get_user_model()
 
@@ -25,6 +26,13 @@ def _no_throttle(settings: pytest.FixtureRequest) -> None:
         "DEFAULT_THROTTLE_CLASSES": [],
         "DEFAULT_THROTTLE_RATES": {},
     }
+
+
+@pytest.fixture(autouse=True)
+def _fast_logins(settings: pytest.FixtureRequest) -> None:
+    """Fixtures log in through the real endpoint, which has its own throttle."""
+    settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+    cache.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -70,18 +78,12 @@ def regular_user(db: None) -> User:
 
 @pytest.fixture()
 def admin_client(admin_user: User) -> APIClient:
-    client = APIClient()
-    token, _ = Token.objects.get_or_create(user=admin_user)
-    client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
-    return client
+    return login_client("admin", "adminpass")
 
 
 @pytest.fixture()
 def auth_client(regular_user: User) -> APIClient:
-    client = APIClient()
-    token, _ = Token.objects.get_or_create(user=regular_user)
-    client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
-    return client
+    return login_client("user1", "pass1")
 
 
 @pytest.fixture()

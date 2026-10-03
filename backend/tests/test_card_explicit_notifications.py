@@ -3,20 +3,13 @@ from __future__ import annotations
 import pytest
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from kanban import dispatcher
 from kanban.models import NotificationEvent
+from tests.auth_helpers import client_for
 
 User = get_user_model()
-
-
-def _client_for(user) -> APIClient:
-    client = APIClient()
-    token, _ = Token.objects.get_or_create(user=user)
-    client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
-    return client
 
 
 @pytest.mark.django_db()
@@ -50,7 +43,7 @@ def test_two_actors_editing_the_same_card_get_separate_events(
     auth_client: APIClient, regular_user
 ) -> None:
     other_user = User.objects.create_user(username="user2", password="pass2")
-    other_client = _client_for(other_user)
+    other_client = client_for(other_user)
 
     board = auth_client.post("/api/v1/boards/", data={"name": "B"}, format="json").json()
     card = auth_client.post(

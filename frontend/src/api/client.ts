@@ -26,8 +26,8 @@ import type {
   CardActivity,
 } from './types'
 
-import { AUTH_TOKEN_KEY } from '../app/auth'
-import { clearLocalSession } from '../app/session'
+import { clearLocalSession, isSignedIn } from '../app/session'
+import { readCsrfToken } from '../lib/csrf'
 
 type ViteImportMeta = ImportMeta & {
   env?: {
@@ -40,7 +40,7 @@ const V1 = `${BASE}/v1`
 
 async function ensureOk(res: Response): Promise<void> {
   if (res.ok) return
-  if (res.status === 401 && localStorage.getItem(AUTH_TOKEN_KEY)) {
+  if (res.status === 401 && isSignedIn()) {
     void clearLocalSession()
   }
   throw new Error(await errorDetail(res))
@@ -79,28 +79,28 @@ async function errorDetail(res: Response): Promise<string> {
   return text.trim() ? `HTTP ${res.status}: ${text}` : `HTTP ${res.status}: ${res.statusText || 'Ошибка сервера'}`
 }
 
-function authHeaders(): HeadersInit {
-  const token = localStorage.getItem('auth_token')
-  if (!token) return { 'Content-Type': 'application/json' }
-  return { 'Content-Type': 'application/json', Authorization: `Token ${token}` }
+function csrfHeaders(): HeadersInit {
+  return { 'X-CSRFToken': readCsrfToken() }
 }
 
-function authOnlyHeaders(): HeadersInit {
-  const token = localStorage.getItem('auth_token')
-  if (!token) return {}
-  return { Authorization: `Token ${token}` }
+function jsonHeaders(): HeadersInit {
+  return { 'Content-Type': 'application/json', ...csrfHeaders() }
+}
+
+async function ensureCsrfCookie(): Promise<void> {
+  await ok(await fetch(`${V1}/auth/csrf/`))
 }
 
 export const api = {
   // Boards
   listBoards: async (): Promise<Board[]> => {
-    const res = await fetch(`${V1}/boards/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/boards/`, { headers: jsonHeaders() })
     return json(res)
   },
   createBoard: async (payload: { name: string; icon?: string; color?: string }): Promise<Board> => {
     const res = await fetch(`${V1}/boards/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -111,7 +111,7 @@ export const api = {
   ): Promise<Board> => {
     const res = await fetch(`${V1}/boards/${id}/`, {
       method: 'PATCH',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -119,74 +119,74 @@ export const api = {
   deleteBoard: async (id: number): Promise<void> => {
     const res = await fetch(`${V1}/boards/${id}/`, {
       method: 'DELETE',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return ok(res)
   },
   archiveBoard: async (id: number): Promise<Board> => {
     const res = await fetch(`${V1}/boards/${id}/archive/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return json(res)
   },
   unarchiveBoard: async (id: number): Promise<Board> => {
     const res = await fetch(`${V1}/boards/${id}/unarchive/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return json(res)
   },
 
   // Cards
   listCards: async (): Promise<Card[]> => {
-    const res = await fetch(`${V1}/cards/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/cards/`, { headers: jsonHeaders() })
     return json(res)
   },
   listCardsByBoard: async (boardId: number): Promise<Card[]> => {
-    const res = await fetch(`${V1}/cards/?board=${boardId}`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/cards/?board=${boardId}`, { headers: jsonHeaders() })
     return json(res)
   },
   getCard: async (id: number): Promise<Card> => {
-    const res = await fetch(`${V1}/cards/${id}/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/cards/${id}/`, { headers: jsonHeaders() })
     return json(res)
   },
   listMyToday: async (): Promise<MyTodayResponse> => {
-    const res = await fetch(`${V1}/cards/my-today/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/cards/my-today/`, { headers: jsonHeaders() })
     return json(res)
   },
   getAgenda: async (listId?: number): Promise<AgendaResponse> => {
     const query = listId ? `?list=${listId}` : ''
-    const res = await fetch(`${V1}/agenda/${query}`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/agenda/${query}`, { headers: jsonHeaders() })
     return json(res)
   },
   getCompletedAgenda: async (listId?: number): Promise<AgendaResponse> => {
     const query = listId ? `?list=${listId}` : ''
-    const res = await fetch(`${V1}/agenda/completed/${query}`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/agenda/completed/${query}`, { headers: jsonHeaders() })
     return json(res)
   },
   getFamilyToday: async (): Promise<FamilyTodayResponse> => {
-    const res = await fetch(`${V1}/agenda/family-today/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/agenda/family-today/`, { headers: jsonHeaders() })
     return json(res)
   },
   completeCard: async (id: number): Promise<Card> => {
     const res = await fetch(`${V1}/cards/${id}/complete/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return json(res)
   },
   uncompleteCard: async (id: number): Promise<Card> => {
     const res = await fetch(`${V1}/cards/${id}/uncomplete/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return json(res)
   },
   createCard: async (board: number, title: string, description = ''): Promise<Card> => {
     const res = await fetch(`${V1}/cards/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify({ board, title, description }),
     })
     return json(res)
@@ -201,7 +201,7 @@ export const api = {
   }): Promise<Card> => {
     const res = await fetch(`${V1}/cards/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -220,7 +220,7 @@ export const api = {
   ): Promise<Card> => {
     const res = await fetch(`${V1}/cards/${id}/`, {
       method: 'PATCH',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -232,7 +232,7 @@ export const api = {
     for (const f of files) form.append('files', f)
     const res = await fetch(`${V1}/cards/${id}/attachments/`, {
       method: 'POST',
-      headers: authOnlyHeaders(),
+      headers: csrfHeaders(),
       body: form,
     })
     return json(res)
@@ -244,7 +244,7 @@ export const api = {
   ): Promise<Card> => {
     const res = await fetch(`${V1}/cards/${id}/attachments/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -253,19 +253,19 @@ export const api = {
   deleteCardAttachment: async (id: number, attachmentId: string): Promise<Card> => {
     const res = await fetch(`${V1}/cards/${id}/attachments/${encodeURIComponent(attachmentId)}/`, {
       method: 'DELETE',
-      headers: authOnlyHeaders(),
+      headers: csrfHeaders(),
     })
     return json(res)
   },
   // Checklist items
   listChecklist: async (cardId: number): Promise<ChecklistItem[]> => {
-    const res = await fetch(`${V1}/cards/${cardId}/checklist/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/cards/${cardId}/checklist/`, { headers: jsonHeaders() })
     return json(res)
   },
   addChecklistItem: async (cardId: number, payload: { text: string; done?: boolean }): Promise<ChecklistItem> => {
     const res = await fetch(`${V1}/cards/${cardId}/checklist/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -277,7 +277,7 @@ export const api = {
   ): Promise<ChecklistItem> => {
     const res = await fetch(`${V1}/cards/${cardId}/checklist/${itemId}/`, {
       method: 'PATCH',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -285,7 +285,7 @@ export const api = {
   deleteChecklistItem: async (cardId: number, itemId: number): Promise<void> => {
     const res = await fetch(`${V1}/cards/${cardId}/checklist/${itemId}/`, {
       method: 'DELETE',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return ok(res)
   },
@@ -296,7 +296,7 @@ export const api = {
   ): Promise<Card> => {
     const res = await fetch(`${V1}/cards/${cardId}/subtasks/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -305,21 +305,21 @@ export const api = {
   deleteCard: async (id: number): Promise<void> => {
     const res = await fetch(`${V1}/cards/${id}/`, {
       method: 'DELETE',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return ok(res)
   },
   archiveCard: async (id: number): Promise<Card> => {
     const res = await fetch(`${V1}/cards/${id}/archive/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return json(res)
   },
   unarchiveCard: async (id: number): Promise<Card> => {
     const res = await fetch(`${V1}/cards/${id}/unarchive/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return json(res)
   },
@@ -327,25 +327,25 @@ export const api = {
   notifyCardUpdated: async (id: number): Promise<void> => {
     const res = await fetch(`${V1}/cards/${id}/notify-updated/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return ok(res)
   },
 
   listArchive: async (boardId?: number): Promise<ArchiveResponse> => {
     const query = boardId ? `?board=${boardId}` : ''
-    const res = await fetch(`${V1}/archive/${query}`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/archive/${query}`, { headers: jsonHeaders() })
     return json(res)
   },
 
   search: async (query: string): Promise<SearchResponse> => {
     const params = new URLSearchParams({ q: query })
-    const res = await fetch(`${V1}/search/?${params.toString()}`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/search/?${params.toString()}`, { headers: jsonHeaders() })
     return json(res)
   },
 
   registrationStatus: async (): Promise<RegistrationStatus> => {
-    const res = await fetch(`${V1}/auth/registration-status/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/auth/registration-status/`, { headers: jsonHeaders() })
     return json(res)
   },
   register: async (payload: {
@@ -354,39 +354,58 @@ export const api = {
     full_name?: string
     role?: UserRole
   }): Promise<AuthUser> => {
+    await ensureCsrfCookie()
     const res = await fetch(`${V1}/auth/register/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
   },
   login: async (payload: { username: string; password: string }): Promise<AuthUser> => {
+    await ensureCsrfCookie()
     const res = await fetch(`${V1}/auth/login/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
   },
+  /** The signed-in user, or null when this browser has no live session. */
+  getCurrentUser: async (): Promise<AuthUser | null> => {
+    const res = await fetch(`${V1}/auth/me/`, { headers: jsonHeaders() })
+    if (res.status === 401) return null
+    return json(res)
+  },
+  logout: async (): Promise<void> => {
+    const send = () => fetch(`${V1}/auth/logout/`, { method: 'POST', headers: jsonHeaders() })
+    let res = await send()
+    // A stale CSRF cookie must not leave the server session (and its push
+    // device) alive while the browser believes it signed out.
+    if (res.status === 403) {
+      await ensureCsrfCookie()
+      res = await send()
+    }
+    return ok(res)
+  },
   terminateSessions: async (): Promise<void> => {
     const res = await fetch(`${V1}/auth/terminate-sessions/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return ok(res)
   },
   updateCurrentUser: async (payload: Partial<{ full_name: string }>): Promise<UserProfile> => {
     const res = await fetch(`${V1}/auth/me/`, {
       method: 'PATCH',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
   },
   // Users (admin)
   listUsers: async (): Promise<AdminUser[]> => {
-    const res = await fetch(`${V1}/users/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/users/`, { headers: jsonHeaders() })
     return json(res)
   },
   updateUser: async (
@@ -395,7 +414,7 @@ export const api = {
   ): Promise<AdminUser> => {
     const res = await fetch(`${V1}/users/${id}/`, {
       method: 'PATCH',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -403,7 +422,7 @@ export const api = {
   changeUserPassword: async (id: number, payload: { new_password: string }): Promise<{ detail: string }> => {
     const res = await fetch(`${V1}/users/${id}/change-password/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -411,7 +430,7 @@ export const api = {
 
   // Notifications
   getNotificationProfile: async (): Promise<NotificationProfile> => {
-    const res = await fetch(`${V1}/notifications/profile/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/notifications/profile/`, { headers: jsonHeaders() })
     return json(res)
   },
   getNotificationInbox: async (params?: { limit?: number; unreadOnly?: boolean }): Promise<NotificationInboxResponse> => {
@@ -419,13 +438,13 @@ export const api = {
     if (params?.limit) query.set('limit', String(params.limit))
     if (params?.unreadOnly) query.set('unread_only', 'true')
     const suffix = query.toString() ? `?${query.toString()}` : ''
-    const res = await fetch(`${V1}/notifications/inbox/${suffix}`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/notifications/inbox/${suffix}`, { headers: jsonHeaders() })
     return json(res)
   },
   markNotificationInboxRead: async (payload: { ids?: number[]; mark_all?: boolean }): Promise<{ updated: number }> => {
     const res = await fetch(`${V1}/notifications/inbox/`, {
       method: 'PATCH',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -433,7 +452,7 @@ export const api = {
   updateNotificationProfile: async (payload: Partial<NotificationProfile>): Promise<NotificationProfile> => {
     const res = await fetch(`${V1}/notifications/profile/`, {
       method: 'PATCH',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -441,7 +460,7 @@ export const api = {
 
   // Push devices (Web Push)
   listPushDevices: async (): Promise<PushDevice[]> => {
-    const res = await fetch(`${V1}/push-devices/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/push-devices/`, { headers: jsonHeaders() })
     return json(res)
   },
   registerPushDevice: async (payload: {
@@ -451,7 +470,7 @@ export const api = {
   }): Promise<PushDevice> => {
     const res = await fetch(`${V1}/push-devices/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -459,25 +478,25 @@ export const api = {
   deletePushDevice: async (id: number): Promise<void> => {
     const res = await fetch(`${V1}/push-devices/${id}/`, {
       method: 'DELETE',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return ok(res)
   },
   testPushDevice: async (): Promise<PushTestResponse> => {
     const res = await fetch(`${V1}/push-devices/test/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return json(res)
   },
   getVapidKey: async (): Promise<VapidKeyResponse> => {
-    const res = await fetch(`${V1}/notifications/vapid-key/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/notifications/vapid-key/`, { headers: jsonHeaders() })
     return json(res)
   },
 
   // Card deadline reminders (per-user)
   getCardDeadlineReminder: async (cardId: number): Promise<CardDeadlineReminderResponse> => {
-    const res = await fetch(`${V1}/cards/${cardId}/deadline-reminder/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/cards/${cardId}/deadline-reminder/`, { headers: jsonHeaders() })
     return json(res)
   },
   saveCardDeadlineReminder: async (
@@ -486,7 +505,7 @@ export const api = {
   ): Promise<CardDeadlineReminder[]> => {
     const res = await fetch(`${V1}/cards/${cardId}/deadline-reminder/`, {
       method: 'PUT',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -494,12 +513,12 @@ export const api = {
   deleteCardDeadlineReminder: async (cardId: number): Promise<void> => {
     const res = await fetch(`${V1}/cards/${cardId}/deadline-reminder/`, {
       method: 'DELETE',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return ok(res)
   },
   getCardRecurrence: async (cardId: number): Promise<RecurrenceRule | null> => {
-    const res = await fetch(`${V1}/cards/${cardId}/recurrence/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/cards/${cardId}/recurrence/`, { headers: jsonHeaders() })
     if (res.status === 404) return null
     return json(res)
   },
@@ -509,7 +528,7 @@ export const api = {
   ): Promise<RecurrenceRule> => {
     const res = await fetch(`${V1}/cards/${cardId}/recurrence/`, {
       method: 'PUT',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -517,18 +536,18 @@ export const api = {
   deleteCardRecurrence: async (cardId: number): Promise<void> => {
     const res = await fetch(`${V1}/cards/${cardId}/recurrence/`, {
       method: 'DELETE',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return ok(res)
   },
   listCardComments: async (cardId: number): Promise<CardComment[]> => {
-    const res = await fetch(`${V1}/cards/${cardId}/comments/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/cards/${cardId}/comments/`, { headers: jsonHeaders() })
     return json(res)
   },
   addCardComment: async (cardId: number, payload: { text: string }): Promise<CardComment> => {
     const res = await fetch(`${V1}/cards/${cardId}/comments/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -536,7 +555,7 @@ export const api = {
   updateCardComment: async (cardId: number, commentId: number, payload: { text: string }): Promise<CardComment> => {
     const res = await fetch(`${V1}/cards/${cardId}/comments/${commentId}/`, {
       method: 'PATCH',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -544,17 +563,17 @@ export const api = {
   deleteCardComment: async (cardId: number, commentId: number): Promise<void> => {
     const res = await fetch(`${V1}/cards/${cardId}/comments/${commentId}/`, {
       method: 'DELETE',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return ok(res)
   },
   listCardActivity: async (cardId: number): Promise<CardActivity[]> => {
-    const res = await fetch(`${V1}/cards/${cardId}/activity/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/cards/${cardId}/activity/`, { headers: jsonHeaders() })
     return json(res)
   },
   listNotificationPreferences: async (boardId?: number): Promise<NotificationPreference[]> => {
     const query = boardId ? `?board=${boardId}` : ''
-    const res = await fetch(`${V1}/notification-preferences/${query}`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/notification-preferences/${query}`, { headers: jsonHeaders() })
     return json(res)
   },
   createNotificationPreference: async (
@@ -562,7 +581,7 @@ export const api = {
   ): Promise<NotificationPreference> => {
     const res = await fetch(`${V1}/notification-preferences/`, {
       method: 'POST',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -573,7 +592,7 @@ export const api = {
   ): Promise<NotificationPreference> => {
     const res = await fetch(`${V1}/notification-preferences/${id}/`, {
       method: 'PATCH',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)
@@ -581,20 +600,20 @@ export const api = {
   deleteNotificationPreference: async (id: number): Promise<void> => {
     const res = await fetch(`${V1}/notification-preferences/${id}/`, {
       method: 'DELETE',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
     })
     return ok(res)
   },
 
   // Site settings
   getSiteSettings: async (): Promise<SiteSettings> => {
-    const res = await fetch(`${V1}/settings/site/`, { headers: authHeaders() })
+    const res = await fetch(`${V1}/settings/site/`, { headers: jsonHeaders() })
     return json(res)
   },
   updateSiteSettings: async (payload: Partial<SiteSettings>): Promise<SiteSettings> => {
     const res = await fetch(`${V1}/settings/site/`, {
       method: 'PATCH',
-      headers: authHeaders(),
+      headers: jsonHeaders(),
       body: JSON.stringify(payload),
     })
     return json(res)

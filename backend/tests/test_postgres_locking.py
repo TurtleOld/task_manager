@@ -19,8 +19,6 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.db import connection, transaction
 from django.utils import timezone
-from rest_framework.authtoken.models import Token
-from rest_framework.test import APIClient
 
 from kanban import dispatcher
 from kanban.models import (
@@ -33,6 +31,7 @@ from kanban.models import (
 from kanban.notifications import create_notification_event
 from kanban.reminders import skip_reminders_for_completed_card
 from kanban.tasks import generate_recurring_cards
+from tests.auth_helpers import client_for
 
 User = get_user_model()
 
@@ -201,9 +200,7 @@ def test_concurrent_complete_taps_only_one_wins(monkeypatch, column, regular_use
 
     def call_first() -> None:
         try:
-            client = APIClient()
-            token, _ = Token.objects.get_or_create(user=first_actor)
-            client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+            client = client_for(first_actor)
             results["first"] = client.post(f"/api/v1/cards/{card.id}/complete/")
         finally:
             connection.close()
@@ -212,9 +209,7 @@ def test_concurrent_complete_taps_only_one_wins(monkeypatch, column, regular_use
     worker.start()
     try:
         assert locked.wait(timeout=10), "поток не успел взять блокировку"
-        client = APIClient()
-        token, _ = Token.objects.get_or_create(user=second_actor)
-        client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+        client = client_for(second_actor)
         second_resp = client.post(f"/api/v1/cards/{card.id}/complete/")
     finally:
         release.set()

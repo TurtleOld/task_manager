@@ -205,7 +205,6 @@ export interface AuthUser {
   full_name: string
   is_admin: boolean
   role?: UserRole
-  token: string
 }
 
 export interface UserProfile {

@@ -33,23 +33,23 @@ const BoardsPage = lazy(() => import('./pages/boards/BoardsPage').then((module) 
 const CalendarPage = lazy(() => import('./pages/calendar/CalendarPage').then((module) => ({ default: module.CalendarPage })))
 
 export default function App() {
-  const { user, token, login, logout, updateUser } = useAuthState()
+  const { user, login, logout, updateUser } = useAuthState()
 
   return (
     <AppErrorBoundary>
     <Routes>
-      <Route path="/login" element={<LoginPage onLogin={login} token={token} />} />
-      <Route path="/register" element={<RegisterPage user={user} />} />
+      <Route path="/login" element={<LoginPage onLogin={login} user={user} />} />
+      <Route path="/register" element={<RegisterPage user={user ?? null} onLogin={login} />} />
       <Route
         element={
-          <ProtectedRoute token={token} user={user} onInvalidSession={logout}>
+          <ProtectedRoute user={user}>
             <AppShell user={user!} onLogout={logout} />
           </ProtectedRoute>
         }
       >
         <Route path="/" element={user ? <AgendaPage user={user} /> : null} />
         <Route path="/boards" element={<BoardsPage />} />
-        <Route path="/settings" element={user ? <SettingsPage user={user} onUserUpdate={updateUser} onLogout={logout} /> : null} />
+        <Route path="/settings" element={user ? <SettingsPage user={user} onUserUpdate={updateUser} /> : null} />
         <Route path="/lists/:listId" element={user ? <AgendaPage user={user} /> : null} />
         <Route path="/lists/:listId/tasks/:taskId" element={user ? <AgendaPage user={user} /> : null} />
         <Route path="/calendar" element={<CalendarPage />} />

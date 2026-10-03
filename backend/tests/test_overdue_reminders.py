@@ -20,13 +20,14 @@ from kanban.models import (
     PushDevice,
 )
 from kanban.tasks import send_overdue_card_reminders
+from tests.auth_helpers import make_push_device
 
 User = get_user_model()
 
 
 def _device(user, endpoint: str = "https://push.example.com/a") -> None:
-    PushDevice.objects.create(
-        user=user,
+    make_push_device(
+        user,
         kind=PushDevice.Kind.WEBPUSH,
         endpoint=endpoint,
         p256dh="p256dh-key",

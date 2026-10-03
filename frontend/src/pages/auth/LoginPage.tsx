@@ -7,10 +7,10 @@ import { safeRedirectPath } from '@/shared/lib/safeRedirectPath'
 
 interface LoginPageProps {
   onLogin: (user: AuthUser) => void
-  token: string | null
+  user: AuthUser | null | undefined
 }
 
-export function LoginPage({ onLogin, token }: LoginPageProps) {
+export function LoginPage({ onLogin, user }: LoginPageProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const [username, setUsername] = useState('')
@@ -29,7 +29,7 @@ export function LoginPage({ onLogin, token }: LoginPageProps) {
       .finally(() => setCheckingRegistration(false))
   }, [])
 
-  if (token) {
+  if (user) {
     return <Navigate to="/" replace />
   }
 
@@ -38,8 +38,7 @@ export function LoginPage({ onLogin, token }: LoginPageProps) {
     setError('')
     setLoading(true)
     try {
-      const user = await api.login({ username: username.trim(), password })
-      onLogin(user)
+      onLogin(await api.login({ username: username.trim(), password }))
       const boards = await api.listBoards()
       if (boards.length === 1) {
         navigate(`/lists/${boards[0]?.id}`, { replace: true })
