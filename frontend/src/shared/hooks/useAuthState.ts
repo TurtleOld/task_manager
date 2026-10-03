@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
-import { AUTH_TOKEN_KEY, clearAuth, loadAuthUser, storeAuth } from '../../app/auth'
-import { setSessionExpiredHandler } from '../../app/session'
+import { useEffect, useState } from 'react'
+import { AUTH_TOKEN_KEY, loadAuthUser, storeAuth } from '../../app/auth'
+import { clearLocalSession, onSessionCleared } from '../../app/session'
 import type { AuthUser } from '../../api/types'
 
 export function useAuthState() {
@@ -13,16 +13,18 @@ export function useAuthState() {
     setToken(next.token)
   }
 
-  const logout = useCallback(() => {
-    clearAuth()
-    setUser(null)
-    setToken(null)
-  }, [])
+  useEffect(
+    () =>
+      onSessionCleared(() => {
+        setUser(null)
+        setToken(null)
+      }),
+    [],
+  )
 
-  useEffect(() => {
-    setSessionExpiredHandler(logout)
-    return () => setSessionExpiredHandler(null)
-  }, [logout])
+  const logout = () => {
+    void clearLocalSession()
+  }
 
   const updateUser = (next: AuthUser) => {
     storeAuth(next)
