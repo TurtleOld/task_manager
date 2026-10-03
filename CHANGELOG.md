@@ -1,5 +1,51 @@
 # Changelog
 
+## [2.0.0](https://github.com/TurtleOld/task_manager/compare/v1.7.5...v2.0.0) (2026-10-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* после выкатки все пользователи входят заново.
+
+### Features
+
+* архивация списка и удаление только из архива ([#141](https://github.com/TurtleOld/task_manager/issues/141)) ([27ed7f8](https://github.com/TurtleOld/task_manager/commit/27ed7f8c45354fa881a09497c9f1f2237d0bd40a))
+* безвозвратное удаление задачи из архива ([#143](https://github.com/TurtleOld/task_manager/issues/143)) ([8f946ed](https://github.com/TurtleOld/task_manager/commit/8f946edd02d1f7e5419e8bbb33045ff929d7ad15))
+* вход по HttpOnly-сессии вместо DRF Token ([#151](https://github.com/TurtleOld/task_manager/issues/151)) ([ec2ef32](https://github.com/TurtleOld/task_manager/commit/ec2ef32863490099803eff316a84c339ca40fe17))
+* завершать сессии при смене пароля и закрывать их сокеты ([#153](https://github.com/TurtleOld/task_manager/issues/153)) ([d8711a5](https://github.com/TurtleOld/task_manager/commit/d8711a5f62820da42adaff2fbe093d6ece698104))
+* отдельная архивация задачи и разархивация из архива ([#142](https://github.com/TurtleOld/task_manager/issues/142)) ([02c124c](https://github.com/TurtleOld/task_manager/commit/02c124c6c3ea6edb686512c5b125f2de2478f99c))
+* свой session engine со скользящим сроком ([#147](https://github.com/TurtleOld/task_manager/issues/147)) ([214df7f](https://github.com/TurtleOld/task_manager/commit/214df7fdfa864677559c23192696d37d06be9b12))
+* удалить неработающий реестр прав из API и интерфейса ([#144](https://github.com/TurtleOld/task_manager/issues/144)) ([fe4a377](https://github.com/TurtleOld/task_manager/commit/fe4a377f88e01ccf826b4bcd08b4feda664a8333))
+
+
+### Bug Fixes
+
+* overdue reminders bypass preferences and ignore delivery failures ([#118](https://github.com/TurtleOld/task_manager/issues/118)) ([258193d](https://github.com/TurtleOld/task_manager/commit/258193d419651dcbc13ee40bd8d0029881b1f888))
+* выходить из приложения при отзыве токена и не переподключать WebSocket ([#136](https://github.com/TurtleOld/task_manager/issues/136)) ([dfb95a5](https://github.com/TurtleOld/task_manager/commit/dfb95a542111cd1d6a1cb23fd11f67e412de6ff5))
+* запретить менять список задачи и вкладывать задачу с подзадачами ([#131](https://github.com/TurtleOld/task_manager/issues/131)) ([a726c26](https://github.com/TurtleOld/task_manager/commit/a726c262789ad7944f49c94761fdfe7028004205))
+* защита входа от перебора за прокси и политика паролей ([#116](https://github.com/TurtleOld/task_manager/issues/116)) ([2cabd14](https://github.com/TurtleOld/task_manager/commit/2cabd14f33532bbd506e6105e9d42b2b60694ce9))
+* искать упомянутого пользователя без учёта регистра логина ([#123](https://github.com/TurtleOld/task_manager/issues/123)) ([974e6dc](https://github.com/TurtleOld/task_manager/commit/974e6dc3b48be8fa3440d953039cc0f34ca60e4b))
+* логировать kanban и учитывать ошибки диспетчера в healthcheck ([#134](https://github.com/TurtleOld/task_manager/issues/134)) ([7e2a654](https://github.com/TurtleOld/task_manager/commit/7e2a654efb80d6e67f41776ae28a0a2a039f3d13))
+* настроить прокси-заголовки и secure-cookie для работы за HTTPS ([#129](https://github.com/TurtleOld/task_manager/issues/129)) ([85d1dd9](https://github.com/TurtleOld/task_manager/commit/85d1dd9c9ad1e233dc32b2f280d84083f77272fe))
+* не доставлять уведомления устройствам истёкших сессий ([#152](https://github.com/TurtleOld/task_manager/issues/152)) ([b8366cd](https://github.com/TurtleOld/task_manager/commit/b8366cdf0636a39b8a7b9dfb7048d18315f56e27))
+* не отправлять уведомления и не пускать в WebSocket деактивированных пользователей ([#124](https://github.com/TurtleOld/task_manager/issues/124)) ([a4106b7](https://github.com/TurtleOld/task_manager/commit/a4106b708060b4b9f8b820fbc2c2de52d4558281))
+* не раскрывать детали здоровья из публичной сети ([#128](https://github.com/TurtleOld/task_manager/issues/128)) ([258fdf5](https://github.com/TurtleOld/task_manager/commit/258fdf5ee8d86a8d9f3417b271db40764ac70080))
+* обернуть изменение и создание NotificationEvent в единую транзакцию ([#125](https://github.com/TurtleOld/task_manager/issues/125)) ([a3c8e3f](https://github.com/TurtleOld/task_manager/commit/a3c8e3fc9a8ee1c4c2da8ef9f00c86295795b8a1))
+* обновлять агенду после переподключения и сверять версию задачи ([#137](https://github.com/TurtleOld/task_manager/issues/137)) ([8d54e1e](https://github.com/TurtleOld/task_manager/commit/8d54e1ee268303445cf15c8421ac43165c1c6ff9))
+* ограничить endpoint push-подписки allowlist и не отражать ответ push-сервиса ([#127](https://github.com/TurtleOld/task_manager/issues/127)) ([4dce251](https://github.com/TurtleOld/task_manager/commit/4dce251a0c7157cd5b4b7aa26e2fe04d45ac6931))
+* ограничить Origin WebSocket allowlist из FRONTEND_BASE_URL ([#145](https://github.com/TurtleOld/task_manager/issues/145)) ([4bbd8a1](https://github.com/TurtleOld/task_manager/commit/4bbd8a1bf6f97ca610e460e5be34bf1d88346432))
+* отправлять напоминания о сроке вне транзакции с блокировкой ([#120](https://github.com/TurtleOld/task_manager/issues/120)) ([2d63666](https://github.com/TurtleOld/task_manager/commit/2d63666202ede7c64c5c0198bdd52fd1d4b12f22))
+* перепланировать напоминания при появлении канала push ([#121](https://github.com/TurtleOld/task_manager/issues/121)) ([67fbdcf](https://github.com/TurtleOld/task_manager/commit/67fbdcf22bb2987e3c7a0eb1becb83a7afbd3acd))
+* полная локальная очистка при выходе и 401, общий helper WebSocket ([#146](https://github.com/TurtleOld/task_manager/issues/146)) ([3660912](https://github.com/TurtleOld/task_manager/commit/36609124ddc1c8a8e53729ae6918332a1d2ad4bb))
+* проверять TLS при сборке Docker-образов ([#130](https://github.com/TurtleOld/task_manager/issues/130)) ([8a3ef24](https://github.com/TurtleOld/task_manager/commit/8a3ef247fbe1f16f4e7045ffd18053e9e3df1ddf))
+* пропускать напоминание о сроке для уже выполненной задачи ([#119](https://github.com/TurtleOld/task_manager/issues/119)) ([06d42df](https://github.com/TurtleOld/task_manager/commit/06d42df86f49e78454cb3a14cfb880c7d5c10fcf))
+* регистрировать service worker при запуске и открывать офлайн-навигацию ([#138](https://github.com/TurtleOld/task_manager/issues/138)) ([b32f695](https://github.com/TurtleOld/task_manager/commit/b32f69582295f543e88b0c1a15f4730fe970d1a8))
+* сделать отметку задачи выполненной идемпотентной ([#122](https://github.com/TurtleOld/task_manager/issues/122)) ([219bb7f](https://github.com/TurtleOld/task_manager/commit/219bb7f01ad11d4b16a6f2cc8f876ff2ba18bf26))
+* скрывать задачи архивированного списка из активных экранов ([#140](https://github.com/TurtleOld/task_manager/issues/140)) ([d649f5c](https://github.com/TurtleOld/task_manager/commit/d649f5ce4ec2293facb610bff8c7c5616832ba16))
+* собирать образ backend из uv.lock и объявить djangorestframework ([#133](https://github.com/TurtleOld/task_manager/issues/133)) ([67a6909](https://github.com/TurtleOld/task_manager/commit/67a69098dd69020f4f5a69d85fd5e2e81a3f4c44))
+* события об изменении и архивации задачи создаёт сервер, а не клиент ([#126](https://github.com/TurtleOld/task_manager/issues/126)) ([3db42b0](https://github.com/TurtleOld/task_manager/commit/3db42b0353892d7619c5b708bf73877be4001308))
+* уведомление о просрочке больше не доставляется дважды ([#115](https://github.com/TurtleOld/task_manager/issues/115)) ([1f74d20](https://github.com/TurtleOld/task_manager/commit/1f74d201754a153bcda1bd50e1dec64766413ee4))
+
 ## [1.7.5](https://github.com/TurtleOld/task_manager/compare/v1.7.4...v1.7.5) (2026-09-23)
 
 
