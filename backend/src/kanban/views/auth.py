@@ -5,6 +5,7 @@ import uuid
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.contrib.auth.models import AnonymousUser
 from django.db.models import Exists, OuterRef
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import permissions, status
@@ -116,8 +117,10 @@ class SessionListView(APIView):
 
     def get(self, request: Request) -> Response:
         sessions = (
-            UserSession.objects.filter(user=request.user)
-            .annotate(has_device=Exists(PushDevice.objects.filter(session=OuterRef("pk"))))
+            UserSession.objects.filter(user=request.user, expire_date__gt=timezone.now())
+            .annotate(
+                has_device=Exists(PushDevice.objects.filter(session=OuterRef("pk"), active=True))
+            )
             .order_by("-login_at")
         )
         serializer = UserSessionSerializer(

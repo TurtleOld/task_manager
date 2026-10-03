@@ -5,7 +5,11 @@ import { clearLocalSession } from '../../app/session'
 import { Badge, Button, Card as SurfaceCard, EmptyState, Skeleton } from '@/components/ui'
 import { formatSessionDate, orderSessions } from './sessions'
 
-export function SessionsSection() {
+interface SessionsSectionProps {
+  onLogout: () => void
+}
+
+export function SessionsSection({ onLogout }: SessionsSectionProps) {
   const [sessions, setSessions] = useState<UserSessionInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -40,19 +44,12 @@ export function SessionsSection() {
     }
   }
 
-  const onLogout = async () => {
-    try {
-      await api.logout()
-    } catch {
-      // The local cleanup below must run even offline.
-    }
-    await clearLocalSession()
-  }
-
   const onTerminateAll = async () => {
     setTerminatingAll(true)
     try {
       await api.terminateSessions()
+    } catch {
+      // The local cleanup below must run even offline.
     } finally {
       await clearLocalSession()
     }

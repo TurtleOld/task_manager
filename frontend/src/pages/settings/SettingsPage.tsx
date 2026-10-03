@@ -13,9 +13,10 @@ import { SessionsSection } from './SessionsSection'
 interface SettingsPageProps {
   user: AuthUser
   onUserUpdate: (user: AuthUser) => void
+  onLogout: () => void
 }
 
-export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
+export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps) {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [usersError, setUsersError] = useState('')
@@ -295,7 +296,7 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
 
           <NotificationsSection />
 
-          <SessionsSection />
+          <SessionsSection onLogout={onLogout} />
 
           <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
             <div className="flex items-center justify-between">

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import uuid
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from kanban.models import PushDevice, UserSession
@@ -62,6 +64,40 @@ def test_list_sessions_excludes_other_people(regular_user: User) -> None:
 
     assert resp.status_code == 200
     assert [row["id"] for row in resp.json()] == [str(_session_for(mine).public_id)]
+
+
+@pytest.mark.django_db()
+def test_list_sessions_hides_expired_ones(regular_user: User) -> None:
+    laptop = login_client("user1", "pass1")
+    stale = _session_for(laptop)
+    UserSession.objects.create(
+        session_key=uuid.uuid4().hex,
+        session_data="",
+        expire_date=timezone.now() - timedelta(days=1),
+        user=regular_user,
+    )
+
+    resp = laptop.get(SESSIONS_URL)
+
+    assert resp.status_code == 200
+    assert [row["id"] for row in resp.json()] == [str(stale.public_id)]
+
+
+@pytest.mark.django_db()
+def test_list_sessions_reports_notifications_off_for_a_retired_device(regular_user: User) -> None:
+    laptop = login_client("user1", "pass1")
+    session = _session_for(laptop)
+    make_push_device(
+        regular_user,
+        session=session,
+        endpoint="https://push.example.com/retired",
+        active=False,
+    )
+
+    resp = laptop.get(SESSIONS_URL)
+
+    assert resp.status_code == 200
+    assert resp.json()[0]["notifications_enabled"] is False
 
 
 @pytest.mark.django_db()
