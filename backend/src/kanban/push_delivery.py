@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
+from django.db import transaction
 from django.utils import timezone
 
 from .models import PushDevice
@@ -25,6 +27,9 @@ from .webpush import (
     is_allowed_push_endpoint,
     webpush_configured,
 )
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +103,24 @@ def _mark_failure(device: PushDevice, error: str, *, retire: bool) -> None:
     )
 
 
+def deliverable_devices(*, user_id: int) -> QuerySet[PushDevice]:
+    """Active devices of `user_id` whose session has not expired, locked for the send.
+
+    `skip_locked` keeps a second dispatcher off a device already being sent to;
+    the caller compares the result against the unlocked live count and retries
+    the whole fan-out if any device was skipped. The lock is scoped to this
+    table with `of=("self",)`: the filter joins `UserSession`, and a plain
+    `FOR UPDATE` would also lock the session rows and block the daily cleanup.
+    """
+
+    return (
+        PushDevice.objects.select_for_update(skip_locked=True, of=("self",))
+        .live()
+        .filter(user_id=user_id, active=True)
+        .select_related("session")
+    )
+
+
 def send_push_to_user(
     *,
     user_id: int,
@@ -113,7 +136,17 @@ def send_push_to_user(
     """
 
     result = PushResult()
-    devices = list(PushDevice.objects.filter(user_id=user_id, active=True))
+    # The selection holds row locks, so it needs a transaction; the send itself
+    # stays outside it, like every other network call in the dispatcher.
+    with transaction.atomic():
+        devices = list(deliverable_devices(user_id=user_id))
+        live_count = PushDevice.objects.filter(user_id=user_id, active=True).live().count()
+    if len(devices) < live_count:
+        # `skip_locked` hides a device another dispatcher is sending to right
+        # now. Retry the whole fan-out instead of dropping that device.
+        result.failed = 1
+        result.errors.append("Часть устройств занята другим процессом")
+        return result
     if not devices:
         result.no_devices = True
         return result

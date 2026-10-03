@@ -416,6 +416,17 @@ class NotificationProfile(models.Model):
         return f"profile:{self.user_id}"
 
 
+class PushDeviceQuerySet(models.QuerySet["PushDevice"]):
+    def live(self) -> PushDeviceQuerySet:
+        """Devices whose session has not expired.
+
+        Django never deletes an expired session row by itself, so without this
+        filter a device keeps receiving notifications after its login expired.
+        The FK is NOT NULL, so the join stays inner and works under `FOR UPDATE`.
+        """
+        return self.filter(session__expire_date__gt=timezone.now())
+
+
 class PushDevice(TimestampedModel):
     """One push destination, owned by the session it was enabled in.
 
@@ -426,6 +437,8 @@ class PushDevice(TimestampedModel):
     subscription. Registering a new device must never silently unregister
     another.
     """
+
+    objects = PushDeviceQuerySet.as_manager()
 
     class Kind(models.TextChoices):
         # Web Push is the only device kind (ADR 0003). Kept as an enumeration
@@ -504,6 +517,7 @@ class DispatcherHeartbeat(models.Model):
     # Housekeeping that must run rarely needs its own timestamp: the loop has
     # no memory across restarts, so "once a day" has to be recorded somewhere.
     last_prune_at = models.DateTimeField(null=True, blank=True)
+    last_session_cleanup_at = models.DateTimeField(null=True, blank=True)
     # Separate from `last_error`: maintenance runs on its own, much slower
     # cadence, so sharing one field would have every following successful
     # tick (every few seconds) immediately clobber a maintenance failure
