@@ -49,7 +49,7 @@ def test_overdue_reminder_skips_completed_cards(webpush_settings) -> None:
         completed_at=timezone.now(),
     )
 
-    send_overdue_card_reminders.run()
+    send_overdue_card_reminders()
 
     assert _overdue_events() == []
 
@@ -66,7 +66,7 @@ def test_overdue_reminder_skips_archived_cards(webpush_settings) -> None:
     card.archived_at = timezone.now()
     card.save(update_fields=["archived_at"])
 
-    send_overdue_card_reminders.run()
+    send_overdue_card_reminders()
 
     assert _overdue_events() == []
 
@@ -86,7 +86,7 @@ def test_overdue_reminder_sends_for_open_card(webpush_settings) -> None:
     _device(user)
 
     with patch("kanban.webpush.send_webpush") as send_push:
-        send_overdue_card_reminders.run()
+        send_overdue_card_reminders()
         dispatcher.process_outbox_events()
 
     send_push.assert_called_once()
@@ -111,7 +111,7 @@ def test_overdue_reminder_reaches_every_user_not_just_the_assignee(webpush_setti
     _device(other, "https://push.example.com/other")
 
     with patch("kanban.webpush.send_webpush"):
-        send_overdue_card_reminders.run()
+        send_overdue_card_reminders()
         dispatcher.process_outbox_events()
 
     event = NotificationEvent.objects.get(dedupe_key__startswith="card.overdue:")
@@ -142,7 +142,7 @@ def test_overdue_reminder_respects_notification_preference(webpush_settings) -> 
     )
 
     with patch("kanban.webpush.send_webpush") as send_push:
-        send_overdue_card_reminders.run()
+        send_overdue_card_reminders()
         dispatcher.process_outbox_events()
 
     send_push.assert_not_called()
@@ -168,8 +168,8 @@ def test_overdue_reminder_is_not_redelivered_within_the_same_interval(
     _device(user)
 
     with patch("kanban.webpush.send_webpush") as send_push:
-        send_overdue_card_reminders.run()
-        send_overdue_card_reminders.run()
+        send_overdue_card_reminders()
+        send_overdue_card_reminders()
         dispatcher.process_outbox_events()
 
     assert len(_overdue_events()) == 1
@@ -195,11 +195,11 @@ def test_overdue_reminder_fires_again_once_the_interval_elapses(
     _device(user)
 
     with patch("kanban.webpush.send_webpush"):
-        send_overdue_card_reminders.run()
+        send_overdue_card_reminders()
 
         later = timezone.now() + timedelta(hours=1)
         monkeypatch.setattr(tasks.timezone, "now", lambda: later)
-        send_overdue_card_reminders.run()
+        send_overdue_card_reminders()
 
     assert len(_overdue_events()) == 2
 
@@ -219,7 +219,7 @@ def test_overdue_reminder_uses_creator_timezone_over_board_owner(webpush_setting
         created_by=creator,
     )
 
-    send_overdue_card_reminders.run()
+    send_overdue_card_reminders()
 
     event = NotificationEvent.objects.get(dedupe_key__startswith="card.overdue:")
     assert "Екатеринбург" not in event.summary  # sanity: no tz name leaks into text

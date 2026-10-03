@@ -2,13 +2,9 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../../api/queries/keys'
 import { toAgendaCard, upsertAgendaCard } from '../../../api/queries/agenda'
-import type { AgendaResponse } from '../../../api/types'
+import type { AgendaResponse, BoardEvent } from '../../../api/types'
 import { shouldApplyCardVersion } from '../../../lib/cardVersion'
-import { shouldReconnectAfterClose } from '../../../app/session'
-import { getWsBase } from '../../../useBoardWebSocket'
-import type { BoardEvent } from '../../../useBoardWebSocket'
-
-const RECONNECT_DELAY_MS = 3000
+import { openBoardSocket } from '../../../lib/boardSocket'
 
 interface AgendaRealtimeOptions {
   boardIds: number[]
@@ -35,10 +31,6 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
     if (ids.length === 0) return
 
     const key = queryKeys.agenda(listId ?? undefined)
-    const sockets: WebSocket[] = []
-    const timers: ReturnType<typeof setTimeout>[] = []
-    let unmounted = false
-
     const applyCardEvent = (event: BoardEvent) => {
       if (event.type === 'card.updated' || event.type === 'card.completed') {
         const next = toAgendaCard(event.card)
@@ -69,39 +61,35 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
           if (!prev) return prev
           return { ...prev, cards: prev.cards.filter((item) => item.id !== event.card_id) }
         })
+        return
+      }
+
+      if (event.type === 'board.archived' || event.type === 'board.unarchived') {
+        qc.invalidateQueries({ queryKey: key })
+        return
+      }
+
+      if (event.type === 'board.deleted') {
+        qc.setQueryData<AgendaResponse>(key, (prev) => {
+          if (!prev) return prev
+          return { ...prev, cards: prev.cards.filter((item) => item.list !== event.board_id) }
+        })
+        qc.invalidateQueries({ queryKey: key })
       }
     }
 
-    const connect = (boardId: number, isReconnect: boolean) => {
-      const ws = new WebSocket(`${getWsBase()}/ws/boards/${boardId}/?token=${token}`)
-      sockets.push(ws)
-
-      ws.onopen = () => {
+    const closers = ids.map((boardId) =>
+      openBoardSocket({
+        boardId,
+        token,
+        onEvent: applyCardEvent,
         // The socket carries no sequence number, so anything published while it
         // was down is lost. A reconnect can only be healed by a full refetch.
-        if (isReconnect) void qc.invalidateQueries({ queryKey: key })
-      }
-
-      ws.onmessage = (message) => {
-        try {
-          const data = JSON.parse(message.data) as BoardEvent
-          applyCardEvent(data)
-        } catch {
-          // ignore malformed messages
-        }
-      }
-
-      ws.onclose = (event) => {
-        if (!shouldReconnectAfterClose(event.code)) return
-        if (!unmounted) {
-          timers.push(setTimeout(() => connect(boardId, true), RECONNECT_DELAY_MS))
-        }
-      }
-
-      ws.onerror = () => ws.close()
-    }
-
-    for (const id of ids) connect(id, false)
+        onOpen: (isReconnect) => {
+          if (isReconnect) void qc.invalidateQueries({ queryKey: key })
+        },
+      }),
+    )
 
     // A PWA resumed from the background keeps its WebSocket open but stops
     // receiving for a while, so the cached agenda can be stale by the time the
@@ -114,10 +102,8 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
     document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
-      unmounted = true
       document.removeEventListener('visibilitychange', onVisibilityChange)
-      timers.forEach((timer) => clearTimeout(timer))
-      sockets.forEach((socket) => socket.close())
+      closers.forEach((close) => close())
     }
   }, [boardIdsKey, listId, qc, token])
 }

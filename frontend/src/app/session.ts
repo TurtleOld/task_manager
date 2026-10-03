@@ -1,30 +1,48 @@
-export const AUTH_FAILED_WS_CODE = 4001
+import { queryClient } from './queryClient'
+import { deletePushDb } from '../lib/pushIdb'
 
-type SessionExpiredHandler = () => void
+type Listener = () => void
 
-let handler: SessionExpiredHandler | null = null
+const listeners = new Set<Listener>()
+let pending: Promise<void> | null = null
 
-export function setSessionExpiredHandler(next: SessionExpiredHandler | null): void {
-  handler = next
+export function onSessionCleared(listener: Listener): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
 }
 
-export function notifySessionExpired(): void {
-  handler?.()
+async function unsubscribeBrowser(): Promise<void> {
+  const registration = await navigator.serviceWorker.getRegistration()
+  const subscription = await registration?.pushManager.getSubscription()
+  await subscription?.unsubscribe()
 }
 
-export function isAuthFailureCloseCode(code: number): boolean {
-  return code === AUTH_FAILED_WS_CODE
+function clearSync() {
+  for (const step of [() => localStorage.clear(), () => queryClient.clear()]) {
+    try {
+      step()
+    } catch {
+      // A failed step must not stop the rest of the cleanup.
+    }
+  }
+}
+
+async function clearSession(): Promise<void> {
+  clearSync()
+  listeners.forEach((listener) => listener())
+  await Promise.allSettled([unsubscribeBrowser(), deletePushDb()])
 }
 
 /**
- * Decide whether a closed socket should be reopened. The server closes with
- * `AUTH_FAILED_WS_CODE` when the token no longer authenticates, and retrying
- * every few seconds can never fix that.
+ * Full local cleanup shared by logout, a 401 from the API and a 4001 socket
+ * close. Works offline: nothing here talks to the server, and a failing step
+ * never blocks the others.
  */
-export function shouldReconnectAfterClose(code: number): boolean {
-  if (isAuthFailureCloseCode(code)) {
-    notifySessionExpired()
-    return false
-  }
-  return true
+export function clearLocalSession(): Promise<void> {
+  pending ??= clearSession().finally(() => {
+    pending = null
+  })
+  return pending
 }

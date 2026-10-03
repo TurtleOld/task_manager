@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.conf import settings
+from django.contrib.sessions.base_session import AbstractBaseSession
 from django.db import models
 from django.utils import timezone
 
@@ -18,6 +19,9 @@ class ActiveColumnManager(models.Manager["Column"]):
 
 class ActiveCardManager(models.Manager["Card"]):
     def get_queryset(self) -> models.QuerySet["Card"]:
+        return self.active_regardless_of_list().filter(board__archived_at__isnull=True)
+
+    def active_regardless_of_list(self) -> models.QuerySet["Card"]:
         return (
             super()
             .get_queryset()
@@ -699,8 +703,8 @@ class CardDeadlineReminder(TimestampedModel):
     last_error = models.TextField(blank=True, default="")
     sent_at = models.DateTimeField(null=True, blank=True)
 
-    # Retry bookkeeping. Celery used to own this; now the row does, so a
-    # restart of the dispatcher cannot forget how many attempts were made.
+    # Retry bookkeeping lives on the row, so a restart of the dispatcher
+    # cannot forget how many attempts were made.
     attempts = models.PositiveIntegerField(default=0)
     next_attempt_at = models.DateTimeField(null=True, blank=True)
 
@@ -781,3 +785,24 @@ class SiteSettings(models.Model):
     def load(cls) -> SiteSettings:
         obj, _ = cls.objects.get_or_create(pk=1)
         return obj
+
+
+class UserSession(AbstractBaseSession):
+    """A login on one browser or device, keyed by the session cookie."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="user_sessions",
+    )
+    user_agent_label = models.CharField(max_length=100, blank=True, default="")
+    login_at = models.DateTimeField(default=timezone.now)
+    last_activity = models.DateTimeField(default=timezone.now)
+
+    @classmethod
+    def get_session_store_class(cls) -> type[Any]:
+        from .session_engine import SessionStore
+
+        return SessionStore

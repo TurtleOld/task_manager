@@ -4,7 +4,6 @@ import calendar
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from celery import shared_task
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -120,12 +119,11 @@ def _build_card_link(*, card: Card) -> str:
     return f"{base}/lists/{card.board_id}/tasks/{card.id}"
 
 
-@shared_task(bind=True, max_retries=2, default_retry_delay=30)
-def generate_recurring_cards(self) -> None:
+def generate_recurring_cards() -> None:
     now = timezone.now()
     # Only IDs here — the actual row is re-fetched under lock per rule, since
-    # a concurrent run (overlapping beat ticks, two workers) may have already
-    # handled it by the time we get to it.
+    # a concurrent run (overlapping maintenance ticks, two dispatchers) may
+    # have already handled it by the time we get to it.
     rule_ids = list(
         RecurrenceRule.objects.filter(next_due__isnull=False, next_due__lte=now)
         .order_by("next_due", "id")
@@ -156,7 +154,11 @@ def _generate_recurring_card_for_rule(*, rule_id: int, now: datetime) -> None:
             return
 
         card = rule.card
-        if card.archived_at is not None or card.column.archived_at is not None:
+        if (
+            card.archived_at is not None
+            or card.column.archived_at is not None
+            or card.board.archived_at is not None
+        ):
             return
         if rule.until is not None and rule.next_due.date() > rule.until:
             return
@@ -266,8 +268,7 @@ def _generate_recurring_card_for_rule(*, rule_id: int, now: datetime) -> None:
         )
 
 
-@shared_task(bind=True, max_retries=2, default_retry_delay=30)
-def prune_card_activity(self) -> None:
+def prune_card_activity() -> None:
     card_ids = CardActivity.objects.order_by().values_list("card_id", flat=True).distinct()
     for card_id in card_ids:
         keep_ids = list(
@@ -294,8 +295,7 @@ def _resolve_timezone_for_card(*, card: Card) -> str:
     return (profile.timezone if profile else "") or "UTC"
 
 
-@shared_task(bind=True, max_retries=2, default_retry_delay=30)
-def send_overdue_card_reminders(self) -> None:
+def send_overdue_card_reminders() -> None:
     """Periodic task: raise one outbox event per overdue card per interval.
 
     Recipients, preferences and push delivery are the outbox's job

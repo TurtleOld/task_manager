@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import dj_database_url
-from celery.schedules import crontab
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Load env vars from repo root `.env` (preferred, used by docker-compose by default).
@@ -76,7 +76,6 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "drf_spectacular_sidecar",
     "django_filters",
-    "django_celery_beat",
     "axes",
     # Local
     "kanban.apps.KanbanConfig",
@@ -88,6 +87,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "kanban.middleware.SlidingSessionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "axes.middleware.AxesMiddleware",
@@ -199,12 +199,34 @@ def _origin(url: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
+_DEV_WEBSOCKET_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+WEBSOCKET_ALLOWED_ORIGINS = [
+    origin
+    for origin in dict.fromkeys(
+        [_origin(FRONTEND_BASE_URL), *(_DEV_WEBSOCKET_ORIGINS if DEBUG else [])]
+    )
+    if origin
+]
+if not WEBSOCKET_ALLOWED_ORIGINS:
+    raise ImproperlyConfigured(
+        "WebSocket origin allowlist is empty: set FRONTEND_BASE_URL to the "
+        "public frontend URL, e.g. https://tasks.example.com"
+    )
+
 # Traefik terminates TLS and forwards the original scheme; without this Django
 # sees every proxied request as plain HTTP.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_ENGINE = "kanban.session_engine"
+SESSION_COOKIE_AGE = 90 * 24 * 60 * 60
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
 # Secure cookies are meaningless over the plain-HTTP local dev and test
 # servers, so the flags follow DEBUG.
 SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = not DEBUG
 # Django rejects session-authenticated unsafe requests whose Origin is not
 # trusted, which is what breaks /admin/ behind an HTTPS proxy. Trust the
@@ -212,7 +234,7 @@ CSRF_COOKIE_SECURE = not DEBUG
 _csrf_trusted_urls = _env_list("DJANGO_CSRF_TRUSTED_ORIGINS") + [FRONTEND_BASE_URL]
 CSRF_TRUSTED_ORIGINS = [origin for origin in (_origin(url) for url in _csrf_trusted_urls) if origin]
 
-REDIS_URL = os.getenv("REDIS_URL") or os.getenv("CELERY_BROKER_URL") or "redis://localhost:6379/0"
+REDIS_URL = os.getenv("REDIS_URL") or "redis://localhost:6379/0"
 
 # Detect dead/half-open Redis sockets after a network blip so clients reconnect
 # instead of silently hanging on a stale connection (e.g. pub/sub subscriptions
@@ -241,61 +263,6 @@ CHANNEL_LAYERS = {
             ],
         },
     }
-}
-
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
-CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
-
-# Keep the broker/result Redis connections resilient to network blips so the
-# worker reconnects automatically instead of hanging on a stale socket.
-CELERY_BROKER_TRANSPORT_OPTIONS = {
-    "socket_keepalive": True,
-    "socket_keepalive_options": _REDIS_SOCKET_KEEPALIVE_OPTIONS,
-    "health_check_interval": REDIS_HEALTH_CHECK_INTERVAL,
-    "retry_on_timeout": True,
-}
-CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = CELERY_BROKER_TRANSPORT_OPTIONS
-CELERY_REDIS_BACKEND_HEALTH_CHECK_INTERVAL = REDIS_HEALTH_CHECK_INTERVAL
-CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-CELERY_BROKER_CONNECTION_MAX_RETRIES = None
-
-# Acknowledge a task only after it finishes, so a task in flight when the
-# worker dies is redelivered instead of silently lost.
-CELERY_TASK_ACKS_LATE = True
-CELERY_TASK_REJECT_ON_WORKER_LOST = True
-
-# Reserve one task at a time per process. Prevents a slow task from parking
-# a batch of unrelated messages in a worker's local buffer.
-CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-
-# Route every user-facing task explicitly: an unrouted one falls back to the
-# default queue, which a deployment is not guaranteed to consume.
-CELERY_TASK_DEFAULT_QUEUE = "celery"
-CELERY_TASK_ROUTES = {
-    "kanban.tasks.send_overdue_card_reminders": {"queue": "notifications"},
-    "kanban.tasks.generate_recurring_cards": {"queue": "maintenance"},
-    "kanban.tasks.prune_card_activity": {"queue": "maintenance"},
-}
-CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_TASK_ALWAYS_EAGER", "false").lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
-CELERY_TASK_EAGER_PROPAGATES = True
-CELERY_BEAT_SCHEDULE = {
-    "check-overdue-cards": {
-        "task": "kanban.tasks.send_overdue_card_reminders",
-        "schedule": 60.0,  # runs every minute, task itself reads interval from SiteSettings
-    },
-    "generate-recurring-cards": {
-        "task": "kanban.tasks.generate_recurring_cards",
-        "schedule": 60.0,
-    },
-    "prune-card-activity": {
-        "task": "kanban.tasks.prune_card_activity",
-        "schedule": crontab(hour=0, minute=30, day_of_month="1"),
-    },
 }
 
 # --- Web Push (VAPID) ---

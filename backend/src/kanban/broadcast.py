@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 def broadcast_board_event(board_id: int, event_type: str, data: dict) -> None:
     """Send a real-time event to all WebSocket clients subscribed to a board.
 
-    This function is safe to call from synchronous Django views/Celery tasks.
+    This function is safe to call from synchronous Django views and the
+    dispatcher.
     It is a no-op when the channel layer is not configured (e.g. in tests).
     """
     channel_layer = get_channel_layer()
