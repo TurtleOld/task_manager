@@ -27,11 +27,13 @@ from kanban.models import (
     NotificationEventType,
     RecurrenceFrequency,
     RecurrenceRule,
+    UserSession,
 )
 from kanban.notifications import create_notification_event
+from kanban.push_delivery import deliverable_devices, send_push_to_user
 from kanban.reminders import skip_reminders_for_completed_card
 from kanban.tasks import generate_recurring_cards
-from tests.auth_helpers import client_for
+from tests.auth_helpers import client_for, make_push_device, make_session
 
 User = get_user_model()
 
@@ -223,3 +225,99 @@ def test_concurrent_complete_taps_only_one_wins(monkeypatch, column, regular_use
     assert (
         NotificationEvent.objects.filter(event_type="card.completed", card_id=card.id).count() == 1
     )
+
+
+# ---------------------------------------------------------------------------
+# Device delivery selection: join to the session under FOR UPDATE
+# ---------------------------------------------------------------------------
+
+
+@requires_postgres
+@pytest.mark.django_db()
+def test_delivery_selection_joins_the_session_under_for_update(regular_user) -> None:
+    """The session FK is NOT NULL, so the join is inner and FOR UPDATE is allowed.
+
+    An outer join here (the shape a nullable FK would compile to) makes
+    PostgreSQL reject the query, which SQLite never shows.
+    """
+
+    session = make_session(regular_user)
+    device = make_push_device(
+        regular_user, session=session, endpoint="https://push.example.com/live"
+    )
+
+    with transaction.atomic():
+        selected = list(deliverable_devices(user_id=regular_user.pk))
+
+    assert [item.pk for item in selected] == [device.pk]
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_delivery_selection_does_not_lock_the_session_row(regular_user) -> None:
+    """`of=("self",)` keeps the daily cleanup's sessions lockable during a send."""
+
+    session = make_session(regular_user)
+    make_push_device(regular_user, session=session, endpoint="https://push.example.com/live")
+
+    locked = threading.Event()
+    release = threading.Event()
+    acquired = False
+
+    def hold_the_device_lock() -> None:
+        try:
+            with transaction.atomic():
+                list(deliverable_devices(user_id=regular_user.pk))
+                locked.set()
+                release.wait(timeout=10)
+        finally:
+            connection.close()
+
+    worker = threading.Thread(target=hold_the_device_lock)
+    worker.start()
+    try:
+        assert locked.wait(timeout=10), "поток не успел взять блокировку"
+        with transaction.atomic():
+            # `nowait` turns "the session row is locked too" into an immediate
+            # error instead of a wait that the finally block would release.
+            UserSession.objects.select_for_update(nowait=True).get(pk=session.pk)
+            acquired = True
+    finally:
+        release.set()
+        worker.join(timeout=10)
+
+    assert acquired, "выборка устройств не должна блокировать строку сессии"
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_delivery_retries_when_a_live_device_is_locked(regular_user) -> None:
+    """A device hidden by `SKIP LOCKED` must retry, not silently go missing."""
+
+    session = make_session(regular_user)
+    make_push_device(regular_user, session=session, endpoint="https://push.example.com/live")
+
+    locked = threading.Event()
+    release = threading.Event()
+
+    def hold_the_device_lock() -> None:
+        try:
+            with transaction.atomic():
+                list(deliverable_devices(user_id=regular_user.pk))
+                locked.set()
+                release.wait(timeout=10)
+        finally:
+            connection.close()
+
+    worker = threading.Thread(target=hold_the_device_lock)
+    worker.start()
+    try:
+        assert locked.wait(timeout=10), "поток не успел взять блокировку"
+        result = send_push_to_user(user_id=regular_user.pk, title="t", body="b")
+    finally:
+        release.set()
+        worker.join(timeout=10)
+
+    assert result.sent == 0
+    assert result.failed == 1
+    assert result.no_devices is False

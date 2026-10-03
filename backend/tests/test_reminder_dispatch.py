@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import uuid
 from datetime import timedelta
 
 import pytest
 from django.utils import timezone
 
-from kanban.models import Card, CardDeadlineReminder, NotificationProfile, PushDevice
+from kanban.models import Card, CardDeadlineReminder, NotificationProfile, PushDevice, UserSession
 from kanban.reminders import reschedule_invalid_channel_reminders, upsert_and_schedule_reminder
 from tests.auth_helpers import make_push_device
 
@@ -45,6 +46,43 @@ def test_scheduling_without_devices_yields_no_devices_status(column, regular_use
     card = Card.objects.create(
         column=column,
         title="No devices",
+        deadline=now + timedelta(days=1),
+    )
+    reminder = CardDeadlineReminder.objects.create(
+        card=card,
+        user=regular_user,
+        enabled=True,
+        offset_value=20,
+    )
+
+    upsert_and_schedule_reminder(card=card, reminder=reminder)
+
+    reminder.refresh_from_db()
+    assert reminder.status == CardDeadlineReminder.Status.INVALID_CHANNEL
+    assert "устройств" in reminder.last_error.lower()
+
+
+@pytest.mark.django_db()
+def test_scheduling_ignores_devices_of_expired_sessions(column, regular_user) -> None:
+    """A device whose login has expired must not keep a reminder schedulable."""
+
+    NotificationProfile.objects.update_or_create(user=regular_user, defaults={})
+    expired = UserSession.objects.create(
+        session_key=uuid.uuid4().hex,
+        session_data="",
+        expire_date=timezone.now() - timedelta(minutes=1),
+        user=regular_user,
+    )
+    make_push_device(
+        regular_user,
+        session=expired,
+        kind=PushDevice.Kind.WEBPUSH,
+        endpoint="https://push.example.com/expired",
+    )
+    now = timezone.now()
+    card = Card.objects.create(
+        column=column,
+        title="Expired device",
         deadline=now + timedelta(days=1),
     )
     reminder = CardDeadlineReminder.objects.create(

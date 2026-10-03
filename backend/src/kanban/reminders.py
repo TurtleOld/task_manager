@@ -60,9 +60,9 @@ def reminder_channel_availability(
             event_type=event_type,
         ):
             return ChannelAvailability(False, "Push отключён в настройках уведомлений")
-        # Any one active device is enough. With a single channel, "available"
-        # means "the person has at least one active device".
-        if not PushDevice.objects.filter(user_id=user_id, active=True).exists():
+        # Any one active device with a live session is enough. With a single
+        # channel, "available" means "the person has at least one such device".
+        if not PushDevice.objects.filter(user_id=user_id, active=True).live().exists():
             return ChannelAvailability(False, "Нет подключённых устройств")
         return ChannelAvailability(True, "")
 

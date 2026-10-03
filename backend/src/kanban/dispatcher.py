@@ -21,8 +21,8 @@ around.
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
-from typing import Any
+from datetime import datetime, timedelta
+from typing import Any, Callable
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -42,6 +42,7 @@ from .models import (
     NotificationEventType,
     NotificationInboxEntry,
     NotificationProfile,
+    UserSession,
 )
 from .notifications import is_pending_card_update_window
 from .push_delivery import send_push_to_user
@@ -605,6 +606,50 @@ def tick() -> dict[str, int]:
 # cadence would issue a pointless DELETE every few minutes.
 PRUNE_INTERVAL_HOURS = 24
 
+# Django never deletes an expired session row, so its devices would keep
+# receiving notifications forever. One sweep a day is plenty.
+SESSION_CLEANUP_INTERVAL_HOURS = 24
+
+
+def delete_expired_sessions(*, now=None) -> int:
+    """Delete sessions past their expiry; their devices go by cascade.
+
+    Returns the number of deleted session rows, not the cascaded devices.
+    """
+
+    now = now or timezone.now()
+    expired = UserSession.objects.filter(expire_date__lt=now)
+    count = expired.count()
+    expired.delete()
+    if count:
+        logger.info("expired_sessions_deleted count=%s", count)
+    return count
+
+
+def _run_daily(
+    heartbeat: DispatcherHeartbeat,
+    *,
+    last_run_field: str,
+    interval_hours: int,
+    job: Callable[[], object],
+    error_key: str,
+    errors: list[str],
+    now: datetime,
+) -> None:
+    """Run `job` at most once per `interval_hours`, recording failures in `errors`."""
+
+    last_run = getattr(heartbeat, last_run_field)
+    if last_run is not None and last_run >= now - timedelta(hours=interval_hours):
+        return
+    try:
+        job()
+    except Exception as exc:  # noqa: BLE001 - one failing chore must not skip the rest
+        errors.append(f"{error_key}: {exc}")
+        logger.exception("dispatcher_%s_failed", error_key)
+    else:
+        setattr(heartbeat, last_run_field, now)
+        heartbeat.save(update_fields=[last_run_field])
+
 
 def maintenance_tick() -> None:
     """Run the periodic maintenance jobs."""
@@ -633,18 +678,26 @@ def maintenance_tick() -> None:
         logger.exception("dispatcher_overdue_reminders_failed")
 
     heartbeat, _ = DispatcherHeartbeat.objects.get_or_create(name="dispatcher")
-    due = heartbeat.last_prune_at is None or heartbeat.last_prune_at < timezone.now() - timedelta(
-        hours=PRUNE_INTERVAL_HOURS
+    now = timezone.now()
+
+    _run_daily(
+        heartbeat,
+        last_run_field="last_prune_at",
+        interval_hours=PRUNE_INTERVAL_HOURS,
+        job=prune_card_activity,
+        error_key="prune_activity",
+        errors=errors,
+        now=now,
     )
-    if due:
-        try:
-            prune_card_activity()
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"prune_activity: {exc}")
-            logger.exception("dispatcher_prune_activity_failed")
-        else:
-            heartbeat.last_prune_at = timezone.now()
-            heartbeat.save(update_fields=["last_prune_at"])
+    _run_daily(
+        heartbeat,
+        last_run_field="last_session_cleanup_at",
+        interval_hours=SESSION_CLEANUP_INTERVAL_HOURS,
+        job=lambda: delete_expired_sessions(now=now),
+        error_key="expired_sessions",
+        errors=errors,
+        now=now,
+    )
 
     heartbeat.last_maintenance_error = "; ".join(errors)[:500]
     heartbeat.save(update_fields=["last_maintenance_error"])

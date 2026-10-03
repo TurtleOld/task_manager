@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import timedelta
 
 import pytest
@@ -212,6 +213,36 @@ def test_test_send_does_not_reflect_push_service_body(
     assert "INTERNAL-SECRET-BODY" not in resp.text
     device = PushDevice.objects.get()
     assert "INTERNAL-SECRET-BODY" not in device.last_error
+
+
+@pytest.mark.django_db()
+def test_test_send_skips_devices_of_expired_sessions(
+    auth_client, regular_user, webpush_settings, monkeypatch
+) -> None:
+    """A device left behind by an expired login must not receive anything."""
+
+    auth_client.post("/api/v1/push-devices/", data=SUBSCRIPTION, format="json")
+    expired = UserSession.objects.create(
+        session_key=uuid.uuid4().hex,
+        session_data="",
+        expire_date=timezone.now() - timedelta(minutes=1),
+        user=regular_user,
+    )
+    make_push_device(
+        regular_user,
+        session=expired,
+        kind=PushDevice.Kind.WEBPUSH,
+        endpoint="https://push.example.com/expired",
+    )
+    sent: list[str] = []
+    monkeypatch.setattr(
+        "kanban.webpush.send_webpush", lambda *, endpoint, **_kwargs: sent.append(endpoint)
+    )
+
+    resp = auth_client.post("/api/v1/push-devices/test/")
+
+    assert resp.status_code == 200
+    assert sent == [SUBSCRIPTION["endpoint"]]
 
 
 @pytest.mark.django_db()

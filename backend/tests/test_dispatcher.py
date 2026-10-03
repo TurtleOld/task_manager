@@ -7,6 +7,7 @@ crash mid-send is recovered rather than lost.
 
 from __future__ import annotations
 
+import uuid
 from datetime import timedelta
 
 import pytest
@@ -23,11 +24,12 @@ from kanban.models import (
     NotificationInboxEntry,
     NotificationProfile,
     PushDevice,
+    UserSession,
 )
 from kanban.notifications import create_notification_event
 from kanban.push_delivery import send_push_to_user
 from kanban.webpush import PushDeliveryError, PushSubscriptionGoneError
-from tests.auth_helpers import make_push_device
+from tests.auth_helpers import make_push_device, make_session
 
 User = get_user_model()
 
@@ -35,6 +37,26 @@ User = get_user_model()
 def _device(user, endpoint: str = "https://push.example.com/a") -> PushDevice:
     return make_push_device(
         user,
+        kind=PushDevice.Kind.WEBPUSH,
+        endpoint=endpoint,
+        p256dh="p256dh-key",
+        auth="auth-key",
+    )
+
+
+def _expired_session(user) -> UserSession:
+    return UserSession.objects.create(
+        session_key=uuid.uuid4().hex,
+        session_data="",
+        expire_date=timezone.now() - timedelta(minutes=1),
+        user=user,
+    )
+
+
+def _expired_device(user, endpoint: str = "https://push.example.com/expired") -> PushDevice:
+    return make_push_device(
+        user,
+        session=_expired_session(user),
         kind=PushDevice.Kind.WEBPUSH,
         endpoint=endpoint,
         p256dh="p256dh-key",
@@ -76,6 +98,32 @@ def test_tick_delivers_pending_event_and_marks_it_done(board, regular_user) -> N
 
     event.refresh_from_db()
     assert event.dispatch_status == NotificationEvent.Dispatch.DONE
+
+
+@pytest.mark.django_db()
+def test_event_skips_an_expired_session_device_but_still_fills_the_inbox(
+    board, regular_user, webpush_settings, monkeypatch
+) -> None:
+    """The inbox is written unconditionally; only push delivery is suppressed."""
+
+    sent: list[str] = []
+    monkeypatch.setattr(
+        "kanban.webpush.send_webpush", lambda *, endpoint, **_kwargs: sent.append(endpoint)
+    )
+    _expired_device(regular_user)
+
+    create_notification_event(
+        event_type=NotificationEventType.CARD_CREATED,
+        actor=regular_user,
+        board=board,
+        summary="Создана задача",
+    )
+
+    processed = dispatcher.process_outbox_events()
+
+    assert processed == 1
+    assert sent == []
+    assert NotificationInboxEntry.objects.filter(user=regular_user).count() == 1
 
 
 @pytest.mark.django_db()
@@ -258,6 +306,41 @@ def test_second_device_does_not_replace_the_first(regular_user) -> None:
 
 
 @pytest.mark.django_db()
+def test_device_of_expired_session_gets_no_push(
+    regular_user, webpush_settings, monkeypatch
+) -> None:
+    """Django keeps expired session rows, so the join filter is what stops the leak."""
+
+    sent: list[str] = []
+    monkeypatch.setattr(
+        "kanban.webpush.send_webpush", lambda *, endpoint, **_kwargs: sent.append(endpoint)
+    )
+    _expired_device(regular_user)
+
+    result = send_push_to_user(user_id=regular_user.pk, title="t", body="b")
+
+    assert result.no_devices is True
+    assert result.sent == 0
+    assert sent == []
+
+
+@pytest.mark.django_db()
+def test_device_of_live_session_still_gets_push(
+    regular_user, webpush_settings, monkeypatch
+) -> None:
+    sent: list[str] = []
+    monkeypatch.setattr(
+        "kanban.webpush.send_webpush", lambda *, endpoint, **_kwargs: sent.append(endpoint)
+    )
+    _device(regular_user, "https://push.example.com/live")
+
+    result = send_push_to_user(user_id=regular_user.pk, title="t", body="b")
+
+    assert result.sent == 1
+    assert sent == ["https://push.example.com/live"]
+
+
+@pytest.mark.django_db()
 def test_one_broken_device_does_not_silence_the_others(
     regular_user, webpush_settings, monkeypatch
 ) -> None:
@@ -389,6 +472,40 @@ def test_due_reminder_is_delivered(column, regular_user, webpush_settings, monke
     assert delivered == 1
     assert len(sent) == 1
     assert reminder.status == CardDeadlineReminder.Status.SENT
+
+
+@pytest.mark.django_db()
+def test_due_reminder_is_not_sent_to_an_expired_session_device(
+    column, regular_user, webpush_settings, monkeypatch
+) -> None:
+    sent: list[str] = []
+    monkeypatch.setattr(
+        "kanban.webpush.send_webpush",
+        lambda *, endpoint, **_kwargs: sent.append(endpoint),
+    )
+    _expired_device(regular_user)
+    NotificationProfile.objects.get_or_create(user=regular_user)
+
+    now = timezone.now()
+    card = Card.objects.create(
+        column=column, title="Полить цветы", deadline=now + timedelta(hours=1)
+    )
+    reminder = CardDeadlineReminder.objects.create(
+        card=card,
+        user=regular_user,
+        enabled=True,
+        offset_value=20,
+        status=CardDeadlineReminder.Status.SCHEDULED,
+        scheduled_at=now - timedelta(seconds=30),
+        schedule_token="55555555-5555-5555-5555-555555555555",
+    )
+
+    delivered = dispatcher.process_due_reminders(now=now)
+
+    reminder.refresh_from_db()
+    assert delivered == 0
+    assert sent == []
+    assert reminder.status == CardDeadlineReminder.Status.INVALID_CHANNEL
 
 
 @pytest.mark.django_db()
@@ -632,6 +749,47 @@ def test_prune_is_throttled_to_once_a_day(monkeypatch) -> None:
     dispatcher.maintenance_tick()
 
     assert len(pruned) == 2
+
+
+@pytest.mark.django_db()
+def test_expired_session_cleanup_deletes_sessions_and_their_devices(regular_user) -> None:
+    expired = _expired_session(regular_user)
+    live = make_session(regular_user)
+    expired_device = make_push_device(
+        regular_user, session=expired, endpoint="https://push.example.com/expired"
+    )
+    live_device = make_push_device(
+        regular_user, session=live, endpoint="https://push.example.com/live"
+    )
+
+    dispatcher.delete_expired_sessions()
+
+    assert not UserSession.objects.filter(pk=expired.pk).exists()
+    assert not PushDevice.objects.filter(pk=expired_device.pk).exists()
+    assert UserSession.objects.filter(pk=live.pk).exists()
+    assert PushDevice.objects.filter(pk=live_device.pk).exists()
+
+
+@pytest.mark.django_db()
+def test_expired_session_cleanup_runs_at_most_once_a_day(monkeypatch) -> None:
+    calls: list[int] = []
+    monkeypatch.setattr(dispatcher, "delete_expired_sessions", lambda *, now=None: calls.append(1))
+    monkeypatch.setattr("kanban.tasks.generate_recurring_cards", lambda: None)
+    monkeypatch.setattr("kanban.tasks.send_overdue_card_reminders", lambda: None)
+    monkeypatch.setattr("kanban.tasks.prune_card_activity", lambda: None)
+
+    dispatcher.maintenance_tick()
+    dispatcher.maintenance_tick()
+
+    assert len(calls) == 1
+
+    DispatcherHeartbeat.objects.update(
+        last_session_cleanup_at=timezone.now()
+        - timedelta(hours=dispatcher.SESSION_CLEANUP_INTERVAL_HOURS + 1)
+    )
+    dispatcher.maintenance_tick()
+
+    assert len(calls) == 2
 
 
 @pytest.mark.django_db()
