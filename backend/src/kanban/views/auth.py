@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 
 from ..authentication import CsrfProtected
 from ..serializers import CurrentUserUpdateSerializer, RegisterSerializer, UserSerializer
-from ..session_termination import end_user_sessions
+from ..session_termination import end_session, end_user_sessions
 from ..throttling import LoginRateThrottle
 
 User = get_user_model()
@@ -74,6 +74,7 @@ class LoginView(APIView):
 
 class LogoutView(APIView):
     def post(self, request: Request) -> Response:
+        end_session(request.session.session_key)
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -96,8 +97,8 @@ class TerminateSessionsView(APIView):
 
     def post(self, request: Request) -> Response:
         user_id = request.user.pk
-        logout(request)
         end_user_sessions(user_id)
+        logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

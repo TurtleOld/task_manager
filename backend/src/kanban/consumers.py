@@ -12,8 +12,8 @@ def board_group_name(board_id: int | str) -> str:
     return f"board_{board_id}"
 
 
-def user_group_name(user_id: int | str) -> str:
-    return f"user_{user_id}"
+def session_group_name(session_key: str) -> str:
+    return f"session_{session_key}"
 
 
 class BoardConsumer(AsyncJsonWebsocketConsumer):
@@ -32,22 +32,22 @@ class BoardConsumer(AsyncJsonWebsocketConsumer):
 
         self.board_id = self.scope["url_route"]["kwargs"]["board_id"]
         self.group_name = board_group_name(self.board_id)
-        self.user_group_name = user_group_name(user.id)
+        self.session_group = session_group_name(self.scope["session"].session_key)
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.channel_layer.group_add(self.user_group_name, self.channel_name)
+        await self.channel_layer.group_add(self.session_group, self.channel_name)
         await self.accept(subprotocol=PROTOCOL)
 
     async def disconnect(self, close_code: int) -> None:
         if hasattr(self, "group_name"):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
-        if hasattr(self, "user_group_name"):
-            await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
+        if hasattr(self, "session_group"):
+            await self.channel_layer.group_discard(self.session_group, self.channel_name)
 
     async def board_event(self, event: dict) -> None:
         await self.send_json(event["data"])
 
-    # Sent to this user's group when their account is deactivated.
-    async def user_disconnect(self, event: dict) -> None:
+    # Sent to this session's group when the session ends.
+    async def session_disconnect(self, event: dict) -> None:
         await self.close(code=SESSION_CLOSED_CODE)
 
     def _csrf_matches(self) -> bool:
