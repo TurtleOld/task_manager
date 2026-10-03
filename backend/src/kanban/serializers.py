@@ -23,5 +23,6 @@ from .serializers_pkg import (  # noqa: F401
     RegisterSerializer,
     SiteSettingsSerializer,
     UserSerializer,
+    UserSessionSerializer,
     UserUpdateSerializer,
 )

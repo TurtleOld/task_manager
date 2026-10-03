@@ -18,6 +18,7 @@ from .notifications import (
     NotificationPreferenceSerializer,
     NotificationProfileSerializer,
 )
+from .sessions import UserSessionSerializer
 from .site_settings import SiteSettingsSerializer
 from .users import (
     CurrentUserUpdateSerializer,
@@ -48,5 +49,6 @@ __all__ = [
     "RegisterSerializer",
     "SiteSettingsSerializer",
     "UserSerializer",
+    "UserSessionSerializer",
     "UserUpdateSerializer",
 ]
