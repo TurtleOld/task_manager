@@ -89,11 +89,10 @@ export function NotificationsSection() {
   const onDisable = async (device: PushDevice) => {
     setError('')
     try {
-      await api.deletePushDevice(device.id)
-      // Revoking the device this browser registered also drops the local
-      // subscription, so the browser returns to the "off" state.
       if (device.id === getSavedDeviceId()) {
         await disableCurrentDevice()
+      } else {
+        await api.deletePushDevice(device.id)
       }
       await refresh()
     } catch (e) {

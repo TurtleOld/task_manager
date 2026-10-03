@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Load env vars from repo root `.env` (preferred, used by docker-compose by default).
@@ -86,6 +87,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "kanban.middleware.SlidingSessionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "axes.middleware.AxesMiddleware",
@@ -197,12 +199,34 @@ def _origin(url: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
+_DEV_WEBSOCKET_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+WEBSOCKET_ALLOWED_ORIGINS = [
+    origin
+    for origin in dict.fromkeys(
+        [_origin(FRONTEND_BASE_URL), *(_DEV_WEBSOCKET_ORIGINS if DEBUG else [])]
+    )
+    if origin
+]
+if not WEBSOCKET_ALLOWED_ORIGINS:
+    raise ImproperlyConfigured(
+        "WebSocket origin allowlist is empty: set FRONTEND_BASE_URL to the "
+        "public frontend URL, e.g. https://tasks.example.com"
+    )
+
 # Traefik terminates TLS and forwards the original scheme; without this Django
 # sees every proxied request as plain HTTP.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_ENGINE = "kanban.session_engine"
+SESSION_COOKIE_AGE = 90 * 24 * 60 * 60
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
 # Secure cookies are meaningless over the plain-HTTP local dev and test
 # servers, so the flags follow DEBUG.
 SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = not DEBUG
 # Django rejects session-authenticated unsafe requests whose Origin is not
 # trusted, which is what breaks /admin/ behind an HTTPS proxy. Trust the

@@ -154,7 +154,11 @@ def _generate_recurring_card_for_rule(*, rule_id: int, now: datetime) -> None:
             return
 
         card = rule.card
-        if card.archived_at is not None or card.column.archived_at is not None:
+        if (
+            card.archived_at is not None
+            or card.column.archived_at is not None
+            or card.board.archived_at is not None
+        ):
             return
         if rule.until is not None and rule.next_due.date() > rule.until:
             return

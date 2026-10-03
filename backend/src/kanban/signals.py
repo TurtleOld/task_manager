@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from django.conf import settings
+from django.contrib.auth.signals import user_logged_in
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+from django.http import HttpRequest
 from rest_framework.authtoken.models import Token
 
 from .broadcast import disconnect_user_websockets
 from .models import Card, CardActivity, PushDevice
+from .session_engine import SessionStore
+from .user_agent import label_from_user_agent
 
 TRACKED_CARD_FIELDS = (
     "title",
@@ -101,3 +105,13 @@ def revoke_access_on_deactivation(
         PushDevice.objects.filter(user=instance).delete()
         Token.objects.filter(user=instance).delete()
         disconnect_user_websockets(instance.id)
+
+
+@receiver(user_logged_in)
+def label_session_with_user_agent(
+    sender: object, request: HttpRequest | None, **kwargs: object
+) -> None:
+    if request is None or not isinstance(request.session, SessionStore):
+        return
+    user_agent = request.META.get("HTTP_USER_AGENT", "")
+    request.session.mark_login(label_from_user_agent(user_agent))
