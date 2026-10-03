@@ -6,7 +6,6 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.http import HttpRequest
 
-from .broadcast import disconnect_user_websockets
 from .models import Card, CardActivity
 from .session_engine import SessionStore
 from .session_termination import end_user_sessions
@@ -102,7 +101,6 @@ def revoke_access_on_deactivation(
     was_active = getattr(instance, "_was_active", None)
     if was_active and not instance.is_active:
         end_user_sessions(instance.id)
-        disconnect_user_websockets(instance.id)
 
 
 @receiver(user_logged_in)

@@ -83,6 +83,30 @@ test.describe('local session cleanup', () => {
     await adminContext.close()
   })
 
+  test('terminating all sessions logs the other context out with full cleanup', async ({ browser }) => {
+    const firstContext = await browser.newContext()
+    const firstPage = await firstContext.newPage()
+    await signIn(firstPage)
+    const { board } = await ensureBoard(firstPage)
+
+    const secondContext = await browser.newContext()
+    const secondPage = await secondContext.newPage()
+    await signIn(secondPage)
+    await secondPage.goto(`/lists/${board.id}`)
+    await expect(secondPage.getByRole('heading', { name: board.name })).toBeVisible()
+
+    await firstPage.goto('/settings')
+    await firstPage.getByRole('button', { name: 'Завершить все сеансы' }).click()
+    await expect(firstPage).toHaveURL(/\/login/)
+
+    await secondPage.reload()
+    await expect(secondPage).toHaveURL(/\/login/)
+    expect(await readLocalData(secondPage)).toEqual({ localStorageLength: 0, indexedDbNames: [] })
+
+    await firstContext.close()
+    await secondContext.close()
+  })
+
   test('a 401 from the API runs the same cleanup', async ({ page }) => {
     await signIn(page)
     const { board } = await ensureBoard(page)
