@@ -13,6 +13,7 @@ from kanban.models import (
     PushDevice,
 )
 from kanban.notifications import create_notification_event
+from tests.auth_helpers import make_push_device
 
 User = get_user_model()
 
@@ -37,8 +38,8 @@ def test_notifications_doctor_runs_on_empty_database() -> None:
 def test_notifications_doctor_runs_with_a_device_and_a_failed_delivery(
     regular_user: User, board: Board
 ) -> None:
-    PushDevice.objects.create(
-        user=regular_user,
+    make_push_device(
+        regular_user,
         kind=PushDevice.Kind.WEBPUSH,
         endpoint="https://push.example.com/1",
         p256dh="p256dh-key",

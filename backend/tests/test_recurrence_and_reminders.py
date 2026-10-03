@@ -15,6 +15,7 @@ from kanban.models import (
     RecurrenceRule,
 )
 from kanban.tasks import generate_recurring_cards
+from tests.auth_helpers import make_push_device
 
 
 @pytest.mark.django_db()
@@ -117,8 +118,8 @@ def test_deadline_reminder_schedules_without_explicit_channel(
     NotificationProfile.objects.create(user=regular_user)
     # Push availability is a property of registered devices, not of a channel
     # field on the profile or the reminder.
-    PushDevice.objects.create(
-        user=regular_user,
+    make_push_device(
+        regular_user,
         kind=PushDevice.Kind.WEBPUSH,
         endpoint="https://push.example.com/a",
     )
@@ -147,8 +148,8 @@ def test_deadline_reminder_channels_include_push(
     auth_client: APIClient, regular_user, card: Card, settings
 ) -> None:
     NotificationProfile.objects.create(user=regular_user)
-    PushDevice.objects.create(
-        user=regular_user,
+    make_push_device(
+        regular_user,
         kind=PushDevice.Kind.WEBPUSH,
         endpoint="https://push.example.com/b",
     )

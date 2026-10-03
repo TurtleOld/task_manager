@@ -1,18 +1,15 @@
 import { expect, test } from '@playwright/test'
-import { authHeaders, ensureBoard, ensureUser, signInPage } from './helpers'
-import type { E2EUser } from './helpers'
-
-const apiURL = process.env.PLAYWRIGHT_API_URL || 'http://127.0.0.1:8000/api/v1'
+import type { Page } from '@playwright/test'
+import { apiHeaders, apiURL, ensureBoard, signIn } from './helpers'
 
 test.describe('card archive lifecycle', () => {
-  test('permanently deletes an archived card from the archive', async ({ page, request }) => {
-    const user = await ensureUser(request)
-    const { board } = await ensureBoard(request, user)
+  test('permanently deletes an archived card from the archive', async ({ page }) => {
+    await signIn(page)
+    const { board } = await ensureBoard(page)
     const title = `E2E Delete Task ${Date.now()}`
-    const card = await createCard(request, user, board.id, title)
-    await archiveCard(request, user, card.id)
+    const card = await createCard(page, board.id, title)
+    await archiveCard(page, card.id)
 
-    await signInPage(page, user)
     await page.goto('/archive')
 
     const archived = page.getByRole('article').filter({ hasText: title })
@@ -30,13 +27,12 @@ test.describe('card archive lifecycle', () => {
 })
 
 async function createCard(
-  request: import('@playwright/test').APIRequestContext,
-  user: E2EUser,
+  page: Page,
   boardId: number,
   title: string,
 ) {
-  const response = await request.post(`${apiURL}/cards/`, {
-    headers: authHeaders(user),
+  const response = await page.request.post(`${apiURL}/cards/`, {
+    headers: await apiHeaders(page),
     data: { board: boardId, title },
   })
   expect(response.ok()).toBeTruthy()
@@ -44,12 +40,11 @@ async function createCard(
 }
 
 async function archiveCard(
-  request: import('@playwright/test').APIRequestContext,
-  user: E2EUser,
+  page: Page,
   cardId: number,
 ) {
-  const response = await request.post(`${apiURL}/cards/${cardId}/archive/`, {
-    headers: authHeaders(user),
+  const response = await page.request.post(`${apiURL}/cards/${cardId}/archive/`, {
+    headers: await apiHeaders(page),
   })
   expect(response.ok()).toBeTruthy()
 }

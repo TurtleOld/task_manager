@@ -1,10 +1,12 @@
 import { clearLocalSession } from '../app/session'
 import type { BoardEvent } from '../api/types'
+import { readCsrfToken } from './csrf'
 
 type ViteImportMeta = ImportMeta & { env?: { VITE_WS_BASE_URL?: string } }
 
 const RECONNECT_DELAY_MS = 3000
 const SESSION_CLOSED_CODE = 4001
+const PROTOCOL = 'tm.v1'
 
 export function getWsBase(): string {
   const meta = import.meta as ViteImportMeta
@@ -15,7 +17,6 @@ export function getWsBase(): string {
 
 interface BoardSocketOptions {
   boardId: number
-  token: string
   onEvent: (event: BoardEvent) => void
   onOpen?: (isReconnect: boolean) => void
 }
@@ -25,7 +26,7 @@ interface BoardSocketOptions {
  * Returns a function that closes it for good. A 4001 close means the session
  * is gone, so it triggers the local cleanup instead of reconnecting.
  */
-export function openBoardSocket({ boardId, token, onEvent, onOpen }: BoardSocketOptions): () => void {
+export function openBoardSocket({ boardId, onEvent, onOpen }: BoardSocketOptions): () => void {
   let ws: WebSocket | null = null
   let timer: ReturnType<typeof setTimeout> | null = null
   let closed = false
@@ -33,7 +34,10 @@ export function openBoardSocket({ boardId, token, onEvent, onOpen }: BoardSocket
 
   const connect = () => {
     if (closed) return
-    const socket = new WebSocket(`${getWsBase()}/ws/boards/${boardId}/?token=${token}`)
+    // The server matches the second subprotocol against the CSRF cookie,
+    // which a foreign page cannot read.
+    const csrfToken = readCsrfToken()
+    const socket = new WebSocket(`${getWsBase()}/ws/boards/${boardId}/`, csrfToken ? [PROTOCOL, csrfToken] : [PROTOCOL])
     ws = socket
 
     socket.onopen = () => onOpen?.(reconnecting)

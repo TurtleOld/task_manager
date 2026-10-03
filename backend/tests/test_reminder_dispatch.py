@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from kanban.models import Card, CardDeadlineReminder, NotificationProfile, PushDevice
 from kanban.reminders import reschedule_invalid_channel_reminders, upsert_and_schedule_reminder
+from tests.auth_helpers import make_push_device
 
 
 @pytest.mark.django_db()
@@ -14,8 +15,8 @@ def test_scheduling_does_not_use_broker_eta(column, regular_user) -> None:
     """The regression this whole change is about: no broker message is created."""
     now = timezone.now()
     NotificationProfile.objects.update_or_create(user=regular_user, defaults={})
-    PushDevice.objects.create(
-        user=regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
+    make_push_device(
+        regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
     )
     card = Card.objects.create(
         column=column,
@@ -63,8 +64,8 @@ def test_scheduling_without_devices_yields_no_devices_status(column, regular_use
 @pytest.mark.django_db()
 def test_scheduling_without_deadline_yields_no_deadline_status(column, regular_user) -> None:
     NotificationProfile.objects.update_or_create(user=regular_user, defaults={})
-    PushDevice.objects.create(
-        user=regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
+    make_push_device(
+        regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
     )
     card = Card.objects.create(column=column, title="No deadline", deadline=None)
     reminder = CardDeadlineReminder.objects.create(
@@ -100,8 +101,8 @@ def test_reschedule_invalid_channel_reminders_picks_up_new_device(column, regula
     reminder.refresh_from_db()
     assert reminder.status == CardDeadlineReminder.Status.INVALID_CHANNEL
 
-    PushDevice.objects.create(
-        user=regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
+    make_push_device(
+        regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
     )
     reschedule_invalid_channel_reminders(user_id=regular_user.id)
 
@@ -124,8 +125,8 @@ def test_reschedule_invalid_channel_reminders_ignores_other_statuses(column, reg
         offset_value=20,
     )
 
-    PushDevice.objects.create(
-        user=regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
+    make_push_device(
+        regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
     )
     reschedule_invalid_channel_reminders(user_id=regular_user.id)
 

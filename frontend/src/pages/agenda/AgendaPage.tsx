@@ -14,7 +14,6 @@ import {
 } from '../../api/queries/agenda'
 import { useAssignableUsers } from '../../api/queries/task'
 import type { AgendaCard, AuthUser } from '../../api/types'
-import { AUTH_TOKEN_KEY } from '../../app/auth'
 import { useMediaQuery } from '../../shared/hooks/useMediaQuery'
 import { useVisualViewportInset } from '../../shared/hooks/useVisualViewportInset'
 import { EmptyState, ErrorState, PageShell, Skeleton } from '@/components/ui'
@@ -112,14 +111,13 @@ export function AgendaPage({ user }: AgendaPageProps) {
     }
   }, [listId, navigate, params.listId])
 
-  const wsToken = localStorage.getItem(AUTH_TOKEN_KEY)
   const realtimeBoardIds = useMemo(() => {
     if (listId != null) return [listId]
     return boards.map((board) => board.id)
   }, [boards, listId])
-  useAgendaRealtime({ boardIds: realtimeBoardIds, listId, token: wsToken })
+  useAgendaRealtime({ boardIds: realtimeBoardIds, listId })
   const familyBoardIds = useMemo(() => (isDesktopPanel ? boards.map((board) => board.id) : []), [boards, isDesktopPanel])
-  useFamilyTodayRealtime({ boardIds: familyBoardIds, token: wsToken })
+  useFamilyTodayRealtime({ boardIds: familyBoardIds })
 
   const cards = useMemo(() => data?.cards ?? [], [data?.cards])
   const boundaries = data?.boundaries

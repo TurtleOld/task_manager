@@ -1,8 +1,6 @@
-import { AUTH_TOKEN_KEY } from '../app/auth'
 import { api } from '../api/client'
 import type { PushDevice } from '../api/types'
-import { clearPushAuth, savePushAuth } from './pushIdb'
-import { selectForeignRegistrations, subscriptionToRegistrationBody, urlBase64ToUint8Array } from './push'
+import { deviceLabel, selectForeignRegistrations, subscriptionToRegistrationBody, urlBase64ToUint8Array } from './push'
 
 const SW_URL = `${import.meta.env.BASE_URL || '/'}sw.js`
 const DEVICE_ID_KEY = 'push_device_id'
@@ -78,22 +76,6 @@ export function getSavedDeviceId(): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 }
 
-/** "Chrome на Android" style hint so a person can tell their devices apart. */
-export function getDeviceLabel(): string {
-  const ua = navigator.userAgent
-  const isAndroid = /android/i.test(ua)
-  const browser = /edg\//i.test(ua)
-    ? 'Edge'
-    : /firefox\//i.test(ua)
-      ? 'Firefox'
-      : /chrome\//i.test(ua)
-        ? 'Chrome'
-        : /safari\//i.test(ua)
-          ? 'Safari'
-          : 'Браузер'
-  return isAndroid ? `${browser} на Android` : browser
-}
-
 /**
  * Enable notifications on the current browser: register the worker, ask for
  * permission (only here, on an explicit click), subscribe and hand the
@@ -119,14 +101,28 @@ export async function enableNotifications(): Promise<PushDevice> {
     applicationServerKey: applicationServerKey as BufferSource,
   })
 
-  const label = getDeviceLabel()
+  return registerSubscription(subscription)
+}
+
+async function registerSubscription(subscription: PushSubscription): Promise<PushDevice> {
+  const label = deviceLabel(navigator.userAgent)
   const device = await api.registerPushDevice(subscriptionToRegistrationBody(subscription.toJSON(), label))
-
-  const token = localStorage.getItem(AUTH_TOKEN_KEY)
-  if (token) await savePushAuth({ token, label })
   localStorage.setItem(DEVICE_ID_KEY, String(device.id))
-
   return device
+}
+
+/**
+ * Hand the browser's live subscription to the session that just signed in.
+ * Ending the previous session deleted its device, so without this a person
+ * who had notifications enabled would silently stop getting them. Never asks
+ * for permission: a browser without a granted permission is left alone.
+ */
+export async function registerExistingSubscription(): Promise<void> {
+  if (!('serviceWorker' in navigator)) return
+  if (getNotificationPermission() !== 'granted') return
+  const registration = await navigator.serviceWorker.getRegistration()
+  const subscription = await registration?.pushManager.getSubscription()
+  if (subscription) await registerSubscription(subscription)
 }
 
 /** Turn notifications off on the current browser: delete its device on the server, then unsubscribe. */
@@ -142,7 +138,6 @@ export async function disableCurrentDevice(): Promise<void> {
       await subscription.unsubscribe()
     }
     localStorage.removeItem(DEVICE_ID_KEY)
-    await clearPushAuth()
   }
 }
 

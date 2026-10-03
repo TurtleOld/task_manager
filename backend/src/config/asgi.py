@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import OriginValidator
 from django.conf import settings
@@ -24,7 +25,7 @@ application = ProtocolTypeRouter(
     {
         "http": django_asgi_app,
         "websocket": OriginValidator(
-            URLRouter(websocket_urlpatterns),
+            AuthMiddlewareStack(URLRouter(websocket_urlpatterns)),
             settings.WEBSOCKET_ALLOWED_ORIGINS,
         ),
     }

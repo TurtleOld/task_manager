@@ -9,6 +9,7 @@ from rest_framework.test import APIClient
 
 from kanban.models import Card, CardDeadlineReminder, NotificationPreference, PushDevice
 from kanban.reminders import upsert_and_schedule_reminder
+from tests.auth_helpers import make_push_device
 
 
 @pytest.mark.django_db()
@@ -59,8 +60,8 @@ def test_global_preference_unique_constraint(regular_user: object) -> None:
 def test_reenabling_preference_reschedules_stranded_reminder(
     auth_client: APIClient, regular_user: object, column
 ) -> None:
-    PushDevice.objects.create(
-        user=regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
+    make_push_device(
+        regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
     )
     pref = NotificationPreference.objects.create(
         user=regular_user,

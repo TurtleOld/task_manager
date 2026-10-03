@@ -179,7 +179,9 @@ class PushDeviceViewSet(viewsets.ViewSet):
 
         The same browser re-subscribing produces the same endpoint, so this
         updates the existing row instead of accumulating duplicates — and
-        re-activates a device that was previously retired.
+        re-activates a device that was previously retired. The device moves to
+        the current session even if another session or person owned the
+        endpoint: the browser now belongs to whoever is signed in on it.
         """
 
         serializer = PushSubscriptionSerializer(data=request.data)
@@ -192,6 +194,7 @@ class PushDeviceViewSet(viewsets.ViewSet):
             kind=PushDevice.Kind.WEBPUSH,
             defaults={
                 "user": request.user,
+                "session_id": request.session.session_key,
                 "p256dh": keys["p256dh"],
                 "auth": keys["auth"],
                 "label": data.get("label", "")[:120],

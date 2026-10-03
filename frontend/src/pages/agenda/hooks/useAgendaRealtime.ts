@@ -9,7 +9,6 @@ import { openBoardSocket } from '../../../lib/boardSocket'
 interface AgendaRealtimeOptions {
   boardIds: number[]
   listId?: number | null
-  token: string | null
 }
 
 /**
@@ -17,12 +16,12 @@ interface AgendaRealtimeOptions {
  * per-board канал) и применяет события к кэшу агенды: выполнение, изменение
  * срока, создание и удаление задачи видны без перезагрузки.
  */
-export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOptions) {
+export function useAgendaRealtime({ boardIds, listId }: AgendaRealtimeOptions) {
   const qc = useQueryClient()
   const boardIdsKey = boardIds.join(',')
 
   useEffect(() => {
-    if (!token || !boardIdsKey) return
+    if (!boardIdsKey) return
 
     const ids = boardIdsKey
       .split(',')
@@ -81,7 +80,6 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
     const closers = ids.map((boardId) =>
       openBoardSocket({
         boardId,
-        token,
         onEvent: applyCardEvent,
         // The socket carries no sequence number, so anything published while it
         // was down is lost. A reconnect can only be healed by a full refetch.
@@ -105,5 +103,5 @@ export function useAgendaRealtime({ boardIds, listId, token }: AgendaRealtimeOpt
       document.removeEventListener('visibilitychange', onVisibilityChange)
       closers.forEach((close) => close())
     }
-  }, [boardIdsKey, listId, qc, token])
+  }, [boardIdsKey, listId, qc])
 }

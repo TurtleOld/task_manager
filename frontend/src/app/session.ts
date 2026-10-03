@@ -1,10 +1,21 @@
 import { queryClient } from './queryClient'
-import { deletePushDb } from '../lib/pushIdb'
 
 type Listener = () => void
 
+// Where the token-based app kept the token for its service worker.
+const LEGACY_PUSH_DB = 'task-manager-push'
+
 const listeners = new Set<Listener>()
 let pending: Promise<void> | null = null
+let signedIn = false
+
+export function markSignedIn() {
+  signedIn = true
+}
+
+export function isSignedIn(): boolean {
+  return signedIn
+}
 
 export function onSessionCleared(listener: Listener): () => void {
   listeners.add(listener)
@@ -29,10 +40,20 @@ function clearSync() {
   }
 }
 
+export function deleteLegacyPushDb(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(LEGACY_PUSH_DB)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+    request.onblocked = () => resolve()
+  })
+}
+
 async function clearSession(): Promise<void> {
+  signedIn = false
   clearSync()
   listeners.forEach((listener) => listener())
-  await Promise.allSettled([unsubscribeBrowser(), deletePushDb()])
+  await Promise.allSettled([unsubscribeBrowser(), deleteLegacyPushDb()])
 }
 
 /**

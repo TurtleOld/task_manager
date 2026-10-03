@@ -8,8 +8,9 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from pywebpush import WebPushException
 
-from kanban.models import Card, CardDeadlineReminder, NotificationProfile, PushDevice
+from kanban.models import Card, CardDeadlineReminder, NotificationProfile, PushDevice, UserSession
 from kanban.reminders import upsert_and_schedule_reminder
+from tests.auth_helpers import login_client, make_push_device, session_key
 
 User = get_user_model()
 
@@ -72,6 +73,40 @@ def test_register_device_creates_record(auth_client, regular_user) -> None:
 
 
 @pytest.mark.django_db()
+def test_register_binds_device_to_the_current_session(auth_client, regular_user) -> None:
+    auth_client.post("/api/v1/push-devices/", data=SUBSCRIPTION, format="json")
+
+    device = PushDevice.objects.get(endpoint=SUBSCRIPTION["endpoint"])
+    assert device.session_id == session_key(auth_client)
+
+
+@pytest.mark.django_db()
+@pytest.mark.parametrize("same_person", [True, False])
+def test_endpoint_of_another_session_moves_to_the_current_one(regular_user, same_person) -> None:
+    if not same_person:
+        User.objects.create_user(username="user2", password="pass2")
+    previous = login_client("user1", "pass1")
+    previous.post("/api/v1/push-devices/", data=SUBSCRIPTION, format="json")
+    current = login_client("user1", "pass1") if same_person else login_client("user2", "pass2")
+
+    resp = current.post("/api/v1/push-devices/", data=SUBSCRIPTION, format="json")
+
+    assert resp.status_code == 200
+    device = PushDevice.objects.get(endpoint=SUBSCRIPTION["endpoint"])
+    assert device.session_id == session_key(current)
+    assert device.user.username == ("user1" if same_person else "user2")
+
+
+@pytest.mark.django_db()
+def test_ending_a_session_deletes_its_devices(auth_client, regular_user) -> None:
+    auth_client.post("/api/v1/push-devices/", data=SUBSCRIPTION, format="json")
+
+    UserSession.objects.filter(session_key=session_key(auth_client)).delete()
+
+    assert not PushDevice.objects.exists()
+
+
+@pytest.mark.django_db()
 def test_reregister_same_endpoint_updates_instead_of_duplicating(auth_client, regular_user) -> None:
     auth_client.post("/api/v1/push-devices/", data=SUBSCRIPTION, format="json")
     resp = auth_client.post("/api/v1/push-devices/", data=SUBSCRIPTION, format="json")
@@ -106,8 +141,8 @@ def test_list_never_returns_secrets(auth_client, regular_user) -> None:
 @pytest.mark.django_db()
 def test_revoke_other_users_device_is_not_found(auth_client, regular_user) -> None:
     other = User.objects.create_user(username="user2", password="pw")
-    device = PushDevice.objects.create(
-        user=other,
+    device = make_push_device(
+        other,
         kind=PushDevice.Kind.WEBPUSH,
         endpoint="https://push.example.com/other",
         p256dh="p256dh-key",

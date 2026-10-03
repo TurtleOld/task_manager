@@ -27,13 +27,14 @@ from kanban.models import (
 from kanban.notifications import create_notification_event
 from kanban.push_delivery import send_push_to_user
 from kanban.webpush import PushDeliveryError, PushSubscriptionGoneError
+from tests.auth_helpers import make_push_device
 
 User = get_user_model()
 
 
 def _device(user, endpoint: str = "https://push.example.com/a") -> PushDevice:
-    return PushDevice.objects.create(
-        user=user,
+    return make_push_device(
+        user,
         kind=PushDevice.Kind.WEBPUSH,
         endpoint=endpoint,
         p256dh="p256dh-key",

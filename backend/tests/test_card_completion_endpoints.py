@@ -5,7 +5,6 @@ from datetime import timedelta
 import pytest
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from kanban.models import (
@@ -18,15 +17,9 @@ from kanban.models import (
     NotificationProfile,
     PushDevice,
 )
+from tests.auth_helpers import client_for, make_push_device
 
 User = get_user_model()
-
-
-def _client_for(user: User) -> APIClient:
-    client = APIClient()
-    token, _ = Token.objects.get_or_create(user=user)
-    client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
-    return client
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +31,7 @@ def _client_for(user: User) -> APIClient:
 def test_complete_card_sets_moment_and_actor(
     regular_user: User, column: Column, card: Card
 ) -> None:
-    client = _client_for(regular_user)
+    client = client_for(regular_user)
 
     resp = client.post(f"/api/v1/cards/{card.id}/complete/")
 
@@ -58,7 +51,7 @@ def test_any_user_can_complete_a_card_assigned_to_someone_else(column: Column) -
     completer = User.objects.create_user(username="lisa", password="pass")
     card = Card.objects.create(column=column, title="Buy milk", assignee=assignee)
 
-    client = _client_for(completer)
+    client = client_for(completer)
     resp = client.post(f"/api/v1/cards/{card.id}/complete/")
 
     assert resp.status_code == 200
@@ -69,7 +62,7 @@ def test_any_user_can_complete_a_card_assigned_to_someone_else(column: Column) -
 
 @pytest.mark.django_db()
 def test_complete_card_writes_activity_log_entry(regular_user: User, card: Card) -> None:
-    client = _client_for(regular_user)
+    client = client_for(regular_user)
 
     client.post(f"/api/v1/cards/{card.id}/complete/")
 
@@ -81,7 +74,7 @@ def test_complete_card_writes_activity_log_entry(regular_user: User, card: Card)
 
 @pytest.mark.django_db()
 def test_complete_card_creates_completed_notification_event(regular_user: User, card: Card) -> None:
-    client = _client_for(regular_user)
+    client = client_for(regular_user)
 
     client.post(f"/api/v1/cards/{card.id}/complete/")
 
@@ -94,7 +87,7 @@ def test_completing_a_subtask_notes_a_pending_update_on_the_parent(
 ) -> None:
     parent = Card.objects.create(column=column, title="Parent")
     subtask = Card.objects.create(column=column, parent=parent, title="Subtask")
-    client = _client_for(regular_user)
+    client = client_for(regular_user)
 
     client.post(f"/api/v1/cards/{subtask.id}/complete/")
 
@@ -112,12 +105,12 @@ def test_completing_an_already_completed_card_is_a_noop(column: Column) -> None:
     second_actor = User.objects.create_user(username="second", password="pass")
     card = Card.objects.create(column=column, title="Buy bread")
 
-    _client_for(first_actor).post(f"/api/v1/cards/{card.id}/complete/")
+    client_for(first_actor).post(f"/api/v1/cards/{card.id}/complete/")
     card.refresh_from_db()
     first_completed_at = card.completed_at
     first_version = card.version
 
-    resp = _client_for(second_actor).post(f"/api/v1/cards/{card.id}/complete/")
+    resp = client_for(second_actor).post(f"/api/v1/cards/{card.id}/complete/")
 
     assert resp.status_code == 200
     card.refresh_from_db()
@@ -136,7 +129,7 @@ def test_completing_an_already_completed_card_is_a_noop(column: Column) -> None:
 
 @pytest.mark.django_db()
 def test_uncomplete_card_clears_moment_and_actor(regular_user: User, card: Card) -> None:
-    client = _client_for(regular_user)
+    client = client_for(regular_user)
     client.post(f"/api/v1/cards/{card.id}/complete/")
 
     resp = client.post(f"/api/v1/cards/{card.id}/uncomplete/")
@@ -153,7 +146,7 @@ def test_uncomplete_card_clears_moment_and_actor(regular_user: User, card: Card)
 
 @pytest.mark.django_db()
 def test_uncompleting_an_already_open_card_is_a_noop(regular_user: User, card: Card) -> None:
-    client = _client_for(regular_user)
+    client = client_for(regular_user)
     original_version = card.version
 
     resp = client.post(f"/api/v1/cards/{card.id}/uncomplete/")
@@ -176,7 +169,7 @@ def test_completing_parent_cascades_to_open_subtasks(regular_user: User, column:
     sub2 = Card.objects.create(column=column, title="Book hotel", parent=parent)
     sub1_version = sub1.version
 
-    client = _client_for(regular_user)
+    client = client_for(regular_user)
     client.post(f"/api/v1/cards/{parent.id}/complete/")
 
     sub1.refresh_from_db()
@@ -198,7 +191,7 @@ def test_completing_parent_writes_activity_log_for_cascaded_subtasks(
     parent = Card.objects.create(column=column, title="Trip")
     sub = Card.objects.create(column=column, title="Book flights", parent=parent)
 
-    _client_for(regular_user).post(f"/api/v1/cards/{parent.id}/complete/")
+    client_for(regular_user).post(f"/api/v1/cards/{parent.id}/complete/")
 
     activity = CardActivity.objects.filter(card=sub, action="card.updated").latest("created_at")
     assert activity.actor_id == regular_user.id
@@ -217,12 +210,12 @@ def test_completing_parent_does_not_touch_already_completed_subtask(
         title="Already done",
         parent=parent,
     )
-    client = _client_for(other)
+    client = client_for(other)
     client.post(f"/api/v1/cards/{completed_sub.id}/complete/")
     completed_sub.refresh_from_db()
     original_completed_at = completed_sub.completed_at
 
-    _client_for(regular_user).post(f"/api/v1/cards/{parent.id}/complete/")
+    client_for(regular_user).post(f"/api/v1/cards/{parent.id}/complete/")
 
     completed_sub.refresh_from_db()
     assert completed_sub.completed_at == original_completed_at
@@ -233,7 +226,7 @@ def test_completing_parent_does_not_touch_already_completed_subtask(
 def test_uncompleting_parent_does_not_reopen_subtasks(regular_user: User, column: Column) -> None:
     parent = Card.objects.create(column=column, title="Trip")
     sub = Card.objects.create(column=column, title="Book flights", parent=parent)
-    client = _client_for(regular_user)
+    client = client_for(regular_user)
     client.post(f"/api/v1/cards/{parent.id}/complete/")
     sub.refresh_from_db()
     assert sub.completed_at is not None
@@ -258,8 +251,8 @@ def test_complete_card_skips_scheduled_deadline_reminder(
     """The reminder must stop being live the moment the task is completed,
     not only once the dispatcher's next tick notices completed_at."""
     NotificationProfile.objects.get_or_create(user=regular_user)
-    PushDevice.objects.create(
-        user=regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
+    make_push_device(
+        regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
     )
     now = timezone.now()
     card = Card.objects.create(
@@ -274,7 +267,7 @@ def test_complete_card_skips_scheduled_deadline_reminder(
         scheduled_at=now + timedelta(hours=1, minutes=40),
     )
 
-    _client_for(regular_user).post(f"/api/v1/cards/{card.id}/complete/")
+    client_for(regular_user).post(f"/api/v1/cards/{card.id}/complete/")
 
     reminder.refresh_from_db()
     assert reminder.status == CardDeadlineReminder.Status.SKIPPED
@@ -287,8 +280,8 @@ def test_completing_parent_skips_subtask_deadline_reminders(
     regular_user: User, column: Column
 ) -> None:
     NotificationProfile.objects.get_or_create(user=regular_user)
-    PushDevice.objects.create(
-        user=regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
+    make_push_device(
+        regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
     )
     now = timezone.now()
     parent = Card.objects.create(column=column, title="Trip")
@@ -304,7 +297,7 @@ def test_completing_parent_skips_subtask_deadline_reminders(
         scheduled_at=now + timedelta(hours=1, minutes=40),
     )
 
-    _client_for(regular_user).post(f"/api/v1/cards/{parent.id}/complete/")
+    client_for(regular_user).post(f"/api/v1/cards/{parent.id}/complete/")
 
     reminder.refresh_from_db()
     assert reminder.status == CardDeadlineReminder.Status.SKIPPED
@@ -313,8 +306,8 @@ def test_completing_parent_skips_subtask_deadline_reminders(
 @pytest.mark.django_db()
 def test_uncomplete_reschedules_deadline_reminder(regular_user: User, column: Column) -> None:
     NotificationProfile.objects.get_or_create(user=regular_user)
-    PushDevice.objects.create(
-        user=regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
+    make_push_device(
+        regular_user, kind=PushDevice.Kind.WEBPUSH, endpoint="https://push.example.com/a"
     )
     now = timezone.now()
     card = Card.objects.create(
@@ -329,7 +322,7 @@ def test_uncomplete_reschedules_deadline_reminder(regular_user: User, column: Co
         scheduled_at=now + timedelta(hours=1, minutes=40),
     )
 
-    client = _client_for(regular_user)
+    client = client_for(regular_user)
     client.post(f"/api/v1/cards/{card.id}/complete/")
     client.post(f"/api/v1/cards/{card.id}/uncomplete/")
 
@@ -344,7 +337,7 @@ def test_completing_all_subtasks_does_not_complete_parent(
 ) -> None:
     parent = Card.objects.create(column=column, title="Trip")
     sub = Card.objects.create(column=column, title="Book flights", parent=parent)
-    client = _client_for(regular_user)
+    client = client_for(regular_user)
 
     client.post(f"/api/v1/cards/{sub.id}/complete/")
 

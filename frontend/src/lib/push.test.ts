@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  deviceLabel,
   isSameScriptURL,
   selectForeignRegistrations,
   subscriptionToRegistrationBody,
@@ -96,5 +97,15 @@ describe('isSameScriptURL', () => {
 
   it('treats a different path as different', () => {
     expect(isSameScriptURL('https://app.example.com/sw.js', 'https://app.example.com/other.js')).toBe(false)
+  })
+})
+
+describe('deviceLabel', () => {
+  it('names the browser and Android', () => {
+    expect(deviceLabel('Mozilla/5.0 (Linux; Android 14) Chrome/126.0 Mobile Safari/537.36')).toBe('Chrome на Android')
+  })
+
+  it('falls back to a generic name', () => {
+    expect(deviceLabel('curl/8.0')).toBe('Браузер')
   })
 })

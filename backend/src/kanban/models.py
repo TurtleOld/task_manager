@@ -417,8 +417,10 @@ class NotificationProfile(models.Model):
 
 
 class PushDevice(TimestampedModel):
-    """One push destination belonging to one user.
+    """One push destination, owned by the session it was enabled in.
 
+    Ending the session deletes the device, so a browser someone signed out of
+    stops receiving their notifications whatever the frontend managed to do.
     Replaces the single `NotificationProfile.fcm_token` field: a person has a
     phone, a tablet and a laptop browser, and every one of them needs its own
     subscription. Registering a new device must never silently unregister
@@ -433,6 +435,11 @@ class PushDevice(TimestampedModel):
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="push_devices",
+    )
+    session = models.ForeignKey(
+        "UserSession",
         on_delete=models.CASCADE,
         related_name="push_devices",
     )

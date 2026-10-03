@@ -1,21 +1,32 @@
 from __future__ import annotations
 
-from django.contrib.auth import authenticate, get_user_model, user_logged_in
+from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.contrib.auth.models import AnonymousUser
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import permissions, status
-from rest_framework.authtoken.models import Token
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from ..authentication import CsrfProtected
 from ..serializers import CurrentUserUpdateSerializer, RegisterSerializer, UserSerializer
+from ..session_termination import end_user_sessions
 from ..throttling import LoginRateThrottle
 
 User = get_user_model()
 
 
-class RegisterView(APIView):
+@method_decorator(ensure_csrf_cookie, name="get")
+class CsrfCookieView(APIView):
     permission_classes = [permissions.AllowAny]
+
+    def get(self, request: Request) -> Response:
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RegisterView(APIView):
+    permission_classes = [CsrfProtected]
 
     def post(self, request: Request) -> Response:
         user_count = User.objects.count()
@@ -31,24 +42,13 @@ class RegisterView(APIView):
             user.is_staff = True
             user.is_superuser = True
             user.save(update_fields=["is_staff", "is_superuser"])
+            login(request, user, backend="django.contrib.auth.backends.ModelBackend")
 
-        token, _ = Token.objects.get_or_create(user=user)
-        is_owner = user.is_staff or user.is_superuser
-        return Response(
-            {
-                "id": user.id,
-                "username": user.username,
-                "full_name": user.first_name,
-                "is_admin": is_owner,
-                "role": "owner" if is_owner else "member",
-                "token": token.key,
-            },
-            status=201,
-        )
+        return Response(UserSerializer(user).data, status=201)
 
 
 class LoginView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [CsrfProtected]
     throttle_classes = [LoginRateThrottle]
 
     def post(self, request: Request) -> Response:
@@ -68,21 +68,14 @@ class LoginView(APIView):
                 {"detail": "Неверный логин или пароль"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-        # Token login never calls django.contrib.auth.login(), so announce it
-        # ourselves: axes resets the failure counter, last_login is updated.
-        user_logged_in.send(sender=user.__class__, request=request, user=user)
-        token, _ = Token.objects.get_or_create(user=user)
-        is_owner = user.is_staff or user.is_superuser
-        return Response(
-            {
-                "id": user.id,
-                "username": user.username,
-                "full_name": user.first_name,
-                "is_admin": is_owner,
-                "role": "owner" if is_owner else "member",
-                "token": token.key,
-            }
-        )
+        login(request, user)
+        return Response(UserSerializer(user).data)
+
+
+class LogoutView(APIView):
+    def post(self, request: Request) -> Response:
+        logout(request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CurrentUserView(APIView):
@@ -102,7 +95,9 @@ class TerminateSessionsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request: Request) -> Response:
-        Token.objects.filter(user=request.user).delete()
+        user_id = request.user.pk
+        logout(request)
+        end_user_sessions(user_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

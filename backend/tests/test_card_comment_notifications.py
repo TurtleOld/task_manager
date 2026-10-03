@@ -14,13 +14,14 @@ from kanban.models import (
     PushDevice,
 )
 from kanban.notifications import create_notification_event
+from tests.auth_helpers import make_push_device
 
 User = get_user_model()
 
 
 def _device(user: User) -> PushDevice:
-    return PushDevice.objects.create(
-        user=user,
+    return make_push_device(
+        user,
         kind=PushDevice.Kind.WEBPUSH,
         endpoint=f"https://push.example.com/{user.id}",
         p256dh="p256dh-key",

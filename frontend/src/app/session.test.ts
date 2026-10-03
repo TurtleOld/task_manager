@@ -1,20 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const clearQueries = vi.fn()
-const deletePushDb = vi.fn()
 
 vi.mock('./queryClient', () => ({ queryClient: { clear: clearQueries } }))
-vi.mock('../lib/pushIdb', () => ({ deletePushDb }))
 
-const { clearLocalSession, onSessionCleared } = await import('./session')
+const { clearLocalSession, isSignedIn, markSignedIn, onSessionCleared } = await import('./session')
 
 const unsubscribe = vi.fn()
 const clearStorage = vi.fn()
+const deleteDatabase = vi.fn()
 
 beforeEach(() => {
   vi.clearAllMocks()
-  deletePushDb.mockResolvedValue(undefined)
   unsubscribe.mockResolvedValue(true)
+  deleteDatabase.mockImplementation(() => {
+    const request: { onsuccess?: () => void } = {}
+    queueMicrotask(() => request.onsuccess?.())
+    return request
+  })
+  vi.stubGlobal('indexedDB', { deleteDatabase })
   vi.stubGlobal('localStorage', { clear: clearStorage })
   vi.stubGlobal('navigator', {
     serviceWorker: {
@@ -29,12 +33,15 @@ afterEach(() => {
 
 describe('clearLocalSession', () => {
   it('unsubscribes push, drops IndexedDB, localStorage and the query cache', async () => {
+    markSignedIn()
+
     await clearLocalSession()
 
     expect(unsubscribe).toHaveBeenCalledOnce()
-    expect(deletePushDb).toHaveBeenCalledOnce()
+    expect(deleteDatabase).toHaveBeenCalledExactlyOnceWith('task-manager-push')
     expect(clearStorage).toHaveBeenCalledOnce()
     expect(clearQueries).toHaveBeenCalledOnce()
+    expect(isSignedIn()).toBe(false)
   })
 
   it('notifies listeners even when every step fails', async () => {
@@ -44,7 +51,9 @@ describe('clearLocalSession', () => {
     clearQueries.mockImplementationOnce(() => {
       throw new Error('cache')
     })
-    deletePushDb.mockRejectedValueOnce(new Error('idb'))
+    deleteDatabase.mockImplementationOnce(() => {
+      throw new Error('idb')
+    })
     unsubscribe.mockRejectedValueOnce(new Error('offline'))
     const listener = vi.fn()
     const off = onSessionCleared(listener)
@@ -53,7 +62,7 @@ describe('clearLocalSession', () => {
 
     off()
     expect(listener).toHaveBeenCalledOnce()
-    expect(deletePushDb).toHaveBeenCalledOnce()
+    expect(unsubscribe).toHaveBeenCalledOnce()
   })
 
   it('runs once for concurrent triggers', async () => {

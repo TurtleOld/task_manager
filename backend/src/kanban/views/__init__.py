@@ -4,8 +4,10 @@ from ..broadcast import broadcast_board_event  # noqa: F401 — re-exported for 
 from .agenda import AgendaView, CompletedAgendaView, FamilyTodayView
 from .archive import ArchiveView
 from .auth import (
+    CsrfCookieView,
     CurrentUserView,
     LoginView,
+    LogoutView,
     RegisterView,
     RegistrationStatusView,
     TerminateSessionsView,
@@ -34,7 +36,9 @@ __all__ = [
     "CardViewSet",
     "CurrentUserView",
     "IsAdminUser",
+    "CsrfCookieView",
     "LoginView",
+    "LogoutView",
     "NotificationInboxView",
     "NotificationPreferenceViewSet",
     "NotificationProfileView",

@@ -8,9 +8,10 @@ import { Badge, Button, Card as SurfaceCard, ErrorState, Field, Modal, PageShell
 
 interface RegisterPageProps {
   user: AuthUser | null
+  onLogin: (user: AuthUser) => void
 }
 
-export function RegisterPage({ user }: RegisterPageProps) {
+export function RegisterPage({ user, onLogin }: RegisterPageProps) {
   const navigate = useNavigate()
   const [status, setStatus] = useState<RegistrationStatus | null>(null)
   const [loading, setLoading] = useState(true)
@@ -62,15 +63,19 @@ export function RegisterPage({ user }: RegisterPageProps) {
     }
     setSaving(true)
     try {
-      await api.register({ username: trimmedUsername, password, full_name: trimmedName, role })
+      const created = await api.register({ username: trimmedUsername, password, full_name: trimmedName, role })
       setConfirmOpen(false)
       setSuccessMessage('Пользователь успешно создан. Можно добавить следующего.')
       setUsername('')
       setPassword('')
       setFullName('')
       setRole('member')
-      if (status?.allow_first) navigate('/login', { replace: true })
-      else navigate('/settings', { replace: true })
+      if (status?.allow_first) {
+        onLogin(created)
+        navigate('/', { replace: true })
+      } else {
+        navigate('/settings', { replace: true })
+      }
     } catch (e) {
       setError((e as Error).message)
     } finally {

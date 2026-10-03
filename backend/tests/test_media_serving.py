@@ -17,7 +17,7 @@ def uploaded_file(tmp_path: Path, settings) -> Path:
 def test_media_requires_authentication(api_client: APIClient, uploaded_file: Path) -> None:
     response = api_client.get(f"/media/{uploaded_file.name}")
 
-    assert response.status_code in (401, 403)
+    assert response.status_code == 401
 
 
 def test_media_served_to_authenticated_user(auth_client: APIClient, uploaded_file: Path) -> None:

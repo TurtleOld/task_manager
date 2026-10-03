@@ -8,8 +8,7 @@
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching'
 import { NavigationRoute, registerRoute } from 'workbox-routing'
 
-import { subscriptionToRegistrationBody } from './lib/push'
-import { loadPushAuth } from './lib/pushIdb'
+import { deviceLabel, subscriptionToRegistrationBody } from './lib/push'
 
 interface SwClient {
   url: string
@@ -31,6 +30,11 @@ declare const self: {
   }
   registration: { showNotification(title: string, options?: NotificationOptions): Promise<void> }
   location: { origin: string }
+  navigator: { userAgent: string }
+  // Cookie Store API: the only way a worker can read the CSRF cookie. Absent
+  // in older browsers, where the renewed subscription is re-registered on the
+  // next login or scheduled resubscribe instead.
+  cookieStore?: { get(name: string): Promise<{ value: string } | null> }
   addEventListener(type: string, listener: (event: Event) => void): void
 }
 
@@ -133,18 +137,25 @@ self.addEventListener('pushsubscriptionchange', (event) => {
   // The browser renewed the delivery parameters on its own (Chrome rotates
   // subscriptions). If we ignore this, notifications silently stop "after some
   // unknown time" — the original disease this whole feature fixes.
+  // Registered on whatever session the cookie carries; with none the server
+  // refuses, so a browser someone signed out of cannot re-attach itself.
   changeEvent.waitUntil(
-    loadPushAuth().then(async (auth) => {
-      if (!auth?.token) return
-      const body = subscriptionToRegistrationBody(newSubscription.toJSON(), auth.label)
+    readCsrfToken().then(async (csrfToken) => {
+      const body = subscriptionToRegistrationBody(newSubscription.toJSON(), deviceLabel(self.navigator.userAgent))
       await fetch('/api/v1/push-devices/', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Token ${auth.token}`,
-        },
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
         body: JSON.stringify(body),
       })
     }),
   )
 })
+
+async function readCsrfToken(): Promise<string> {
+  try {
+    return (await self.cookieStore?.get('csrftoken'))?.value ?? ''
+  } catch {
+    return ''
+  }
+}

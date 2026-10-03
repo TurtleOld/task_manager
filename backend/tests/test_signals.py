@@ -4,18 +4,18 @@ from unittest.mock import patch
 
 import pytest
 from django.contrib.auth import get_user_model
-from rest_framework.authtoken.models import Token
 
-from kanban.models import PushDevice
+from kanban.models import PushDevice, UserSession
+from tests.auth_helpers import login_client, make_push_device
 
 User = get_user_model()
 
 
 @pytest.mark.django_db()
-def test_deactivating_a_user_revokes_devices_and_token(regular_user: User) -> None:
-    Token.objects.get_or_create(user=regular_user)
-    PushDevice.objects.create(
-        user=regular_user,
+def test_deactivating_a_user_ends_sessions_and_devices(regular_user: User) -> None:
+    client = login_client("user1", "pass1")
+    make_push_device(
+        regular_user,
         kind=PushDevice.Kind.WEBPUSH,
         endpoint="https://push.example.com/a",
         p256dh="p256dh-key",
@@ -26,8 +26,9 @@ def test_deactivating_a_user_revokes_devices_and_token(regular_user: User) -> No
         regular_user.is_active = False
         regular_user.save()
 
-    assert not Token.objects.filter(user=regular_user).exists()
+    assert not UserSession.objects.filter(user=regular_user).exists()
     assert not PushDevice.objects.filter(user=regular_user).exists()
+    assert client.get("/api/v1/auth/me/").status_code == 401
     mock_disconnect.assert_called_once_with(regular_user.id)
 
 
@@ -35,8 +36,8 @@ def test_deactivating_a_user_revokes_devices_and_token(regular_user: User) -> No
 def test_reactivating_a_user_does_not_touch_devices(regular_user: User) -> None:
     regular_user.is_active = False
     regular_user.save()
-    PushDevice.objects.create(
-        user=regular_user,
+    make_push_device(
+        regular_user,
         kind=PushDevice.Kind.WEBPUSH,
         endpoint="https://push.example.com/a",
         p256dh="p256dh-key",
