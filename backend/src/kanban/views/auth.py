@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import uuid
+
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.contrib.auth.models import AnonymousUser
+from django.db.models import Exists, OuterRef
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import permissions, status
@@ -10,7 +14,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ..authentication import CsrfProtected
-from ..serializers import CurrentUserUpdateSerializer, RegisterSerializer, UserSerializer
+from ..models import PushDevice, UserSession
+from ..serializers import (
+    CurrentUserUpdateSerializer,
+    RegisterSerializer,
+    UserSerializer,
+    UserSessionSerializer,
+)
 from ..session_termination import end_session, end_user_sessions
 from ..throttling import LoginRateThrottle
 
@@ -99,6 +109,41 @@ class TerminateSessionsView(APIView):
         user_id = request.user.pk
         end_user_sessions(user_id)
         logout(request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SessionListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        sessions = (
+            UserSession.objects.filter(user=request.user, expire_date__gt=timezone.now())
+            .annotate(
+                has_device=Exists(PushDevice.objects.filter(session=OuterRef("pk"), active=True))
+            )
+            .order_by("-login_at")
+        )
+        serializer = UserSessionSerializer(
+            sessions,
+            many=True,
+            context={"current_session_key": request.session.session_key},
+        )
+        return Response(serializer.data)
+
+
+class SessionDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request: Request, public_id: uuid.UUID) -> Response:
+        session = UserSession.objects.filter(public_id=public_id, user=request.user).first()
+        if session is None:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        if session.session_key == request.session.session_key:
+            return Response(
+                {"detail": "Use logout to end the current session."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        end_session(session.session_key)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
