@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.1.0](https://github.com/TurtleOld/task_manager/compare/v2.0.0...v2.1.0) (2026-10-04)
+
+
+### Features
+
+* группы агенды по следующей неделе и месяцам ([#162](https://github.com/TurtleOld/task_manager/issues/162)) ([672b4a3](https://github.com/TurtleOld/task_manager/commit/672b4a39361ab1ebe824140638cd546a09c6cb1c))
+* новая карточка задачи — строка свойств, раскрывающиеся разделы, общая лента ([#161](https://github.com/TurtleOld/task_manager/issues/161)) ([82eed46](https://github.com/TurtleOld/task_manager/commit/82eed465bfb6d022f9ad379ec224569ec058f40e))
+* новый дизайн настроек — разделы со строками и оглавление ([#163](https://github.com/TurtleOld/task_manager/issues/163)) ([dbaa6c1](https://github.com/TurtleOld/task_manager/commit/dbaa6c18003bef2503676c76ac45e6d17e3396f1))
+* оформление с глубиной — слои поверхностей, шрифт Geologica, тихие строки задач ([#160](https://github.com/TurtleOld/task_manager/issues/160)) ([02fa48e](https://github.com/TurtleOld/task_manager/commit/02fa48e7d180e9db2e660c13c129b9b316db6320))
+
 ## [2.0.0](https://github.com/TurtleOld/task_manager/compare/v1.7.5...v2.0.0) (2026-10-04)
 
 
