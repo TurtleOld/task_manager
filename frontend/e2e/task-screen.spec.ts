@@ -54,6 +54,7 @@ test.describe('task screen', () => {
     await page.goto(`/lists/${board.id}/tasks/${card.id}`)
     const dialog = page.getByRole('dialog', { name: card.title })
 
+    await dialog.getByRole('button', { name: 'Чек-лист' }).click()
     await dialog.getByLabel('Новый пункт чек-листа').fill('Купить билеты')
     await dialog.getByLabel('Новый пункт чек-листа').press('Enter')
     const checklistRow = dialog.getByText('Купить билеты')
