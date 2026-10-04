@@ -1,5 +1,4 @@
 import { useId } from 'react'
-import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { Checkbox } from '@radix-ui/react-checkbox'
 import { Calendar, Check, GitBranch, ListChecks, Repeat } from 'lucide-react'
@@ -12,6 +11,7 @@ import { SWIPE_ACTION_THRESHOLD_PX } from '../lib/swipeGesture'
 import { ProgressBar } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { DeadlinePicker } from './DeadlinePicker'
+import { ListLabel } from './ListLabel'
 
 interface AgendaRowProps {
   boundaries: AgendaBoundaries
@@ -196,18 +196,5 @@ export function AgendaRow({
         ) : null}
       </div>
     </li>
-  )
-}
-
-/** Название списка его собственным цветом на лёгкой подложке того же цвета. */
-function ListLabel({ board }: { board: Board }) {
-  return (
-    <span
-      style={{ '--list-color': board.color || 'rgb(var(--color-primary))' } as CSSProperties}
-      className="inline-flex max-w-[12rem] items-center gap-1 rounded-sm bg-[color:color-mix(in_srgb,var(--list-color)_14%,transparent)] px-1.5 font-medium text-[color:color-mix(in_srgb,var(--list-color)_80%,black)] dark:text-[color:color-mix(in_srgb,var(--list-color)_60%,white)]"
-    >
-      {board.icon ? <span aria-hidden="true">{board.icon}</span> : null}
-      <span className="truncate">{board.name}</span>
-    </span>
   )
 }

@@ -13,6 +13,8 @@ interface DeadlinePickerProps {
   className?: string
   deadline: string | null
   displayText?: string
+  /** Подпись кнопки, когда срок не задан. */
+  emptyText?: string
   onCommit: (deadline: string | null) => void
 }
 
@@ -24,7 +26,7 @@ function timeOf(deadline: string | null, timeZone: string): string {
   return local.split('T')[1] ?? DEFAULT_TIME
 }
 
-export function DeadlinePicker({ boundaries, busy = false, className, deadline, displayText, onCommit }: DeadlinePickerProps) {
+export function DeadlinePicker({ boundaries, busy = false, className, deadline, displayText, emptyText = 'Без срока', onCommit }: DeadlinePickerProps) {
   const [open, setOpen] = useState(false)
   const timeZone = boundaries.timezone
   const selected = deadline ? new Date(formatIsoForTimeZone(deadline, timeZone)) : undefined
@@ -73,7 +75,7 @@ export function DeadlinePicker({ boundaries, busy = false, className, deadline, 
           )}
         >
           <CalendarDays className="h-3 w-3" aria-hidden="true" />
-          <span className="text-body-sm">{displayText ?? (deadline ? formatDeadlineShort(deadline, boundaries) : 'Без срока')}</span>
+          <span className="text-body-sm">{displayText ?? (deadline ? formatDeadlineShort(deadline, boundaries) : emptyText)}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-2">
