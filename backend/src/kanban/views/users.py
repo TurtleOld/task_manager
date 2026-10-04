@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from django.contrib.auth import HASH_SESSION_KEY, get_user_model
-from rest_framework import permissions, viewsets
+from django.contrib.auth import HASH_SESSION_KEY, authenticate, get_user_model
+from django.contrib.auth.base_user import AbstractBaseUser
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -53,6 +54,11 @@ class UserAdminViewSet(viewsets.ViewSet):
         if user is None or (not is_self and not request.user.is_staff):
             return Response({"detail": "Not found"}, status=404)
 
+        if is_self:
+            rejection = self._current_password_rejection(request, user)
+            if rejection is not None:
+                return rejection
+
         serializer = PasswordChangeSerializer(user, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -66,3 +72,29 @@ class UserAdminViewSet(viewsets.ViewSet):
         else:
             end_user_sessions(user.pk)
         return Response({"detail": "Password updated"})
+
+    @staticmethod
+    def _current_password_rejection(request: Request, user: AbstractBaseUser) -> Response | None:
+        # A hijacked session must not be enough to take the account over: the
+        # change also ends every other session of the owner. authenticate()
+        # routes wrong guesses through axes, so they lock out like login does.
+        current_password = request.data.get("current_password")
+        if not current_password:
+            return Response(
+                {"current_password": ["Введите текущий пароль"]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        authenticated = authenticate(
+            request, username=user.get_username(), password=current_password
+        )
+        if getattr(request, "axes_locked_out", False):
+            return Response(
+                {"detail": "Слишком много неудачных попыток, попробуйте позже"},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        if authenticated is None or authenticated.pk != user.pk:
+            return Response(
+                {"current_password": ["Неверный текущий пароль"]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return None
