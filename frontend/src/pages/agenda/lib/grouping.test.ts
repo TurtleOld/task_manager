@@ -9,6 +9,9 @@ const WEDNESDAY: AgendaBoundaries = {
   tomorrow_start: '2026-08-13T00:00:00+00:00',
   day_after_start: '2026-08-14T00:00:00+00:00',
   week_end: '2026-08-17T00:00:00+00:00',
+  next_week_end: '2026-08-24T00:00:00+00:00',
+  month_end: '2026-09-01T00:00:00+00:00',
+  next_month_end: '2026-10-01T00:00:00+00:00',
 }
 
 // Saturday 2026-08-15: day_after_start coincides with week_end.
@@ -18,6 +21,9 @@ const SATURDAY: AgendaBoundaries = {
   tomorrow_start: '2026-08-16T00:00:00+00:00',
   day_after_start: '2026-08-17T00:00:00+00:00',
   week_end: '2026-08-17T00:00:00+00:00',
+  next_week_end: '2026-08-24T00:00:00+00:00',
+  month_end: '2026-09-01T00:00:00+00:00',
+  next_month_end: '2026-10-01T00:00:00+00:00',
 }
 
 function makeCard(overrides: Partial<AgendaCard>): AgendaCard {
@@ -82,21 +88,51 @@ describe('agendaGroupOf', () => {
     expect(agendaGroupOf(makeCard({ deadline: '2026-08-16T10:00:00+00:00' }), WEDNESDAY)).toBe('this-week')
   })
 
-  it('классифицирует срок со следующего понедельника как «Позже»', () => {
-    const card = makeCard({ deadline: '2026-08-17T10:00:00+00:00' })
-    expect(agendaGroupOf(card, WEDNESDAY)).toBe('later')
+  it('классифицирует срок со следующего понедельника по воскресенье как «На следующей неделе»', () => {
+    expect(agendaGroupOf(makeCard({ deadline: '2026-08-17T10:00:00+00:00' }), WEDNESDAY)).toBe('next-week')
+    expect(agendaGroupOf(makeCard({ deadline: '2026-08-23T10:00:00+00:00' }), WEDNESDAY)).toBe('next-week')
   })
 
-  it('в субботу задача на следующий понедельник уходит в «Позже», а не в «На этой неделе»', () => {
+  it('в субботу задача на следующий понедельник уходит в «На следующей неделе», а не в «На этой неделе»', () => {
     const card = makeCard({ deadline: '2026-08-17T10:00:00+00:00' })
-    expect(agendaGroupOf(card, SATURDAY)).toBe('later')
+    expect(agendaGroupOf(card, SATURDAY)).toBe('next-week')
+  })
+
+  it('после следующей недели и до конца месяца — «В этом месяце»', () => {
+    expect(agendaGroupOf(makeCard({ deadline: '2026-08-24T10:00:00+00:00' }), WEDNESDAY)).toBe('this-month')
+    expect(agendaGroupOf(makeCard({ deadline: '2026-08-31T22:00:00+00:00' }), WEDNESDAY)).toBe('this-month')
+  })
+
+  it('следующий календарный месяц — «В следующем месяце», дальше — «Позже»', () => {
+    expect(agendaGroupOf(makeCard({ deadline: '2026-09-01T00:00:00+00:00' }), WEDNESDAY)).toBe('next-month')
+    expect(agendaGroupOf(makeCard({ deadline: '2026-09-30T10:00:00+00:00' }), WEDNESDAY)).toBe('next-month')
+    expect(agendaGroupOf(makeCard({ deadline: '2026-10-01T00:00:00+00:00' }), WEDNESDAY)).toBe('later')
+  })
+
+  it('следующая неделя, заходящая в новый месяц, остаётся «На следующей неделе»', () => {
+    // Пятница 2026-08-28: следующая неделя — 31 августа … 6 сентября.
+    const friday: AgendaBoundaries = {
+      timezone: 'UTC',
+      today_start: '2026-08-28T00:00:00+00:00',
+      tomorrow_start: '2026-08-29T00:00:00+00:00',
+      day_after_start: '2026-08-30T00:00:00+00:00',
+      week_end: '2026-08-31T00:00:00+00:00',
+      next_week_end: '2026-09-07T00:00:00+00:00',
+      month_end: '2026-09-01T00:00:00+00:00',
+      next_month_end: '2026-10-01T00:00:00+00:00',
+    }
+    expect(agendaGroupOf(makeCard({ deadline: '2026-09-03T10:00:00+00:00' }), friday)).toBe('next-week')
+    expect(agendaGroupOf(makeCard({ deadline: '2026-09-10T10:00:00+00:00' }), friday)).toBe('next-month')
   })
 })
 
 describe('bucketAgendaCards', () => {
-  it('раскладывает задачи по шести группам в порядке сервера', () => {
+  it('раскладывает задачи по всем группам в порядке сервера', () => {
     const cards = [
-      makeCard({ id: 1, title: 'Позже', deadline: '2026-08-20T10:00:00+00:00' }),
+      makeCard({ id: 1, title: 'Позже', deadline: '2026-10-20T10:00:00+00:00' }),
+      makeCard({ id: 7, title: 'След. неделя', deadline: '2026-08-20T10:00:00+00:00' }),
+      makeCard({ id: 8, title: 'Месяц', deadline: '2026-08-27T10:00:00+00:00' }),
+      makeCard({ id: 9, title: 'След. месяц', deadline: '2026-09-12T10:00:00+00:00' }),
       makeCard({ id: 2, title: 'Сегодня', deadline: '2026-08-12T15:00:00+00:00' }),
       makeCard({ id: 3, title: 'Когда-нибудь' }),
       makeCard({ id: 4, title: 'Просрочено', deadline: '2026-08-11T10:00:00+00:00' }),
@@ -110,6 +146,9 @@ describe('bucketAgendaCards', () => {
     expect(buckets.today.map((card) => card.title)).toEqual(['Сегодня'])
     expect(buckets.tomorrow.map((card) => card.title)).toEqual(['Завтра'])
     expect(buckets['this-week'].map((card) => card.title)).toEqual(['Неделя'])
+    expect(buckets['next-week'].map((card) => card.title)).toEqual(['След. неделя'])
+    expect(buckets['this-month'].map((card) => card.title)).toEqual(['Месяц'])
+    expect(buckets['next-month'].map((card) => card.title)).toEqual(['След. месяц'])
     expect(buckets.later.map((card) => card.title)).toEqual(['Позже'])
     expect(buckets.someday.map((card) => card.title)).toEqual(['Когда-нибудь'])
   })
@@ -137,6 +176,6 @@ describe('bucketAgendaCards', () => {
     const buckets = bucketAgendaCards(cards, SATURDAY)
 
     expect(buckets['this-week']).toHaveLength(0)
-    expect(buckets.later.map((card) => card.id)).toEqual([3, 4])
+    expect(buckets['next-week'].map((card) => card.id)).toEqual([3, 4])
   })
 })

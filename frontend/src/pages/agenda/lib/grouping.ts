@@ -1,14 +1,36 @@
 import type { AgendaBoundaries, AgendaCard } from '../../../api/types'
 
-export type AgendaGroupId = 'overdue' | 'today' | 'tomorrow' | 'this-week' | 'later' | 'someday'
+export type AgendaGroupId =
+  | 'overdue'
+  | 'today'
+  | 'tomorrow'
+  | 'this-week'
+  | 'next-week'
+  | 'this-month'
+  | 'next-month'
+  | 'later'
+  | 'someday'
 
-export const AGENDA_GROUP_ORDER: AgendaGroupId[] = ['overdue', 'today', 'tomorrow', 'this-week', 'later', 'someday']
+export const AGENDA_GROUP_ORDER: AgendaGroupId[] = [
+  'overdue',
+  'today',
+  'tomorrow',
+  'this-week',
+  'next-week',
+  'this-month',
+  'next-month',
+  'later',
+  'someday',
+]
 
 export const AGENDA_GROUP_LABELS: Record<AgendaGroupId, string> = {
   overdue: 'Просрочено',
   today: 'Сегодня',
   tomorrow: 'Завтра',
   'this-week': 'На этой неделе',
+  'next-week': 'На следующей неделе',
+  'this-month': 'В этом месяце',
+  'next-month': 'В следующем месяце',
   later: 'Позже',
   someday: 'Когда-нибудь',
 }
@@ -33,7 +55,10 @@ function parseDate(value: string): number {
  * Группа, в которую попадает задача, по границам с сервера.
  *
  * Правило из спеки (§3.1): клиент не считает даты сам, а только применяет
- * границы `today_start` / `tomorrow_start` / `day_after_start` / `week_end`.
+ * границы `today_start` / `tomorrow_start` / `day_after_start` / `week_end` /
+ * `next_week_end` / `month_end` / `next_month_end`. Группы проверяются по
+ * порядку, поэтому «На следующей неделе» забирает и дни, что уже лежат
+ * в следующем месяце, а «В этом месяце» начинается после следующей недели.
  * Выполненная задача не попадает в «Просрочено» независимо от срока (§3.1),
  * но остаётся видимой до конца дня (§3.2). Сервер возвращает задачи,
  * выполненные сегодня, включая те, чей срок в прошлом; единственная группа,
@@ -48,6 +73,9 @@ export function agendaGroupOf(card: AgendaCard, boundaries: AgendaBoundaries): A
   const tomorrowStart = parseDate(boundaries.tomorrow_start)
   const dayAfterStart = parseDate(boundaries.day_after_start)
   const weekEnd = parseDate(boundaries.week_end)
+  const nextWeekEnd = parseDate(boundaries.next_week_end)
+  const monthEnd = parseDate(boundaries.month_end)
+  const nextMonthEnd = parseDate(boundaries.next_month_end)
 
   if (deadline < todayStart) {
     return card.completed_at ? 'today' : 'overdue'
@@ -55,6 +83,9 @@ export function agendaGroupOf(card: AgendaCard, boundaries: AgendaBoundaries): A
   if (deadline < tomorrowStart) return 'today'
   if (deadline < dayAfterStart) return 'tomorrow'
   if (deadline < weekEnd) return 'this-week'
+  if (deadline < nextWeekEnd) return 'next-week'
+  if (deadline < monthEnd) return 'this-month'
+  if (deadline < nextMonthEnd) return 'next-month'
   return 'later'
 }
 
@@ -72,6 +103,9 @@ export function bucketAgendaCards(
     today: [],
     tomorrow: [],
     'this-week': [],
+    'next-week': [],
+    'this-month': [],
+    'next-month': [],
     later: [],
     someday: [],
   }

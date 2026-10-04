@@ -92,6 +92,37 @@ def test_sunday_deadline_falls_within_this_week_from_a_weekday() -> None:
     assert next_monday_deadline >= boundaries.week_end
 
 
+def test_next_week_end_is_a_week_after_week_end() -> None:
+    boundaries = compute_agenda_boundaries(now=_at(2026, 8, 12), tz_name="UTC")
+    assert boundaries.next_week_end.isoformat() == "2026-08-24T00:00:00+00:00"
+
+
+@pytest.mark.parametrize(
+    ("date", "expected_month_end", "expected_next_month_end"),
+    [
+        ((2026, 8, 12), "2026-09-01T00:00:00+00:00", "2026-10-01T00:00:00+00:00"),
+        # Last day of the month: the boundary is tomorrow, not a month away.
+        ((2026, 8, 31), "2026-09-01T00:00:00+00:00", "2026-10-01T00:00:00+00:00"),
+        # November and December roll over into the next year.
+        ((2026, 11, 20), "2026-12-01T00:00:00+00:00", "2027-01-01T00:00:00+00:00"),
+        ((2026, 12, 5), "2027-01-01T00:00:00+00:00", "2027-02-01T00:00:00+00:00"),
+    ],
+)
+def test_month_boundaries_are_midnight_on_the_first(
+    date: tuple[int, int, int], expected_month_end: str, expected_next_month_end: str
+) -> None:
+    boundaries = compute_agenda_boundaries(now=_at(*date), tz_name="UTC")
+    assert boundaries.month_end.isoformat() == expected_month_end
+    assert boundaries.next_month_end.isoformat() == expected_next_month_end
+
+
+def test_month_end_stays_at_local_midnight_across_a_dst_switch() -> None:
+    # Berlin switches to winter time on 2026-10-25; November 1st is UTC+1, not +2.
+    boundaries = compute_agenda_boundaries(now=_at(2026, 10, 10, 12), tz_name="Europe/Berlin")
+    assert boundaries.today_start.isoformat() == "2026-10-10T00:00:00+02:00"
+    assert boundaries.month_end.isoformat() == "2026-11-01T00:00:00+01:00"
+
+
 # ---------------------------------------------------------------------------
 # GET /agenda/
 # ---------------------------------------------------------------------------
@@ -121,6 +152,9 @@ def test_agenda_reports_boundaries_in_the_caller_timezone(
         "tomorrow_start",
         "day_after_start",
         "week_end",
+        "next_week_end",
+        "month_end",
+        "next_month_end",
     }
 
 

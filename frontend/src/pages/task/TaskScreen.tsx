@@ -561,5 +561,14 @@ function TaskMenu({
 
 function fallbackBoundaries(timeZone: string): AgendaBoundaries {
   const now = new Date().toISOString()
-  return { timezone: timeZone, today_start: now, tomorrow_start: now, day_after_start: now, week_end: now }
+  return {
+    timezone: timeZone,
+    today_start: now,
+    tomorrow_start: now,
+    day_after_start: now,
+    week_end: now,
+    next_week_end: now,
+    month_end: now,
+    next_month_end: now,
+  }
 }
