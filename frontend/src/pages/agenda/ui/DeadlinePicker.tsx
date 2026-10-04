@@ -13,6 +13,8 @@ interface DeadlinePickerProps {
   className?: string
   deadline: string | null
   displayText?: string
+  /** Подпись кнопки, когда срок не задан. */
+  emptyText?: string
   onCommit: (deadline: string | null) => void
 }
 
@@ -24,7 +26,7 @@ function timeOf(deadline: string | null, timeZone: string): string {
   return local.split('T')[1] ?? DEFAULT_TIME
 }
 
-export function DeadlinePicker({ boundaries, busy = false, className, deadline, displayText, onCommit }: DeadlinePickerProps) {
+export function DeadlinePicker({ boundaries, busy = false, className, deadline, displayText, emptyText = 'Без срока', onCommit }: DeadlinePickerProps) {
   const [open, setOpen] = useState(false)
   const timeZone = boundaries.timezone
   const selected = deadline ? new Date(formatIsoForTimeZone(deadline, timeZone)) : undefined
@@ -68,12 +70,12 @@ export function DeadlinePicker({ boundaries, busy = false, className, deadline, 
           disabled={busy}
           aria-label={deadline ? 'Изменить срок задачи' : 'Задать срок задачи'}
           className={cn(
-            'inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-border/80 bg-background-subtle/70 px-2.5 text-caption text-text-muted transition hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 compact:h-7',
+            'inline-flex h-8 shrink-0 items-center gap-1 rounded-control px-2 text-caption text-text-muted transition hover:bg-surface-hover hover:text-primary disabled:cursor-not-allowed disabled:opacity-60 compact:h-7',
             className,
           )}
         >
           <CalendarDays className="h-3 w-3" aria-hidden="true" />
-          <span>{displayText ?? (deadline ? formatDeadlineShort(deadline, boundaries) : 'Без срока')}</span>
+          <span className="text-body-sm">{displayText ?? (deadline ? formatDeadlineShort(deadline, boundaries) : emptyText)}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-2">

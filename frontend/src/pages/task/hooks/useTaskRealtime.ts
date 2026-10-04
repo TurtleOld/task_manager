@@ -24,11 +24,13 @@ export function useTaskRealtime({ boardId, taskId }: TaskRealtimeOptions) {
 
     const key = queryKeys.card(taskId)
     const commentsKey = queryKeys.cardComments(taskId)
+    const activityKey = queryKeys.cardActivity(taskId)
     const applyCard = (card: Card) => {
       if (card.id !== taskId) return
       const current = qc.getQueryData<Card>(key)
       if (!shouldApplyCardVersion(card.version, current?.version)) return
       qc.setQueryData<Card>(key, card)
+      void qc.invalidateQueries({ queryKey: activityKey })
     }
 
     const applyComment = (event: BoardEvent) => {
@@ -56,11 +58,12 @@ export function useTaskRealtime({ boardId, taskId }: TaskRealtimeOptions) {
         }
       },
       // Events published while the socket was down are lost, so a reconnect
-      // can only be healed by refetching the task and its comments.
+      // can only be healed by refetching the task, its comments and history.
       onOpen: (isReconnect) => {
         if (!isReconnect) return
         void qc.invalidateQueries({ queryKey: key })
         void qc.invalidateQueries({ queryKey: commentsKey })
+        void qc.invalidateQueries({ queryKey: activityKey })
       },
     })
   }, [boardId, taskId, qc])
