@@ -286,7 +286,7 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
 
           <div className="space-y-4">
             <RemindersPanel cardId={task.id} hasDeadline={Boolean(task.deadline)} />
-            <RecurrencePanel cardId={task.id} hasDeadline={Boolean(task.deadline)} />
+            <RecurrencePanel cardId={task.id} listId={listId} hasDeadline={Boolean(task.deadline)} />
 
             <SurfaceCard as="section" className="space-y-3 p-5">
               <Field label="Срок" htmlFor="task-deadline">

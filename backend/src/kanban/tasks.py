@@ -167,11 +167,18 @@ def _generate_recurring_card_for_rule(*, rule_id: int, now: datetime) -> None:
 
         due = rule.next_due
 
+        # A card that already has a successor is no longer the series' current
+        # instance. Its rule was re-armed after the fact (e.g. a PUT on an old
+        # instance); generating from it would fork a second open copy.
+        if Card.objects.filter(parent_recurrence=rule).exists():
+            rule.next_due = None
+            rule.save(update_fields=["next_due", "updated_at", "version"])
+            return
+
         # At most one open instance (not completed, not archived) per recurrence
-        # series. The series' current card always owns the only "live" rule
-        # (generation transfers next_due to the new copy's own rule and clears
-        # it here), so checking this card is enough — no need to walk the
-        # chain. Held silently: no card is created, no notification, no
+        # series. The current instance's rule is the only one with a live
+        # `next_due`: generation moves it to the new copy's own rule and clears
+        # it here. Held silently: no card is created, no notification, no
         # indicator; only the due date shifts so the check is cheap next time.
         if card.completed_at is None and card.archived_at is None:
             rule.next_due = calculate_next_recurrence_due(

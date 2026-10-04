@@ -136,6 +136,11 @@ export interface RecurrenceRule {
   version: number
 }
 
+export interface CardRecurrence extends RecurrenceRule {
+  is_current: boolean
+  current_card_id: number
+}
+
 export interface CardComment {
   id: number
   card: number

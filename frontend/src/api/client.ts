@@ -21,6 +21,7 @@ import type {
   AgendaResponse,
   FamilyTodayResponse,
   ChecklistItem,
+  CardRecurrence,
   RecurrenceRule,
   CardComment,
   CardActivity,
@@ -546,7 +547,7 @@ export const api = {
     })
     return ok(res)
   },
-  getCardRecurrence: async (cardId: number): Promise<RecurrenceRule | null> => {
+  getCardRecurrence: async (cardId: number): Promise<CardRecurrence | null> => {
     const res = await fetch(`${V1}/cards/${cardId}/recurrence/`, { headers: jsonHeaders() })
     if (res.status === 404) return null
     return json(res)

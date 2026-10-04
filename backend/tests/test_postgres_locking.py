@@ -388,3 +388,26 @@ def test_delivery_retries_when_a_live_device_is_locked(regular_user) -> None:
     assert result.sent == 0
     assert result.failed == 1
     assert result.no_devices is False
+
+
+@requires_postgres
+@pytest.mark.django_db()
+def test_recurrence_generation_skips_a_rearmed_rule_that_has_a_successor(card) -> None:
+    """The successor check runs under the rule's `FOR UPDATE` lock."""
+
+    now = timezone.now()
+    card.completed_at = now
+    card.save(update_fields=["completed_at"])
+    rule = RecurrenceRule.objects.create(
+        card=card,
+        freq=RecurrenceFrequency.DAILY,
+        interval=1,
+        next_due=now - timedelta(minutes=1),
+    )
+    Card.objects.create(column=card.column, title=card.title, parent_recurrence=rule)
+
+    generate_recurring_cards()
+
+    assert Card.objects.filter(parent_recurrence=rule).count() == 1
+    rule.refresh_from_db()
+    assert rule.next_due is None

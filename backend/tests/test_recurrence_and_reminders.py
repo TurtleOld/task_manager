@@ -173,3 +173,118 @@ def test_deadline_reminder_without_devices_reports_no_devices(
     channels = response.json()["channels"]
     assert channels["push"]["available"] is False
     assert "устройств" in channels["push"]["reason"].lower()
+
+
+def _two_instance_series(column) -> tuple[Card, RecurrenceRule, Card]:
+    """A completed first instance whose successor is already open."""
+    now = timezone.now()
+    first = Card.objects.create(
+        column=column,
+        title="Series",
+        deadline=now - timedelta(days=1),
+        completed_at=now - timedelta(hours=1),
+    )
+    first_rule = RecurrenceRule.objects.create(
+        card=first, freq=RecurrenceFrequency.DAILY, interval=1, generated_count=1
+    )
+    current = Card.objects.create(
+        column=column,
+        title="Series",
+        deadline=now + timedelta(days=1),
+        parent_recurrence=first_rule,
+    )
+    RecurrenceRule.objects.create(
+        card=current,
+        freq=RecurrenceFrequency.DAILY,
+        interval=1,
+        generated_count=1,
+        next_due=current.deadline,
+    )
+    return first, first_rule, current
+
+
+_RULE_PAYLOAD = {"freq": "daily", "interval": 2}
+
+
+@pytest.mark.django_db()
+def test_put_recurrence_on_stale_instance_is_rejected(auth_client: APIClient, column) -> None:
+    first, first_rule, current = _two_instance_series(column)
+
+    response = auth_client.put(
+        f"/api/v1/cards/{first.pk}/recurrence/", _RULE_PAYLOAD, format="json"
+    )
+
+    assert response.status_code == 409
+    assert response.json()["current_card_id"] == current.pk
+    first_rule.refresh_from_db()
+    assert first_rule.next_due is None
+    assert first_rule.interval == 1
+
+
+@pytest.mark.django_db()
+def test_delete_recurrence_on_stale_instance_is_rejected(auth_client: APIClient, column) -> None:
+    first, first_rule, _ = _two_instance_series(column)
+
+    response = auth_client.delete(f"/api/v1/cards/{first.pk}/recurrence/")
+
+    assert response.status_code == 409
+    assert RecurrenceRule.objects.filter(pk=first_rule.pk).exists()
+
+
+@pytest.mark.django_db()
+def test_put_recurrence_on_current_instance_is_allowed(auth_client: APIClient, column) -> None:
+    _, _, current = _two_instance_series(column)
+
+    response = auth_client.put(
+        f"/api/v1/cards/{current.pk}/recurrence/", _RULE_PAYLOAD, format="json"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["interval"] == 2
+
+
+@pytest.mark.django_db()
+def test_exhausted_series_can_be_resumed_on_its_last_instance(
+    auth_client: APIClient, column
+) -> None:
+    now = timezone.now()
+    last = Card.objects.create(
+        column=column, title="Done", deadline=now - timedelta(days=1), completed_at=now
+    )
+    RecurrenceRule.objects.create(
+        card=last, freq=RecurrenceFrequency.DAILY, interval=1, count=3, generated_count=3
+    )
+
+    response = auth_client.put(
+        f"/api/v1/cards/{last.pk}/recurrence/", {**_RULE_PAYLOAD, "count": None}, format="json"
+    )
+
+    assert response.status_code == 200
+
+
+@pytest.mark.django_db()
+def test_get_recurrence_reports_current_instance(auth_client: APIClient, column) -> None:
+    first, _, current = _two_instance_series(column)
+
+    stale = auth_client.get(f"/api/v1/cards/{first.pk}/recurrence/").json()
+    live = auth_client.get(f"/api/v1/cards/{current.pk}/recurrence/").json()
+
+    assert stale["is_current"] is False
+    assert stale["current_card_id"] == current.pk
+    assert live["is_current"] is True
+    assert live["current_card_id"] == current.pk
+
+
+@pytest.mark.django_db()
+def test_generator_does_not_fork_series_from_rearmed_stale_rule(column) -> None:
+    first, first_rule, current = _two_instance_series(column)
+    first_rule.next_due = timezone.now() - timedelta(minutes=1)
+    first_rule.save(update_fields=["next_due"])
+
+    generate_recurring_cards()
+
+    assert Card.objects.filter(parent_recurrence=first_rule).count() == 1
+    assert Card.objects.count() == 2
+    first_rule.refresh_from_db()
+    assert first_rule.next_due is None
+    assert first_rule.generated_count == 1

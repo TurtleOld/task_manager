@@ -37,6 +37,7 @@ from ..notifications import (
     create_or_extend_pending_card_update_event,
     flush_pending_card_update_event,
 )
+from ..recurrence import find_current_card_id
 from ..reminders import (
     reminder_channel_availability,
     reschedule_enabled_reminders,
@@ -356,7 +357,24 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             rule = getattr(card, "recurrence_rule", None)
             if rule is None:
                 return Response(None)
-            return Response(RecurrenceRuleSerializer(rule).data)
+            current_card_id = find_current_card_id(card.pk)
+            return Response(
+                {
+                    **RecurrenceRuleSerializer(rule).data,
+                    "is_current": current_card_id == card.pk,
+                    "current_card_id": current_card_id,
+                }
+            )
+
+        current_card_id = find_current_card_id(card.pk)
+        if current_card_id != card.pk:
+            return Response(
+                {
+                    "detail": "Повтор настраивается в актуальной задаче серии.",
+                    "current_card_id": current_card_id,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
 
         if request.method == "DELETE":
             RecurrenceRule.objects.filter(card=card).delete()
