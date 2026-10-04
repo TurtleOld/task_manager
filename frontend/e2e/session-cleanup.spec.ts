@@ -24,7 +24,8 @@ async function uploadAttachment(page: Page, cardId: number, text: string): Promi
   })
   expect(response.ok()).toBeTruthy()
   const card = await response.json() as { attachments: { name: string; url: string }[] }
-  return card.attachments.find((item) => item.name === 'note.txt')!.url
+  const url = card.attachments.find((item) => item.name === 'note.txt')!.url
+  return new URL(url, apiURL).href
 }
 
 test.describe('local session cleanup', () => {
@@ -51,9 +52,10 @@ test.describe('local session cleanup', () => {
     expect(device.ok()).toBeTruthy()
     const sessionA = (await page.context().cookies()).find((cookie) => cookie.name === 'sessionid')!
 
-    const attachment = await page.goto(attachmentUrl)
-    expect(attachment?.status()).toBe(200)
-    expect(await attachment?.text()).toBe(attachmentText)
+    const attachment = await page.request.get(attachmentUrl)
+    expect(attachment.status()).toBe(200)
+    expect(await attachment.text()).toBe(attachmentText)
+    expect(attachment.headers()['content-disposition']).toContain('attachment')
 
     await page.goto(`/lists/${board.id}`)
     await expect(page.getByRole('heading', { name: board.name })).toBeVisible()
