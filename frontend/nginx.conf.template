@@ -44,6 +44,7 @@ server {
     }
 
     location /api/ {
+        client_max_body_size ${ATTACHMENT_MAX_BODY_SIZE};
         proxy_pass http://$backend_upstream;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

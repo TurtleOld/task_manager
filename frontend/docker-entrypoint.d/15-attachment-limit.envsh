@@ -1,0 +1,4 @@
+#!/bin/sh
+# Sourced by the nginx entrypoint before templates are rendered. The extra
+# megabyte covers the multipart envelope around a file of exactly the limit.
+export ATTACHMENT_MAX_BODY_SIZE="$((${ATTACHMENT_MAX_MB:-10} + 1))m"

@@ -185,6 +185,10 @@ MEDIA_ROOT = os.getenv(
     str((Path(os.getenv("APP_ROOT", "/app")) / "media").resolve()),
 )
 MEDIA_URL = os.getenv("DJANGO_MEDIA_URL", "/media/")
+# Лимит на один файл вложения. Тот же ATTACHMENT_MAX_MB читает nginx во
+# frontend-образе (client_max_body_size = лимит + 1 МБ на multipart-обёртку).
+ATTACHMENT_MAX_MB = int(os.getenv("ATTACHMENT_MAX_MB", "10"))
+ATTACHMENT_MAX_BYTES = ATTACHMENT_MAX_MB * 1024 * 1024
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
