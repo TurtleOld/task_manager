@@ -376,16 +376,14 @@ export function TaskScreen({ taskId, listId, user, boundaries, onClose }: TaskSc
             <AttachmentsPanel
               attachments={task.attachments}
               busy={addAttachmentLink.isPending || uploadAttachments.isPending}
+              uploadProgress={uploadAttachments.progress}
               onAddLink={(payload) =>
                 addAttachmentLink.mutate(payload, {
                   onError: () => toast.error('Не удалось добавить вложение'),
                 })
               }
               onUpload={(files, type) =>
-                uploadAttachments.mutate(
-                  { files, type },
-                  { onError: () => toast.error('Не удалось загрузить файл') },
-                )
+                uploadAttachments.mutate({ files, type })
               }
               onDelete={(attachmentId) =>
                 deleteAttachment.mutate(attachmentId, {

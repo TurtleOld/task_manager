@@ -1,18 +1,21 @@
 import { useRef, useState } from 'react'
 import { Badge, Button, Card as SurfaceCard, EmptyState, Select, TextInput } from '@/components/ui'
+import type { UploadKind } from '../../../api/client'
 import type { Card } from '../../../api/types'
+import { ATTACHMENT_MAX_MB, type UploadProgress } from '../../../lib/attachmentUpload'
 
 type Attachment = Card['attachments'][number]
 
 interface AttachmentsPanelProps {
   attachments: Attachment[]
   busy: boolean
+  uploadProgress: UploadProgress | null
   onAddLink: (payload: { name: string; type: 'link' | 'photo'; url: string }) => void
-  onUpload: (files: File[], type: 'file' | 'photo') => void
+  onUpload: (files: File[], type: UploadKind) => void
   onDelete: (attachmentId: string) => void
 }
 
-export function AttachmentsPanel({ attachments, busy, onAddLink, onUpload, onDelete }: AttachmentsPanelProps) {
+export function AttachmentsPanel({ attachments, busy, uploadProgress, onAddLink, onUpload, onDelete }: AttachmentsPanelProps) {
   const [type, setType] = useState<'file' | 'link' | 'photo'>('link')
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
@@ -63,9 +66,16 @@ export function AttachmentsPanel({ attachments, busy, onAddLink, onUpload, onDel
               className="text-caption text-text-muted file:mr-2 file:rounded-control file:border-0 file:bg-background-subtle file:px-3 file:py-2 file:text-caption"
             />
           )}
-          <Button type="button" onClick={submit} loading={busy} size="sm">Добавить</Button>
+          <Button type="button" onClick={submit} loading={busy && !uploadProgress} disabled={busy} size="sm">
+            {uploadProgress ? `Загрузка ${uploadProgress.current} из ${uploadProgress.total}…` : 'Добавить'}
+          </Button>
         </div>
       </div>
+      {type !== 'link' ? (
+        <p className="text-caption text-text-muted">
+          {type === 'photo' ? `Фото сжимается, до ${ATTACHMENT_MAX_MB} МБ` : `До ${ATTACHMENT_MAX_MB} МБ на файл`}
+        </p>
+      ) : null}
 
       {attachments.length === 0 ? (
         <EmptyState title="Вложения отсутствуют" className="p-4">
