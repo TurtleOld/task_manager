@@ -54,8 +54,8 @@ const buttonSizeMap: Record<ButtonSize, 'default' | 'sm'> = {
 }
 
 const buttonVariantOverrides: Record<ButtonVariant, string> = {
-  primary: 'bg-[image:var(--gradient-primary)] text-text-inverse shadow-elevated hover:brightness-[1.03] active:brightness-95',
-  secondary: 'border border-border bg-surface/90 text-text shadow-surface backdrop-blur hover:border-border-strong hover:bg-surface-hover',
+  primary: 'bg-primary text-text-inverse shadow-surface hover:bg-primary-hover active:bg-primary-active',
+  secondary: 'border border-transparent bg-surface-elevated text-text shadow-surface hover:bg-surface-hover',
   ghost: 'text-text-muted hover:bg-background-subtle hover:text-text',
   danger: 'border border-danger/25 bg-danger/8 text-danger shadow-surface hover:border-danger/40 hover:bg-danger/12 hover:text-danger',
   link: 'min-h-0 rounded-none px-0 py-0 text-primary underline-offset-4 hover:text-primary-hover hover:underline',

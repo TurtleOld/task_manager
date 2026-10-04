@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { BellOff, BellRing, RefreshCw, Send } from 'lucide-react'
+import { BellRing, RefreshCw, Send, Smartphone } from 'lucide-react'
 import { api } from '../../api/client'
 import type { PushDevice, PushTestResponse } from '../../api/types'
 import {
@@ -11,7 +11,8 @@ import {
   hasActiveSubscription,
   resubscribe,
 } from '../../lib/pushManager'
-import { Badge, Button, Card as SurfaceCard, EmptyState, Skeleton } from '@/components/ui'
+import { Button, Skeleton } from '@/components/ui'
+import { SettingsRow, SettingsSection, StatusDot } from './ui'
 
 function formatDate(value: string | null): string {
   if (!value) return '—'
@@ -117,111 +118,104 @@ export function NotificationsSection() {
   const permission = getNotificationPermission()
 
   return (
-    <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
-      <div>
-        <div className="flex items-center gap-2">
-          <Badge variant="info">Уведомления</Badge>
-          <Badge variant="neutral">Web Push</Badge>
-        </div>
-        <h2 className="mt-3 text-h3 text-text">Уведомления</h2>
-        <p className="mt-1 text-body-sm text-text-muted">
-          Уведомления приходят на телефон и часы, даже когда вкладка закрыта.
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" onClick={() => void onEnable()} loading={enabling} disabled={enabled}>
-          {enabled ? <BellRing className="size-4" aria-hidden /> : <BellOff className="size-4" aria-hidden />}
-          {enabled ? 'Уведомления включены' : 'Включить уведомления'}
-        </Button>
-        {permission === 'denied' ? (
-          <p className="text-body-sm text-warning">
-            Уведомления заблокированы для этого сайта. Разрешите их в настройках браузера.
-          </p>
-        ) : null}
-      </div>
-
-      <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-body-sm font-semibold text-text">Подключённые устройства</p>
-            <p className="mt-1 text-caption text-text-muted">
-              Новое устройство не отключает предыдущие. Последняя ошибка видна рядом с каждым.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={() => void refresh()}>Обновить список</Button>
-            {enabled ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => void onResubscribe()}
-                loading={resubscribing}
-              >
-                <RefreshCw className="size-4" aria-hidden />
-                Обновить подписку
-              </Button>
-            ) : null}
-          </div>
-        </div>
+    <SettingsSection
+      id="notifications"
+      title="Уведомления"
+      description="Приходят на телефон и часы, даже когда вкладка закрыта."
+    >
+      <SettingsRow
+        label="Этот браузер"
+        description={
+          permission === 'denied' ? (
+            <span className="text-warning">Уведомления заблокированы для сайта. Разрешите их в настройках браузера.</span>
+          ) : enabled ? (
+            'Получает уведомления. Если они перестали приходить, обновите подписку: Android иногда незаметно для сервера роняет старую.'
+          ) : (
+            'Подключите, чтобы получать напоминания о сроках.'
+          )
+        }
+      >
         {enabled ? (
-          <p className="mt-3 text-caption text-text-muted">
-            Если уведомления перестали приходить именно на это устройство, а тестовое отправляется
-            без ошибок — нажмите «Обновить подписку»: Android иногда незаметно для сервера роняет
-            старую подписку, и обновление выпускает новую взамен.
-          </p>
-        ) : null}
+          <Button type="button" variant="secondary" size="sm" onClick={() => void onResubscribe()} loading={resubscribing}>
+            <RefreshCw className="size-4" aria-hidden />
+            Обновить подписку
+          </Button>
+        ) : (
+          <Button type="button" size="sm" onClick={() => void onEnable()} loading={enabling}>
+            <BellRing className="size-4" aria-hidden />
+            Включить уведомления
+          </Button>
+        )}
+      </SettingsRow>
 
+      <SettingsRow
+        label="Подключённые устройства"
+        description="Новое устройство не отключает предыдущие."
+        stacked
+      >
         {loading ? (
-          <div className="mt-4 space-y-2">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
           </div>
         ) : devices.length === 0 ? (
-          <EmptyState title="Устройств нет" className="mt-4 p-4">
-            Нажмите «Включить уведомления», чтобы подключить этот браузер.
-          </EmptyState>
+          <p className="text-body-sm text-text-muted">Пока ни одного устройства.</p>
         ) : (
-          <ul className="mt-4 space-y-2">
+          <ul className="-mx-2">
             {devices.map((device) => (
-              <li key={device.id} className="flex flex-wrap items-center gap-3 rounded-[1.15rem] border border-border/75 bg-surface/90 px-4 py-3 shadow-surface">
+              <li key={device.id} className="group flex items-center gap-3 rounded-control px-2 py-2 transition-colors hover:bg-surface-hover">
+                <Smartphone className="h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate font-semibold text-text">{device.label || `Устройство #${device.id}`}</span>
-                    {device.active ? <Badge variant="success">Активно</Badge> : <Badge variant="neutral">Отключено</Badge>}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                    <span className="truncate text-body-sm text-text">{device.label || `Устройство #${device.id}`}</span>
+                    {device.active ? <StatusDot tone="success">активно</StatusDot> : <StatusDot tone="muted">отключено</StatusDot>}
                   </div>
-                  <p className="mt-1 text-caption text-text-muted">
+                  <p className="text-caption font-normal text-text-muted">
                     Последняя доставка: {formatDate(device.last_success_at)}
                   </p>
                   {device.last_error ? (
-                    <p className="mt-1 text-caption text-danger" title={device.last_error}>
+                    <p className="truncate text-caption font-normal text-danger" title={device.last_error}>
                       {device.last_error}
                     </p>
                   ) : null}
                 </div>
-                <Button type="button" variant="danger" size="sm" onClick={() => void onDisable(device)}>
+                <Button type="button" variant="ghost" size="sm" onClick={() => void onDisable(device)} className="hover:text-danger">
                   Отключить
                 </Button>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </SettingsRow>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="secondary" onClick={() => void onTest()} loading={testing}>
-          <Send className="size-4" aria-hidden />
-          Отправить тестовое уведомление
-        </Button>
-        {testResult ? (
-          <span className={`text-body-sm ${testResult.delivered ? 'text-success' : 'text-danger'}`}>
-            {testResult.delivered ? 'Дошло' : testResult.no_devices ? 'Нет устройств' : testResult.detail}
-          </span>
-        ) : null}
-      </div>
+      <SettingsRow
+        label="Проверка доставки"
+        description={
+          testResult ? (
+            <span className={testResult.delivered ? 'text-success' : 'text-danger'}>
+              {testResult.delivered ? 'Дошло.' : testResult.no_devices ? 'Нет устройств.' : testResult.detail}
+            </span>
+          ) : (
+            'Отправит тестовое уведомление на все ваши устройства.'
+          )
+        }
+      >
+        <div className="flex gap-1">
+          <Button type="button" variant="ghost" size="sm" onClick={() => void refresh()} aria-label="Обновить список устройств" title="Обновить список">
+            <RefreshCw className="size-4" aria-hidden />
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={() => void onTest()} loading={testing}>
+            <Send className="size-4" aria-hidden />
+            Отправить тест
+          </Button>
+        </div>
+      </SettingsRow>
 
-      {error ? <p className="text-body-sm text-danger" role="alert">{error}</p> : null}
-    </SurfaceCard>
+      {error ? (
+        <p className="px-5 py-3 text-body-sm text-danger" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </SettingsSection>
   )
 }

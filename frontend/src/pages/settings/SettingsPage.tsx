@@ -6,9 +6,11 @@ import { api } from '../../api/client'
 import type { AdminUser, AuthUser, NotificationProfile, UserRole } from '../../api/types'
 import { roleLabels } from '../../shared/lib/permissions'
 import { TIMEZONE_OPTIONS, ensureProfileTimeZoneInitialized, getDeviceTimeZone, resolveTimeZone } from '../../shared/lib/timezone'
-import { Badge, Button, Card as SurfaceCard, EmptyState, Field, Modal, PageShell, Select, Skeleton, TextInput } from '@/components/ui'
+import { UserPlus } from 'lucide-react'
+import { Button, Field, Modal, Select, Skeleton, TextInput } from '@/components/ui'
 import { NotificationsSection } from './NotificationsSection'
 import { SessionsSection } from './SessionsSection'
+import { Initial, SettingsRow, SettingsSection, Switch } from './ui'
 
 interface SettingsPageProps {
   user: AuthUser
@@ -229,200 +231,82 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
     }
   }
 
-  const userCountLabel = user.is_admin ? `${users.length || 0} пользователей` : 'Личный профиль'
+  const openProfileFor = (item: AdminUser) => {
+    selectUser(item)
+    setProfileOpen(true)
+  }
+
+  const openPasswordFor = (item: AdminUser) => {
+    selectUser(item)
+    if (item.id === user.id) setSelfPasswordOpen(true)
+    else setPasswordOpen(true)
+  }
+
+  const displayName = user.full_name || user.username
+  const sections = useMemo(() => [
+    { id: 'profile', label: 'Профиль' },
+    { id: 'notifications', label: 'Уведомления' },
+    { id: 'appearance', label: 'Внешний вид' },
+    { id: 'security', label: 'Безопасность' },
+    { id: 'sessions', label: 'Сессии' },
+    ...(user.is_admin
+      ? [
+          { id: 'users', label: 'Пользователи' },
+          { id: 'system', label: 'Система' },
+        ]
+      : []),
+  ], [user.is_admin])
 
   return (
-    <PageShell width="2xl" padding="comfortable" spacing="md">
-      <header className="rounded-[1.6rem] border border-border/80 bg-[image:var(--gradient-surface)] px-6 py-6 shadow-elevated backdrop-blur compact:px-5 compact:py-4">
-        <div className="flex flex-col gap-5 compact:gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3 compact:space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="primary">Settings</Badge>
-              <Badge variant="neutral">{user.is_admin ? 'Admin workspace' : 'Personal workspace'}</Badge>
-              <Badge variant="info">{userCountLabel}</Badge>
-            </div>
-            <div>
-              <p className="max-w-3xl text-body-sm text-text-muted">
-                Управляйте профилем, уведомлениями, пользовательскими настройками и доступом из единого административного центра.
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              to="/"
-              className="inline-flex min-h-11 items-center gap-2 rounded-control border border-border bg-surface/90 px-4 py-2 text-button text-text shadow-surface backdrop-blur transition duration-fast ease-standard hover:border-border-strong hover:bg-surface-hover"
-            >
-              Назад к спискам
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="mx-auto w-full max-w-5xl px-4 pb-16 pt-4 sm:px-6 lg:px-8 lg:pt-6">
+      <div className="grid gap-10 lg:grid-cols-[11rem_minmax(0,1fr)]">
+        <SettingsNav sections={sections} />
 
-      <section className="grid gap-4 compact:gap-3 md:grid-cols-3">
-        <SurfaceCard className="p-5 compact:p-4">
-          <p className="text-caption uppercase text-text-muted">Профиль</p>
-          <h2 className="mt-2 text-h3 text-text">{user.full_name || user.username}</h2>
-          <p className="mt-1 text-body-sm text-text-muted">{user.username}</p>
-        </SurfaceCard>
-        <SurfaceCard className="p-5 compact:p-4">
-          <p className="text-caption uppercase text-text-muted">Часовой пояс</p>
-          <h2 className="mt-2 text-h3 text-text">{accountTimeZone}</h2>
-          <p className="mt-1 text-body-sm text-text-muted">Используется в web и mobile интерфейсах</p>
-        </SurfaceCard>
-        <SurfaceCard className="p-5 compact:p-4">
-          <p className="text-caption uppercase text-text-muted">Роль</p>
-          <h2 className="mt-2 text-h3 text-text">{user.is_admin ? 'Администратор' : 'Участник'}</h2>
-          <p className="mt-1 text-body-sm text-text-muted">{user.is_admin ? 'Расширенные права управления системой' : 'Личные настройки и уведомления'}</p>
-        </SurfaceCard>
-      </section>
-
-      <div className="grid gap-6 compact:gap-4 lg:grid-cols-[1.08fr_0.92fr]">
-        <div className="space-y-6 compact:space-y-4">
-          <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="primary">Profile</Badge>
-                  <Badge variant="neutral">Account settings</Badge>
-                </div>
-                <h2 className="mt-3 text-h3 text-text">Аккаунт</h2>
-                <p className="mt-1 text-body-sm text-text-muted">Личные данные, язык интерфейса и рабочий часовой пояс.</p>
+        <div className="min-w-0 space-y-10">
+          <SettingsSection id="profile" title="Профиль" description="Как вас видят в семье и в каком часовом поясе считаются сроки.">
+            <div className="flex items-center gap-4 px-5 py-4">
+              <Initial name={displayName} size="lg" />
+              <div className="min-w-0">
+                <p className="truncate text-body font-semibold text-text">{displayName}</p>
+                <p className="truncate text-body-sm text-text-muted">
+                  {user.username} · {((user.role ? roleLabels[user.role] : null) ?? (user.is_admin ? 'Владелец' : 'Участник')).toLowerCase()}
+                </p>
               </div>
             </div>
-            <div className="grid gap-4 compact:gap-3 sm:grid-cols-2">
-              <Field label="Имя" htmlFor="account-full-name">
-                <TextInput id="account-full-name" value={accountFullName} onChange={(event) => setAccountFullName(event.target.value)} autoComplete="name" />
-              </Field>
-              <Field label="Язык интерфейса" htmlFor="account-language">
-                <Select id="account-language" value={accountLanguage} onChange={(event) => setAccountLanguage(event.target.value)}>
-                  <option value="ru">Русский</option>
-                  <option value="en">English</option>
-                  <option value="de">Deutsch</option>
-                </Select>
-              </Field>
-              <Field label="Часовой пояс" htmlFor="account-timezone" hint="Используется для отображения дат, сроков и уведомлений." hintId="account-timezone-hint">
-                <Select id="account-timezone" value={accountTimeZone} onChange={(event) => setAccountTimeZone(resolveTimeZone(event.target.value))} aria-describedby="account-timezone-hint">
-                  {TIMEZONE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </Select>
-              </Field>
+            <SettingsRow label="Имя" htmlFor="account-full-name" description="Видно в ленте задач и в списке исполнителей.">
+              <TextInput id="account-full-name" value={accountFullName} onChange={(event) => setAccountFullName(event.target.value)} autoComplete="name" className="sm:w-64" />
+            </SettingsRow>
+            <SettingsRow label="Часовой пояс" htmlFor="account-timezone" description="По нему считаются «сегодня», сроки и время уведомлений.">
+              <Select id="account-timezone" value={accountTimeZone} onChange={(event) => setAccountTimeZone(resolveTimeZone(event.target.value))} className="sm:w-64">
+                {TIMEZONE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </Select>
+            </SettingsRow>
+            <SettingsRow label="Язык интерфейса" htmlFor="account-language">
+              <Select id="account-language" value={accountLanguage} onChange={(event) => setAccountLanguage(event.target.value)} className="sm:w-64">
+                <option value="ru">Русский</option>
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+              </Select>
+            </SettingsRow>
+            <div className="flex flex-wrap items-center justify-end gap-3 px-5 py-3">
+              {accountMessage ? <p className="mr-auto text-body-sm text-success">{accountMessage}</p> : null}
+              {notificationError ? <p className="mr-auto text-body-sm text-danger" role="alert">{notificationError}</p> : null}
+              <Button type="button" variant="ghost" size="sm" onClick={() => setAccountFullName(displayName)}>Сбросить имя</Button>
+              <Button type="button" size="sm" onClick={() => void saveAccountSettings()} loading={accountSaving}>Сохранить</Button>
             </div>
-            {accountMessage ? <p className="text-body-sm text-success">{accountMessage}</p> : null}
-            {notificationError ? <p className="text-body-sm text-danger" role="alert">{notificationError}</p> : null}
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" onClick={() => void saveAccountSettings()} loading={accountSaving}>Сохранить изменения</Button>
-              <Button type="button" variant="secondary" onClick={() => setAccountFullName(user.full_name || user.username)}>Сбросить имя</Button>
-            </div>
-          </SurfaceCard>
+          </SettingsSection>
 
           <NotificationsSection />
 
-          <SessionsSection onLogout={onLogout} />
-
-          <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="success">Security</Badge>
-                  <Badge variant="neutral">Access hygiene</Badge>
-                </div>
-                <h2 className="mt-3 text-h3 text-text">Безопасность</h2>
-                <p className="mt-1 text-body-sm text-text-muted">Следите за паролем и общим состоянием доступа.</p>
-              </div>
-            </div>
-            <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
-              <p className="text-caption uppercase text-text-muted">Пароль</p>
-              <h3 className="mt-2 text-body font-semibold text-text">Регулярное обновление</h3>
-              <p className="mt-1 text-body-sm text-text-muted">Рекомендуется менять пароль не реже одного раза в 90 дней.</p>
-              <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={() => setSelfPasswordOpen(true)}>Сменить пароль</Button>
-            </div>
-          </SurfaceCard>
-
-          {user.is_admin ? (
-            <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="warning">Push</Badge>
-                    <Badge variant="neutral">System reminders</Badge>
-                  </div>
-                  <h2 className="mt-3 text-h3 text-text">Уведомления</h2>
-                  <p className="mt-1 text-body-sm text-text-muted">Глобальные параметры push-напоминаний для мобильного приложения.</p>
-                </div>
-              </div>
-              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
-                <p className="text-body-sm font-semibold text-text">Повторяющиеся напоминания о просроченных задачах</p>
-                <p className="mt-1 text-caption text-text-muted">Интервал отправки push-уведомлений о просроченных задачах всем пользователям.</p>
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <Select
-                    value={overdueInterval}
-                    onChange={(e) => {
-                      const val = Number(e.target.value)
-                      setOverdueInterval(val)
-                      setOverdueIntervalSaving(true)
-                      api.updateSiteSettings({ overdue_reminder_interval: val })
-                        .then((s) => setOverdueInterval(s.overdue_reminder_interval))
-                        .catch((e) => setNotificationError((e as Error).message))
-                        .finally(() => setOverdueIntervalSaving(false))
-                    }}
-                    disabled={overdueIntervalSaving}
-                    className="max-w-44"
-                  >
-                    <option value={5}>5 минут</option>
-                    <option value={10}>10 минут</option>
-                    <option value={30}>30 минут</option>
-                    <option value={60}>1 час</option>
-                  </Select>
-                  {overdueIntervalSaving ? <span className="text-caption text-text-muted">Сохранение...</span> : null}
-                </div>
-                {notificationError ? <p className="mt-3 text-body-sm text-danger" role="alert">{notificationError}</p> : null}
-              </div>
-            </SurfaceCard>
-          ) : null}
-        </div>
-
-        <div className="space-y-6 compact:space-y-4">
-          <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <Badge variant="info">Preferences</Badge>
-                <Badge variant="neutral">Display</Badge>
-              </div>
-              <h2 className="mt-3 text-h3 text-text">Персональные предпочтения</h2>
-              <p className="mt-1 text-body-sm text-text-muted">Внешний вид и базовые параметры отображения.</p>
-            </div>
-            <div className="grid gap-4 compact:gap-3">
-              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface compact:px-3 compact:py-2">
-                Компактный режим
-                <input type="checkbox" checked={compactMode} onChange={(event) => onCompactModeChange(event.target.checked)} className="h-4 w-4 rounded border-border text-primary" />
-              </label>
-              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
-                <span className="text-label uppercase text-text-muted">Формат дат</span>
-                <select className="mt-3 w-full rounded-control border border-border/90 bg-surface/90 px-3.5 py-2.5 text-body-sm text-text shadow-surface backdrop-blur">
-                  <option>ДД.ММ.ГГГГ</option>
-                  <option>ММ/ДД/ГГГГ</option>
-                  <option>ГГГГ-ММ-ДД</option>
-                </select>
-              </div>
-            </div>
-          </SurfaceCard>
-
-          <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <Badge variant="info">A11y</Badge>
-                <Badge variant="neutral">Comfort</Badge>
-              </div>
-              <h2 className="mt-3 text-h3 text-text">Доступность</h2>
-              <p className="mt-1 text-body-sm text-text-muted">Контраст, размер шрифта и вспомогательные функции интерфейса.</p>
-            </div>
-            <div className="space-y-4 compact:space-y-3">
-              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface compact:px-3 compact:py-2">
-                Повышенный контраст
-                <input type="checkbox" className="h-4 w-4 rounded border-border text-primary" />
-              </label>
-              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
-                <span className="text-label uppercase text-text-muted">Размер шрифта</span>
+          <SettingsSection id="appearance" title="Внешний вид" description="Хранится в этом браузере.">
+            <SettingsRow label="Компактный режим" description="Плотнее строки и отступы, больше задач на экране." htmlFor="compact-mode">
+              <Switch id="compact-mode" checked={compactMode} onChange={onCompactModeChange} label="Компактный режим" />
+            </SettingsRow>
+            <SettingsRow label="Размер шрифта" htmlFor="font-size" description="Меняет масштаб всего интерфейса.">
+              <div className="flex items-center gap-3 sm:w-64">
+                <span className="text-caption text-text-muted" aria-hidden="true">А</span>
                 <input
+                  id="font-size"
                   type="range"
                   min={MIN_FONT_SIZE_PX}
                   max={MAX_FONT_SIZE_PX}
@@ -431,94 +315,92 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
                     const next = applyAppFontSize(Number(event.target.value) || DEFAULT_FONT_SIZE_PX)
                     setFontSizePx(next)
                   }}
-                  className="mt-3 w-full"
+                  className="h-1.5 flex-1 cursor-pointer accent-primary"
                 />
-                <div className="mt-2 text-caption text-text-muted">{fontSizePx} px</div>
+                <span className="text-body text-text-muted" aria-hidden="true">А</span>
+                <span className="w-12 text-right text-body-sm tabular-nums text-text">{fontSizePx} px</span>
               </div>
-              <label className="flex items-center justify-between rounded-[1.15rem] border border-border/75 bg-background-subtle/55 px-4 py-3 text-body-sm text-text shadow-surface compact:px-3 compact:py-2">
-                Озвучивание событий
-                <input type="checkbox" className="h-4 w-4 rounded border-border text-primary" />
-              </label>
-            </div>
-          </SurfaceCard>
+            </SettingsRow>
+          </SettingsSection>
+
+          <SettingsSection id="security" title="Безопасность">
+            <SettingsRow label="Пароль" description="Меняйте не реже раза в 90 дней и не используйте его на других сайтах.">
+              <Button type="button" variant="secondary" size="sm" onClick={() => setSelfPasswordOpen(true)}>Сменить пароль</Button>
+            </SettingsRow>
+          </SettingsSection>
+
+          <SessionsSection onLogout={onLogout} />
 
           {user.is_admin ? (
-            <SurfaceCard as="section" className="space-y-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="primary">Users</Badge>
-                    <Badge variant="neutral">Access control</Badge>
-                  </div>
-                  <h2 className="mt-3 text-h3 text-text">Пользователи</h2>
-                  <p className="mt-1 text-body-sm text-text-muted">Управляйте ролями и профилями команды.</p>
-                </div>
-                <Link to="/register" className="inline-flex min-h-11 items-center gap-2 rounded-control bg-[image:var(--gradient-primary)] px-4 py-2 text-button text-text-inverse shadow-elevated transition duration-fast ease-standard hover:brightness-[1.03]">
-                  Создать пользователя
+            <SettingsSection
+              id="users"
+              title="Пользователи"
+              description="Роли и доступ членов семьи."
+              action={
+                <Link
+                  to="/register"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-control bg-primary px-3.5 py-2 text-caption font-semibold text-text-inverse shadow-surface transition hover:bg-primary-hover compact:min-h-8"
+                >
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
+                  Добавить
                 </Link>
-              </div>
-
-              <div className="grid gap-4 lg:grid-cols-[0.82fr_1.18fr]">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-body-sm text-text-muted">
-                    <span>Список пользователей</span>
-                    <Button type="button" onClick={loadUsers} variant="secondary" size="sm">Обновить</Button>
+              }
+            >
+              {loadingUsers && users.length === 0 ? <UsersListSkeleton /> : null}
+              {!loadingUsers && users.length === 0 ? (
+                <p className="px-5 py-4 text-body-sm text-text-muted">Пользователей пока нет.</p>
+              ) : null}
+              {users.map((item) => (
+                <div key={item.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
+                  <Initial name={item.full_name || item.username} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body-sm font-medium text-text">
+                      {item.full_name || item.username}
+                      {item.id === user.id ? <span className="font-normal text-text-muted"> · вы</span> : null}
+                    </p>
+                    <p className="truncate text-caption font-normal text-text-muted">
+                      {item.username} · {roleLabels[item.role] ?? item.role}
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    {loadingUsers ? <UsersListSkeleton /> : null}
-                    {users.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => selectUser(item)}
-                        className={`w-full rounded-[1.15rem] border px-4 py-4 text-left shadow-surface transition duration-fast ease-standard ${
-                          selectedUser?.id === item.id
-                            ? 'border-primary/35 bg-primary/10 text-text'
-                            : 'border-border/75 bg-surface/90 text-text hover:border-border-strong'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="truncate font-semibold">{item.full_name || item.username}</span>
-                              <span className="shrink-0 text-caption text-text-muted">#{item.id}</span>
-                            </div>
-                            <div className="mt-1 text-caption text-text-muted">{item.username}</div>
-                          </div>
-                          {item.is_admin ? <Badge variant="success">Admin</Badge> : null}
-                        </div>
-                      </button>
-                    ))}
-                    {!loadingUsers && users.length === 0 ? (
-                      <EmptyState title="Пользователи не найдены" className="p-4">Создайте первого пользователя для управления доступом.</EmptyState>
-                    ) : null}
+                  <div className="flex gap-1">
+                    <Button type="button" variant="ghost" size="sm" onClick={() => openProfileFor(item)}>Изменить</Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => openPasswordFor(item)}>Пароль</Button>
                   </div>
-                  {usersError ? <p className="text-body-sm text-danger" role="alert">{usersError}</p> : null}
                 </div>
+              ))}
+              {usersError ? <p className="px-5 py-3 text-body-sm text-danger" role="alert">{usersError}</p> : null}
+            </SettingsSection>
+          ) : null}
 
-                <div className="rounded-[1.25rem] border border-border/75 bg-background-subtle/55 p-5 shadow-surface">
-                  {selectedUser ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-label uppercase text-text-muted">Профиль пользователя</p>
-                          <h3 className="mt-2 text-h3 text-text">{selectedUser.full_name || selectedUser.username}</h3>
-                          <p className="mt-1 text-body-sm text-text-muted">{selectedUser.username}</p>
-                        </div>
-                        {selectedUser.is_admin ? <Badge variant="success">Админ</Badge> : <Badge variant="neutral">Участник</Badge>}
-                      </div>
-                      <p className="text-body-sm text-text-muted">Откройте полный профиль, чтобы управлять ролью и паролем пользователя.</p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button type="button" onClick={() => setProfileOpen(true)}>Открыть профиль</Button>
-                        <Button type="button" variant="secondary" onClick={openPasswordForSelected}>Сменить пароль</Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <EmptyState title="Пользователь не выбран" className="p-4 text-left">Выберите пользователя в списке слева для просмотра и редактирования профиля.</EmptyState>
-                  )}
-                </div>
-              </div>
-            </SurfaceCard>
+          {user.is_admin ? (
+            <SettingsSection id="system" title="Система" description="Действует для всех пользователей.">
+              <SettingsRow
+                label="Напоминания о просроченных задачах"
+                htmlFor="overdue-interval"
+                description={overdueIntervalSaving ? 'Сохраняем…' : 'Как часто повторять push, пока задача не выполнена.'}
+              >
+                <Select
+                  id="overdue-interval"
+                  value={overdueInterval}
+                  onChange={(e) => {
+                    const val = Number(e.target.value)
+                    setOverdueInterval(val)
+                    setOverdueIntervalSaving(true)
+                    api.updateSiteSettings({ overdue_reminder_interval: val })
+                      .then((settings) => setOverdueInterval(settings.overdue_reminder_interval))
+                      .catch((err) => setNotificationError((err as Error).message))
+                      .finally(() => setOverdueIntervalSaving(false))
+                  }}
+                  disabled={overdueIntervalSaving}
+                  className="sm:w-52"
+                >
+                  <option value={5}>Каждые 5 минут</option>
+                  <option value={10}>Каждые 10 минут</option>
+                  <option value={30}>Каждые 30 минут</option>
+                  <option value={60}>Каждый час</option>
+                </Select>
+              </SettingsRow>
+            </SettingsSection>
           ) : null}
         </div>
       </div>
@@ -569,7 +451,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
         open={profileOpen && Boolean(selectedUser)}
         onClose={() => setProfileOpen(false)}
         title={selectedUser ? `Профиль: ${selectedUser.full_name || selectedUser.username}` : 'Профиль пользователя'}
-        className="max-w-5xl"
+        className="max-w-xl"
         footer={
           <>
             <Button type="button" variant="secondary" onClick={() => setProfileOpen(false)}>Закрыть</Button>
@@ -592,33 +474,71 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
               </Field>
             </div>
 
-            <div className="rounded-panel border border-dashed border-border bg-background-subtle/55 px-4 py-3 text-caption text-text-muted">
+            <div className="rounded-panel bg-background-subtle px-4 py-3 text-body-sm text-text-muted">
               Владелец имеет полный доступ. Участник видит и редактирует списки, но не может менять роли и удалять рабочее пространство.
             </div>
           </div>
         ) : null}
       </Modal>
-    </PageShell>
+    </div>
   )
 }
 
 function UsersListSkeleton() {
   return (
-    <div className="space-y-2" aria-busy="true" aria-label="Загрузка пользователей">
+    <div aria-busy="true" aria-label="Загрузка пользователей">
       {Array.from({ length: 3 }).map((_, index) => (
-        <div key={index} className="rounded-[1.15rem] border border-border/75 bg-surface/90 px-4 py-4 shadow-surface">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Skeleton className="h-5 w-36 max-w-full" />
-                <Skeleton className="h-4 w-10" />
-              </div>
-              <Skeleton className="h-4 w-28" />
-            </div>
-            <Skeleton className="h-6 w-16 rounded-full" />
+        <div key={index} className="flex items-center gap-4 px-5 py-3">
+          <Skeleton className="h-8 w-8 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Skeleton className="h-4 w-36 max-w-full" />
+            <Skeleton className="h-3 w-24" />
           </div>
         </div>
       ))}
     </div>
+  )
+}
+
+/** Оглавление настроек: подсвечивает раздел, который сейчас в верхней части экрана. */
+function SettingsNav({ sections }: { sections: Array<{ id: string; label: string }> }) {
+  const [active, setActive] = useState(sections[0]?.id ?? '')
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        if (visible[0]) setActive(visible[0].target.id)
+      },
+      { rootMargin: '-20% 0px -70% 0px' },
+    )
+    for (const section of sections) {
+      const el = document.getElementById(section.id)
+      if (el) observer.observe(el)
+    }
+    return () => observer.disconnect()
+  }, [sections])
+
+  return (
+    <nav aria-label="Разделы настроек" className="hidden lg:block">
+      <ul className="sticky space-y-0.5" style={{ top: 'calc(var(--app-header-height) + 1.5rem)' }}>
+        {sections.map((section) => (
+          <li key={section.id}>
+            <a
+              href={`#${section.id}`}
+              aria-current={active === section.id ? 'true' : undefined}
+              onClick={() => setActive(section.id)}
+              className={
+                active === section.id
+                  ? 'block rounded-control bg-surface-elevated px-3 py-1.5 text-body-sm font-medium text-text shadow-surface'
+                  : 'block rounded-control px-3 py-1.5 text-body-sm text-text-muted transition hover:bg-surface-hover hover:text-text'
+              }
+            >
+              {section.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
   )
 }

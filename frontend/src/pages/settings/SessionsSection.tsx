@@ -2,8 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../api/client'
 import type { UserSessionInfo } from '../../api/types'
 import { clearLocalSession } from '../../app/session'
-import { Badge, Button, Card as SurfaceCard, EmptyState, Skeleton } from '@/components/ui'
+import { Monitor } from 'lucide-react'
+import { Button, Skeleton } from '@/components/ui'
+import { SettingsSection, StatusDot } from './ui'
 import { formatSessionDate, orderSessions } from './sessions'
+
+/** Текущая сессия всегда первая (см. orderSessions), остальное — по запросу. */
+const VISIBLE_SESSIONS = 5
 
 interface SessionsSectionProps {
   onLogout: () => void
@@ -15,6 +20,7 @@ export function SessionsSection({ onLogout }: SessionsSectionProps) {
   const [error, setError] = useState('')
   const [endingId, setEndingId] = useState<string | null>(null)
   const [terminatingAll, setTerminatingAll] = useState(false)
+  const [showAll, setShowAll] = useState(false)
 
   const refresh = useCallback(async () => {
     setError('')
@@ -56,85 +62,76 @@ export function SessionsSection({ onLogout }: SessionsSectionProps) {
   }
 
   return (
-    <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
-      <div>
-        <div className="flex items-center gap-2">
-          <Badge variant="success">Безопасность</Badge>
-          <Badge variant="neutral">Активные входы</Badge>
-        </div>
-        <h2 className="mt-3 text-h3 text-text">Сессии</h2>
-        <p className="mt-1 text-body-sm text-text-muted">
-          Каждый вход — отдельная сессия. Завершайте всё, что не узнаёте.
-        </p>
-      </div>
-
-      {loading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-14 w-full" />
-          <Skeleton className="h-14 w-full" />
-        </div>
-      ) : sessions.length === 0 ? (
-        <EmptyState title="Сессий нет" className="p-4">Обновите страницу, чтобы загрузить входы.</EmptyState>
-      ) : (
-        <ul className="space-y-2">
-          {sessions.map((session) => (
-            <li
-              key={session.id}
-              className="flex flex-wrap items-center gap-3 rounded-[1.15rem] border border-border/75 bg-surface/90 px-4 py-3 shadow-surface"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="truncate font-semibold text-text">
-                    {session.label || 'Неизвестное устройство'}
-                  </span>
-                  {session.current ? <Badge variant="primary">Это устройство</Badge> : null}
-                  {session.notifications_enabled ? (
-                    <Badge variant="success">Уведомления включены</Badge>
-                  ) : (
-                    <Badge variant="neutral">Уведомления выключены</Badge>
-                  )}
-                </div>
-                <p className="mt-1 text-caption text-text-muted">
-                  Вход: {formatSessionDate(session.login_at)} · Последняя активность:{' '}
-                  {formatSessionDate(session.last_activity)}
-                </p>
-              </div>
-              {session.current ? (
-                <Button type="button" variant="secondary" size="sm" onClick={() => void onLogout()}>
-                  Выйти
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  variant="danger"
-                  size="sm"
-                  loading={endingId === session.id}
-                  onClick={() => void onEnd(session)}
-                >
-                  Завершить
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="secondary" size="sm" onClick={() => void refresh()}>
+    <SettingsSection
+      id="sessions"
+      title="Сессии"
+      description="Каждый вход — отдельная сессия. Завершайте всё, что не узнаёте."
+      action={
+        <Button type="button" variant="ghost" size="sm" onClick={() => void refresh()}>
           Обновить
         </Button>
-        <Button
+      }
+    >
+      {loading ? (
+        <div className="space-y-2 px-5 py-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      ) : sessions.length === 0 ? (
+        <p className="px-5 py-4 text-body-sm text-text-muted">Сессий нет. Обновите список.</p>
+      ) : (
+        sessions.slice(0, showAll ? undefined : VISIBLE_SESSIONS).map((session) => (
+          <div key={session.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5">
+            <Monitor className="h-4 w-4 shrink-0 text-text-muted" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                <span className="truncate text-body-sm font-medium text-text">{session.label || 'Неизвестное устройство'}</span>
+                {session.current ? <StatusDot tone="primary">это устройство</StatusDot> : null}
+                {session.notifications_enabled ? <StatusDot tone="success">уведомления включены</StatusDot> : null}
+              </div>
+              <p className="text-caption font-normal text-text-muted">
+                Вход {formatSessionDate(session.login_at)} · активность {formatSessionDate(session.last_activity)}
+              </p>
+            </div>
+            {session.current ? (
+              <Button type="button" variant="secondary" size="sm" onClick={() => void onLogout()}>
+                Выйти
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="hover:text-danger"
+                loading={endingId === session.id}
+                onClick={() => void onEnd(session)}
+              >
+                Завершить
+              </Button>
+            )}
+          </div>
+        ))
+      )}
+      {!loading && sessions.length > VISIBLE_SESSIONS ? (
+        <button
           type="button"
-          variant="danger"
-          size="sm"
-          loading={terminatingAll}
-          onClick={() => void onTerminateAll()}
+          onClick={() => setShowAll((value) => !value)}
+          className="block w-full px-5 py-3 text-left text-body-sm text-text-muted transition hover:bg-surface-hover hover:text-text"
         >
+          {showAll ? 'Свернуть' : `Показать ещё ${sessions.length - VISIBLE_SESSIONS}`}
+        </button>
+      ) : null}
+      <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
+        <p className="flex-1 text-body-sm text-text-muted">Выйти везде, включая это устройство.</p>
+        <Button type="button" variant="danger" size="sm" loading={terminatingAll} onClick={() => void onTerminateAll()}>
           Завершить все сеансы
         </Button>
       </div>
-
-      {error ? <p className="text-body-sm text-danger" role="alert">{error}</p> : null}
-    </SurfaceCard>
+      {error ? (
+        <p className="px-5 py-3 text-body-sm text-danger" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </SettingsSection>
   )
 }
