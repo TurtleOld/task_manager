@@ -223,8 +223,8 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
+            discard_files_after_commit(Attachment.objects.filter(id=attachment.id))
             attachment.delete()
-            discard_files_after_commit([attachment.path])
 
             create_or_extend_pending_card_update_event(card=card, actor=actor)
             card_data = self._serialized_card(card.id)
@@ -584,13 +584,10 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         board = instance.board
         actor = self.request.user if self.request.user.is_authenticated else None
         with transaction.atomic():
-            paths = list(
-                Attachment.objects.filter(Q(card=instance) | Q(card__parent=instance)).values_list(
-                    "path", flat=True
-                )
+            discard_files_after_commit(
+                Attachment.objects.filter(Q(card=instance) | Q(card__parent=instance))
             )
             instance.delete()
-            discard_files_after_commit(paths)
             create_notification_event(
                 event_type=NotificationEventType.CARD_DELETED.value,
                 actor=actor,

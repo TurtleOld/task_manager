@@ -76,11 +76,8 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         payload = {"board": instance.name}
         board_id = instance.id
         with transaction.atomic():
-            paths = list(
-                Attachment.objects.filter(card__board=instance).values_list("path", flat=True)
-            )
+            discard_files_after_commit(Attachment.objects.filter(card__board=instance))
             instance.delete()
-            discard_files_after_commit(paths)
             create_notification_event(
                 event_type=NotificationEventType.BOARD_DELETED.value,
                 actor=actor,

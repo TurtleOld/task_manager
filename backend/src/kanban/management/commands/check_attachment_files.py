@@ -9,13 +9,13 @@ from kanban.models import Attachment
 
 
 class Command(BaseCommand):
-    help = "Найти вложения, файла которых нет в хранилище; с --delete удалить их"
+    help = "Report attachments whose file is missing from storage; delete them with --delete"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
             "--delete",
             action="store_true",
-            help="удалить найденные вложения",
+            help="delete the reported attachments",
         )
 
     def handle(self, *args: object, **options: object) -> None:

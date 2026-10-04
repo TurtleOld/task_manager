@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable
 
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
+from django.db.models import QuerySet
 
 from .models import Attachment
 
@@ -28,15 +28,16 @@ def is_image(file: UploadedFile) -> bool:
     )
 
 
-def discard_files_after_commit(paths: Iterable[str]) -> None:
-    """Remove the files once no attachment points to them.
+def discard_files_after_commit(attachments: QuerySet[Attachment]) -> None:
+    """Remove the files of attachments about to be deleted, once nothing points to them.
 
     Recurrence instances share one file between their attachment rows (ADR 0007),
     so a file outlives the row being deleted while any other row references it.
+    Call before the rows are deleted: the paths are read right away.
     """
-    pending = {path for path in paths if path}
+    pending = set(attachments.exclude(path="").values_list("path", flat=True))
     if pending:
-        transaction.on_commit(lambda: _delete_unreferenced(pending))
+        transaction.on_commit(lambda: _delete_unreferenced(pending), robust=True)
 
 
 def _delete_unreferenced(paths: set[str]) -> None:
@@ -44,5 +45,5 @@ def _delete_unreferenced(paths: set[str]) -> None:
     for path in paths - referenced:
         try:
             default_storage.delete(path)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001 - a stray file is safer than a missing one
             logger.warning("Не удалось удалить файл вложения %s", path, exc_info=True)
