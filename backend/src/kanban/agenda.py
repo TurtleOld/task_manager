@@ -24,6 +24,9 @@ class AgendaBoundaries:
     tomorrow_start: datetime
     day_after_start: datetime
     week_end: datetime
+    next_week_end: datetime
+    month_end: datetime
+    next_month_end: datetime
 
     def as_dict(self) -> dict[str, str]:
         return {
@@ -32,6 +35,9 @@ class AgendaBoundaries:
             "tomorrow_start": self.tomorrow_start.isoformat(),
             "day_after_start": self.day_after_start.isoformat(),
             "week_end": self.week_end.isoformat(),
+            "next_week_end": self.next_week_end.isoformat(),
+            "month_end": self.month_end.isoformat(),
+            "next_month_end": self.next_month_end.isoformat(),
         }
 
 
@@ -58,6 +64,13 @@ def compute_agenda_boundaries(*, now: datetime, tz_name: str) -> AgendaBoundarie
     weekday = today_start.weekday()  # Monday=0 ... Sunday=6
     days_to_next_monday = 7 - weekday if weekday else 7
     week_end = today_start + timedelta(days=days_to_next_monday)
+    next_week_end = week_end + timedelta(days=7)
+
+    # Calendar months, like weeks: month_end is midnight on the 1st of the next
+    # month. replace() keeps the zone, so the offset is resolved for that date
+    # and a DST switch inside the month cannot shift the boundary off midnight.
+    month_end = _first_of_month_after(today_start)
+    next_month_end = _first_of_month_after(month_end)
 
     return AgendaBoundaries(
         timezone=tz_name or "UTC",
@@ -65,7 +78,16 @@ def compute_agenda_boundaries(*, now: datetime, tz_name: str) -> AgendaBoundarie
         tomorrow_start=tomorrow_start,
         day_after_start=day_after_start,
         week_end=week_end,
+        next_week_end=next_week_end,
+        month_end=month_end,
+        next_month_end=next_month_end,
     )
+
+
+def _first_of_month_after(moment: datetime) -> datetime:
+    if moment.month == 12:
+        return moment.replace(year=moment.year + 1, month=1, day=1)
+    return moment.replace(month=moment.month + 1, day=1)
 
 
 def agenda_queryset(

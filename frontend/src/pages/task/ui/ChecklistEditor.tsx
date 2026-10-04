@@ -1,24 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, X } from 'lucide-react'
-import { Badge, Button, Card as SurfaceCard, Checkbox, EmptyState, TextInput } from '@/components/ui'
+import { Checkbox as RadixCheckbox } from '@radix-ui/react-checkbox'
+import clsx from 'clsx'
+import { Check, GripVertical, X } from 'lucide-react'
 import type { ChecklistItem } from '../../../api/types'
-import { cn } from '@/lib/utils'
+import { AddRow, SectionHeading } from './section'
 
 interface ChecklistEditorProps {
   items: ChecklistItem[]
+  autoFocus?: boolean
   onAdd: (text: string) => void
   onToggle: (id: number, done: boolean) => void
   onDelete: (id: number) => void
   onReorder: (orderedIds: number[]) => void
 }
 
-export function ChecklistEditor({ items, onAdd, onToggle, onDelete, onReorder }: ChecklistEditorProps) {
-  const [newText, setNewText] = useState('')
+export function ChecklistEditor({ items, autoFocus = false, onAdd, onToggle, onDelete, onReorder }: ChecklistEditorProps) {
   const [order, setOrder] = useState<ChecklistItem[]>(items)
 
   useEffect(() => {
@@ -41,56 +42,28 @@ export function ChecklistEditor({ items, onAdd, onToggle, onDelete, onReorder }:
     onReorder(next.map((item) => item.id))
   }
 
-  const submitNew = () => {
-    const text = newText.trim()
-    if (!text) return
-    onAdd(text)
-    setNewText('')
-  }
-
   const doneCount = order.filter((item) => item.done).length
+  const percent = order.length > 0 ? (doneCount / order.length) * 100 : 0
 
   return (
-    <SurfaceCard as="section" className="space-y-3 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Badge variant="success">Чек-лист</Badge>
-          <Badge variant="neutral">{doneCount}/{order.length}</Badge>
+    <section aria-label="Чек-лист">
+      <SectionHeading count={order.length > 0 ? `${doneCount} из ${order.length}` : null}>Чек-лист</SectionHeading>
+      {order.length > 0 ? (
+        <div className="mb-2 h-[3px] overflow-hidden rounded-full bg-border/70" aria-hidden="true">
+          <div className="h-full rounded-full bg-primary transition-[width] duration-slow ease-entrance" style={{ width: `${percent}%` }} />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <TextInput
-            value={newText}
-            onChange={(event) => setNewText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                submitNew()
-              }
-            }}
-            placeholder="Добавить пункт"
-            className="sm:w-56"
-            aria-label="Новый пункт чек-листа"
-          />
-          <Button type="button" onClick={submitNew} size="sm">Добавить</Button>
-        </div>
-      </div>
-
-      {order.length === 0 ? (
-        <EmptyState title="Пока нет пунктов" className="p-4">
-          Например: товары для покупки или шаги подготовки.
-        </EmptyState>
-      ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={order.map((item) => item.id)} strategy={verticalListSortingStrategy}>
-            <ul className="space-y-2">
-              {order.map((item) => (
-                <ChecklistRow key={item.id} item={item} onToggle={onToggle} onDelete={onDelete} />
-              ))}
-            </ul>
-          </SortableContext>
-        </DndContext>
-      )}
-    </SurfaceCard>
+      ) : null}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={order.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+          <ul>
+            {order.map((item) => (
+              <ChecklistRow key={item.id} item={item} onToggle={onToggle} onDelete={onDelete} />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
+      <AddRow label="Новый пункт чек-листа" placeholder="Добавить пункт" autoFocus={autoFocus} onSubmit={onAdd} />
+    </section>
   )
 }
 
@@ -103,15 +76,16 @@ function ChecklistRow({
   onToggle: (id: number, done: boolean) => void
   onDelete: (id: number) => void
 }) {
+  const checkboxId = useId()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
 
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(
-        'flex items-center gap-2 rounded-panel border border-border/70 bg-background-subtle/45 px-2 py-2',
-        isDragging && 'opacity-60',
+      className={clsx(
+        'group relative -mx-2 flex min-h-10 items-center gap-3 rounded-control px-2 transition-colors hover:bg-surface-hover',
+        isDragging && 'z-10 bg-surface-elevated shadow-elevated',
       )}
     >
       <button
@@ -119,21 +93,32 @@ function ChecklistRow({
         {...attributes}
         {...listeners}
         aria-label="Изменить порядок пункта"
-        className="cursor-grab touch-none rounded-sm p-1 text-text-muted hover:text-text active:cursor-grabbing"
+        className="absolute -left-5 cursor-grab touch-none rounded-sm p-0.5 text-text-muted opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
       >
         <GripVertical className="h-4 w-4" aria-hidden="true" />
       </button>
-      <Checkbox
-        label={<span className={item.done ? 'line-through opacity-70' : ''}>{item.text}</span>}
+      <RadixCheckbox
+        id={checkboxId}
         checked={item.done}
-        onChange={() => onToggle(item.id, !item.done)}
-        className="flex-1 border-transparent bg-transparent px-0 py-0 shadow-none"
-      />
+        onCheckedChange={(next) => onToggle(item.id, next === true)}
+        className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border-[1.75px] border-border-strong text-text-inverse transition data-[state=checked]:border-primary data-[state=checked]:bg-primary"
+      >
+        <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
+      </RadixCheckbox>
+      <label
+        htmlFor={checkboxId}
+        className={clsx(
+          'min-w-0 flex-1 cursor-pointer py-2 text-body',
+          item.done ? 'text-text-muted line-through decoration-text-muted/60' : 'text-text',
+        )}
+      >
+        {item.text}
+      </label>
       <button
         type="button"
         onClick={() => onDelete(item.id)}
         aria-label={`Удалить пункт «${item.text}»`}
-        className="rounded-sm p-1 text-text-muted hover:text-danger"
+        className="rounded-sm p-1 text-text-muted opacity-0 transition-opacity hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
       >
         <X className="h-4 w-4" aria-hidden="true" />
       </button>

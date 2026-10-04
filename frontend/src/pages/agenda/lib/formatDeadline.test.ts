@@ -8,6 +8,9 @@ const WEDNESDAY: AgendaBoundaries = {
   tomorrow_start: '2026-08-13T00:00:00+00:00',
   day_after_start: '2026-08-14T00:00:00+00:00',
   week_end: '2026-08-17T00:00:00+00:00',
+  next_week_end: '2026-08-24T00:00:00+00:00',
+  month_end: '2026-09-01T00:00:00+00:00',
+  next_month_end: '2026-10-01T00:00:00+00:00',
 }
 
 describe('formatDeadlineShort', () => {

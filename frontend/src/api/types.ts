@@ -88,6 +88,9 @@ export interface AgendaBoundaries {
   tomorrow_start: string
   day_after_start: string
   week_end: string
+  next_week_end: string
+  month_end: string
+  next_month_end: string
 }
 
 export interface AgendaResponse {
