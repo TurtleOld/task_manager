@@ -7,8 +7,9 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from ..attachments import discard_files_after_commit
 from ..broadcast import broadcast_board_event
-from ..models import Board, NotificationEventType
+from ..models import Attachment, Board, NotificationEventType
 from ..notifications import create_notification_event
 from ..serializers import BoardSerializer
 
@@ -75,7 +76,11 @@ class BoardViewSet(viewsets.ModelViewSet[Board]):
         payload = {"board": instance.name}
         board_id = instance.id
         with transaction.atomic():
+            paths = list(
+                Attachment.objects.filter(card__board=instance).values_list("path", flat=True)
+            )
             instance.delete()
+            discard_files_after_commit(paths)
             create_notification_event(
                 event_type=NotificationEventType.BOARD_DELETED.value,
                 actor=actor,

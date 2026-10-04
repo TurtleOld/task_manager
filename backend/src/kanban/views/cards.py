@@ -7,7 +7,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.db.models.functions import Lower
 from django.utils import timezone
 from django.utils.text import get_valid_filename
@@ -18,7 +18,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from ..agenda import agenda_queryset, compute_agenda_boundaries
-from ..attachments import is_image
+from ..attachments import discard_files_after_commit, is_image
 from ..broadcast import broadcast_board_event
 from ..models import (
     Attachment,
@@ -223,13 +223,8 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            path = attachment.path
             attachment.delete()
-            if path:
-                try:
-                    default_storage.delete(path)
-                except Exception:  # noqa: BLE001
-                    pass
+            discard_files_after_commit([attachment.path])
 
             create_or_extend_pending_card_update_event(card=card, actor=actor)
             card_data = self._serialized_card(card.id)
@@ -589,7 +584,13 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         board = instance.board
         actor = self.request.user if self.request.user.is_authenticated else None
         with transaction.atomic():
+            paths = list(
+                Attachment.objects.filter(Q(card=instance) | Q(card__parent=instance)).values_list(
+                    "path", flat=True
+                )
+            )
             instance.delete()
+            discard_files_after_commit(paths)
             create_notification_event(
                 event_type=NotificationEventType.CARD_DELETED.value,
                 actor=actor,
