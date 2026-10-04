@@ -24,6 +24,8 @@ export function useTask(taskId: number | null) {
 
 function setTaskCard(qc: ReturnType<typeof useQueryClient>, card: Card) {
   qc.setQueryData<Card>(queryKeys.card(card.id), card)
+  // История пишется сервером при сохранении; без перезапроса лента карточки отстаёт до переоткрытия.
+  void qc.invalidateQueries({ queryKey: queryKeys.cardActivity(card.id) })
 }
 
 type TaskMutationContext = { previous: Card | undefined }
