@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
+
+from kanban.models import Attachment
 
 JPEG_BYTES = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00" + b"\x00" * 64
 
@@ -56,6 +59,21 @@ def test_file_within_the_limit_is_attached(
     [attachment] = resp.json()["attachments"]
     assert attachment["type"] == "file"
     assert attachment["size"] == 100
+
+
+@pytest.mark.django_db()
+def test_uploaded_file_is_written_to_media_root(
+    auth_client: APIClient, card: dict[str, Any], settings
+) -> None:
+    resp = upload(auth_client, card["id"], SimpleUploadedFile("договор.pdf", b"%PDF-1.4 body"))
+
+    assert resp.status_code == 201
+    attachment = Attachment.objects.get(card_id=card["id"])
+    assert attachment.name == "договор.pdf"
+    assert attachment.path.startswith(f"cards/{card['id']}/")
+    assert attachment.url == f"/media/{quote(attachment.path, safe='/')}"
+    on_disk = Path(settings.MEDIA_ROOT) / attachment.path
+    assert on_disk.read_bytes() == b"%PDF-1.4 body"
 
 
 @pytest.mark.django_db()
