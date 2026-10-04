@@ -26,8 +26,10 @@ RUN npm run build
 FROM nginx:1.27-alpine AS production
 
 ENV BACKEND_UPSTREAM=backend:8000
+ENV ATTACHMENT_MAX_MB=10
 
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY --chmod=755 docker-entrypoint.d/15-attachment-limit.envsh /docker-entrypoint.d/
 COPY --from=bundle /app/dist /usr/share/nginx/html
 
 EXPOSE 80

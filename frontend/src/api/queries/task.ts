@@ -1,7 +1,18 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../client'
+import { toast } from 'sonner'
+import { api, type UploadKind } from '../client'
 import type { AdminUser, AuthUser, Card, CardComment, ChecklistItem } from '../types'
 import { queryKeys } from './keys'
+import {
+  ATTACHMENT_MAX_BYTES,
+  TooLargeError,
+  failureReason,
+  failureToast,
+  preparePhoto,
+  type UploadFailure,
+  type UploadProgress,
+} from '../../lib/attachmentUpload'
 
 export function useTask(taskId: number | null) {
   return useQuery<Card>({
@@ -222,11 +233,33 @@ export function useTaskAddAttachment(taskId: number) {
 
 export function useTaskUploadAttachments(taskId: number) {
   const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ files, type }: { files: File[]; type?: 'file' | 'photo' }) =>
-      api.uploadCardAttachments(taskId, files, type),
-    onSuccess: (card) => setTaskCard(qc, card),
+  const [progress, setProgress] = useState<UploadProgress | null>(null)
+  const mutation = useMutation({
+    mutationFn: async ({ files, type }: { files: File[]; type: UploadKind }) => {
+      const failures: UploadFailure[] = []
+      try {
+        for (const [index, original] of files.entries()) {
+          setProgress({ current: index + 1, total: files.length })
+          try {
+            const file = type === 'photo' ? await preparePhoto(original) : original
+            if (file.size > ATTACHMENT_MAX_BYTES) throw new TooLargeError()
+            setTaskCard(qc, await api.uploadCardAttachments(taskId, [file], type))
+          } catch (error) {
+            failures.push({ name: original.name, reason: failureReason(error, type) })
+          }
+        }
+      } finally {
+        setProgress(null)
+      }
+      return { failures, total: files.length }
+    },
+    onSuccess: ({ failures, total }) => {
+      if (failures.length === 0) return
+      const { title, description } = failureToast(failures, total)
+      toast.error(title, { description })
+    },
   })
+  return { ...mutation, progress }
 }
 
 export function useTaskDeleteAttachment(taskId: number) {

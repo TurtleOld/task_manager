@@ -36,15 +36,34 @@ type ViteImportMeta = ImportMeta & {
   }
 }
 
+export type UploadKind = 'file' | 'photo'
+
 const BASE = (import.meta as ViteImportMeta).env?.VITE_API_BASE_URL || '/api'
 const V1 = `${BASE}/v1`
+
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
+export class NetworkError extends Error {
+  constructor() {
+    super('Network request failed')
+    this.name = 'NetworkError'
+  }
+}
 
 async function ensureOk(res: Response): Promise<void> {
   if (res.ok) return
   if (res.status === 401 && isSignedIn()) {
     void clearLocalSession()
   }
-  throw new Error(await errorDetail(res))
+  throw new ApiError(res.status, await errorDetail(res))
 }
 
 async function json<T>(res: Response): Promise<T> {
@@ -93,7 +112,6 @@ async function ensureCsrfCookie(): Promise<void> {
 }
 
 export const api = {
-  // Boards
   listBoards: async (): Promise<Board[]> => {
     const res = await fetch(`${V1}/boards/`, { headers: jsonHeaders() })
     return json(res)
@@ -139,7 +157,6 @@ export const api = {
     return json(res)
   },
 
-  // Cards
   listCards: async (): Promise<Card[]> => {
     const res = await fetch(`${V1}/cards/`, { headers: jsonHeaders() })
     return json(res)
@@ -227,7 +244,7 @@ export const api = {
     return json(res)
   },
 
-  uploadCardAttachments: async (id: number, files: File[], type: 'file' | 'photo' = 'file'): Promise<Card> => {
+  uploadCardAttachments: async (id: number, files: File[], type: UploadKind = 'file'): Promise<Card> => {
     const form = new FormData()
     form.append('type', type)
     for (const f of files) form.append('files', f)
@@ -235,6 +252,8 @@ export const api = {
       method: 'POST',
       headers: csrfHeaders(),
       body: form,
+    }).catch(() => {
+      throw new NetworkError()
     })
     return json(res)
   },
@@ -258,7 +277,6 @@ export const api = {
     })
     return json(res)
   },
-  // Checklist items
   listChecklist: async (cardId: number): Promise<ChecklistItem[]> => {
     const res = await fetch(`${V1}/cards/${cardId}/checklist/`, { headers: jsonHeaders() })
     return json(res)
@@ -415,7 +433,6 @@ export const api = {
     })
     return json(res)
   },
-  // Users (admin)
   listUsers: async (): Promise<AdminUser[]> => {
     const res = await fetch(`${V1}/users/`, { headers: jsonHeaders() })
     return json(res)
@@ -440,7 +457,6 @@ export const api = {
     return json(res)
   },
 
-  // Notifications
   getNotificationProfile: async (): Promise<NotificationProfile> => {
     const res = await fetch(`${V1}/notifications/profile/`, { headers: jsonHeaders() })
     return json(res)
@@ -470,7 +486,6 @@ export const api = {
     return json(res)
   },
 
-  // Push devices (Web Push)
   listPushDevices: async (): Promise<PushDevice[]> => {
     const res = await fetch(`${V1}/push-devices/`, { headers: jsonHeaders() })
     return json(res)
@@ -506,7 +521,6 @@ export const api = {
     return json(res)
   },
 
-  // Card deadline reminders (per-user)
   getCardDeadlineReminder: async (cardId: number): Promise<CardDeadlineReminderResponse> => {
     const res = await fetch(`${V1}/cards/${cardId}/deadline-reminder/`, { headers: jsonHeaders() })
     return json(res)
@@ -617,7 +631,6 @@ export const api = {
     return ok(res)
   },
 
-  // Site settings
   getSiteSettings: async (): Promise<SiteSettings> => {
     const res = await fetch(`${V1}/settings/site/`, { headers: jsonHeaders() })
     return json(res)

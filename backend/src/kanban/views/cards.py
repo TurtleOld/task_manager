@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from django.db import transaction
@@ -17,6 +18,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from ..agenda import agenda_queryset, compute_agenda_boundaries
+from ..attachments import is_image
 from ..broadcast import broadcast_board_event
 from ..models import (
     Attachment,
@@ -129,8 +131,12 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
         actor = request.user if request.user.is_authenticated else None
         files = request.FILES.getlist("files") or request.FILES.getlist("file")
         if files:
+            attachment_type = str(request.data.get("type") or AttachmentType.FILE.value)
+            rejection = self._upload_rejection(files, attachment_type)
+            if rejection is not None:
+                return rejection
             with transaction.atomic():
-                self._create_file_attachments(card, files, request)
+                self._create_file_attachments(card, files, attachment_type, request)
                 create_or_extend_pending_card_update_event(card=card, actor=actor)
                 card_data = self._serialized_card(card.id)
                 transaction.on_commit(
@@ -151,11 +157,29 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
             )
         return Response(card_data, status=status.HTTP_201_CREATED)
 
-    def _create_file_attachments(self, card: Card, files: list[Any], request: Request) -> None:
-        attachment_type = str(request.data.get("type") or AttachmentType.FILE.value)
+    @staticmethod
+    def _upload_rejection(files: list[Any], attachment_type: str) -> Response | None:
         if attachment_type not in {AttachmentType.FILE.value, AttachmentType.PHOTO.value}:
-            attachment_type = AttachmentType.FILE.value
+            return Response(
+                {"detail": "Файл можно загрузить только как «Файл» или «Фото»"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        for file in files:
+            if (file.size or 0) > settings.ATTACHMENT_MAX_BYTES:
+                return Response(
+                    {"detail": f"Файл больше {settings.ATTACHMENT_MAX_MB} МБ"},
+                    status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                )
+            if attachment_type == AttachmentType.PHOTO.value and not is_image(file):
+                return Response(
+                    {"detail": "Это не изображение — загрузите как «Файл»"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        return None
 
+    def _create_file_attachments(
+        self, card: Card, files: list[Any], attachment_type: str, request: Request
+    ) -> None:
         uploaded_by = request.user if request.user.is_authenticated else None
         for file in files:
             original_name = getattr(file, "name", "file") or "file"
