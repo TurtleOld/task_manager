@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LANGUAGE_KEY, loadLanguagePreference } from '../../app/auth'
-import { clearLocalSession } from '../../app/session'
 import { applyAppFontSize, applyCompactMode, DEFAULT_FONT_SIZE_PX, loadAppFontSize, loadCompactMode, MAX_FONT_SIZE_PX, MIN_FONT_SIZE_PX } from '../../app/preferences'
 import { api } from '../../api/client'
 import type { AdminUser, AuthUser, NotificationProfile, UserRole } from '../../api/types'
@@ -9,13 +8,15 @@ import { roleLabels } from '../../shared/lib/permissions'
 import { TIMEZONE_OPTIONS, ensureProfileTimeZoneInitialized, getDeviceTimeZone, resolveTimeZone } from '../../shared/lib/timezone'
 import { Badge, Button, Card as SurfaceCard, EmptyState, Field, Modal, PageShell, Select, Skeleton, TextInput } from '@/components/ui'
 import { NotificationsSection } from './NotificationsSection'
+import { SessionsSection } from './SessionsSection'
 
 interface SettingsPageProps {
   user: AuthUser
   onUserUpdate: (user: AuthUser) => void
+  onLogout: () => void
 }
 
-export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
+export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps) {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [usersError, setUsersError] = useState('')
@@ -24,7 +25,6 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
   const [editFullName, setEditFullName] = useState('')
   const [savingUser, setSavingUser] = useState(false)
   const [editErrors, setEditErrors] = useState<Record<string, string>>({})
-  const [terminatingSessions, setTerminatingSessions] = useState(false)
   const [selfPasswordOpen, setSelfPasswordOpen] = useState(false)
   const [selfPassword, setSelfPassword] = useState('')
   const [selfPasswordError, setSelfPasswordError] = useState('')
@@ -190,15 +190,6 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
     }
   }
 
-  const onTerminateSessions = async () => {
-    setTerminatingSessions(true)
-    try {
-      await api.terminateSessions()
-    } finally {
-      void clearLocalSession()
-    }
-  }
-
   const onChangeSelfPassword = async () => {
     const trimmed = selfPassword.trim()
     if (trimmed.length < 8) {
@@ -305,6 +296,8 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
 
           <NotificationsSection />
 
+          <SessionsSection onLogout={onLogout} />
+
           <SurfaceCard as="section" className="space-y-5 compact:space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -313,22 +306,14 @@ export function SettingsPage({ user, onUserUpdate }: SettingsPageProps) {
                   <Badge variant="neutral">Access hygiene</Badge>
                 </div>
                 <h2 className="mt-3 text-h3 text-text">Безопасность</h2>
-                <p className="mt-1 text-body-sm text-text-muted">Следите за сессиями, паролем и общим состоянием доступа.</p>
+                <p className="mt-1 text-body-sm text-text-muted">Следите за паролем и общим состоянием доступа.</p>
               </div>
             </div>
-            <div className="grid gap-4 compact:gap-3 sm:grid-cols-2">
-              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
-                <p className="text-caption uppercase text-text-muted">Активные сессии</p>
-                <h3 className="mt-2 text-body font-semibold text-text">Последний вход: 10 минут назад</h3>
-                <p className="mt-1 text-body-sm text-text-muted">Завершайте все сеансы при подозрительной активности.</p>
-                <Button type="button" variant="secondary" size="sm" className="mt-4" loading={terminatingSessions} onClick={() => void onTerminateSessions()}>Завершить все сеансы</Button>
-              </div>
-              <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
-                <p className="text-caption uppercase text-text-muted">Пароль</p>
-                <h3 className="mt-2 text-body font-semibold text-text">Регулярное обновление</h3>
-                <p className="mt-1 text-body-sm text-text-muted">Рекомендуется менять пароль не реже одного раза в 90 дней.</p>
-                <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={() => setSelfPasswordOpen(true)}>Сменить пароль</Button>
-              </div>
+            <div className="rounded-[1.15rem] border border-border/75 bg-background-subtle/55 p-4 shadow-surface compact:p-3">
+              <p className="text-caption uppercase text-text-muted">Пароль</p>
+              <h3 className="mt-2 text-body font-semibold text-text">Регулярное обновление</h3>
+              <p className="mt-1 text-body-sm text-text-muted">Рекомендуется менять пароль не реже одного раза в 90 дней.</p>
+              <Button type="button" variant="secondary" size="sm" className="mt-4" onClick={() => setSelfPasswordOpen(true)}>Сменить пароль</Button>
             </div>
           </SurfaceCard>
 

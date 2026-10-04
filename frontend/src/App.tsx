@@ -49,7 +49,7 @@ export default function App() {
       >
         <Route path="/" element={user ? <AgendaPage user={user} /> : null} />
         <Route path="/boards" element={<BoardsPage />} />
-        <Route path="/settings" element={user ? <SettingsPage user={user} onUserUpdate={updateUser} /> : null} />
+        <Route path="/settings" element={user ? <SettingsPage user={user} onUserUpdate={updateUser} onLogout={logout} /> : null} />
         <Route path="/lists/:listId" element={user ? <AgendaPage user={user} /> : null} />
         <Route path="/lists/:listId/tasks/:taskId" element={user ? <AgendaPage user={user} /> : null} />
         <Route path="/calendar" element={<CalendarPage />} />
