@@ -29,7 +29,7 @@ export function NotificationInboxButton() {
     <>
       <button
         type="button"
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-control border border-border bg-surface/90 text-text-muted shadow-surface transition hover:border-border-strong hover:bg-surface-hover hover:text-text"
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-control text-text-muted transition hover:bg-surface-hover hover:text-text"
         aria-label="Уведомления"
         onClick={() => setOpen(true)}
       >

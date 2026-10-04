@@ -31,7 +31,7 @@ module.exports = {
         'disabled-text': 'rgb(var(--color-disabled-text) / <alpha-value>)',
       },
       fontFamily: {
-        sans: ['Inter', 'SF Pro Text', 'Segoe UI', 'Roboto', 'system-ui', 'sans-serif'],
+        sans: ['Geologica Variable', 'Inter', 'SF Pro Text', 'Segoe UI', 'Roboto', 'system-ui', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       fontSize: {
@@ -41,7 +41,7 @@ module.exports = {
         h3: ['1.25rem', { lineHeight: '1.75rem', fontWeight: '650', letterSpacing: '-0.01em' }],
         body: ['1rem', { lineHeight: '1.5rem', fontWeight: '400' }],
         'body-sm': ['0.875rem', { lineHeight: '1.25rem', fontWeight: '400' }],
-        caption: ['0.75rem', { lineHeight: '1rem', fontWeight: '600', letterSpacing: '0.015em' }],
+        caption: ['0.75rem', { lineHeight: '1rem', fontWeight: '600' }],
         button: ['0.875rem', { lineHeight: '1.25rem', fontWeight: '600' }],
         label: ['0.8125rem', { lineHeight: '1.125rem', fontWeight: '600', letterSpacing: '0.01em' }],
       },

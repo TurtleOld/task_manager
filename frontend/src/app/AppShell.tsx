@@ -1,14 +1,14 @@
 import { Component, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import type { ComponentType, ErrorInfo, ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Archive, CalendarDays, ChevronLeft, LayoutDashboard, Menu, Moon, Search, Settings, Sun, SunMedium } from 'lucide-react'
+import { Archive, CalendarDays, ChevronLeft, LayoutDashboard, LogOut, Menu, Moon, Search, Settings, Sun, SunMedium } from 'lucide-react'
 import { useBoards } from '../api/queries/boards'
 import type { AuthUser } from '../api/types'
 import { maybeAutoResubscribe } from '../lib/pushManager'
 import { CommandPalette } from './CommandPalette'
 import { NotificationInboxButton } from './NotificationInboxButton'
 import { toggleTheme } from './theme'
-import { Button, ColorDot, IconButton, Skeleton } from '@/components/ui'
+import { ColorDot, IconButton, Skeleton } from '@/components/ui'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 
@@ -112,6 +112,7 @@ export function AppShell({ user, onLogout }: AppShellProps) {
   const pageTitle = getPageTitle(location.pathname, activeBoard?.name)
 
   const breadcrumbs = useMemo(() => getBreadcrumbs(location.pathname, activeBoard?.name), [location.pathname, activeBoard?.name])
+  const pageSubtitle = location.pathname === '/' ? formatToday() : null
 
   const sidebar = (
     <ShellSidebar
@@ -125,11 +126,12 @@ export function AppShell({ user, onLogout }: AppShellProps) {
   )
 
   return (
-    <div className="min-h-screen bg-background/70 text-text">
+    <div className="min-h-screen text-text">
       <div className="hidden lg:block">{sidebar}</div>
 
-      <div className={cn('min-h-screen transition-[padding] duration-normal ease-standard pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-72', collapsed && 'lg:pl-20')}>
-        <header ref={headerRef} className="sticky top-0 z-sticky border-b border-border/80 bg-background/78 px-4 py-3 backdrop-blur-xl sm:px-6">
+      <div className={cn('min-h-screen transition-[padding] duration-normal ease-standard pb-[calc(4rem+env(safe-area-inset-bottom))] lg:py-2 lg:pr-2 lg:pl-72', collapsed && 'lg:pl-20')}>
+        <div className="min-h-screen bg-surface bg-[image:var(--gradient-page)] bg-no-repeat lg:min-h-[calc(100vh-1rem)] lg:rounded-spacious lg:shadow-elevated lg:ring-1 lg:ring-border/70">
+        <header ref={headerRef} className="sticky top-0 z-sticky bg-surface/80 bg-[image:var(--gradient-page)] bg-no-repeat px-4 pb-2 pt-3 backdrop-blur-xl sm:px-6 lg:rounded-t-spacious lg:px-8 lg:pb-3 lg:pt-7">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -150,6 +152,7 @@ export function AppShell({ user, onLogout }: AppShellProps) {
               </Sheet>
 
               <div className="min-w-0">
+                {breadcrumbs.length > 1 ? (
                 <nav className="flex min-w-0 items-center gap-2 text-caption text-text-muted" aria-label="Хлебные крошки">
                   {breadcrumbs.map((item, index) => (
                     <span key={`${item.label}-${index}`} className="inline-flex min-w-0 items-center gap-2">
@@ -162,7 +165,9 @@ export function AppShell({ user, onLogout }: AppShellProps) {
                     </span>
                   ))}
                 </nav>
-                <h1 className="truncate text-h3 text-text">{pageTitle}</h1>
+                ) : null}
+                <h1 className="truncate text-h3 text-text lg:text-h1">{pageTitle}</h1>
+                {pageSubtitle ? <p className="truncate text-body-sm text-text-muted">{pageSubtitle}</p> : null}
               </div>
             </div>
 
@@ -198,6 +203,7 @@ export function AppShell({ user, onLogout }: AppShellProps) {
             </Suspense>
           </PageErrorBoundary>
         </main>
+        </div>
       </div>
 
       <MobileTabBar onMoreClick={() => setMobileOpen(true)} />
@@ -274,15 +280,15 @@ function ShellSidebar({ boards, boardsLoading, collapsed, mobile = false, onColl
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-sticky flex w-72 flex-col border-r border-sidebar-border bg-sidebar/96 px-3 py-4 text-sidebar-foreground shadow-surface backdrop-blur-xl transition-[width] duration-normal ease-standard',
+        'fixed inset-y-0 left-0 z-sticky flex w-72 flex-col bg-sidebar px-3 py-4 text-sidebar-foreground transition-[width] duration-normal ease-standard',
         collapsed && !mobile && 'w-20',
-        mobile && 'relative inset-auto z-auto h-full w-full border-r-0 shadow-none',
+        mobile && 'relative inset-auto z-auto h-full w-full',
       )}
       aria-label="Основная навигация"
     >
       <div className={cn('flex items-center gap-2 px-1', collapsed && !mobile && 'flex-col gap-1')}>
         <Link to="/" className="flex min-w-0 flex-1 items-center gap-3 rounded-control px-2 py-2 transition hover:bg-sidebar-accent">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[image:var(--gradient-primary)] font-bold text-text-inverse shadow-elevated">TM</span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-primary text-caption font-bold text-text-inverse">TM</span>
           {!collapsed || mobile ? (
             <span className="min-w-0">
               <span className="block truncate text-body font-semibold">Task Manager</span>
@@ -292,7 +298,7 @@ function ShellSidebar({ boards, boardsLoading, collapsed, mobile = false, onColl
         {!mobile ? (
           <button
             type="button"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control border border-sidebar-border bg-surface/70 text-text-muted transition hover:border-border-strong hover:text-text"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-text-muted transition hover:bg-sidebar-accent hover:text-text"
             onClick={onCollapseToggle}
             aria-label={collapsed ? 'Развернуть sidebar' : 'Свернуть sidebar'}
           >
@@ -301,7 +307,7 @@ function ShellSidebar({ boards, boardsLoading, collapsed, mobile = false, onColl
         ) : null}
       </div>
       <nav className="mt-5 flex-1 space-y-5 overflow-y-auto pr-1" aria-label="Разделы приложения">
-        <NavSection title="Views" collapsed={collapsed && !mobile}>
+        <NavSection title="Разделы" collapsed={collapsed && !mobile}>
           {primaryViews.map((item) => (
             <ShellNavItem key={item.to} to={item.to} label={item.label} icon={item.icon} collapsed={collapsed && !mobile} end={item.end} />
           ))}
@@ -324,31 +330,28 @@ function ShellSidebar({ boards, boardsLoading, collapsed, mobile = false, onColl
         </NavSection>
       </nav>
 
-      <div className="mt-4 border-t border-sidebar-border pt-4">
+      <div className="mt-4 space-y-1">
         <ShellNavItem to="/settings" label="Настройки" icon={Settings} collapsed={collapsed && !mobile} />
-        <div className={cn('mt-3 flex items-center gap-3 rounded-[1.15rem] bg-background-subtle/55 p-3', collapsed && !mobile && 'justify-center p-2')}>
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/12 text-caption font-bold text-primary">
+        <div className={cn('flex items-center gap-3 px-2 py-2', collapsed && !mobile && 'flex-col gap-2 px-0')}>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/12 text-caption font-bold text-primary">
             {(user.full_name || user.username)[0]?.toUpperCase()}
           </span>
           {!collapsed || mobile ? (
             <div className="min-w-0 flex-1">
               <p className="truncate text-body-sm font-semibold text-text">{user.full_name || user.username}</p>
-              <p className="truncate text-caption text-text-muted">{user.role === 'owner' || user.is_admin ? 'Owner' : 'Member'}</p>
+              <p className="truncate text-caption text-text-muted">{user.role === 'owner' || user.is_admin ? 'Владелец' : 'Участник'}</p>
             </div>
           ) : null}
-        </div>
-        {!collapsed || mobile ? (
-          <Button type="button" variant="danger" size="sm" fullWidth className="mt-3" onClick={onLogout}>Выйти</Button>
-        ) : (
           <button
             type="button"
             onClick={onLogout}
-            className="mt-3 flex h-10 w-full items-center justify-center rounded-control border border-danger/25 bg-danger/8 text-danger transition hover:border-danger/40 hover:bg-danger/12"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-text-muted transition hover:bg-danger/10 hover:text-danger"
             aria-label="Выйти"
+            title="Выйти"
           >
-            ⎋
+            <LogOut className="h-4 w-4" aria-hidden="true" />
           </button>
-        )}
+        </div>
       </div>
     </aside>
   )
@@ -371,7 +374,7 @@ function ShellNavItem({ to, label, icon: Icon, collapsed, end = false }: { to: s
       title={collapsed ? label : undefined}
       className={({ isActive }) => cn(
         'flex min-h-10 items-center gap-3 rounded-control px-3 py-2 text-body-sm font-medium text-text-muted transition hover:bg-sidebar-accent hover:text-text',
-        isActive && 'bg-primary/12 text-primary shadow-surface',
+        isActive && 'bg-surface-elevated text-text shadow-surface [&>svg]:text-primary',
         collapsed && 'justify-center px-2',
       )}
     >
@@ -400,6 +403,11 @@ function BoardsNavSkeleton({ collapsed }: { collapsed: boolean }) {
       ))}
     </div>
   )
+}
+
+function formatToday() {
+  const text = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 function getListId(pathname: string) {

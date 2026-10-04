@@ -315,7 +315,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
   const quickAddBoards = listId == null ? boards.map((board) => ({ id: board.id, name: board.name })) : undefined
 
   return (
-    <div className="min-h-screen bg-background/80 pb-12 text-text" style={mobileQuickAddEnabled ? { paddingBottom: 'calc(9rem + env(safe-area-inset-bottom))' } : undefined}>
+    <div className="min-h-screen pb-12 text-text" style={mobileQuickAddEnabled ? { paddingBottom: 'calc(9rem + env(safe-area-inset-bottom))' } : undefined}>
       <AgendaHeader
         activeAssigneeId={activeAssigneeId}
         activeListId={listId}
@@ -337,8 +337,8 @@ export function AgendaPage({ user }: AgendaPageProps) {
         }
       />
 
-      <div className="mx-auto flex w-full max-w-6xl items-start gap-6 px-4 pt-6 sm:px-6 xl:px-8">
-        <main className="mx-auto w-full min-w-0 max-w-3xl xl:mx-0 xl:max-w-none xl:flex-1">
+      <div className="flex w-full items-start gap-10 px-4 pt-4 sm:px-6 lg:px-8">
+        <main className="w-full min-w-0 flex-1">
           <div aria-live="polite" role="status" className="sr-only">
             {announcement}
           </div>
@@ -437,7 +437,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
 
       {mobileQuickAddEnabled ? (
         <div
-          className="fixed inset-x-0 z-sticky border-t border-border/80 bg-background/95 px-3 py-2 backdrop-blur-xl lg:hidden"
+          className="fixed inset-x-0 z-sticky border-t border-border/60 bg-surface/95 px-3 py-2 backdrop-blur-xl lg:hidden"
           style={{ bottom: keyboardInset > 0 ? keyboardInset : 'calc(4rem + env(safe-area-inset-bottom))' }}
         >
           <QuickAddBar
@@ -463,16 +463,16 @@ function parseListId(value: string | undefined): number | null {
 
 function AgendaPageSkeleton() {
   return (
-    <div className="min-h-screen bg-background/80 pb-12 text-text" aria-busy="true" aria-label="Загрузка агенды">
+    <div className="min-h-screen pb-12 text-text" aria-busy="true" aria-label="Загрузка агенды">
       <header
-        className="sticky z-sticky flex h-14 items-center gap-3 border-b border-border/80 bg-background/78 px-4 backdrop-blur-xl sm:px-6"
+        className="sticky z-sticky flex h-14 items-center gap-3 bg-surface/80 px-4 backdrop-blur-xl sm:px-6 lg:px-8"
         style={{ top: 'var(--app-header-height)' }}
       >
         <Skeleton className="h-8 w-28 rounded-full" />
         <Skeleton className="h-8 w-20 rounded-full" />
         <Skeleton className="h-8 w-24 rounded-full" />
       </header>
-      <main className="mx-auto w-full max-w-3xl space-y-5 px-4 pt-6 sm:px-6">
+      <main className="w-full space-y-5 px-4 pt-4 sm:px-6 lg:px-8">
         {Array.from({ length: 4 }).map((_, index) => (
           <section key={index} className="space-y-1">
             <div className="flex h-10 items-center gap-2 px-3">

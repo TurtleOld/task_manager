@@ -112,9 +112,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 type CardVariant = 'default' | 'elevated' | 'interactive'
 
 const cardVariants: Record<CardVariant, string> = {
-  default: 'border-border/90 bg-surface shadow-surface',
-  elevated: 'border-border/80 bg-surface-elevated shadow-elevated',
-  interactive: 'border-border/90 bg-surface shadow-surface transition duration-fast ease-standard hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-elevated',
+  default: 'border-transparent bg-surface-elevated shadow-surface',
+  elevated: 'border-transparent bg-surface-elevated shadow-elevated',
+  interactive: 'border-transparent bg-surface-elevated shadow-surface transition duration-fast ease-standard hover:-translate-y-0.5 hover:shadow-elevated',
 }
 
 type CardProps = HTMLAttributes<HTMLElement> & { as?: ElementType; variant?: CardVariant }
@@ -252,7 +252,7 @@ export function Field({ children, className, error, errorId, hint, hintId, htmlF
 type IconButtonVariant = 'neutral' | 'primary' | 'danger'
 
 const iconButtonVariants: Record<IconButtonVariant, string> = {
-  neutral: 'border-border bg-surface/90 text-text-muted shadow-surface backdrop-blur hover:border-border-strong hover:bg-surface-hover hover:text-text',
+  neutral: 'border-transparent bg-transparent text-text-muted shadow-none hover:bg-surface-hover hover:text-text',
   primary: 'border-primary/25 bg-primary/10 text-primary shadow-surface hover:bg-primary/15 hover:text-primary',
   danger: 'border-danger/25 bg-danger/10 text-danger shadow-surface hover:bg-danger/15 hover:text-danger',
 }
@@ -305,7 +305,7 @@ const pageShellPaddingClasses: Record<PageShellPadding, string> = { none: '', de
 type PageShellProps = HTMLAttributes<HTMLDivElement> & { children: ReactNode; contentClassName?: string; padding?: PageShellPadding; spacing?: PageShellSpacing; width?: PageShellWidth }
 
 export function PageShell({ children, className, contentClassName, padding = 'default', spacing = 'md', width = 'xl', ...props }: PageShellProps) {
-  return <div className={cn('min-h-screen bg-background/80 px-4 text-text compact:px-3 sm:px-6 compact:sm:px-4', pageShellPaddingClasses[padding], padding !== 'none' && 'compact:py-6', className)} {...props}><div className={cn('mx-auto w-full', pageShellWidthClasses[width], pageShellSpacingClasses[spacing], spacing !== 'none' && 'compact:space-y-5', contentClassName)}>{children}</div></div>
+  return <div className={cn('min-h-screen px-4 text-text compact:px-3 sm:px-6 compact:sm:px-4', pageShellPaddingClasses[padding], padding !== 'none' && 'compact:py-6', className)} {...props}><div className={cn('mx-auto w-full', pageShellWidthClasses[width], pageShellSpacingClasses[spacing], spacing !== 'none' && 'compact:space-y-5', contentClassName)}>{children}</div></div>
 }
 
 type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & { fullWidth?: boolean; invalid?: boolean }

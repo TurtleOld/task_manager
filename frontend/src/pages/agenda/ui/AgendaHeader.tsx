@@ -55,11 +55,11 @@ export function AgendaHeader({
 }: AgendaHeaderProps) {
   return (
     <header
-      className="sticky z-sticky flex min-h-14 flex-wrap items-center gap-3 border-b border-border/80 bg-background/78 px-4 py-2 backdrop-blur-xl sm:flex-nowrap sm:py-0 sm:px-6"
+      className="sticky z-sticky flex min-h-14 flex-wrap items-center gap-3 bg-surface/80 px-4 py-2 backdrop-blur-xl sm:flex-nowrap sm:px-6 lg:px-8 lg:pb-3"
       style={{ top: 'var(--app-header-height)' }}
     >
       <div
-        className="order-0 flex shrink-0 items-center gap-0.5 rounded-full bg-background-subtle p-1"
+        className="order-0 flex shrink-0 items-center gap-0.5"
         role="group"
         aria-label="Вид агенды"
       >
@@ -70,10 +70,10 @@ export function AgendaHeader({
             aria-pressed={viewMode === option.id}
             onClick={() => onViewModeChange(option.id)}
             className={cn(
-              'rounded-full px-3 py-1.5 text-caption font-semibold transition duration-fast ease-standard compact:px-2.5 compact:py-1',
+              'rounded-control px-3 py-1.5 text-body-sm font-medium transition duration-fast ease-standard compact:px-2.5 compact:py-1',
               viewMode === option.id
-                ? 'bg-primary text-text-inverse shadow-surface'
-                : 'text-text-muted hover:text-text',
+                ? 'bg-primary/15 text-primary'
+                : 'text-text-muted hover:bg-surface-hover hover:text-text',
             )}
           >
             {option.label}
@@ -152,9 +152,9 @@ function ScopeChip({ active, icon, label, to }: ScopeChipProps) {
       to={to}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-caption text-text-muted transition duration-fast ease-standard compact:h-8',
-        'hover:border-primary/40 hover:text-text',
-        active && 'border-primary/40 bg-primary/12 text-primary',
+        'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-surface-elevated px-3 text-caption text-text-muted shadow-surface transition duration-fast ease-standard compact:h-8',
+        'hover:text-text',
+        active && 'bg-primary/15 text-primary shadow-none',
       )}
     >
       {icon ? <span aria-hidden="true">{icon}</span> : null}
