@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Repeat, Trash2 } from 'lucide-react'
 import { Badge, Button, Card as SurfaceCard, ChipButton, EmptyState, Field, Select, TextInput } from '@/components/ui'
@@ -8,6 +9,7 @@ import { queryKeys } from '../../../api/queries/keys'
 import type { RecurrenceRule } from '../../../api/types'
 
 interface RecurrencePanelProps {
+  listId: number
   cardId: number
   hasDeadline: boolean
 }
@@ -110,7 +112,7 @@ function buildPayload(draft: RecurrenceDraft): RecurrencePayload {
   return { freq: 'daily', interval, byweekday: [], byday: null, bysetpos: null, until, count }
 }
 
-export function RecurrencePanel({ cardId, hasDeadline }: RecurrencePanelProps) {
+export function RecurrencePanel({ cardId, listId, hasDeadline }: RecurrencePanelProps) {
   const qc = useQueryClient()
   const [editing, setEditing] = useState(false)
 
@@ -120,6 +122,7 @@ export function RecurrencePanel({ cardId, hasDeadline }: RecurrencePanelProps) {
   })
 
   const rule = query.data ?? null
+  const isStale = rule !== null && !rule.is_current
   const [draft, setDraft] = useState<RecurrenceDraft>(() => draftFromRule(rule))
 
   // Re-sync the draft from the server whenever the rule changes underneath us
@@ -177,7 +180,7 @@ export function RecurrencePanel({ cardId, hasDeadline }: RecurrencePanelProps) {
           {rule && !editing ? <Badge variant="neutral">{summarize(rule)}</Badge> : null}
         </div>
 
-        {rule && !editing ? (
+        {rule && !editing && !isStale ? (
           <div className="flex items-center gap-2">
             <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(true)}>
               Изменить
@@ -204,6 +207,14 @@ export function RecurrencePanel({ cardId, hasDeadline }: RecurrencePanelProps) {
 
       {query.isLoading ? (
         <p className="text-body-sm text-text-muted">Загружаем…</p>
+      ) : isStale && rule ? (
+        <p className="text-body-sm text-text-muted">
+          Повтор настраивается в{' '}
+          <Link to={`/lists/${listId}/tasks/${rule.current_card_id}`} className="text-primary hover:underline">
+            актуальной задаче серии
+          </Link>
+          .
+        </p>
       ) : !rule && !editing ? (
         <EmptyState title="Не повторяется" className="p-4">
           Настройте повтор, чтобы задача создавалась заново по расписанию после выполнения.
