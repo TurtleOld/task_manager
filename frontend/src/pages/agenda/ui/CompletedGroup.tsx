@@ -35,7 +35,7 @@ export function CompletedGroup({ boardsById, boundaries, busy, deadlineBusy, gro
             aria-hidden="true"
           />
           <span className="text-body-sm font-semibold text-text">{group.label}</span>
-          <span className="ml-auto rounded-full px-2 py-0.5 text-caption text-text-muted">{group.cards.length}</span>
+          <span className="rounded-full px-1.5 py-0.5 text-caption text-text-muted">{group.cards.length}</span>
         </button>
       </h2>
       {!collapsed ? (

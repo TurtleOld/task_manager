@@ -55,7 +55,7 @@ export function AgendaHeader({
 }: AgendaHeaderProps) {
   return (
     <header
-      className="sticky z-sticky flex min-h-14 flex-wrap items-center gap-3 border-b border-border/50 bg-surface/80 px-4 py-2 backdrop-blur-xl sm:flex-nowrap sm:py-0 sm:px-6 lg:px-8"
+      className="sticky z-sticky flex min-h-14 max-w-6xl flex-wrap items-center gap-3 bg-surface/80 px-4 py-2 backdrop-blur-xl sm:flex-nowrap sm:px-6 lg:px-8 lg:pb-3"
       style={{ top: 'var(--app-header-height)' }}
     >
       <div

@@ -1,4 +1,5 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { Plus } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { Chip, TextInput } from '@/components/ui'
 import { cn } from '@/lib/utils'
@@ -55,6 +56,19 @@ export function QuickAddBar({ busy = false, onSubmit, people, timeZone, boards }
       ? boards.filter((board) => board.name.toLowerCase().startsWith(openTagQuery.toLowerCase())).slice(0, 5)
       : []
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== 'n' && event.key.toLowerCase() !== 'т') return
+      if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return
+      const target = event.target as HTMLElement | null
+      if (target?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"]')) return
+      event.preventDefault()
+      inputRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   const handleChange = (next: string) => {
     setValue(next)
     setDismissed(NOTHING_DISMISSED)
@@ -92,25 +106,36 @@ export function QuickAddBar({ busy = false, onSubmit, people, timeZone, boards }
   return (
     <div className="relative min-w-0 flex-1">
       <form onSubmit={handleSubmit} className="flex min-w-0 flex-1 items-center gap-1.5">
+        <div className="relative flex min-w-[7rem] flex-1 items-center">
+        <Plus className="pointer-events-none absolute left-3 h-4 w-4 text-primary" aria-hidden="true" />
         <TextInput
           ref={inputRef}
           aria-label="Быстрое добавление задачи"
           aria-invalid={showError || undefined}
-          className="h-9 min-w-[7rem] flex-1 border-transparent bg-background-subtle/70 shadow-none"
+          className="h-10 w-full border-transparent bg-background-subtle/80 pl-9 pr-10 shadow-none"
           disabled={busy}
           fullWidth={false}
           invalid={showError}
           onChange={(event) => handleChange(event.target.value)}
           placeholder={
             boardMode
-              ? 'Добавить задачу: «полить цветы завтра в 8 @лиза #мурчляндия»'
-              : 'Добавить задачу: «полить цветы завтра в 8 @лиза #дом»'
+              ? 'Полить цветы завтра в 8 @лиза #мурчляндия'
+              : 'Полить цветы завтра в 8 @лиза #дом'
           }
           role={suggestions.length > 0 ? 'combobox' : undefined}
           aria-expanded={suggestions.length > 0 || undefined}
           aria-controls={suggestions.length > 0 ? listboxId : undefined}
           value={value}
         />
+        {value === '' ? (
+          <kbd
+            className="pointer-events-none absolute right-3 hidden rounded-sm bg-surface-elevated px-1.5 text-caption text-text-muted lg:block"
+            title="Нажмите N, чтобы добавить задачу"
+          >
+            N
+          </kbd>
+        ) : null}
+        </div>
         {parsed?.deadlineText && !dismissed.deadline ? (
           <RemovableChip
             label={parsed.deadlineText}

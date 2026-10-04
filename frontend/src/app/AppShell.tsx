@@ -130,8 +130,8 @@ export function AppShell({ user, onLogout }: AppShellProps) {
       <div className="hidden lg:block">{sidebar}</div>
 
       <div className={cn('min-h-screen transition-[padding] duration-normal ease-standard pb-[calc(4rem+env(safe-area-inset-bottom))] lg:py-2 lg:pr-2 lg:pl-72', collapsed && 'lg:pl-20')}>
-        <div className="min-h-screen bg-surface bg-[image:var(--gradient-page)] bg-no-repeat lg:min-h-[calc(100vh-1rem)] lg:rounded-spacious lg:shadow-elevated">
-        <header ref={headerRef} className="sticky top-0 z-sticky bg-surface/80 px-4 pb-2 pt-3 backdrop-blur-xl sm:px-6 lg:rounded-t-spacious lg:px-8 lg:pt-6">
+        <div className="min-h-screen bg-surface bg-[image:var(--gradient-page)] bg-no-repeat lg:min-h-[calc(100vh-1rem)] lg:rounded-spacious lg:shadow-elevated lg:ring-1 lg:ring-border/70">
+        <header ref={headerRef} className="sticky top-0 z-sticky bg-surface/80 bg-[image:var(--gradient-page)] bg-no-repeat px-4 pb-2 pt-3 backdrop-blur-xl sm:px-6 lg:rounded-t-spacious lg:px-8 lg:pb-3 lg:pt-7">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -166,7 +166,7 @@ export function AppShell({ user, onLogout }: AppShellProps) {
                   ))}
                 </nav>
                 ) : null}
-                <h1 className="truncate text-h3 text-text lg:text-h2">{pageTitle}</h1>
+                <h1 className="truncate text-h3 text-text lg:text-h1">{pageTitle}</h1>
                 {pageSubtitle ? <p className="truncate text-body-sm text-text-muted">{pageSubtitle}</p> : null}
               </div>
             </div>

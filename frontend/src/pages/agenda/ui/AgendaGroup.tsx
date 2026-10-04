@@ -72,7 +72,7 @@ export function AgendaGroup({ boardsById, boundaries, busy, cards, collapsed, de
           </span>
           <span
             className={cn(
-              'ml-auto rounded-full px-2 py-0.5 text-caption',
+              'min-w-5 rounded-full px-1.5 py-0.5 text-center text-caption',
               isOverdue ? 'bg-danger font-semibold text-text-inverse' : 'text-text-muted',
             )}
           >
