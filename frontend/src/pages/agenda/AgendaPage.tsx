@@ -337,8 +337,8 @@ export function AgendaPage({ user }: AgendaPageProps) {
         }
       />
 
-      <div className="flex w-full max-w-6xl items-start gap-10 px-4 pt-4 sm:px-6 lg:px-8">
-        <main className="w-full min-w-0 max-w-3xl xl:max-w-none xl:flex-1">
+      <div className="flex w-full items-start gap-10 px-4 pt-4 sm:px-6 lg:px-8">
+        <main className="w-full min-w-0 flex-1">
           <div aria-live="polite" role="status" className="sr-only">
             {announcement}
           </div>
@@ -421,7 +421,7 @@ export function AgendaPage({ user }: AgendaPageProps) {
         </main>
 
         {isDesktopPanel ? (
-          <aside className="hidden w-72 shrink-0 xl:block">
+          <aside className="hidden w-80 shrink-0 xl:block">
             <FamilyTodayPanel
               data={familyToday.data}
               isLoading={familyToday.isLoading}
@@ -472,7 +472,7 @@ function AgendaPageSkeleton() {
         <Skeleton className="h-8 w-20 rounded-full" />
         <Skeleton className="h-8 w-24 rounded-full" />
       </header>
-      <main className="w-full max-w-3xl space-y-5 px-4 pt-4 sm:px-6 lg:px-8">
+      <main className="w-full space-y-5 px-4 pt-4 sm:px-6 lg:px-8">
         {Array.from({ length: 4 }).map((_, index) => (
           <section key={index} className="space-y-1">
             <div className="flex h-10 items-center gap-2 px-3">
