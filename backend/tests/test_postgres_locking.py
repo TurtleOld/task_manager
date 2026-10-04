@@ -17,11 +17,14 @@ from datetime import timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.db import connection, transaction
 from django.utils import timezone
 
 from kanban import dispatcher
 from kanban.models import (
+    Attachment,
     Card,
     NotificationEvent,
     NotificationEventType,
@@ -225,6 +228,70 @@ def test_concurrent_complete_taps_only_one_wins(monkeypatch, column, regular_use
     assert (
         NotificationEvent.objects.filter(event_type="card.completed", card_id=card.id).count() == 1
     )
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_attachment_deleted_during_generation_keeps_the_file_of_the_copy(
+    monkeypatch, tmp_path, settings, column, regular_user
+) -> None:
+    """The copy's row and the reference check must not interleave.
+
+    The generator is paused after copying the attachment rows. Deleting the
+    source attachment has to wait for it; otherwise the reference check runs
+    before the copy commits and removes the file the copy points to.
+    """
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    now = timezone.now()
+    card = Card.objects.create(
+        column=column, title="Оплатить интернет", deadline=now, completed_at=now
+    )
+    path = default_storage.save(f"cards/{card.id}/договор.pdf", ContentFile(b"%PDF"))
+    attachment = Attachment.objects.create(card=card, name="договор.pdf", path=path)
+    RecurrenceRule.objects.create(
+        card=card,
+        freq=RecurrenceFrequency.WEEKLY,
+        interval=1,
+        next_due=now - timedelta(minutes=1),
+    )
+
+    copied = threading.Event()
+    release = threading.Event()
+    bulk_create = Attachment.objects.bulk_create
+
+    def paused_bulk_create(*args, **kwargs):
+        created = bulk_create(*args, **kwargs)
+        copied.set()
+        release.wait(timeout=10)
+        return created
+
+    monkeypatch.setattr(Attachment.objects, "bulk_create", paused_bulk_create)
+
+    def generate() -> None:
+        try:
+            generate_recurring_cards()
+        finally:
+            connection.close()
+
+    worker = threading.Thread(target=generate)
+    worker.start()
+    timer = threading.Timer(0.5, release.set)
+    try:
+        assert copied.wait(timeout=10), "генератор не дошёл до копирования вложений"
+        timer.start()
+        resp = client_for(regular_user).delete(
+            f"/api/v1/cards/{card.id}/attachments/{attachment.id}/"
+        )
+    finally:
+        release.set()
+        timer.cancel()
+        worker.join(timeout=10)
+
+    assert resp.status_code == 200
+    copy = Card.objects.get(parent_recurrence__card=card)
+    assert copy.attachments.get().path == path
+    assert default_storage.exists(path)
 
 
 # ---------------------------------------------------------------------------

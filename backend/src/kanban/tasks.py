@@ -226,7 +226,7 @@ def _generate_recurring_card_for_rule(*, rule_id: int, now: datetime) -> None:
                     size=attachment.size,
                     uploaded_by=attachment.uploaded_by,
                 )
-                for attachment in card.attachments.all()
+                for attachment in Attachment.objects.select_for_update().filter(card=card)
             ]
         )
 
