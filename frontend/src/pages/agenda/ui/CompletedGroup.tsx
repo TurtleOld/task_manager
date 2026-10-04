@@ -21,7 +21,7 @@ export function CompletedGroup({ boardsById, boundaries, busy, deadlineBusy, gro
   const noop = () => {}
 
   return (
-    <section className="space-y-0.5" aria-label={group.label}>
+    <section className="space-y-0.5 rounded-panel bg-surface-elevated p-1.5 shadow-surface" aria-label={group.label}>
       <h2>
         <button
           type="button"
@@ -35,7 +35,7 @@ export function CompletedGroup({ boardsById, boundaries, busy, deadlineBusy, gro
             aria-hidden="true"
           />
           <span className="text-body-sm font-semibold text-text">{group.label}</span>
-          <span className="ml-auto rounded-full bg-background-subtle px-2 py-0.5 text-caption text-text-muted">{group.cards.length}</span>
+          <span className="ml-auto rounded-full px-2 py-0.5 text-caption text-text-muted">{group.cards.length}</span>
         </button>
       </h2>
       {!collapsed ? (

@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import { Link } from 'react-router-dom'
 import { Checkbox } from '@radix-ui/react-checkbox'
-import { Calendar, Check, Flag, GitBranch, ListChecks, Repeat } from 'lucide-react'
+import { Calendar, Check, GitBranch, ListChecks, Repeat } from 'lucide-react'
 import type { AgendaBoundaries, AgendaCard, Board } from '../../../api/types'
 import { priorityToLabel, priorityToTone } from '../../../shared/lib/priority'
 import { formatDeadlineShort } from '../lib/formatDeadline'
@@ -29,11 +29,12 @@ function formatCompletedTime(value: string): string {
   return new Date(value).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
-const priorityToneToClass: Record<'neutral' | 'danger' | 'warning' | 'success', string> = {
-  neutral: 'text-text-muted',
-  danger: 'text-danger',
-  warning: 'text-warning',
-  success: 'text-success',
+/** Приоритет показывается цветом кольца чекбокса, а не отдельным флажком. */
+const priorityToneToRing: Record<'neutral' | 'danger' | 'warning' | 'success', string> = {
+  neutral: 'border-border-strong',
+  danger: 'border-danger',
+  warning: 'border-warning',
+  success: 'border-success',
 }
 
 export function AgendaRow({
@@ -70,7 +71,6 @@ export function AgendaRow({
       ref={swipeRef}
       className={cn(
         'relative isolate flex min-h-16 items-center gap-3 overflow-hidden rounded-control px-3 transition duration-fast ease-standard hover:bg-surface-hover lg:min-h-12 compact:min-h-12 lg:compact:min-h-10',
-        completed && 'bg-surface-hover/50',
       )}
     >
       {offsetX !== 0 ? (
@@ -97,7 +97,7 @@ export function AgendaRow({
       <div
         className={cn(
           'flex min-w-0 flex-1 items-center gap-3 transition-transform duration-fast ease-standard',
-          offsetX !== 0 && 'bg-surface',
+          offsetX !== 0 && 'bg-surface-elevated',
         )}
         style={offsetX !== 0 ? { transform: `translateX(${offsetX}px)` } : undefined}
       >
@@ -110,7 +110,7 @@ export function AgendaRow({
           title={completerName ? `Выполнил(а): ${completerName}` : undefined}
           className={cn(
             'relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 bg-surface text-text-inverse transition duration-fast ease-standard',
-            group === 'overdue' && !completed ? 'border-danger/60' : 'border-border-strong',
+            group === 'overdue' && !completed ? 'border-danger/60' : priorityToneToRing[hasPriority ? priorityToTone(card.priority) : 'neutral'],
             'before:absolute before:-inset-3 before:content-[""] lg:before:content-none',
             'data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-text-inverse',
             'focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
@@ -123,12 +123,15 @@ export function AgendaRow({
         <Link
           to={`/lists/${card.list}/tasks/${card.id}`}
           className={cn(
-            'min-w-0 flex-1 truncate rounded-sm text-body-sm text-text transition hover:text-primary',
+            'min-w-0 flex-1 truncate rounded-sm text-body text-text transition hover:text-primary',
             completed && 'text-text-muted line-through decoration-text-muted/60',
           )}
           title={card.title}
         >
           {card.title}
+          {hasPriority ? (
+            <span className="sr-only">, приоритет: {card.priority_label || priorityToLabel(card.priority)}</span>
+          ) : null}
         </Link>
 
         {listMeta ? (
@@ -147,14 +150,6 @@ export function AgendaRow({
           className={cn(deadlineTone, 'relative before:absolute before:-inset-2 before:content-[""] lg:before:content-none')}
         />
 
-        {hasPriority ? (
-          <Flag
-            className={cn('h-4 w-4 shrink-0', priorityToneToClass[priorityToTone(card.priority)])}
-            aria-label={`Приоритет: ${card.priority_label || priorityToLabel(card.priority)}`}
-            fill="currentColor"
-          />
-        ) : null}
-
         {card.has_checklist ? (
           card.checklist_total > 0 ? (
             <span
@@ -170,10 +165,10 @@ export function AgendaRow({
           )
         ) : null}
         {card.has_subtasks ? (
-          <GitBranch className="h-4 w-4 shrink-0 text-text-muted" aria-label="Есть подзадачи" />
+          <GitBranch className="h-4 w-4 shrink-0 text-text-muted/70" aria-label="Есть подзадачи" />
         ) : null}
         {card.is_recurring ? (
-          <Repeat className="h-4 w-4 shrink-0 text-text-muted" aria-label="Повторяющаяся задача" />
+          <Repeat className="h-4 w-4 shrink-0 text-text-muted/70" aria-label="Повторяющаяся задача" />
         ) : null}
 
         {completed && completerName ? (

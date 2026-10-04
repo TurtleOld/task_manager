@@ -42,7 +42,10 @@ export function AgendaGroup({ boardsById, boundaries, busy, cards, collapsed, de
 
   return (
     <section
-      className={cn('space-y-0.5', isOverdue && 'rounded-[1.1rem] border border-danger/25 bg-danger/8 p-1')}
+      className={cn(
+        'space-y-0.5 rounded-panel p-1.5',
+        isOverdue ? 'bg-danger/8 shadow-[inset_0_0_0_1px_rgb(var(--color-danger)/0.2)]' : 'bg-surface-elevated shadow-surface',
+      )}
       aria-label={label}
     >
       <h2>
@@ -70,7 +73,7 @@ export function AgendaGroup({ boardsById, boundaries, busy, cards, collapsed, de
           <span
             className={cn(
               'ml-auto rounded-full px-2 py-0.5 text-caption',
-              isOverdue ? 'bg-danger font-semibold text-text-inverse' : 'bg-background-subtle text-text-muted',
+              isOverdue ? 'bg-danger font-semibold text-text-inverse' : 'text-text-muted',
             )}
           >
             {cards.length}
