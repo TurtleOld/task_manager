@@ -34,7 +34,15 @@ import { TaskScreen } from '../task/TaskScreen'
 const COLLAPSED_STORAGE_KEY = 'agenda.collapsed'
 const VIEW_MODE_STORAGE_KEY = 'agenda.viewMode'
 /** Группы, свёрнутые по умолчанию, пока пользователь сам их не раскрыл. */
-const DEFAULT_COLLAPSED_GROUPS = new Set<AgendaGroupId>(['tomorrow', 'this-week', 'later', 'someday'])
+const DEFAULT_COLLAPSED_GROUPS = new Set<AgendaGroupId>([
+  'tomorrow',
+  'this-week',
+  'next-week',
+  'this-month',
+  'next-month',
+  'later',
+  'someday',
+])
 /** Совпадает с брейкпоинтом `xl:`, на котором появляется правая панель. */
 const DESKTOP_PANEL_QUERY = '(min-width: 1280px)'
 /** Совпадает с брейкпоинтом `lg:`, на котором прячется нижняя таб-панель/строка добавления. */
