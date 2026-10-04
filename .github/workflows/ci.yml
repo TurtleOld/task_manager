@@ -159,6 +159,10 @@ jobs:
           DATABASE_URL: sqlite:///${{ github.workspace }}/backend/e2e.sqlite3
           DJANGO_MEDIA_ROOT: ${{ github.workspace }}/backend/e2e-media
           FRONTEND_BASE_URL: http://127.0.0.1:5173
+          # Every spec signs in from 127.0.0.1, so the production per-IP
+          # limits throttle the suite itself once it grows past a minute.
+          DRF_THROTTLE_ANON_RATE: 10000/min
+          DRF_THROTTLE_LOGIN_RATE: 10000/min
         run: |
           uv run python manage.py runserver 127.0.0.1:8000 > ../backend-e2e.log 2>&1 &
           for i in {1..60}; do

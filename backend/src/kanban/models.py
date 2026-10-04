@@ -811,6 +811,10 @@ class SiteSettings(models.Model):
 class UserSession(AbstractBaseSession):
     """A login on one browser or device, keyed by the session cookie."""
 
+    # The session key is the primary key and a secret, so the API identifies a
+    # session by this opaque value instead.
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,

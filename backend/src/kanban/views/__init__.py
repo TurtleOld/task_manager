@@ -10,6 +10,8 @@ from .auth import (
     LogoutView,
     RegisterView,
     RegistrationStatusView,
+    SessionDetailView,
+    SessionListView,
     TerminateSessionsView,
 )
 from .boards import BoardViewSet
@@ -44,6 +46,8 @@ __all__ = [
     "NotificationProfileView",
     "RegisterView",
     "RegistrationStatusView",
+    "SessionDetailView",
+    "SessionListView",
     "TerminateSessionsView",
     "SearchView",
     "SiteSettingsView",

@@ -327,6 +327,15 @@ export interface VapidKeyResponse {
   configured: boolean
 }
 
+export interface UserSessionInfo {
+  id: string
+  label: string
+  login_at: string
+  last_activity: string
+  notifications_enabled: boolean
+  current: boolean
+}
+
 export interface PushTestResponse {
   delivered: boolean
   sent: number

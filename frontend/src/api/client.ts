@@ -24,6 +24,7 @@ import type {
   RecurrenceRule,
   CardComment,
   CardActivity,
+  UserSessionInfo,
 } from './types'
 
 import { clearLocalSession, isSignedIn } from '../app/session'
@@ -409,6 +410,17 @@ export const api = {
   terminateSessions: async (): Promise<void> => {
     const res = await fetch(`${V1}/auth/terminate-sessions/`, {
       method: 'POST',
+      headers: jsonHeaders(),
+    })
+    return ok(res)
+  },
+  listSessions: async (): Promise<UserSessionInfo[]> => {
+    const res = await fetch(`${V1}/auth/sessions/`, { headers: jsonHeaders() })
+    return json(res)
+  },
+  endSession: async (id: string): Promise<void> => {
+    const res = await fetch(`${V1}/auth/sessions/${id}/`, {
+      method: 'DELETE',
       headers: jsonHeaders(),
     })
     return ok(res)

@@ -119,4 +119,37 @@ test.describe('local session cleanup', () => {
     await expect(page).toHaveURL(/\/login/)
     expect((await readLocalData(page)).localStorageLength).toBe(0)
   })
+
+  test('terminating one session logs only that device out', async ({ browser }) => {
+    const adminContext = await browser.newContext()
+    const adminPage = await adminContext.newPage()
+    await signIn(adminPage)
+    await ensureMember(adminPage, member)
+    await adminContext.close()
+
+    const firstContext = await browser.newContext()
+    const firstPage = await firstContext.newPage()
+    await signIn(firstPage, member)
+    await firstPage.request.post(`${apiURL}/auth/terminate-sessions/`, { headers: await apiHeaders(firstPage) })
+    await signIn(firstPage, member)
+
+    const secondContext = await browser.newContext()
+    const secondPage = await secondContext.newPage()
+    await signIn(secondPage, member)
+    await secondPage.goto('/')
+    await expect(secondPage).not.toHaveURL(/\/login/)
+
+    await firstPage.goto('/settings')
+    const endButtons = firstPage.getByRole('button', { name: 'Завершить', exact: true })
+    await expect(endButtons).toHaveCount(1)
+    await endButtons.click()
+    await expect(endButtons).toHaveCount(0)
+
+    await secondPage.reload()
+    await expect(secondPage).toHaveURL(/\/login/)
+    expect(await readLocalData(secondPage)).toEqual({ localStorageLength: 0, indexedDbNames: [] })
+
+    await firstContext.close()
+    await secondContext.close()
+  })
 })
