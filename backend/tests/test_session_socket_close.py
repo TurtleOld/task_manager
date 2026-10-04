@@ -110,7 +110,7 @@ def test_password_change_closes_the_other_session_socket(regular_user) -> None:
 
         await sync_to_async(laptop.post)(
             f"/api/v1/users/{regular_user.pk}/change-password/",
-            data={"new_password": "brand-new-pass-1"},
+            data={"new_password": "brand-new-pass-1", "current_password": "pass1"},
             format="json",
         )
 

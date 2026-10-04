@@ -27,6 +27,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
   const [editErrors, setEditErrors] = useState<Record<string, string>>({})
   const [selfPasswordOpen, setSelfPasswordOpen] = useState(false)
   const [selfPassword, setSelfPassword] = useState('')
+  const [selfCurrentPassword, setSelfCurrentPassword] = useState('')
   const [selfPasswordError, setSelfPasswordError] = useState('')
   const [selfPasswordSaving, setSelfPasswordSaving] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
@@ -190,8 +191,28 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
     }
   }
 
+  const openPasswordForSelected = () => {
+    if (selectedUser?.id !== user.id) {
+      setPasswordOpen(true)
+      return
+    }
+    setProfileOpen(false)
+    setSelfPasswordOpen(true)
+  }
+
+  const closeSelfPassword = () => {
+    setSelfPasswordOpen(false)
+    setSelfPassword('')
+    setSelfCurrentPassword('')
+    setSelfPasswordError('')
+  }
+
   const onChangeSelfPassword = async () => {
     const trimmed = selfPassword.trim()
+    if (!selfCurrentPassword) {
+      setSelfPasswordError('Введите текущий пароль')
+      return
+    }
     if (trimmed.length < 8) {
       setSelfPasswordError('Минимум 8 символов')
       return
@@ -199,9 +220,8 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
     setSelfPasswordError('')
     setSelfPasswordSaving(true)
     try {
-      await api.changeUserPassword(user.id, { new_password: trimmed })
-      setSelfPasswordOpen(false)
-      setSelfPassword('')
+      await api.changeUserPassword(user.id, { new_password: trimmed, current_password: selfCurrentPassword })
+      closeSelfPassword()
     } catch (e) {
       setSelfPasswordError((e as Error).message)
     } finally {
@@ -490,7 +510,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
                       <p className="text-body-sm text-text-muted">Откройте полный профиль, чтобы управлять ролью и паролем пользователя.</p>
                       <div className="flex flex-wrap items-center gap-2">
                         <Button type="button" onClick={() => setProfileOpen(true)}>Открыть профиль</Button>
-                        <Button type="button" variant="secondary" onClick={() => setPasswordOpen(true)}>Сменить пароль</Button>
+                        <Button type="button" variant="secondary" onClick={openPasswordForSelected}>Сменить пароль</Button>
                       </div>
                     </div>
                   ) : (
@@ -505,18 +525,21 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
 
       <Modal
         open={selfPasswordOpen}
-        onClose={() => { setSelfPasswordOpen(false); setSelfPassword(''); setSelfPasswordError('') }}
+        onClose={closeSelfPassword}
         title="Сменить пароль"
         className="max-w-md"
         footer={
           <>
-            <Button type="button" variant="secondary" onClick={() => { setSelfPasswordOpen(false); setSelfPassword(''); setSelfPasswordError('') }}>Отмена</Button>
+            <Button type="button" variant="secondary" onClick={closeSelfPassword}>Отмена</Button>
             <Button type="button" onClick={() => void onChangeSelfPassword()} loading={selfPasswordSaving}>Сохранить пароль</Button>
           </>
         }
       >
+        <Field label="Текущий пароль" htmlFor="self-current-password">
+          <TextInput id="self-current-password" type="password" value={selfCurrentPassword} onChange={(e) => setSelfCurrentPassword(e.target.value)} autoComplete="current-password" invalid={Boolean(selfPasswordError)} aria-describedby={selfPasswordError ? 'self-password-error' : undefined} />
+        </Field>
         <Field label="Новый пароль" htmlFor="self-password" error={selfPasswordError} errorId="self-password-error">
-          <TextInput id="self-password" type="password" value={selfPassword} onChange={(e) => setSelfPassword(e.target.value)} invalid={Boolean(selfPasswordError)} aria-describedby={selfPasswordError ? 'self-password-error' : undefined} />
+          <TextInput id="self-password" type="password" value={selfPassword} onChange={(e) => setSelfPassword(e.target.value)} autoComplete="new-password" invalid={Boolean(selfPasswordError)} aria-describedby={selfPasswordError ? 'self-password-error' : undefined} />
         </Field>
       </Modal>
 
@@ -550,7 +573,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
         footer={
           <>
             <Button type="button" variant="secondary" onClick={() => setProfileOpen(false)}>Закрыть</Button>
-            <Button type="button" variant="secondary" onClick={() => setPasswordOpen(true)}>Сменить пароль</Button>
+            <Button type="button" variant="secondary" onClick={openPasswordForSelected}>Сменить пароль</Button>
             <Button type="button" onClick={() => void onSaveUser()} loading={savingUser}>Сохранить</Button>
           </>
         }

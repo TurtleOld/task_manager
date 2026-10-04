@@ -29,7 +29,7 @@ def test_self_password_change_keeps_current_session_and_ends_the_rest(
         with django_capture_on_commit_callbacks(execute=True):
             response = laptop.post(
                 f"/api/v1/users/{regular_user.pk}/change-password/",
-                data={"new_password": "brand-new-pass-1"},
+                data={"new_password": "brand-new-pass-1", "current_password": "pass1"},
                 format="json",
             )
 
@@ -83,3 +83,45 @@ def test_member_cannot_change_another_users_password(auth_client: APIClient, reg
 
     assert response.status_code == 404
     assert other.check_password("pass2")
+
+
+@pytest.mark.django_db()
+@pytest.mark.parametrize("payload", [{}, {"current_password": "wrong-pass"}])
+def test_self_password_change_requires_the_current_password(
+    regular_user, payload: dict[str, str]
+) -> None:
+    laptop = login_client("user1", "pass1")
+    phone = login_client("user1", "pass1")
+
+    response = laptop.post(
+        f"/api/v1/users/{regular_user.pk}/change-password/",
+        data={"new_password": "brand-new-pass-1", **payload},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    regular_user.refresh_from_db()
+    assert regular_user.check_password("pass1")
+    assert phone.get("/api/v1/auth/me/").status_code == 200
+
+
+@pytest.mark.django_db()
+def test_guessing_the_current_password_locks_out_like_login(regular_user, settings) -> None:
+    laptop = login_client("user1", "pass1")
+    url = f"/api/v1/users/{regular_user.pk}/change-password/"
+
+    for _ in range(settings.AXES_FAILURE_LIMIT):
+        laptop.post(
+            url,
+            data={"new_password": "brand-new-pass-1", "current_password": "guess"},
+            format="json",
+        )
+    response = laptop.post(
+        url,
+        data={"new_password": "brand-new-pass-1", "current_password": "pass1"},
+        format="json",
+    )
+
+    assert response.status_code == 429
+    regular_user.refresh_from_db()
+    assert regular_user.check_password("pass1")

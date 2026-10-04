@@ -448,7 +448,10 @@ export const api = {
     })
     return json(res)
   },
-  changeUserPassword: async (id: number, payload: { new_password: string }): Promise<{ detail: string }> => {
+  changeUserPassword: async (
+    id: number,
+    payload: { new_password: string; current_password?: string },
+  ): Promise<{ detail: string }> => {
     const res = await fetch(`${V1}/users/${id}/change-password/`, {
       method: 'POST',
       headers: jsonHeaders(),
