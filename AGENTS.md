@@ -2,6 +2,9 @@
 
 ## Workflow
 
+- For every ticket, use `implement`, then `ponytail-review`. Fix every review finding;
+  document any unresolved finding in the pull request.
+- Write pull request descriptions using the `pr` skill.
 - Never commit ticket/issue work directly to `main`. Create a new branch for each ticket, commit there, push it, and open a pull request — do not push straight to `main`.
 - Pull request descriptions must be written in Russian.
 - **Open every pull request against `main`.** Targeting another feature branch strands the work if that branch merges first.
@@ -17,6 +20,7 @@
 
 ## Code Style
 
+- Do not comment self-explanatory code. Write docstrings in Google style.
 - Keep Python lines within the 100-character limit enforced by ruff (`line-length = 100`).
 
 ## Backend Testing

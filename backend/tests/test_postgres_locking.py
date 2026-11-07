@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import threading
+import uuid
 from datetime import timedelta
 
 import pytest
@@ -26,8 +27,14 @@ from kanban import dispatcher
 from kanban.models import (
     Attachment,
     Card,
+    CardDeadlineReminder,
+    CardDeadlineReminderDelivery,
+    NotificationDelivery,
     NotificationEvent,
     NotificationEventType,
+    NotificationProfile,
+    PersonalDeliveryChannel,
+    PushDevice,
     RecurrenceFrequency,
     RecurrenceRule,
     TelegramAccount,
@@ -457,3 +464,105 @@ def test_concurrent_confirm_link_binds_once(regular_user) -> None:
 
     assert sorted(results.values()) == ["already_used", "ok"]
     assert TelegramAccount.objects.filter(user=regular_user).count() == 1
+
+
+# ---------------------------------------------------------------------------
+# Channel switch racing the dispatcher (ticket 01)
+# ---------------------------------------------------------------------------
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_channel_switch_after_the_claim_still_cancels_the_send(
+    board, regular_user, webpush_settings, monkeypatch
+) -> None:
+    """The choice must be read at send time, not when the event was claimed."""
+
+    other = User.objects.create_user(username="user2", password="pw")
+    make_push_device(
+        other,
+        kind=PushDevice.Kind.WEBPUSH,
+        endpoint="https://push.example.com/2",
+        p256dh="p256dh",
+        auth="auth",
+    )
+    send_calls: list[dict] = []
+    monkeypatch.setattr("kanban.webpush.send_webpush", lambda **kwargs: send_calls.append(kwargs))
+    event = create_notification_event(
+        event_type=NotificationEventType.CARD_CREATED,
+        actor=regular_user,
+        board=board,
+        summary="Создана задача",
+    )
+
+    # One dispatcher has claimed the row; in parallel the user turns external
+    # delivery off. Both writes are their own committed transactions.
+    with transaction.atomic():
+        claimed = (
+            NotificationEvent.objects.select_for_update(skip_locked=True, of=("self",))
+            .filter(id=event.id, dispatch_status=NotificationEvent.Dispatch.PENDING)
+            .first()
+        )
+        assert claimed is not None
+        claimed.dispatch_status = NotificationEvent.Dispatch.PROCESSING
+        claimed.dispatch_started_at = timezone.now()
+        claimed.save(update_fields=["dispatch_status", "dispatch_started_at"])
+    profile = NotificationProfile.objects.create(user=other)
+    profile.delivery_channel = PersonalDeliveryChannel.DISABLED
+    profile.delivery_channel_changed_at = timezone.now()
+    profile.save(update_fields=["delivery_channel", "delivery_channel_changed_at"])
+
+    # The send step runs only after the switch committed — exactly where the
+    # mid-pass dispatcher is at this point.
+    dispatcher._deliver_event_to_user(claimed, other.id)
+
+    assert send_calls == []
+    assert not NotificationDelivery.objects.filter(event=event, user=other).exists()
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_disabled_channel_reminder_is_not_resumed_by_a_parallel_pass(
+    column, webpush_settings, monkeypatch
+) -> None:
+    """A second dispatcher pass must not revive a cancelled reminder."""
+
+    other = User.objects.create_user(username="user2", password="pw")
+    make_push_device(
+        other,
+        kind=PushDevice.Kind.WEBPUSH,
+        endpoint="https://push.example.com/2",
+        p256dh="p256dh",
+        auth="auth",
+    )
+    card = Card.objects.create(
+        column=column,
+        title="Скорое напоминание",
+        deadline=timezone.now() + timedelta(hours=2),
+    )
+    reminder = CardDeadlineReminder.objects.create(
+        card=card,
+        user=other,
+        enabled=True,
+        offset_value=180,
+        status=CardDeadlineReminder.Status.SCHEDULED,
+        scheduled_at=timezone.now() - timedelta(hours=1),
+        schedule_token=uuid.uuid4(),
+    )
+    profile = NotificationProfile.objects.create(user=other)
+    profile.delivery_channel = PersonalDeliveryChannel.DISABLED
+    profile.delivery_channel_changed_at = timezone.now()
+    profile.save(update_fields=["delivery_channel", "delivery_channel_changed_at"])
+    send_calls: list[dict] = []
+    monkeypatch.setattr("kanban.webpush.send_webpush", lambda **kwargs: send_calls.append(kwargs))
+
+    first_pass = dispatcher.process_due_reminders()
+    second_pass = dispatcher.process_due_reminders()
+
+    assert (first_pass, second_pass) == (0, 0)
+    assert send_calls == []
+    reminder.refresh_from_db()
+    assert reminder.status == CardDeadlineReminder.Status.INVALID_CHANNEL
+    assert not CardDeadlineReminderDelivery.objects.filter(
+        reminder=reminder, status=CardDeadlineReminderDelivery.Status.SENT
+    ).exists()

@@ -38,9 +38,14 @@ class NotificationProfileView(APIView):
 
     def patch(self, request: Request) -> Response:
         profile, _ = NotificationProfile.objects.get_or_create(user=request.user)
+        before = profile.delivery_channel
         serializer = NotificationProfileSerializer(profile, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        if serializer.instance.delivery_channel != before:
+            # Switching back to Push must revive reminders stranded in
+            # INVALID_CHANNEL while external delivery was off.
+            reschedule_invalid_channel_reminders(user_id=request.user.pk)
         return Response(serializer.data)
 
 

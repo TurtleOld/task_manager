@@ -8,7 +8,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("kanban", "0067_usersession_public_id"),
+        ("kanban", "0068_notificationprofile_delivery_channel_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
