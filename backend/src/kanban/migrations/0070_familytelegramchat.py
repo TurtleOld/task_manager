@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("kanban", "0068_telegramaccount_telegramlink"),
+        ("kanban", "0069_telegramaccount_telegramlink"),
     ]
 
     operations = [
