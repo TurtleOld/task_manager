@@ -34,6 +34,9 @@ def test_parse_start_code() -> None:
     assert parse_start_code("/start") is None
     assert parse_start_code("hello") is None
     assert parse_start_code("/start  abc123 ") == "abc123"
+    assert parse_start_code("/start@family_bot abc123") == "abc123"
+    assert parse_start_code("/start@family_bot") is None
+    assert parse_start_code("/startother abc123") is None
 
 
 def test_proxy_map(settings) -> None:
@@ -428,7 +431,9 @@ def test_confirm_family_link_connects_chat(admin_user, recording_send) -> None:
 
 @pytest.mark.django_db()
 def test_confirm_family_link_rejects_non_admin_completion(
-    admin_user, regular_user, recording_send,
+    admin_user,
+    regular_user,
+    recording_send,
 ) -> None:
     link = _make_family_link(admin_user, code="revoked")
     admin_user.is_staff = False
@@ -534,7 +539,10 @@ def test_create_family_link_uses_startgroup(settings, admin_user) -> None:
 
 @pytest.mark.django_db()
 def test_confirm_update_routes_by_purpose(
-    settings, admin_user, regular_user, recording_send,
+    settings,
+    admin_user,
+    regular_user,
+    recording_send,
 ) -> None:
     settings.TELEGRAM_BOT_TOKEN = "token"
     settings.TELEGRAM_BOT_USERNAME = "family_bot"

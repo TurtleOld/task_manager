@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("kanban", "0068_telegramaccount_telegramlink"),
     ]
@@ -27,9 +26,7 @@ class Migration(migrations.Migration):
                 ("title", models.CharField(blank=True, default="", max_length=200)),
                 (
                     "confirmed_at",
-                    models.DateTimeField(
-                        default=django.utils.timezone.now, editable=False
-                    ),
+                    models.DateTimeField(default=django.utils.timezone.now, editable=False),
                 ),
             ],
             options={

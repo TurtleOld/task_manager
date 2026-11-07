@@ -30,9 +30,7 @@ logger = logging.getLogger(__name__)
 TELEGRAM_API = "https://api.telegram.org"
 
 GROUP_CHAT_TYPES = frozenset({"group", "supergroup"})
-FAMILY_CHAT_CONFIRMED_TEXT = (
-    "Семейный чат подключён к приложению. Отключить можно в настройках."
-)
+FAMILY_CHAT_CONFIRMED_TEXT = "Семейный чат подключён к приложению. Отключить можно в настройках."
 
 
 class TelegramError(RuntimeError):
