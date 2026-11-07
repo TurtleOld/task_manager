@@ -13,6 +13,7 @@ from kanban.telegram import (
     _session,
     bot_username,
     confirm_link,
+    confirm_update,
     create_personal_link,
     parse_start_code,
 )
@@ -21,6 +22,7 @@ from kanban.telegram import (
 @pytest.mark.django_db()
 def test_parse_start_code() -> None:
     assert parse_start_code("/start abc123") == "abc123"
+    assert parse_start_code("/start@MyBot abc123") == "abc123"
     assert parse_start_code("/start") is None
     assert parse_start_code("hello") is None
     assert parse_start_code("/start  abc123 ") == "abc123"
@@ -135,6 +137,31 @@ def test_confirm_link_replaces_previous_chat(regular_user) -> None:
     confirm_link(code="relink", chat_id=222)
     account = TelegramAccount.objects.get(user=regular_user)
     assert account.chat_id == 222
+
+
+@pytest.mark.django_db()
+def test_confirm_update_routes_personal_to_confirm_link(regular_user) -> None:
+    TelegramLink.objects.create(
+        code="personal-1",
+        user=regular_user,
+        purpose=TelegramLink.Purpose.PERSONAL,
+        expires_at=timezone.now() + timedelta(minutes=5),
+    )
+    confirm_update(code="personal-1", chat_id=123, chat_type="private", chat_title="")
+    assert TelegramAccount.objects.get(user=regular_user).chat_id == 123
+
+
+@pytest.mark.django_db()
+def test_confirm_update_family_not_implemented(regular_user) -> None:
+    TelegramLink.objects.create(
+        code="family-1",
+        user=regular_user,
+        purpose=TelegramLink.Purpose.FAMILY,
+        expires_at=timezone.now() + timedelta(minutes=5),
+    )
+    with pytest.raises(TelegramLinkError) as excinfo:
+        confirm_update(code="family-1", chat_id=123, chat_type="group", chat_title="Family")
+    assert excinfo.value.reason == "family_not_implemented"
 
 
 @pytest.mark.django_db()

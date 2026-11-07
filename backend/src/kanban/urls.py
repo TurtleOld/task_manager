@@ -26,6 +26,7 @@ from .views import (
     SiteSettingsView,
     TelegramLinkView,
     TelegramTestMessageView,
+    TelegramWebhookView,
     TerminateSessionsView,
     UserAdminViewSet,
     VapidPublicKeyView,
@@ -69,6 +70,7 @@ urlpatterns = [
         TelegramTestMessageView.as_view(),
         name="telegram-test",
     ),
+    path("telegram/webhook/", TelegramWebhookView.as_view(), name="telegram-webhook"),
     path("search/", SearchView.as_view(), name="search"),
     path("settings/site/", SiteSettingsView.as_view(), name="site-settings"),
 ]

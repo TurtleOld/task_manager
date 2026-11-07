@@ -51,6 +51,8 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
       TELEGRAM_PROXY_URL: ${TELEGRAM_PROXY_URL:-}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
       DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-}
       TZ: Europe/Moscow
     healthcheck:
@@ -89,9 +91,6 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_CLAIM_EMAIL: ${VAPID_CLAIM_EMAIL:-}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
-      TELEGRAM_PROXY_URL: ${TELEGRAM_PROXY_URL:-}
       DISPATCHER_POLL_SECONDS: ${DISPATCHER_POLL_SECONDS:-20}
       TZ: Europe/Moscow
     depends_on:
@@ -112,32 +111,6 @@ services:
       - ./backend/src:/app/src
       - ./backend/manage.py:/app/manage.py
       - ./media:/app/media
-
-  telegram:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/backend:${IMAGE_TAG:-main}
-    command: ["sh", "-lc", "/app/.venv/bin/python /app/manage.py run_telegram_poller"]
-    environment:
-      PYTHONPATH: /app/src
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev}
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-*}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-task_manager}
-      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
-      TELEGRAM_PROXY_URL: ${TELEGRAM_PROXY_URL:-}
-      TZ: Europe/Moscow
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    volumes:
-      - ./backend/src:/app/src
-      - ./backend/manage.py:/app/manage.py
 
   frontend:
     build:

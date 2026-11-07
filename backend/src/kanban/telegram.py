@@ -106,12 +106,14 @@ def send_message(*, chat_id: int, text: str) -> dict[str, Any]:
     return _request("sendMessage", {"chat_id": chat_id, "text": text})
 
 
-def get_updates(*, offset: int | None, timeout: int = 50) -> list[dict[str, Any]]:
-    payload: dict[str, Any] = {"timeout": timeout}
-    if offset is not None:
-        payload["offset"] = offset
-    result = _request("getUpdates", payload, timeout=timeout + 10)
-    return result if isinstance(result, list) else []
+def set_webhook(*, url: str, secret_token: str) -> dict[str, Any]:
+    """Register the public webhook. `secret_token` travels in the request body,
+    never in the URL, so it stays out of logs."""
+    return _request("setWebhook", {"url": url, "secret_token": secret_token})
+
+
+def get_webhook_info() -> dict[str, Any]:
+    return _request("getWebhookInfo", {})
 
 
 def bot_username() -> str | None:
@@ -128,9 +130,12 @@ def bot_username() -> str | None:
 
 
 def parse_start_code(text: str) -> str | None:
-    """Extract the deep-link payload from a `/start <code>` message, if any."""
+    """Extract the deep-link payload from `/start <code>` or `/start@<bot> <code>`."""
     parts = text.strip().split(maxsplit=1)
-    if not parts or parts[0] != "/start":
+    if not parts:
+        return None
+    command = parts[0].split("@", 1)[0]
+    if command != "/start":
         return None
     if len(parts) == 1:
         return None
@@ -187,3 +192,42 @@ def confirm_link(*, code: str, chat_id: int) -> None:
             defaults={"chat_id": chat_id},
         )
         logger.info("telegram_link_confirmed user=%s purpose=%s", link.user_id, link.purpose)
+
+
+def confirm_update(
+    *,
+    code: str,
+    chat_id: int,
+    chat_type: str,
+    chat_title: str,
+) -> None:
+    """Confirm a `/start` update, routing by the link's `purpose`.
+
+    Personal codes bind the user's own chat (ticket 02); family codes bind the
+    family chat (ticket 04) via `confirm_family_link`. The `purpose` stored on
+    the code decides, so a personal code can never become a family chat and
+    vice versa.
+    """
+    link = TelegramLink.objects.filter(code=code).first()
+    if link is None:
+        raise TelegramLinkError("unknown_code")
+    if link.purpose == TelegramLink.Purpose.FAMILY:
+        confirm_family_link(
+            link=link,
+            chat_id=chat_id,
+            chat_type=chat_type,
+            chat_title=chat_title,
+        )
+        return
+    confirm_link(code=code, chat_id=chat_id)
+
+
+def confirm_family_link(
+    *,
+    link: TelegramLink,
+    chat_id: int,
+    chat_type: str,
+    chat_title: str,
+) -> None:
+    """Bind the family chat for a family-purpose code (ticket 04)."""
+    raise TelegramLinkError("family_not_implemented")

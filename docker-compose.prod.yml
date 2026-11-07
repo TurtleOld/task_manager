@@ -13,6 +13,8 @@ x-app-env: &app-env
   TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
   TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
   TELEGRAM_PROXY_URL: ${TELEGRAM_PROXY_URL:-}
+  TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+  TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
   TZ: Europe/Moscow
 
 x-logging: &logging
@@ -96,22 +98,6 @@ services:
       timeout: 30s
       retries: 3
       start_period: 90s
-    logging: *logging
-    <<: *restart
-
-  telegram:
-    image: ${IMAGE_REGISTRY:-ghcr.io/turtleold/task_manager}/backend:${IMAGE_TAG:-latest}
-    command: ["sh", "-lc", "/app/.venv/bin/python /app/manage.py run_telegram_poller"]
-    env_file:
-      - .env
-    environment:
-      <<: *app-env
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - shared-db
-      - task-manager
     logging: *logging
     <<: *restart
 

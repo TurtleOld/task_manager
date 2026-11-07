@@ -319,6 +319,13 @@ TELEGRAM_BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "")
 TELEGRAM_PROXY_URL = os.getenv("TELEGRAM_PROXY_URL", "")
 # How long a one-time linking code stays valid.
 TELEGRAM_LINK_TTL_SECONDS = int(os.getenv("TELEGRAM_LINK_TTL_SECONDS", "900"))
+# Public HTTPS URL Telegram posts updates to, registered via `manage.py
+# set_telegram_webhook`. The proxy is only needed for outbound requests; the
+# inbound webhook arrives through the reverse proxy (Traefik).
+TELEGRAM_WEBHOOK_URL = os.getenv("TELEGRAM_WEBHOOK_URL", "")
+# Secret Telegram sends in `X-Telegram-Bot-Api-Secret-Token`. Empty means the
+# webhook endpoint fails closed. Never logged or returned to the client.
+TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
 
 # --- Notification dispatcher ---
 #
