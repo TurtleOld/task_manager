@@ -255,3 +255,104 @@ def test_reenable_revives_a_reminder_stranded_while_off(column, webpush_settings
     reminder.refresh_from_db()
     assert reminder.status == CardDeadlineReminder.Status.SCHEDULED
     assert reminder.scheduled_at is not None
+
+
+@pytest.mark.django_db()
+def test_reenable_does_not_revive_a_reminder_whose_moment_passed(column, webpush_settings) -> None:
+    """A reminder cancelled at its due moment stays cancelled after re-enable."""
+    other = User.objects.create_user(username="user2", password="pw")
+    _device(other)
+    card = Card.objects.create(
+        column=column,
+        title="Напоминание в прошлом",
+        deadline=timezone.now() + timedelta(hours=2),
+    )
+    reminder = _due_reminder(card, other)
+    _disable(other)
+    dispatcher.process_due_reminders()
+    reminder.refresh_from_db()
+    assert reminder.status == CardDeadlineReminder.Status.INVALID_CHANNEL
+
+    other_client = client_for(other)
+    response = other_client.patch(PROFILE_URL, {"delivery_channel": "push"}, format="json")
+    assert response.status_code == 200
+
+    reminder.refresh_from_db()
+    assert reminder.status == CardDeadlineReminder.Status.INVALID_PAST
+    assert not CardDeadlineReminderDelivery.objects.filter(
+        reminder=reminder, status=CardDeadlineReminderDelivery.Status.SENT
+    ).exists()
+
+
+@pytest.mark.django_db()
+def test_switch_between_claim_and_send_cancels_reminder(
+    column, webpush_settings, monkeypatch
+) -> None:
+    """A disable landing after the claim but before the send must still win."""
+    other = User.objects.create_user(username="user2", password="pw")
+    _device(other)
+    card = Card.objects.create(
+        column=column,
+        title="Напоминание в претензии",
+        deadline=timezone.now() + timedelta(hours=2),
+    )
+    reminder = _due_reminder(card, other)
+    send_calls: list[dict] = []
+    monkeypatch.setattr("kanban.webpush.send_webpush", lambda **kwargs: send_calls.append(kwargs))
+    real_message = dispatcher._reminder_message
+
+    def message_then_switch(reminder, card):
+        _disable(reminder.user)
+        return real_message(reminder, card)
+
+    monkeypatch.setattr(dispatcher, "_reminder_message", message_then_switch)
+
+    sent = dispatcher.process_due_reminders()
+
+    assert sent == 0
+    assert send_calls == []
+    reminder.refresh_from_db()
+    assert reminder.status == CardDeadlineReminder.Status.INVALID_CHANNEL
+    delivery = CardDeadlineReminderDelivery.objects.get(reminder=reminder)
+    assert delivery.status == CardDeadlineReminderDelivery.Status.FAILED
+    assert "выключены" in delivery.error
+
+
+@pytest.mark.django_db()
+def test_reenable_does_not_resume_a_cancelled_retry(column, webpush_settings, monkeypatch) -> None:
+    """A retry pending at the switch belongs to the old channel period."""
+    other = User.objects.create_user(username="user2", password="pw")
+    _device(other)
+    card = Card.objects.create(
+        column=column,
+        title="Повторная попытка",
+        deadline=timezone.now() + timedelta(hours=2),
+    )
+    reminder = _due_reminder(card, other)
+    send_calls: list[dict] = []
+
+    def failing_send(**kwargs) -> None:
+        send_calls.append(kwargs)
+        raise RuntimeError("push service is down")
+
+    monkeypatch.setattr("kanban.webpush.send_webpush", failing_send)
+    dispatcher.process_due_reminders()
+    reminder.refresh_from_db()
+    assert reminder.status == CardDeadlineReminder.Status.SCHEDULED
+    assert reminder.next_attempt_at is not None
+
+    _disable(other)
+    other_client = client_for(other)
+    response = other_client.patch(PROFILE_URL, {"delivery_channel": "push"}, format="json")
+    assert response.status_code == 200
+    monkeypatch.setattr("kanban.webpush.send_webpush", lambda **kwargs: send_calls.append(kwargs))
+
+    sent = dispatcher.process_due_reminders(now=timezone.now() + timedelta(minutes=5))
+
+    assert sent == 0
+    assert len(send_calls) == 1
+    reminder.refresh_from_db()
+    assert reminder.status == CardDeadlineReminder.Status.INVALID_CHANNEL
+    delivery = CardDeadlineReminderDelivery.objects.get(reminder=reminder)
+    assert delivery.status == CardDeadlineReminderDelivery.Status.FAILED
+    assert "выключены" in delivery.error

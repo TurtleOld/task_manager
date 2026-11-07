@@ -23,6 +23,9 @@ class ChannelAvailability:
     reason: str
 
 
+EXTERNAL_DELIVERY_OFF = "Внешние уведомления выключены"
+
+
 def preferences_enabled_for_event_type(
     *,
     user_id: int,
@@ -57,7 +60,7 @@ def reminder_channel_availability(
     def push_availability() -> ChannelAvailability:
         profile = NotificationProfile.objects.filter(user_id=user_id).first()
         if profile and profile.delivery_channel == PersonalDeliveryChannel.DISABLED:
-            return ChannelAvailability(False, "Внешние уведомления выключены")
+            return ChannelAvailability(False, EXTERNAL_DELIVERY_OFF)
         if not preferences_enabled_for_event_type(
             user_id=user_id,
             board_id=board_id,

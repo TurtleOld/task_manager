@@ -48,6 +48,7 @@ from .models import (
 from .notifications import is_pending_card_update_window
 from .push_delivery import send_push_to_user
 from .reminders import (
+    EXTERNAL_DELIVERY_OFF,
     preferences_enabled_for_event_type,
     reminder_channel_availability,
     resolve_delivery_channel,
@@ -262,6 +263,22 @@ def process_due_reminders(*, now=None, limit: int | None = None) -> int:
         # hold a row lock for the duration.
         subject, body, link = _reminder_message(reminder, card)
 
+        profile = NotificationProfile.objects.filter(user_id=reminder.user_id).first()
+        if (
+            profile
+            and profile.delivery_channel_changed_at
+            and reminder.scheduled_at <= profile.delivery_channel_changed_at
+        ):
+            delivery.status = CardDeadlineReminderDelivery.Status.FAILED
+            delivery.error = EXTERNAL_DELIVERY_OFF
+            delivery.save(update_fields=["status", "error"])
+            _finalize_reminder(
+                reminder,
+                status=CardDeadlineReminder.Status.INVALID_CHANNEL,
+                error=EXTERNAL_DELIVERY_OFF,
+            )
+            continue
+
         try:
             _deliver_reminder_on_channel(
                 reminder=reminder,
@@ -403,8 +420,6 @@ def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
     if profile:
         if profile.delivery_channel == PersonalDeliveryChannel.DISABLED:
             return
-        # The choice is read at send time, not when the event was claimed, so
-        # a switch that happens mid-pass cancels this user's delivery too.
         if (
             profile.delivery_channel_changed_at
             and event.created_at <= profile.delivery_channel_changed_at
