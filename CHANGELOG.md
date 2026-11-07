@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.2.0](https://github.com/TurtleOld/task_manager/compare/v2.1.0...v2.2.0) (2026-11-07)
+
+
+### Features
+
+* доставка общих событий в семейный чат Telegram ([#185](https://github.com/TurtleOld/task_manager/issues/185)) ([dab180d](https://github.com/TurtleOld/task_manager/commit/dab180d71d1269cdd640882d851c1a6cf405e1dc))
+* личная доставка через Telegram вместо Push ([#184](https://github.com/TurtleOld/task_manager/issues/184)) ([2ff858f](https://github.com/TurtleOld/task_manager/commit/2ff858f906f29f25902b67ff68b76c984d40fb3f))
+* личный выбор Push или «Выключено» для внешних уведомлений ([#179](https://github.com/TurtleOld/task_manager/issues/179)) ([a63d7d2](https://github.com/TurtleOld/task_manager/commit/a63d7d2986e31e50d96791dc39f0b5c2e45eadf2))
+* подключение семейного чата Telegram администратором ([#181](https://github.com/TurtleOld/task_manager/issues/181)) ([59c5013](https://github.com/TurtleOld/task_manager/commit/59c50139a96752952416dacec5193ed48dd0cd25))
+* привязка личного Telegram и внешний прокси ([#180](https://github.com/TurtleOld/task_manager/issues/180)) ([62c5b44](https://github.com/TurtleOld/task_manager/commit/62c5b44798b89644a24da5b502755b8a07a8afc7))
+
+
+### Bug Fixes
+
+* сократить Telegram-уведомления без повторов ([#189](https://github.com/TurtleOld/task_manager/issues/189)) ([345de37](https://github.com/TurtleOld/task_manager/commit/345de37e7024101a5746d4f966e065567fe6479d))
+
 ## [2.1.0](https://github.com/TurtleOld/task_manager/compare/v2.0.0...v2.1.0) (2026-10-04)
 
 
