@@ -20,6 +20,8 @@ dependencies = [
     "channels-redis>=4.2",
     "pywebpush>=2.0.3",
     "django-axes>=8",
+    "requests>=2.31",
+    "PySocks>=1.7.1",
 ]
 
 [project.optional-dependencies]

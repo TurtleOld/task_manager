@@ -168,6 +168,11 @@ OPENAPI_URL=http://localhost:8000/api/schema npm run generate:openapi
 - FRONTEND_BASE_URL — базовый URL фронтенда для ссылок в уведомлениях
 - EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_USE_TLS, EMAIL_USE_SSL, DEFAULT_FROM_EMAIL
 - TELEGRAM_BOT_TOKEN — токен бота
+- TELEGRAM_BOT_USERNAME — публичное имя бота (без `@`); если пусто, определяется через getMe
+- TELEGRAM_PROXY_URL — внешний прокси self-hosted установки для всех обращений к Telegram.
+  HTTP(S) (`http://host:port`) или SOCKS5 (`socks5://`/`socks5h://`); `socks5h://` разрешает имя
+  `api.telegram.org` через прокси. Пустое значение — прямое подключение. Адрес должен быть
+  доступен из контейнеров: `127.0.0.1` внутри контейнера — это не хост, где запущен прокси.
 
 Web Push:
 
