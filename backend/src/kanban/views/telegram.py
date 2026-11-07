@@ -20,6 +20,7 @@ from ..telegram import (
     parse_start_code,
     send_message,
     telegram_configured,
+    unlink_family_chat,
     unlink_personal_chat,
 )
 from .users import IsAdminUser
@@ -207,7 +208,7 @@ class FamilyChatView(APIView):
                 {"detail": "Только администратор семьи может отключать общий чат"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        FamilyTelegramChat.objects.filter(pk=1).delete()
+        unlink_family_chat()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
