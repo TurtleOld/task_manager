@@ -97,7 +97,7 @@ def agenda_queryset(
     assignee_id: int | None = None,
 ) -> QuerySet[Card]:
     queryset = (
-        Card.objects.select_related("board", "assignee", "completed_by")
+        Card.objects.select_related("board", "assignee", "completed_by", "created_by")
         .filter(parent__isnull=True)
         .filter(
             Q(completed_at__isnull=True)
@@ -138,7 +138,7 @@ def completed_queryset(
     manager, same as everywhere else.
     """
     queryset = (
-        Card.objects.select_related("board", "assignee", "completed_by")
+        Card.objects.select_related("board", "assignee", "completed_by", "created_by")
         .filter(parent__isnull=True, completed_at__isnull=False)
         .annotate(
             has_subtasks=Exists(Card.objects.filter(parent_id=OuterRef("pk"))),

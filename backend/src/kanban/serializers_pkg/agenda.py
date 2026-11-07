@@ -20,6 +20,7 @@ class AgendaUserSerializer(UserSerializer):
 class AgendaCardSerializer(serializers.ModelSerializer[Card]):
     list = serializers.IntegerField(source="board_id", read_only=True)
     assignee = AgendaUserSerializer(read_only=True)
+    created_by = AgendaUserSerializer(read_only=True)
     priority_label = serializers.CharField(source="get_priority_display", read_only=True)
     completed_by = AgendaUserSerializer(read_only=True)
     has_subtasks = serializers.BooleanField(read_only=True)
@@ -38,6 +39,7 @@ class AgendaCardSerializer(serializers.ModelSerializer[Card]):
             "priority",
             "priority_label",
             "assignee",
+            "created_by",
             "completed_at",
             "completed_by",
             "has_subtasks",

@@ -23,6 +23,8 @@ export interface Card {
   parent: number | null
   assignee: number | null
   assignee_detail?: AgendaUser | null
+  created_by?: number | null
+  created_by_detail?: AgendaUser | null
   title: string
   description: string
   deadline: string | null
@@ -71,6 +73,7 @@ export interface AgendaCard {
   priority: 0 | 1 | 2 | 3
   priority_label?: string
   assignee: AgendaUser | null
+  created_by: AgendaUser | null
   completed_at: string | null
   completed_by: AgendaUser | null
   has_subtasks: boolean
