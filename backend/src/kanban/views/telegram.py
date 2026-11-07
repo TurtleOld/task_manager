@@ -103,13 +103,15 @@ class TelegramWebhookView(APIView):
         if not _webhook_secret_matches(request):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
+        if not _webhook_body_within_limit(request):
+            return Response(status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+
         update: Any = request.data
         if not isinstance(update, dict) or not isinstance(update.get("update_id"), int):
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
         message: Any = update.get("message")
         if not isinstance(message, dict):
-            # Not a message update (edited_message, callback_query, ...): ack.
             return Response(status=status.HTTP_200_OK)
 
         chat: Any = message.get("chat")
@@ -117,7 +119,6 @@ class TelegramWebhookView(APIView):
             chat = {}
         code = parse_start_code(str(message.get("text") or ""))
         if not code or not isinstance(chat.get("id"), int):
-            # Not a /start deep link: ack and ignore.
             return Response(status=status.HTTP_200_OK)
 
         try:
@@ -128,17 +129,33 @@ class TelegramWebhookView(APIView):
                 chat_title=str(chat.get("title") or ""),
             )
         except TelegramLinkError:
-            # Permanent rejection (unknown/used/expired/wrong purpose): ack so
+            # Ack a permanent rejection (unknown/used/expired/wrong purpose) so
             # Telegram stops re-delivering it.
             return Response(status=status.HTTP_200_OK)
-        # A database failure propagates as 500 so Telegram retries the update.
+        # No catch-all: a database error must stay a 500 so Telegram retries.
         return Response(status=status.HTTP_200_OK)
+
+
+# A /start update is under 1 KB; bound the body so a hostile payload is rejected
+# before JSON parsing without reading it into memory.
+WEBHOOK_MAX_BODY_BYTES = 64 * 1024
+
+
+def _webhook_body_within_limit(request: Request) -> bool:
+    length = request.headers.get("Content-Length")
+    if length is None:
+        return True
+    try:
+        return int(length) <= WEBHOOK_MAX_BODY_BYTES
+    except ValueError:
+        return False
 
 
 def _webhook_secret_matches(request: Request) -> bool:
     expected = settings.TELEGRAM_WEBHOOK_SECRET
     if not expected:
-        # Fail closed: an unset secret must not admit anyone.
         return False
     provided = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
-    return hmac.compare_digest(provided, expected)
+    # compare_digest rejects non-ASCII str; compare bytes to fail closed on any
+    # header value instead of raising.
+    return hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8"))

@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from django.conf import settings
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from ...telegram import (
     TelegramError,
@@ -36,29 +36,24 @@ class Command(BaseCommand):
 
     def handle(self, *args: Any, **options: Any) -> None:
         if not telegram_configured():
-            self.stderr.write("TELEGRAM_BOT_TOKEN не задан.")
-            return
-
-        if options["delete"]:
-            set_webhook(url="", secret_token="")
-            self.stdout.write(self.style.SUCCESS("Webhook удалён."))
-            return
-
-        url = settings.TELEGRAM_WEBHOOK_URL
-        secret = settings.TELEGRAM_WEBHOOK_SECRET
-        if not url or not secret:
-            self.stderr.write("Задайте TELEGRAM_WEBHOOK_URL и TELEGRAM_WEBHOOK_SECRET.")
-            return
-        if not url.startswith("https://"):
-            self.stderr.write("TELEGRAM_WEBHOOK_URL должен начинаться с https://.")
-            return
+            raise CommandError("TELEGRAM_BOT_TOKEN не задан.")
 
         try:
+            if options["delete"]:
+                set_webhook(url="", secret_token="")
+                self.stdout.write(self.style.SUCCESS("Webhook удалён."))
+                return
+
+            url = settings.TELEGRAM_WEBHOOK_URL
+            secret = settings.TELEGRAM_WEBHOOK_SECRET
+            if not url or not secret:
+                raise CommandError("Задайте TELEGRAM_WEBHOOK_URL и TELEGRAM_WEBHOOK_SECRET.")
+            if not url.startswith("https://"):
+                raise CommandError("TELEGRAM_WEBHOOK_URL должен начинаться с https://.")
             set_webhook(url=url, secret_token=secret)
             info = get_webhook_info()
         except TelegramError as exc:
-            self.stderr.write(f"Ошибка Telegram: {exc}")
-            return
+            raise CommandError(f"Ошибка Telegram: {exc}") from exc
 
         self.stdout.write(
             self.style.SUCCESS(
