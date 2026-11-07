@@ -11,6 +11,8 @@ from .models import (
     CardDeadlineReminder,
     NotificationChannel,
     NotificationPreference,
+    NotificationProfile,
+    PersonalDeliveryChannel,
     PushDevice,
 )
 
@@ -53,6 +55,9 @@ def reminder_channel_availability(
     *, user_id: int, board_id: int | None, event_type: str
 ) -> dict[str, ChannelAvailability]:
     def push_availability() -> ChannelAvailability:
+        profile = NotificationProfile.objects.filter(user_id=user_id).first()
+        if profile and profile.delivery_channel == PersonalDeliveryChannel.DISABLED:
+            return ChannelAvailability(False, "Внешние уведомления выключены")
         if not preferences_enabled_for_event_type(
             user_id=user_id,
             board_id=board_id,

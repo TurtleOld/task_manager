@@ -259,6 +259,7 @@ export type NotificationEventType =
 export interface NotificationProfile {
   timezone: string
   timezone_configured: boolean
+  delivery_channel: 'push' | 'disabled'
 }
 
 export interface NotificationInboxItem {

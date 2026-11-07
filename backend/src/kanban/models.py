@@ -340,6 +340,18 @@ class NotificationChannel(models.TextChoices):
     PUSH = "push", "Push"
 
 
+class PersonalDeliveryChannel(models.TextChoices):
+    """The one channel a person chose for external notifications.
+
+    `NotificationChannel` describes how a delivery was actually sent; this
+    describes the person's own choice, which ticket 01 limits to Push and
+    «Выключено» — Telegram arrives as another member later.
+    """
+
+    PUSH = "push", "Push"
+    DISABLED = "disabled", "Выключено"
+
+
 class NotificationEventType(models.TextChoices):
     BOARD_CREATED = "board.created", "Board created"
     BOARD_UPDATED = "board.updated", "Board updated"
@@ -408,6 +420,15 @@ class NotificationProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     timezone = models.CharField(max_length=64, blank=True, default="UTC")
     timezone_configured = models.BooleanField(default=False)
+    delivery_channel = models.CharField(
+        max_length=20,
+        choices=PersonalDeliveryChannel.choices,
+        default=PersonalDeliveryChannel.PUSH,
+    )
+    # Set on every change of `delivery_channel`. A delivery is decided at send
+    # time, so this timestamp is what makes the switch durable: events created
+    # before it belong to the previous choice and must never be sent after it.
+    delivery_channel_changed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["id"]

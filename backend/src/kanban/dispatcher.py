@@ -42,6 +42,7 @@ from .models import (
     NotificationEventType,
     NotificationInboxEntry,
     NotificationProfile,
+    PersonalDeliveryChannel,
     UserSession,
 )
 from .notifications import is_pending_card_update_window
@@ -218,10 +219,14 @@ def process_due_reminders(*, now=None, limit: int | None = None) -> int:
             )
             channel = resolve_delivery_channel(reminder=reminder, availability=availability)
             if not channel:
+                reason = next(
+                    (item.reason for item in availability.values() if not item.available),
+                    "Канал доставки недоступен",
+                )
                 _finalize_reminder(
                     reminder,
                     status=CardDeadlineReminder.Status.INVALID_CHANNEL,
-                    error="Нет подключённых устройств для получения напоминания",
+                    error=reason,
                 )
                 continue
 
@@ -393,6 +398,18 @@ def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
     function writes the device delivery record for whoever it is given. The
     inbox entry is written separately and unconditionally.
     """
+
+    profile = NotificationProfile.objects.filter(user_id=user_id).first()
+    if profile:
+        if profile.delivery_channel == PersonalDeliveryChannel.DISABLED:
+            return
+        # The choice is read at send time, not when the event was claimed, so
+        # a switch that happens mid-pass cancels this user's delivery too.
+        if (
+            profile.delivery_channel_changed_at
+            and event.created_at <= profile.delivery_channel_changed_at
+        ):
+            return
 
     if not preferences_enabled_for_event_type(
         user_id=user_id,
