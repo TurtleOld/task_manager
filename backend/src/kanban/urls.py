@@ -11,6 +11,8 @@ from .views import (
     CompletedAgendaView,
     CsrfCookieView,
     CurrentUserView,
+    FamilyChatTestMessageView,
+    FamilyChatView,
     FamilyTodayView,
     LoginView,
     LogoutView,
@@ -71,6 +73,16 @@ urlpatterns = [
         name="telegram-test",
     ),
     path("telegram/webhook/", TelegramWebhookView.as_view(), name="telegram-webhook"),
+    path(
+        "notifications/telegram/family/",
+        FamilyChatView.as_view(),
+        name="telegram-family",
+    ),
+    path(
+        "notifications/telegram/family/test/",
+        FamilyChatTestMessageView.as_view(),
+        name="telegram-family-test",
+    ),
     path("search/", SearchView.as_view(), name="search"),
     path("settings/site/", SiteSettingsView.as_view(), name="site-settings"),
 ]

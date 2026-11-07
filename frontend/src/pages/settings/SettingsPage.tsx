@@ -10,6 +10,7 @@ import { UserPlus } from 'lucide-react'
 import { Button, Field, Modal, Select, Skeleton, TextInput } from '@/components/ui'
 import { NotificationsSection } from './NotificationsSection'
 import { SessionsSection } from './SessionsSection'
+import { FamilyChatSection } from './FamilyChatSection'
 import { TelegramSection } from './TelegramSection'
 import { Initial, SettingsRow, SettingsSection, Switch } from './ui'
 
@@ -248,6 +249,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
     { id: 'profile', label: 'Профиль' },
     { id: 'notifications', label: 'Уведомления' },
     { id: 'telegram', label: 'Telegram' },
+    ...(user.is_admin ? [{ id: 'family-chat', label: 'Семейный чат' }] : []),
     { id: 'appearance', label: 'Внешний вид' },
     { id: 'security', label: 'Безопасность' },
     { id: 'sessions', label: 'Сессии' },
@@ -301,6 +303,8 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
           <NotificationsSection />
 
           <TelegramSection />
+
+          {user.is_admin ? <FamilyChatSection /> : null}
 
           <SettingsSection id="appearance" title="Внешний вид" description="Хранится в этом браузере.">
             <SettingsRow label="Компактный режим" description="Плотнее строки и отступы, больше задач на экране." htmlFor="compact-mode">
