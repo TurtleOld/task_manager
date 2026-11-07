@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/TurtleOld/task_manager/compare/v2.2.0...v2.2.1) (2026-11-07)
+
+
+### Bug Fixes
+
+* показывать исполнителя и создателя в карточке задачи ([#190](https://github.com/TurtleOld/task_manager/issues/190)) ([ac9571a](https://github.com/TurtleOld/task_manager/commit/ac9571acebf93a9df1acea518296da15e42d647b))
+
 ## [2.2.0](https://github.com/TurtleOld/task_manager/compare/v2.1.0...v2.2.0) (2026-11-07)
 
 
