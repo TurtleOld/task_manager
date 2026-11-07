@@ -14,6 +14,7 @@ from ..models import (
     NotificationProfile,
     PersonalDeliveryChannel,
     PushDevice,
+    TelegramAccount,
 )
 from ..webpush import is_allowed_push_endpoint
 
@@ -29,6 +30,13 @@ class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProf
             "delivery_channel",
         ]
         read_only_fields = ["timezone_configured"]
+
+    def validate_delivery_channel(self, value: str) -> str:
+        if value == PersonalDeliveryChannel.TELEGRAM:
+            user = self.instance.user if self.instance else None
+            if user is None or not TelegramAccount.objects.filter(user=user).exists():
+                raise serializers.ValidationError("Сначала подключите личный Telegram")
+        return value
 
     def update(
         self,

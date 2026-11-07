@@ -239,7 +239,7 @@ export interface RegistrationStatus {
   allow_admin: boolean
 }
 
-export type NotificationChannel = 'push'
+export type NotificationChannel = 'push' | 'telegram'
 
 export type NotificationEventType =
   | 'board.created'
@@ -259,7 +259,7 @@ export type NotificationEventType =
 export interface NotificationProfile {
   timezone: string
   timezone_configured: boolean
-  delivery_channel: 'push' | 'disabled'
+  delivery_channel: 'push' | 'telegram' | 'disabled'
 }
 
 export interface NotificationInboxItem {
@@ -316,6 +316,7 @@ export interface CardDeadlineReminderResponse {
   reminders: CardDeadlineReminder[]
   channels: {
     push: ReminderChannelInfo
+    telegram: ReminderChannelInfo
   }
   deadline: string | null
 }
@@ -358,6 +359,7 @@ export interface TelegramStatus {
   configured: boolean
   linked: boolean
   confirmed_at: string | null
+  last_error: string
 }
 
 export interface TelegramLinkResponse {

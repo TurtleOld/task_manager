@@ -664,3 +664,54 @@ def test_concurrent_confirm_family_link_connects_once(admin_user, monkeypatch) -
     assert sorted(results.values()) == ["already_used", "ok"]
     assert FamilyTelegramChat.objects.count() == 1
     assert FamilyTelegramChat.objects.get(pk=1).chat_id in (-100200, -100300)
+
+
+# ---------------------------------------------------------------------------
+# Telegram channel switch racing the dispatcher (ticket 03)
+# ---------------------------------------------------------------------------
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_telegram_switch_after_the_claim_still_cancels_the_send(
+    board, regular_user, monkeypatch
+) -> None:
+    """A Telegram user switching away after the claim must not get the message."""
+
+    other = User.objects.create_user(username="user2", password="pw")
+    TelegramAccount.objects.create(user=other, chat_id=777)
+    profile = NotificationProfile.objects.create(user=other)
+    profile.delivery_channel = PersonalDeliveryChannel.TELEGRAM
+    profile.delivery_channel_changed_at = timezone.now() - timedelta(minutes=5)
+    profile.save(update_fields=["delivery_channel", "delivery_channel_changed_at"])
+    sent: list[int] = []
+    monkeypatch.setattr(
+        "kanban.dispatcher.send_message",
+        lambda *, chat_id, text: sent.append(chat_id) or {"message_id": 1},
+    )
+    event = create_notification_event(
+        event_type=NotificationEventType.CARD_CREATED,
+        actor=regular_user,
+        board=board,
+        summary="Создана задача",
+    )
+
+    with transaction.atomic():
+        claimed = (
+            NotificationEvent.objects.select_for_update(skip_locked=True, of=("self",))
+            .filter(id=event.id, dispatch_status=NotificationEvent.Dispatch.PENDING)
+            .first()
+        )
+        assert claimed is not None
+        claimed.dispatch_status = NotificationEvent.Dispatch.PROCESSING
+        claimed.dispatch_started_at = timezone.now()
+        claimed.save(update_fields=["dispatch_status", "dispatch_started_at"])
+
+    profile.delivery_channel = PersonalDeliveryChannel.DISABLED
+    profile.delivery_channel_changed_at = timezone.now()
+    profile.save(update_fields=["delivery_channel", "delivery_channel_changed_at"])
+
+    dispatcher._deliver_event_to_user(claimed, other.id)
+
+    assert sent == []
+    assert not NotificationDelivery.objects.filter(event=event, user=other).exists()

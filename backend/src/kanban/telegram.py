@@ -34,11 +34,29 @@ FAMILY_CHAT_CONFIRMED_TEXT = "Семейный чат подключён к пр
 
 
 class TelegramError(RuntimeError):
-    """Telegram is unreachable or rejected the request."""
+    """Telegram is unreachable or rejected the request.
+
+    `status` is the HTTP status code when Telegram answered, or None for a
+    transport failure. A retry can only succeed on a rate limit (429), a
+    server error (5xx) or a transport failure; every other status is a
+    permanent rejection for that recipient and must not be retried.
+    """
+
+    def __init__(self, message: str, *, status: int | None = None) -> None:
+        super().__init__(message)
+        self.status = status
+
+    @property
+    def retryable(self) -> bool:
+        return self.status is None or self.status == 429 or self.status >= 500
 
 
 class TelegramNotConfiguredError(TelegramError):
     """TELEGRAM_BOT_TOKEN is missing, so no Telegram request can be made."""
+
+    @property
+    def retryable(self) -> bool:
+        return False
 
 
 class TelegramLinkError(RuntimeError):
@@ -106,7 +124,7 @@ def _request(method: str, payload: dict[str, Any], *, timeout: int = 30) -> Any:
     if not data.get("ok"):
         description = str(data.get("description", "unknown error"))
         logger.warning("telegram_api_error description=%s", description)
-        raise TelegramError(f"Telegram: {description}")
+        raise TelegramError(f"Telegram: {description}", status=response.status_code)
     return data.get("result", {})
 
 

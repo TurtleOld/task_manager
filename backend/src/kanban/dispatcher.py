@@ -43,6 +43,7 @@ from .models import (
     NotificationInboxEntry,
     NotificationProfile,
     PersonalDeliveryChannel,
+    TelegramAccount,
     UserSession,
 )
 from .notifications import is_pending_card_update_window
@@ -53,6 +54,7 @@ from .reminders import (
     reminder_channel_availability,
     resolve_delivery_channel,
 )
+from .telegram import TelegramError, send_message
 from .webpush import PushDeliveryError
 
 User = get_user_model()
@@ -127,6 +129,22 @@ def _deliver_reminder_on_channel(
             raise RuntimeError(f"Push не доставлен — {result.summary()}")
         return
 
+    if channel == NotificationChannel.TELEGRAM:
+        account = TelegramAccount.objects.filter(user_id=reminder.user_id).first()
+        if account is None:
+            raise RuntimeError("Telegram не подключён")
+        try:
+            send_message(chat_id=account.chat_id, text=f"{subject}\n\n{body}"[:4096])
+        except TelegramError as exc:
+            if not exc.retryable:
+                account.last_error = str(exc)[:500]
+                account.save(update_fields=["last_error"])
+            raise
+        if account.last_error:
+            account.last_error = ""
+            account.save(update_fields=["last_error"])
+        return
+
     raise RuntimeError(f"Неизвестный канал доставки: {channel}")
 
 
@@ -169,6 +187,9 @@ def process_due_reminders(*, now=None, limit: int | None = None) -> int:
             status=CardDeadlineReminder.Status.SCHEDULED,
             scheduled_at__isnull=False,
             scheduled_at__lte=now,
+            # A blocked (deactivated) account stops all external delivery,
+            # including Telegram: its reminders must not fire either.
+            user__is_active=True,
         )
         # Never attempted, or the retry backoff has elapsed.
         .filter(Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now))
@@ -221,7 +242,11 @@ def process_due_reminders(*, now=None, limit: int | None = None) -> int:
             channel = resolve_delivery_channel(reminder=reminder, availability=availability)
             if not channel:
                 reason = next(
-                    (item.reason for item in availability.values() if not item.available),
+                    (
+                        item.reason
+                        for item in availability.values()
+                        if not item.available and item.reason
+                    ),
                     "Канал доставки недоступен",
                 )
                 _finalize_reminder(
@@ -406,7 +431,7 @@ def _event_body(event: NotificationEvent) -> str:
 
 
 def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
-    """Deliver one event to one person's devices over Web Push.
+    """Deliver one event to one person over their chosen channel.
 
     The actor is a recipient like any other here — with two people sharing a
     board, a notification about your own action confirms it reached the other
@@ -417,14 +442,19 @@ def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
     """
 
     profile = NotificationProfile.objects.filter(user_id=user_id).first()
-    if profile:
-        if profile.delivery_channel == PersonalDeliveryChannel.DISABLED:
-            return
-        if (
-            profile.delivery_channel_changed_at
-            and event.created_at <= profile.delivery_channel_changed_at
-        ):
-            return
+    chosen = profile.delivery_channel if profile else PersonalDeliveryChannel.PUSH
+    if chosen == PersonalDeliveryChannel.DISABLED:
+        return
+    if (
+        profile
+        and profile.delivery_channel_changed_at
+        and event.created_at <= profile.delivery_channel_changed_at
+    ):
+        return
+
+    if chosen == PersonalDeliveryChannel.TELEGRAM:
+        _deliver_event_to_telegram(event, user_id)
+        return
 
     if not preferences_enabled_for_event_type(
         user_id=user_id,
@@ -491,6 +521,81 @@ def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
         raise PushDeliveryError(result.summary())
 
 
+def _deliver_event_to_telegram(event: NotificationEvent, user_id: int) -> None:
+    """Send one event to a person's linked personal Telegram chat.
+
+    Mirrors the push path: the delivery row dedupes retries, and a transient
+    Telegram failure (rate limit, server error, transport) raises so the event
+    is retried with backoff — never re-routed to push. A permanent rejection
+    (chat gone, bot blocked) is recorded and left in place so it does not stop
+    the other recipients. An absent link is "nothing to do", like push with no
+    devices.
+    """
+
+    if not preferences_enabled_for_event_type(
+        user_id=user_id,
+        board_id=event.board_id,
+        channel=NotificationChannel.TELEGRAM.value,
+        event_type=event.event_type,
+    ):
+        return
+
+    account = TelegramAccount.objects.filter(user_id=user_id).first()
+    if account is None:
+        return
+
+    channel = NotificationChannel.TELEGRAM.value
+    dedupe_key = f"event:{event.id}:{user_id}:{channel}"
+    delivery = NotificationDelivery.objects.filter(dedupe_key=dedupe_key).first()
+    if delivery and delivery.status == NotificationDelivery.Status.SENT:
+        return
+
+    subject = str(Truncator(_event_title(event)).chars(120))
+    # Telegram caps a message at 4096 characters; the event text is normally
+    # far shorter, but a long card title or summary must not turn a valid
+    # notification into a permanent "message is too long" rejection.
+    text = f"{subject}\n\n{_event_body(event)}"[:4096]
+
+    is_new = delivery is None
+    if is_new:
+        delivery = NotificationDelivery(
+            event=event, user_id=user_id, channel=channel, dedupe_key=dedupe_key
+        )
+    try:
+        send_message(chat_id=account.chat_id, text=text)
+    except TelegramError as exc:
+        delivery.status = NotificationDelivery.Status.FAILED
+        delivery.error = str(exc)[:500]
+        if is_new:
+            delivery.save()
+        else:
+            delivery.save(update_fields=["status", "error"])
+        if exc.retryable:
+            # The event is retried with backoff; this row's dedupe check above
+            # keeps an already-sent recipient from being messaged twice.
+            raise
+        account.last_error = str(exc)[:500]
+        account.save(update_fields=["last_error"])
+        logger.warning(
+            "telegram_event_permanently_failed event=%s user=%s error=%s",
+            event.id,
+            user_id,
+            exc,
+        )
+        return
+
+    delivery.status = NotificationDelivery.Status.SENT
+    delivery.sent_at = timezone.now()
+    delivery.error = ""
+    if is_new:
+        delivery.save()
+    else:
+        delivery.save(update_fields=["status", "sent_at", "error"])
+    if account.last_error:
+        account.last_error = ""
+        account.save(update_fields=["last_error"])
+
+
 def process_outbox_events(*, now=None, limit: int | None = None) -> int:
     """Deliver pending notification events. Returns how many were processed."""
 
@@ -530,6 +635,7 @@ def process_outbox_events(*, now=None, limit: int | None = None) -> int:
 
         # Outside the lock: sending talks to the network and must not hold a
         # row lock for the duration.
+        retry_error: Exception | None = None
         try:
             recipient_ids = _event_recipients(event)
 
@@ -540,15 +646,25 @@ def process_outbox_events(*, now=None, limit: int | None = None) -> int:
                 [NotificationInboxEntry(event=event, user_id=uid) for uid in recipient_ids],
                 ignore_conflicts=True,
             )
-
-            for user_id in recipient_ids:
-                _deliver_event_to_user(event, user_id)
         except Exception as exc:  # noqa: BLE001
+            retry_error = exc
+        else:
+            for user_id in recipient_ids:
+                try:
+                    _deliver_event_to_user(event, user_id)
+                except Exception as exc:  # noqa: BLE001
+                    retry_error = retry_error or exc
+
+        if retry_error is not None:
             event.dispatch_attempts += 1
-            event.dispatch_error = str(exc)[:500]
+            event.dispatch_error = str(retry_error)[:500]
             if event.dispatch_attempts >= settings.DISPATCHER_MAX_ATTEMPTS:
                 event.dispatch_status = NotificationEvent.Dispatch.FAILED
-                logger.error("event_dispatch_failed_permanently event=%s error=%s", event.id, exc)
+                logger.error(
+                    "event_dispatch_failed_permanently event=%s error=%s",
+                    event.id,
+                    retry_error,
+                )
             else:
                 event.dispatch_status = NotificationEvent.Dispatch.PENDING
                 event.next_attempt_at = now + _backoff(event.dispatch_attempts)

@@ -333,22 +333,22 @@ class ChecklistItem(models.Model):
 
 
 class NotificationChannel(models.TextChoices):
-    # Web Push is the only delivery channel (ADR 0003). The enumeration is kept
-    # with a single member on purpose: `NotificationDelivery.channel` must stay
-    # an honest history of deliveries, and adding a second channel later must
-    # not require reshaping the deliveries table.
+    # `NotificationDelivery.channel` records how a delivery was actually sent,
+    # so it needs a member per real channel rather than one shared value.
     PUSH = "push", "Push"
+    TELEGRAM = "telegram", "Telegram"
 
 
 class PersonalDeliveryChannel(models.TextChoices):
     """The one channel a person chose for external notifications.
 
     `NotificationChannel` describes how a delivery was actually sent; this
-    describes the person's own choice, which ticket 01 limits to Push and
-    «Выключено» — Telegram arrives as another member later.
+    describes the person's own choice: Push, Telegram or «Выключено». Telegram
+    requires a confirmed personal link.
     """
 
     PUSH = "push", "Push"
+    TELEGRAM = "telegram", "Telegram"
     DISABLED = "disabled", "Выключено"
 
 
@@ -452,6 +452,9 @@ class TelegramAccount(models.Model):
     )
     chat_id = models.BigIntegerField()
     confirmed_at = models.DateTimeField(default=timezone.now, editable=False)
+    # Set on a permanent send failure (bot blocked, chat deleted) and cleared
+    # on the next success, so settings can surface an unavailable chat.
+    last_error = models.TextField(blank=True, default="")
 
     class Meta:
         ordering = ["id"]
