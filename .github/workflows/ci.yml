@@ -127,7 +127,9 @@ jobs:
         run: npm test
 
   e2e:
-    runs-on: ubuntu-latest
+    # Playwright has no chromium build for ubuntu-26.04 yet, so pin to a
+    # supported LTS instead of `ubuntu-latest`.
+    runs-on: ubuntu-24.04
     if: github.ref_type == 'branch'
     steps:
       - uses: actions/checkout@v4
