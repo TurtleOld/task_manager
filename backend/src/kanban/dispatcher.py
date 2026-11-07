@@ -137,11 +137,18 @@ def _deliver_reminder_on_channel(
         return
 
     if channel == NotificationChannel.TELEGRAM:
+        from .tasks import _format_deadline_ru
+
         account = TelegramAccount.objects.filter(user_id=reminder.user_id).first()
         if account is None:
             raise RuntimeError("Telegram не подключён")
+        profile = NotificationProfile.objects.get(user_id=reminder.user_id)
+        deadline = _format_deadline_ru(dt=card.deadline, tz_name=profile.timezone)
+        text = "\n".join(
+            [f"Напоминание: {Truncator(card.title).chars(240)}", f"Срок: {deadline}", link]
+        )
         try:
-            send_message(chat_id=account.chat_id, text=f"{subject}\n\n{body}"[:4096])
+            send_message(chat_id=account.chat_id, text=text[:4096])
         except TelegramError as exc:
             if not exc.retryable:
                 account.last_error = str(exc)[:500]
@@ -437,6 +444,18 @@ def _event_body(event: NotificationEvent) -> str:
     return "\n".join(lines)
 
 
+def _telegram_event_message(event: NotificationEvent) -> str:
+    """Format a compact event with its list and application link."""
+    payload = event.payload or {}
+    board = payload.get("board") or (event.board.name if event.board else "")
+    lines = [str(Truncator(_event_title(event)).chars(240))]
+    if board:
+        lines.append(f"Список: {Truncator(board).chars(80)}")
+    if event.link:
+        lines.append(event.link)
+    return "\n".join(lines)[:4096]
+
+
 def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
     """Deliver one event to one person over their chosen channel.
 
@@ -567,11 +586,7 @@ def _deliver_event_to_telegram(event: NotificationEvent, user_id: int) -> None:
     if delivery and delivery.status == NotificationDelivery.Status.SENT:
         return
 
-    subject = str(Truncator(_event_title(event)).chars(120))
-    # Telegram caps a message at 4096 characters; the event text is normally
-    # far shorter, but a long card title or summary must not turn a valid
-    # notification into a permanent "message is too long" rejection.
-    text = f"{subject}\n\n{_event_body(event)}"[:4096]
+    text = _telegram_event_message(event)
 
     is_new = delivery is None
     if is_new:
@@ -670,8 +685,7 @@ def _deliver_event_to_family_chat(event: NotificationEvent, recipient_ids: list[
     if delivery and delivery.status == NotificationDelivery.Status.SENT:
         return
 
-    subject = str(Truncator(_event_title(event)).chars(120))
-    text = f"{subject}\n\n{_event_body(event)}"[:4096]
+    text = _telegram_event_message(event)
 
     is_new = delivery is None
     if is_new:

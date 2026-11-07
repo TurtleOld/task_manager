@@ -158,7 +158,10 @@ def get_me() -> dict[str, Any]:
 
 
 def send_message(*, chat_id: int, text: str) -> dict[str, Any]:
-    return _request("sendMessage", {"chat_id": chat_id, "text": text})
+    return _request(
+        "sendMessage",
+        {"chat_id": chat_id, "text": text, "link_preview_options": {"is_disabled": True}},
+    )
 
 
 def set_webhook(*, url: str, secret_token: str) -> dict[str, Any]:
