@@ -9,18 +9,20 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..models import TelegramAccount
+from ..models import FamilyTelegramChat, TelegramAccount
 from ..telegram import (
     TelegramError,
     TelegramLinkError,
     TelegramNotConfiguredError,
     confirm_update,
+    create_family_link,
     create_personal_link,
     parse_start_code,
     send_message,
     telegram_configured,
     unlink_personal_chat,
 )
+from .users import IsAdminUser
 
 
 class TelegramLinkView(APIView):
@@ -160,3 +162,80 @@ def _webhook_secret_matches(request: Request) -> bool:
     # compare_digest rejects non-ASCII str; compare bytes to fail closed on any
     # header value instead of raising.
     return hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8"))
+
+
+class FamilyChatView(APIView):
+    """Manage the family's shared Telegram chat.
+
+    The status is readable by every family member — ticket 05 offers the
+    connected chat as a delivery destination — but creating a link or
+    disconnecting is admin-only, and `confirm_family_link` re-checks admin
+    rights when the binding completes.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        chat = FamilyTelegramChat.objects.filter(pk=1).first()
+        return Response(
+            {
+                "configured": telegram_configured(),
+                "linked": chat is not None,
+                "title": chat.title if chat else "",
+                "confirmed_at": chat.confirmed_at if chat else None,
+            }
+        )
+
+    def post(self, request: Request) -> Response:
+        if not request.user.is_staff:
+            return Response(
+                {"detail": "Только администратор семьи может подключать общий чат"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        try:
+            data = create_family_link(request.user)
+        except TelegramError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request: Request) -> Response:
+        if not request.user.is_staff:
+            return Response(
+                {"detail": "Только администратор семьи может отключать общий чат"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        FamilyTelegramChat.objects.filter(pk=1).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class FamilyChatTestMessageView(APIView):
+    """Send a test message to the connected family chat (admins only)."""
+
+    permission_classes = [IsAdminUser]
+
+    def post(self, request: Request) -> Response:
+        chat = FamilyTelegramChat.objects.filter(pk=1).first()
+        if chat is None:
+            return Response(
+                {"detail": "Семейный чат не подключён"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        try:
+            send_message(
+                chat_id=chat.chat_id,
+                text="Проверка семейного чата Telegram. Если вы это видите — всё работает.",
+            )
+        except TelegramNotConfiguredError:
+            return Response(
+                {"detail": "Telegram не настроен на сервере"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except TelegramError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response({"delivered": True, "detail": "Отправлено"}, status=status.HTTP_200_OK)

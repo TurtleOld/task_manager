@@ -1,4 +1,4 @@
-"""Telegram Bot API client and personal-chat linking.
+"""Telegram Bot API client and personal/family chat linking.
 
 The family shares one bot, configured on the server via .env. Every call to
 api.telegram.org goes through the configured external proxy when one is set —
@@ -23,11 +23,16 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from .models import TelegramAccount, TelegramLink
+from .models import FamilyTelegramChat, TelegramAccount, TelegramLink
 
 logger = logging.getLogger(__name__)
 
 TELEGRAM_API = "https://api.telegram.org"
+
+GROUP_CHAT_TYPES = frozenset({"group", "supergroup"})
+FAMILY_CHAT_CONFIRMED_TEXT = (
+    "Семейный чат подключён к приложению. Отключить можно в настройках."
+)
 
 
 class TelegramError(RuntimeError):
@@ -158,6 +163,19 @@ def create_personal_link(user: Any) -> dict[str, Any]:
     Raises TelegramError when the bot is not configured or its username cannot
     be resolved.
     """
+    return _create_link(user, purpose=TelegramLink.Purpose.PERSONAL, param="start")
+
+
+def create_family_link(user: Any) -> dict[str, Any]:
+    """Create a one-time `startgroup` deep link for a family admin.
+
+    Raises TelegramError when the bot is not configured or its username cannot
+    be resolved.
+    """
+    return _create_link(user, purpose=TelegramLink.Purpose.FAMILY, param="startgroup")
+
+
+def _create_link(user: Any, *, purpose: Any, param: str) -> dict[str, Any]:
     username = bot_username()
     if not username:
         raise TelegramError("Не удалось определить имя бота")
@@ -166,11 +184,11 @@ def create_personal_link(user: Any) -> dict[str, Any]:
     TelegramLink.objects.create(
         code=code,
         user=user,
-        purpose=TelegramLink.Purpose.PERSONAL,
+        purpose=purpose,
         expires_at=expires_at,
     )
     return {
-        "link": f"https://t.me/{username}?start={code}",
+        "link": f"https://t.me/{username}?{param}={code}",
         "code": code,
         "expires_at": expires_at,
     }
@@ -222,7 +240,7 @@ def confirm_update(
         raise TelegramLinkError("unknown_code")
     if link.purpose == TelegramLink.Purpose.FAMILY:
         confirm_family_link(
-            link=link,
+            code=code,
             chat_id=chat_id,
             chat_type=chat_type,
             chat_title=chat_title,
@@ -233,15 +251,47 @@ def confirm_update(
     confirm_link(code=code, chat_id=chat_id)
 
 
-def confirm_family_link(
-    *,
-    link: TelegramLink,
-    chat_id: int,
-    chat_type: str,
-    chat_title: str,
-) -> None:
-    """Bind the family chat for a family-purpose code (ticket 04)."""
-    raise TelegramLinkError("family_not_implemented")
+def confirm_family_link(*, code: str, chat_id: int, chat_type: str, chat_title: str) -> None:
+    """Connect the family chat from an admin's one-time `startgroup` code.
+
+    Admin rights are re-checked here, at completion: a code issued while the
+    user was an admin must not connect the chat after the role was taken away.
+    The chat must be a group, and the bot must be able to post there — the
+    probe message doubles as the visible confirmation in the chat. On success
+    the single FamilyTelegramChat row is replaced, so two groups are never
+    connected at once.
+    """
+    with transaction.atomic():
+        link = TelegramLink.objects.select_for_update().filter(code=code).first()
+        if link is None:
+            raise TelegramLinkError("unknown_code")
+        if link.used_at is not None:
+            raise TelegramLinkError("already_used")
+        if timezone.now() > link.expires_at:
+            raise TelegramLinkError("expired")
+        if link.purpose != TelegramLink.Purpose.FAMILY:
+            raise TelegramLinkError("wrong_purpose")
+        if not link.user.is_staff:
+            raise TelegramLinkError("not_admin")
+        if chat_type not in GROUP_CHAT_TYPES:
+            raise TelegramLinkError("not_a_group")
+        link.used_at = timezone.now()
+        link.save(update_fields=["used_at"])
+
+    try:
+        send_message(chat_id=chat_id, text=FAMILY_CHAT_CONFIRMED_TEXT)
+    except TelegramError as exc:
+        raise TelegramLinkError("send_failed") from exc
+    FamilyTelegramChat.objects.update_or_create(
+        pk=1,
+        defaults={
+            "chat_id": chat_id,
+            # Telegram allows group titles longer than the model column.
+            "title": chat_title[:200],
+            "confirmed_at": timezone.now(),
+        },
+    )
+    logger.info("family_chat_confirmed chat_id=%s by_user=%s", chat_id, link.user_id)
 
 
 def unlink_personal_chat(user: Any) -> None:

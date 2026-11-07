@@ -460,12 +460,32 @@ class TelegramAccount(models.Model):
         return f"telegram_account:{self.user_id}"
 
 
+class FamilyTelegramChat(models.Model):
+    """The family's shared Telegram group, connected by a family admin.
+
+    Exactly one row (pk=1): a later confirmation replaces the chat instead of
+    adding a second one. The chat_id is resolved from the admin's one-time
+    startgroup link and stored here, never in .env. Connecting the chat does
+    not by itself deliver anything.
+    """
+
+    chat_id = models.BigIntegerField()
+    title = models.CharField(max_length=200, blank=True, default="")
+    confirmed_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        verbose_name = "Семейный чат Telegram"
+        verbose_name_plural = "Семейные чаты Telegram"
+
+    def __str__(self) -> str:  # pragma: no cover
+        return "family_telegram_chat"
+
+
 class TelegramLink(models.Model):
     """A one-time deep-link code that binds a chat to a user or a family chat.
 
     `purpose` splits personal and family linking so a personal code can never
-    become a family one and vice versa. Ticket 04 fills in the family flow;
-    only personal is exercised today.
+    become a family one and vice versa.
     """
 
     class Purpose(models.TextChoices):

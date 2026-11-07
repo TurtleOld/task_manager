@@ -371,6 +371,18 @@ export interface TelegramTestResponse {
   detail: string
 }
 
+export interface FamilyChatStatus {
+  configured: boolean
+  linked: boolean
+  title: string
+  confirmed_at: string | null
+}
+
+export interface FamilyChatTestResponse {
+  delivered: boolean
+  detail: string
+}
+
 export interface NotificationPreference {
   id: number
   board: number | null

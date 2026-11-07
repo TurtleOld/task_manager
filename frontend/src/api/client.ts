@@ -17,6 +17,8 @@ import type {
   TelegramStatus,
   TelegramLinkResponse,
   TelegramTestResponse,
+  FamilyChatStatus,
+  FamilyChatTestResponse,
   SiteSettings,
   MyTodayResponse,
   ArchiveResponse,
@@ -547,6 +549,32 @@ export const api = {
   },
   testTelegramMessage: async (): Promise<TelegramTestResponse> => {
     const res = await fetch(`${V1}/notifications/telegram/test/`, {
+      method: 'POST',
+      headers: jsonHeaders(),
+    })
+    return json(res)
+  },
+
+  getFamilyChatStatus: async (): Promise<FamilyChatStatus> => {
+    const res = await fetch(`${V1}/notifications/telegram/family/`, { headers: jsonHeaders() })
+    return json(res)
+  },
+  createFamilyChatLink: async (): Promise<TelegramLinkResponse> => {
+    const res = await fetch(`${V1}/notifications/telegram/family/`, {
+      method: 'POST',
+      headers: jsonHeaders(),
+    })
+    return json(res)
+  },
+  unlinkFamilyChat: async (): Promise<void> => {
+    const res = await fetch(`${V1}/notifications/telegram/family/`, {
+      method: 'DELETE',
+      headers: jsonHeaders(),
+    })
+    return ok(res)
+  },
+  testFamilyChatMessage: async (): Promise<FamilyChatTestResponse> => {
+    const res = await fetch(`${V1}/notifications/telegram/family/test/`, {
       method: 'POST',
       headers: jsonHeaders(),
     })

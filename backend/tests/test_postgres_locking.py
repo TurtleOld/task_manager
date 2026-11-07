@@ -29,6 +29,7 @@ from kanban.models import (
     Card,
     CardDeadlineReminder,
     CardDeadlineReminderDelivery,
+    FamilyTelegramChat,
     NotificationDelivery,
     NotificationEvent,
     NotificationEventType,
@@ -45,7 +46,12 @@ from kanban.notifications import create_notification_event
 from kanban.push_delivery import deliverable_devices, send_push_to_user
 from kanban.reminders import skip_reminders_for_completed_card
 from kanban.tasks import generate_recurring_cards
-from kanban.telegram import TelegramLinkError, confirm_link, unlink_personal_chat
+from kanban.telegram import (
+    TelegramLinkError,
+    confirm_family_link,
+    confirm_link,
+    unlink_personal_chat,
+)
 from tests.auth_helpers import client_for, make_push_device, make_session
 
 User = get_user_model()
@@ -609,3 +615,52 @@ def test_disabled_channel_reminder_is_not_resumed_by_a_parallel_pass(
     assert not CardDeadlineReminderDelivery.objects.filter(
         reminder=reminder, status=CardDeadlineReminderDelivery.Status.SENT
     ).exists()
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_confirm_family_link_connects_once(admin_user, monkeypatch) -> None:
+    """Two concurrent family confirmations must connect exactly one group.
+
+    The loser sees `used_at` already set and never reaches the probe message,
+    so the family chat row is written once with the winner's chat_id.
+    """
+
+    monkeypatch.setattr(
+        "kanban.telegram.send_message",
+        lambda **kwargs: {"message_id": 1},
+    )
+    link = TelegramLink.objects.create(
+        code="concurrent-family",
+        user=admin_user,
+        purpose=TelegramLink.Purpose.FAMILY,
+        expires_at=timezone.now() + timedelta(minutes=5),
+    )
+    results: dict[int, str] = {}
+    barrier = threading.Barrier(2)
+
+    def confirm(chat_id: int) -> None:
+        try:
+            barrier.wait(timeout=10)
+            confirm_family_link(
+                code=link.code,
+                chat_id=chat_id,
+                chat_type="group",
+                chat_title="Семья",
+            )
+            results[chat_id] = "ok"
+        except TelegramLinkError as exc:
+            results[chat_id] = exc.reason
+        finally:
+            connection.close()
+
+    worker = threading.Thread(target=confirm, args=(-100200,))
+    worker.start()
+    try:
+        confirm(-100300)
+    finally:
+        worker.join(timeout=10)
+
+    assert sorted(results.values()) == ["already_used", "ok"]
+    assert FamilyTelegramChat.objects.count() == 1
+    assert FamilyTelegramChat.objects.get(pk=1).chat_id in (-100200, -100300)
