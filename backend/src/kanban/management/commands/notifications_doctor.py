@@ -182,9 +182,12 @@ class Command(BaseCommand):
             self.stdout.write("Пусто.")
             return
         for delivery in deliveries:
+            recipient = (
+                delivery.user.username if delivery.user_id else f"family:{delivery.family_chat_id}"
+            )
             line = (
                 f"id={delivery.id} sent_at={delivery.sent_at} "
-                f"user={delivery.user.username} "
+                f"user={recipient} "
                 f"event_type={delivery.event.event_type} status={delivery.status}"
             )
             if delivery.error:

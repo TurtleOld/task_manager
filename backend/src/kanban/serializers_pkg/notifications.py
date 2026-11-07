@@ -7,6 +7,7 @@ from rest_framework import serializers
 
 from ..models import (
     CardDeadlineReminder,
+    FamilyTelegramChat,
     NotificationChannel,
     NotificationEventType,
     NotificationInboxEntry,
@@ -15,12 +16,17 @@ from ..models import (
     PersonalDeliveryChannel,
     PushDevice,
     TelegramAccount,
+    TelegramDeliveryTarget,
 )
 from ..webpush import is_allowed_push_endpoint
 
 
 class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProfile]):
     delivery_channel = serializers.ChoiceField(choices=PersonalDeliveryChannel.choices)
+    telegram_target = serializers.ChoiceField(
+        choices=TelegramDeliveryTarget.choices, required=False
+    )
+    telegram_target_reason = serializers.CharField(read_only=True)
 
     class Meta:
         model = NotificationProfile
@@ -28,14 +34,26 @@ class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProf
             "timezone",
             "timezone_configured",
             "delivery_channel",
+            "telegram_target",
+            "telegram_target_reason",
         ]
-        read_only_fields = ["timezone_configured"]
+        read_only_fields = ["timezone_configured", "telegram_target_reason"]
 
     def validate_delivery_channel(self, value: str) -> str:
         if value == PersonalDeliveryChannel.TELEGRAM:
             user = self.instance.user if self.instance else None
             if user is None or not TelegramAccount.objects.filter(user=user).exists():
                 raise serializers.ValidationError("Сначала подключите личный Telegram")
+        return value
+
+    def validate_telegram_target(self, value: str) -> str:
+        if value != TelegramDeliveryTarget.FAMILY:
+            return value
+        user = self.instance.user if self.instance else None
+        if user is None or not TelegramAccount.objects.filter(user=user).exists():
+            raise serializers.ValidationError("Сначала подключите личный Telegram")
+        if not FamilyTelegramChat.objects.filter(pk=1).exists():
+            raise serializers.ValidationError("Семейный чат не подключён")
         return value
 
     def update(
@@ -54,6 +72,14 @@ class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProf
             instance.delivery_channel = channel
             instance.delivery_channel_changed_at = timezone.now()
             update_fields.extend(["delivery_channel", "delivery_channel_changed_at"])
+        target = validated_data.get("telegram_target")
+        if target is not None and target != instance.telegram_target:
+            instance.telegram_target = target
+            instance.telegram_target_changed_at = timezone.now()
+            instance.telegram_target_reason = ""
+            update_fields.extend(
+                ["telegram_target", "telegram_target_changed_at", "telegram_target_reason"]
+            )
         if update_fields:
             instance.save(update_fields=update_fields)
         return instance

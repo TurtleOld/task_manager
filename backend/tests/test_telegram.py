@@ -21,6 +21,7 @@ from kanban.telegram import (
     create_family_link,
     create_personal_link,
     parse_start_code,
+    unlink_family_chat,
     unlink_personal_chat,
 )
 
@@ -476,16 +477,107 @@ def test_confirm_family_link_rejects_private_chat(admin_user, recording_send) ->
 
 
 @pytest.mark.django_db()
-def test_confirm_family_link_rejects_unsendable_chat(monkeypatch, admin_user) -> None:
-    _make_family_link(admin_user, code="mute")
-    monkeypatch.setattr(
-        "kanban.telegram.send_message",
-        lambda **kwargs: (_ for _ in ()).throw(TelegramError("Telegram: bot is not a member")),
-    )
-    with pytest.raises(TelegramLinkError) as excinfo:
-        confirm_family_link(code="mute", chat_id=-100200, chat_type="group", chat_title="")
-    assert excinfo.value.reason == "send_failed"
+def test_confirm_family_link_retries_after_transient_send_error(admin_user, monkeypatch) -> None:
+    link = _make_family_link(admin_user, code="flaky")
+    calls = 0
+
+    def flaky_send(*, chat_id: int, text: str) -> dict:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise TelegramError("Telegram недоступен")
+        return {"message_id": 1}
+
+    monkeypatch.setattr("kanban.telegram.send_message", flaky_send)
+
+    with pytest.raises(TelegramError):
+        confirm_family_link(code="flaky", chat_id=-100200, chat_type="group", chat_title="Семья")
+    link.refresh_from_db()
+    assert link.used_at is None
     assert not FamilyTelegramChat.objects.exists()
+
+    confirm_family_link(code="flaky", chat_id=-100200, chat_type="group", chat_title="Семья")
+    assert FamilyTelegramChat.objects.get(pk=1).chat_id == -100200
+    link.refresh_from_db()
+    assert link.used_at is not None
+
+
+@pytest.mark.django_db()
+def test_confirm_family_link_retries_after_db_failure(admin_user, monkeypatch) -> None:
+    link = _make_family_link(admin_user, code="dbfail")
+    sent: list[int] = []
+
+    def fake_send(*, chat_id: int, text: str) -> dict:
+        sent.append(chat_id)
+        return {"message_id": 1}
+
+    monkeypatch.setattr("kanban.telegram.send_message", fake_send)
+
+    manager = FamilyTelegramChat.objects
+    original = manager.update_or_create
+    calls = 0
+
+    def flaky_update(**kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("db write failure")
+        return original(**kwargs)
+
+    monkeypatch.setattr(manager, "update_or_create", flaky_update)
+
+    with pytest.raises(RuntimeError):
+        confirm_family_link(code="dbfail", chat_id=-100200, chat_type="group", chat_title="Семья")
+    link.refresh_from_db()
+    assert link.used_at is None
+    assert not FamilyTelegramChat.objects.exists()
+
+    confirm_family_link(code="dbfail", chat_id=-100200, chat_type="group", chat_title="Семья")
+    assert FamilyTelegramChat.objects.get(pk=1).chat_id == -100200
+    assert sent == [-100200, -100200]
+
+
+@pytest.mark.django_db()
+def test_confirm_family_link_rejects_code_revoked_by_unlink(admin_user, recording_send) -> None:
+    _make_family_link(admin_user, code="stale")
+    unlink_family_chat(reason="Семейный чат отключён администратором")
+
+    with pytest.raises(TelegramLinkError) as excinfo:
+        confirm_family_link(code="stale", chat_id=-100200, chat_type="group", chat_title="Семья")
+    assert excinfo.value.reason == "already_used"
+    assert not FamilyTelegramChat.objects.exists()
+    assert recording_send == []
+
+
+@pytest.mark.django_db()
+def test_confirm_family_link_rejects_when_unlinked_during_probe(admin_user, monkeypatch) -> None:
+    _make_family_link(admin_user, code="inflight")
+
+    def send_then_unlink(*, chat_id: int, text: str) -> dict:
+        unlink_family_chat(reason="Семейный чат отключён администратором")
+        return {"message_id": 1}
+
+    monkeypatch.setattr("kanban.telegram.send_message", send_then_unlink)
+
+    with pytest.raises(TelegramLinkError) as excinfo:
+        confirm_family_link(code="inflight", chat_id=-100200, chat_type="group", chat_title="Семья")
+    assert excinfo.value.reason == "already_used"
+    assert not FamilyTelegramChat.objects.exists()
+
+
+@pytest.mark.django_db()
+def test_unlink_family_chat_revokes_pending_and_deletes_chat(admin_user) -> None:
+    FamilyTelegramChat.objects.create(pk=1, chat_id=-100200, title="")
+    first = _make_family_link(admin_user, code="first")
+    second = _make_family_link(admin_user, code="second")
+
+    unlink_family_chat(reason="Семейный чат отключён администратором")
+
+    assert not FamilyTelegramChat.objects.exists()
+    first.refresh_from_db()
+    assert first.used_at is not None
+    second.refresh_from_db()
+    assert second.used_at is not None
 
 
 @pytest.mark.django_db()
@@ -589,11 +681,14 @@ def test_api_family_unlink_requires_admin(settings, auth_client) -> None:
 
 
 @pytest.mark.django_db()
-def test_api_family_unlink(settings, admin_client) -> None:
+def test_api_family_unlink(settings, admin_client, admin_user) -> None:
     FamilyTelegramChat.objects.create(pk=1, chat_id=-100200, title="")
+    link = _make_family_link(admin_user, code="revoked-by-api")
     resp = admin_client.delete("/api/v1/notifications/telegram/family/")
     assert resp.status_code == 204
     assert not FamilyTelegramChat.objects.exists()
+    link.refresh_from_db()
+    assert link.used_at is not None
 
 
 @pytest.mark.django_db()

@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { BellRing, RefreshCw, Send, Smartphone } from 'lucide-react'
 import { api } from '../../api/client'
 import type {
+  FamilyChatStatus,
   NotificationProfile,
   PushDevice,
   PushTestResponse,
@@ -29,6 +30,7 @@ function formatDate(value: string | null): string {
 export function NotificationsSection({ telegramStatus }: { telegramStatus: TelegramStatus | null }) {
   const [devices, setDevices] = useState<PushDevice[]>([])
   const [profile, setProfile] = useState<NotificationProfile | null>(null)
+  const [familyChat, setFamilyChat] = useState<FamilyChatStatus | null>(null)
   const [channelSaving, setChannelSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [enabled, setEnabled] = useState(false)
@@ -41,14 +43,16 @@ export function NotificationsSection({ telegramStatus }: { telegramStatus: Teleg
   const refresh = useCallback(async () => {
     setError('')
     try {
-      const [nextDevices, nextProfile, active] = await Promise.all([
+      const [nextDevices, nextProfile, nextFamilyChat, active] = await Promise.all([
         api.listPushDevices(),
         api.getNotificationProfile(),
+        api.getFamilyChatStatus().catch(() => null),
         hasActiveSubscription(),
       ])
       const savedId = getSavedDeviceId()
       setDevices(nextDevices)
       setProfile(nextProfile)
+      setFamilyChat(nextFamilyChat)
       // The button must reflect the server, not just the local browser: a
       // device disabled elsewhere stays subscribed locally but no longer
       // receives anything, so the browser must be allowed to re-register.
@@ -155,12 +159,35 @@ export function NotificationsSection({ telegramStatus }: { telegramStatus: Teleg
     }
   }
 
+  const onChangeTarget = async (value: string) => {
+    if (!profile || channelSaving) return
+    const next = value as NotificationProfile['telegram_target']
+    if (next === profile.telegram_target) return
+    setChannelSaving(true)
+    setError('')
+    const previous = profile
+    setProfile({ ...profile, telegram_target: next, telegram_target_reason: '' })
+    try {
+      setProfile(await api.updateNotificationProfile({ telegram_target: next }))
+      toast.success('Получатель обновлён')
+    } catch (e) {
+      setProfile(previous)
+      setError((e as Error).message)
+      toast.error('Не удалось изменить получателя')
+    } finally {
+      setChannelSaving(false)
+    }
+  }
+
   const permission = getNotificationPermission()
 
   const channel = profile?.delivery_channel ?? 'push'
   const pushOn = channel === 'push'
   const telegramOn = channel === 'telegram'
   const telegramLinked = telegramStatus?.linked ?? false
+  const target = profile?.telegram_target ?? 'personal'
+  const familyChatLinked = familyChat?.linked ?? false
+  const targetReason = profile?.telegram_target_reason ?? ''
 
   return (
     <SettingsSection
@@ -193,6 +220,33 @@ export function NotificationsSection({ telegramStatus }: { telegramStatus: Teleg
           <option value="disabled">Выключено</option>
         </Select>
       </SettingsRow>
+
+      {telegramOn ? (
+        <SettingsRow
+          label="Общие события в Telegram"
+          description={
+            targetReason
+              ? targetReason
+              : target === 'family'
+                ? 'События семьи приходят в общий чат. Такое сообщение видят все его участники, включая тех, кто выбрал Push или «Выключено». Личные напоминания по-прежнему приходят только в ваш личный чат.'
+                : 'События семьи приходят в ваш личный чат бота. Семейный чат не используется.'
+          }
+          htmlFor="telegram-target"
+        >
+          <Select
+            id="telegram-target"
+            value={target}
+            onChange={(e) => void onChangeTarget(e.target.value)}
+            disabled={profile === null || channelSaving}
+            className="sm:w-52"
+          >
+            <option value="personal">Личный чат</option>
+            <option value="family" disabled={!familyChatLinked}>
+              Семейный чат{familyChatLinked ? '' : ' (не подключён)'}
+            </option>
+          </Select>
+        </SettingsRow>
+      ) : null}
 
       {pushOn && devices.length === 0 && !loading ? (
         <SettingsRow label="Устройства для доставки" description="Подключённых устройств нет — включите уведомления в этом браузере ниже, иначе доставлять некуда." />

@@ -16,6 +16,7 @@ from .models import (
     PersonalDeliveryChannel,
     PushDevice,
     TelegramAccount,
+    TelegramDeliveryTarget,
 )
 
 
@@ -128,6 +129,25 @@ def telegram_availability(
     if not TelegramAccount.objects.filter(user_id=user_id).exists():
         return ChannelAvailability(False, "Telegram не подключён")
     return ChannelAvailability(True, "")
+
+
+def switch_family_recipients_to_personal(*, reason: str) -> int:
+    """Re-home everyone on the family chat to their personal chat.
+
+    The switch is recorded with a timestamp so pending events from the group
+    era are not re-delivered personally, and the reason is surfaced in
+    settings. Returns how many profiles were switched.
+    """
+
+    now = timezone.now()
+    return NotificationProfile.objects.filter(
+        delivery_channel=PersonalDeliveryChannel.TELEGRAM,
+        telegram_target=TelegramDeliveryTarget.FAMILY,
+    ).update(
+        telegram_target=TelegramDeliveryTarget.PERSONAL,
+        telegram_target_changed_at=now,
+        telegram_target_reason=reason,
+    )
 
 
 def resolve_delivery_channel(

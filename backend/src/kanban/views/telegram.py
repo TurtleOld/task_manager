@@ -16,6 +16,7 @@ from ..models import (
     NotificationProfile,
     PersonalDeliveryChannel,
     TelegramAccount,
+    TelegramDeliveryTarget,
 )
 from ..reminders import reschedule_invalid_channel_reminders
 from ..telegram import (
@@ -28,6 +29,7 @@ from ..telegram import (
     parse_start_code,
     send_message,
     telegram_configured,
+    unlink_family_chat,
     unlink_personal_chat,
 )
 from .users import IsAdminUser
@@ -70,7 +72,16 @@ class TelegramLinkView(APIView):
             if profile and profile.delivery_channel == PersonalDeliveryChannel.TELEGRAM:
                 profile.delivery_channel = PersonalDeliveryChannel.PUSH
                 profile.delivery_channel_changed_at = timezone.now()
-                profile.save(update_fields=["delivery_channel", "delivery_channel_changed_at"])
+                profile.telegram_target = TelegramDeliveryTarget.PERSONAL
+                profile.telegram_target_reason = ""
+                profile.save(
+                    update_fields=[
+                        "delivery_channel",
+                        "delivery_channel_changed_at",
+                        "telegram_target",
+                        "telegram_target_reason",
+                    ]
+                )
                 reschedule_invalid_channel_reminders(user_id=request.user.pk)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -223,7 +234,7 @@ class FamilyChatView(APIView):
                 {"detail": "Только администратор семьи может отключать общий чат"},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        FamilyTelegramChat.objects.filter(pk=1).delete()
+        unlink_family_chat(reason="Семейный чат отключён администратором")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
