@@ -73,6 +73,27 @@ def test_webhook_confirms_valid_start(settings, api_client, regular_user) -> Non
 
 
 @pytest.mark.django_db()
+def test_webhook_group_chat_does_not_bind_personal_code(settings, api_client, regular_user) -> None:
+    settings.TELEGRAM_WEBHOOK_SECRET = "secret"
+    link = _link(regular_user, "CODE-1")
+
+    resp = api_client.post(
+        WEBHOOK_URL,
+        data={
+            "update_id": 1001,
+            "message": {"text": "/start CODE-1", "chat": {"id": -999, "type": "group"}},
+        },
+        format="json",
+        **{SECRET_HEADER: "secret"},
+    )
+
+    assert resp.status_code == 200
+    assert not TelegramAccount.objects.filter(user=regular_user).exists()
+    link.refresh_from_db()
+    assert link.used_at is None
+
+
+@pytest.mark.django_db()
 def test_webhook_duplicate_update_is_idempotent(settings, api_client, regular_user) -> None:
     settings.TELEGRAM_WEBHOOK_SECRET = "secret"
     _link(regular_user, "CODE-1")

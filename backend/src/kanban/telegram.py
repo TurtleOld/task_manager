@@ -14,6 +14,7 @@ embed proxy credentials. Errors surface to callers as a generic TelegramError.
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 from datetime import timedelta
 from typing import Any
@@ -63,6 +64,14 @@ def _session() -> Any:
     import requests
 
     session = requests.Session()
+    # TELEGRAM_PROXY_URL is the only proxy source: never inherit HTTP(S)_PROXY or
+    # ALL_PROXY from the environment, so an empty value really means direct.
+    session.trust_env = False
+    # Keep a custom CA bundle if the operator set one; trust_env=False would
+    # otherwise drop it while still keeping certifi's default verification.
+    ca_bundle = os.environ.get("REQUESTS_CA_BUNDLE") or os.environ.get("CURL_CA_BUNDLE")
+    if ca_bundle:
+        session.verify = ca_bundle
     proxies = _proxy_map()
     if proxies:
         session.proxies.update(proxies)
@@ -219,6 +228,8 @@ def confirm_update(
             chat_title=chat_title,
         )
         return
+    if chat_type != "private":
+        raise TelegramLinkError("not_private_chat")
     confirm_link(code=code, chat_id=chat_id)
 
 
@@ -231,3 +242,24 @@ def confirm_family_link(
 ) -> None:
     """Bind the family chat for a family-purpose code (ticket 04)."""
     raise TelegramLinkError("family_not_implemented")
+
+
+def unlink_personal_chat(user: Any) -> None:
+    """Drop a user's personal Telegram chat and void their pending link codes.
+
+    Pending personal codes are marked used under the same row lock `confirm_link`
+    takes, so an in-flight confirmation and this unlink serialize: whichever
+    commits second observes the other's result and cannot restore the binding.
+    Other users' codes and family codes are left untouched.
+    """
+    now = timezone.now()
+    with transaction.atomic():
+        pending = TelegramLink.objects.select_for_update().filter(
+            user=user,
+            purpose=TelegramLink.Purpose.PERSONAL,
+            used_at__isnull=True,
+        )
+        for link in pending:
+            link.used_at = now
+            link.save(update_fields=["used_at"])
+        TelegramAccount.objects.filter(user=user).delete()

@@ -218,28 +218,57 @@ PYTHONPATH=src uv run python manage.py run_dispatcher
 
 Обновления бота приходят через публичный webhook, а не long polling, поэтому
 self-hosted установке не нужен собственный входящий HTTPS-туннель — в проде
-завершает TLS и публикует домен уже настроенный Traefik.
+завершает TLS и публикует домен уже настроенный Traefik. Traefik публикует
+именно путь `POST /api/v1/telegram/webhook/` без браузерной аутентификации и
+проксирует заголовок `X-Telegram-Bot-Api-Secret-Token`; токен и секрет в URL и
+логах не появляются.
 
-Регистрирует webhook владелец установки явной командой (не из AppConfig или
-Gunicorn-воркера):
+Активирует webhook только владелец сервера явной командой — управление не
+выносится в профиль администратора семьи, это отдельные полномочия.
+
+Необходимые переменные окружения (через `.env`; не флаги CLI):
+
+- `TELEGRAM_BOT_TOKEN` — токен бота от @BotFather.
+- `TELEGRAM_WEBHOOK_URL` — `https://<домен>/api/v1/telegram/webhook/`.
+- `TELEGRAM_WEBHOOK_SECRET` — секрет заголовка `X-Telegram-Bot-Api-Secret-Token`,
+  правила Telegram: 1–256 символов из `A-Z a-z 0-9 _ -`. Сгенерируйте
+  криптографически случайное значение (например, `openssl rand -hex 32`), не
+  публикуйте реальные значения.
+
+Опционально: `TELEGRAM_BOT_USERNAME` (публичное имя бота, иначе определяется
+через getMe) и `TELEGRAM_PROXY_URL` (прокси для исходящих запросов; входящий
+webhook идёт через Traefik и в прокси не нуждается).
+
+Команда регистрации в проде (в уже работающем backend):
+
+```bash
+docker compose -f docker-compose.prod.yml exec backend \
+  /app/.venv/bin/python /app/manage.py set_telegram_webhook
+```
+
+Локально:
 
 ```bash
 cd backend
 PYTHONPATH=src uv run python manage.py set_telegram_webhook
 ```
 
-Команда задаёт `url` и `secret_token` из `TELEGRAM_WEBHOOK_URL` и
-`TELEGRAM_WEBHOOK_SECRET` (оба обязательны, `url` должен быть `https://`) и
-сразу печатает `getWebhookInfo` для проверки. Удалить webhook или сменить
-секрет — `--delete`, затем повторная регистрация с новым секретом. Токен и
-секрет не попадают в логи. Публичная доступность прокси не нужна: прокси
-используется только исходящими запросами к `api.telegram.org`.
+`url` и `secret_token` команда берёт из переменных окружения. Удалить webhook —
+`--delete`; после смены URL, секрета или бота выполните `--delete` и повторную
+регистрацию. Изменение `.env` требует пересоздания backend/dispatcher
+(`docker compose ... up -d --force-recreate`), простой `restart` не обновляет
+переменные окружения.
 
-Webhook принимает `POST /api/v1/telegram/webhook/`, проверяет заголовок
-`X-Telegram-Bot-Api-Secret-Token` (постоянное сравнение, fail-closed при
-пустом `TELEGRAM_WEBHOOK_SECRET`) и подтверждает привязку. Временная ошибка
-базы отвечает не-2xx, чтобы Telegram повторил обновление; постоянная невалидная
-ссылка подтверждается и не повторяется.
+При успехе команда печатает `url` и `pending_update_count` из `getWebhookInfo`;
+при отсутствии конфигурации или ошибке Telegram она завершается с ненулевым
+кодом (CommandError). `getWebhookInfo` подтверждает регистрацию на стороне
+Telegram, но живую доступность проверяют реальной привязкой через бота (нажатие
+«Старт»), а не только выводом команды.
+
+Webhook проверяет заголовок `X-Telegram-Bot-Api-Secret-Token` (постоянное
+сравнение, fail-closed при пустом `TELEGRAM_WEBHOOK_SECRET`) и подтверждает
+привязку. Временная ошибка базы отвечает не-2xx, чтобы Telegram повторил
+обновление; постоянная невалидная ссылка подтверждается и не повторяется.
 
 Локальная проверка без реального Telegram: юнит-тесты webhook покрывают
 неверный/отсутствующий секрет, дубли, невалидные ссылки и сбой базы. Живая

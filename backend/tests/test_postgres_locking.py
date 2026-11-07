@@ -45,7 +45,7 @@ from kanban.notifications import create_notification_event
 from kanban.push_delivery import deliverable_devices, send_push_to_user
 from kanban.reminders import skip_reminders_for_completed_card
 from kanban.tasks import generate_recurring_cards
-from kanban.telegram import TelegramLinkError, confirm_link
+from kanban.telegram import TelegramLinkError, confirm_link, unlink_personal_chat
 from tests.auth_helpers import client_for, make_push_device, make_session
 
 User = get_user_model()
@@ -464,6 +464,49 @@ def test_concurrent_confirm_link_binds_once(regular_user) -> None:
 
     assert sorted(results.values()) == ["already_used", "ok"]
     assert TelegramAccount.objects.filter(user=regular_user).count() == 1
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_unlink_and_confirm_race_never_restores_binding(regular_user) -> None:
+    """unlink voids pending codes under the same row lock confirm takes, so a
+    racing confirmation cannot recreate the binding after the unlink commits."""
+
+    link = TelegramLink.objects.create(
+        code="race-unlink",
+        user=regular_user,
+        expires_at=timezone.now() + timedelta(minutes=5),
+    )
+    results: dict[str, str] = {}
+    barrier = threading.Barrier(2)
+
+    def do_confirm() -> None:
+        try:
+            barrier.wait(timeout=10)
+            confirm_link(code=link.code, chat_id=111)
+            results["confirm"] = "ok"
+        except TelegramLinkError as exc:
+            results["confirm"] = exc.reason
+        finally:
+            connection.close()
+
+    def do_unlink() -> None:
+        try:
+            barrier.wait(timeout=10)
+            unlink_personal_chat(regular_user)
+            results["unlink"] = "ok"
+        finally:
+            connection.close()
+
+    confirm_thread = threading.Thread(target=do_confirm)
+    unlink_thread = threading.Thread(target=do_unlink)
+    confirm_thread.start()
+    unlink_thread.start()
+    confirm_thread.join(timeout=10)
+    unlink_thread.join(timeout=10)
+
+    assert results["unlink"] == "ok"
+    assert not TelegramAccount.objects.filter(user=regular_user).exists()
 
 
 # ---------------------------------------------------------------------------

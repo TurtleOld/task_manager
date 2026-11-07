@@ -19,6 +19,7 @@ from ..telegram import (
     parse_start_code,
     send_message,
     telegram_configured,
+    unlink_personal_chat,
 )
 
 
@@ -52,7 +53,7 @@ class TelegramLinkView(APIView):
         return Response(data, status=status.HTTP_201_CREATED)
 
     def delete(self, request: Request) -> Response:
-        TelegramAccount.objects.filter(user=request.user).delete()
+        unlink_personal_chat(request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

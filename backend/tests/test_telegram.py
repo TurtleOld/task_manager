@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from kanban.models import TelegramAccount, TelegramLink
@@ -16,7 +17,10 @@ from kanban.telegram import (
     confirm_update,
     create_personal_link,
     parse_start_code,
+    unlink_personal_chat,
 )
+
+User = get_user_model()
 
 
 @pytest.mark.django_db()
@@ -42,10 +46,36 @@ def test_proxy_map(settings) -> None:
 def test_session_applies_proxy(settings) -> None:
     settings.TELEGRAM_PROXY_URL = "socks5h://proxy:1080"
     session = _session()
+    assert session.trust_env is False
     assert session.proxies == {"http": "socks5h://proxy:1080", "https": "socks5h://proxy:1080"}
 
     settings.TELEGRAM_PROXY_URL = ""
     assert _session().proxies == {}
+
+
+def test_session_ignores_environment_proxy(settings, monkeypatch) -> None:
+    monkeypatch.setenv("HTTPS_PROXY", "http://env-proxy:9999")
+    monkeypatch.setenv("ALL_PROXY", "http://env-all:8888")
+    monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    monkeypatch.delenv("CURL_CA_BUNDLE", raising=False)
+
+    settings.TELEGRAM_PROXY_URL = "http://explicit:8080"
+    session = _session()
+    assert session.trust_env is False
+    assert session.proxies == {"http": "http://explicit:8080", "https": "http://explicit:8080"}
+
+    # Empty TELEGRAM_PROXY_URL means direct, never the environment proxy.
+    settings.TELEGRAM_PROXY_URL = ""
+    assert _session().proxies == {}
+
+
+def test_session_preserves_ca_bundle(settings, monkeypatch, tmp_path) -> None:
+    ca = tmp_path / "ca.pem"
+    ca.write_text("bogus")
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(ca))
+    settings.TELEGRAM_PROXY_URL = ""
+    session = _session()
+    assert session.verify == str(ca)
 
 
 def test_request_hides_token_when_connection_fails(settings, monkeypatch) -> None:
@@ -162,6 +192,75 @@ def test_confirm_update_family_not_implemented(regular_user) -> None:
     with pytest.raises(TelegramLinkError) as excinfo:
         confirm_update(code="family-1", chat_id=123, chat_type="group", chat_title="Family")
     assert excinfo.value.reason == "family_not_implemented"
+
+
+@pytest.mark.django_db()
+@pytest.mark.parametrize("chat_type", ["group", "supergroup", "channel"])
+def test_confirm_update_personal_rejects_non_private_chat(regular_user, chat_type) -> None:
+    link = TelegramLink.objects.create(
+        code="personal-group",
+        user=regular_user,
+        purpose=TelegramLink.Purpose.PERSONAL,
+        expires_at=timezone.now() + timedelta(minutes=5),
+    )
+    with pytest.raises(TelegramLinkError) as excinfo:
+        confirm_update(code="personal-group", chat_id=123, chat_type=chat_type, chat_title="")
+    assert excinfo.value.reason == "not_private_chat"
+    assert not TelegramAccount.objects.filter(user=regular_user).exists()
+    link.refresh_from_db()
+    assert link.used_at is None
+
+
+@pytest.mark.django_db()
+def test_unlink_revokes_pending_links(regular_user) -> None:
+    TelegramLink.objects.create(
+        code="unlink-a",
+        user=regular_user,
+        expires_at=timezone.now() + timedelta(minutes=5),
+    )
+    b = TelegramLink.objects.create(
+        code="unlink-b",
+        user=regular_user,
+        expires_at=timezone.now() + timedelta(minutes=5),
+    )
+    confirm_link(code="unlink-a", chat_id=111)
+    assert TelegramAccount.objects.get(user=regular_user).chat_id == 111
+
+    unlink_personal_chat(regular_user)
+
+    assert not TelegramAccount.objects.filter(user=regular_user).exists()
+    b.refresh_from_db()
+    assert b.used_at is not None
+    with pytest.raises(TelegramLinkError) as excinfo:
+        confirm_link(code="unlink-b", chat_id=222)
+    assert excinfo.value.reason == "already_used"
+    assert not TelegramAccount.objects.filter(user=regular_user).exists()
+
+
+@pytest.mark.django_db()
+def test_unlink_does_not_touch_other_or_family_codes(regular_user) -> None:
+    other = User.objects.create_user(username="other", password="pw")
+    mine = TelegramLink.objects.create(
+        code="mine", user=regular_user, expires_at=timezone.now() + timedelta(minutes=5)
+    )
+    family = TelegramLink.objects.create(
+        code="family-keep",
+        user=regular_user,
+        purpose=TelegramLink.Purpose.FAMILY,
+        expires_at=timezone.now() + timedelta(minutes=5),
+    )
+    theirs = TelegramLink.objects.create(
+        code="theirs", user=other, expires_at=timezone.now() + timedelta(minutes=5)
+    )
+
+    unlink_personal_chat(regular_user)
+
+    mine.refresh_from_db()
+    assert mine.used_at is not None
+    family.refresh_from_db()
+    assert family.used_at is None
+    theirs.refresh_from_db()
+    assert theirs.used_at is None
 
 
 @pytest.mark.django_db()
