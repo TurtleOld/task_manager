@@ -437,6 +437,62 @@ class NotificationProfile(models.Model):
         return f"profile:{self.user_id}"
 
 
+class TelegramAccount(models.Model):
+    """A user's confirmed personal Telegram chat.
+
+    The chat_id is resolved server-side from a one-time deep link, never typed
+    by the user. The binding survives sign-out; a later link simply replaces
+    the chat.
+    """
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="telegram_account",
+    )
+    chat_id = models.BigIntegerField()
+    confirmed_at = models.DateTimeField(default=timezone.now, editable=False)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"telegram_account:{self.user_id}"
+
+
+class TelegramLink(models.Model):
+    """A one-time deep-link code that binds a chat to a user or a family chat.
+
+    `purpose` splits personal and family linking so a personal code can never
+    become a family one and vice versa. Ticket 04 fills in the family flow;
+    only personal is exercised today.
+    """
+
+    class Purpose(models.TextChoices):
+        PERSONAL = "personal", "Personal chat"
+        FAMILY = "family", "Family chat"
+
+    code = models.CharField(max_length=64, unique=True, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    purpose = models.CharField(
+        max_length=20,
+        choices=Purpose.choices,
+        default=Purpose.PERSONAL,
+    )
+    created_at = models.DateTimeField(default=timezone.now, editable=False)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["code"]),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"telegram_link:{self.code}"
+
+
 class PushDeviceQuerySet(models.QuerySet["PushDevice"]):
     def live(self) -> PushDeviceQuerySet:
         """Devices whose session has not expired.

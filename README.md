@@ -168,6 +168,16 @@ OPENAPI_URL=http://localhost:8000/api/schema npm run generate:openapi
 - FRONTEND_BASE_URL — базовый URL фронтенда для ссылок в уведомлениях
 - EMAIL_HOST, EMAIL_PORT, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_USE_TLS, EMAIL_USE_SSL, DEFAULT_FROM_EMAIL
 - TELEGRAM_BOT_TOKEN — токен бота
+- TELEGRAM_BOT_USERNAME — публичное имя бота (без `@`); если пусто, определяется через getMe
+- TELEGRAM_PROXY_URL — внешний прокси self-hosted установки для всех обращений к Telegram.
+  HTTP(S) (`http://host:port`) или SOCKS5 (`socks5://`/`socks5h://`); `socks5h://` разрешает имя
+  `api.telegram.org` через прокси. Пустое значение — прямое подключение. Адрес должен быть
+  доступен из контейнеров: `127.0.0.1` внутри контейнера — это не хост, где запущен прокси.
+  Прокси нужен только исходящим запросам; входящий webhook приходит через реверс-прокси.
+- TELEGRAM_WEBHOOK_URL — публичный HTTPS-адрес, на который Telegram шлёт обновления,
+  например `https://tasks.example.com/api/v1/telegram/webhook/`.
+- TELEGRAM_WEBHOOK_SECRET — секрет заголовка `X-Telegram-Bot-Api-Secret-Token`.
+  Пустое значение закрывает webhook (fail-closed); секрет не попадает в логи и клиент.
 
 Web Push:
 
@@ -203,6 +213,67 @@ PYTHONPATH=src uv run python manage.py run_dispatcher
 
 Полезные флаги: `--once` (один проход и выход), `--no-maintenance`,
 `--interval N`. В docker-compose это сервис `dispatcher`.
+
+### Telegram webhook
+
+Обновления бота приходят через публичный webhook, а не long polling, поэтому
+self-hosted установке не нужен собственный входящий HTTPS-туннель — в проде
+завершает TLS и публикует домен уже настроенный Traefik. Traefik публикует
+именно путь `POST /api/v1/telegram/webhook/` без браузерной аутентификации и
+проксирует заголовок `X-Telegram-Bot-Api-Secret-Token`; токен и секрет в URL и
+логах не появляются.
+
+Активирует webhook только владелец сервера явной командой — управление не
+выносится в профиль администратора семьи, это отдельные полномочия.
+
+Необходимые переменные окружения (через `.env`; не флаги CLI):
+
+- `TELEGRAM_BOT_TOKEN` — токен бота от @BotFather.
+- `TELEGRAM_WEBHOOK_URL` — `https://<домен>/api/v1/telegram/webhook/`.
+- `TELEGRAM_WEBHOOK_SECRET` — секрет заголовка `X-Telegram-Bot-Api-Secret-Token`,
+  правила Telegram: 1–256 символов из `A-Z a-z 0-9 _ -`. Сгенерируйте
+  криптографически случайное значение (например, `openssl rand -hex 32`), не
+  публикуйте реальные значения.
+
+Опционально: `TELEGRAM_BOT_USERNAME` (публичное имя бота, иначе определяется
+через getMe) и `TELEGRAM_PROXY_URL` (прокси для исходящих запросов; входящий
+webhook идёт через Traefik и в прокси не нуждается).
+
+Команда регистрации в проде (в уже работающем backend):
+
+```bash
+docker compose -f docker-compose.prod.yml exec backend \
+  /app/.venv/bin/python /app/manage.py set_telegram_webhook
+```
+
+Локально:
+
+```bash
+cd backend
+PYTHONPATH=src uv run python manage.py set_telegram_webhook
+```
+
+`url` и `secret_token` команда берёт из переменных окружения. Удалить webhook —
+`--delete`; после смены URL, секрета или бота выполните `--delete` и повторную
+регистрацию. Изменение `.env` требует пересоздания backend/dispatcher
+(`docker compose ... up -d --force-recreate`), простой `restart` не обновляет
+переменные окружения.
+
+При успехе команда печатает `url` и `pending_update_count` из `getWebhookInfo`;
+при отсутствии конфигурации или ошибке Telegram она завершается с ненулевым
+кодом (CommandError). `getWebhookInfo` подтверждает регистрацию на стороне
+Telegram, но живую доступность проверяют реальной привязкой через бота (нажатие
+«Старт»), а не только выводом команды.
+
+Webhook проверяет заголовок `X-Telegram-Bot-Api-Secret-Token` (постоянное
+сравнение, fail-closed при пустом `TELEGRAM_WEBHOOK_SECRET`) и подтверждает
+привязку. Временная ошибка базы отвечает не-2xx, чтобы Telegram повторил
+обновление; постоянная невалидная ссылка подтверждается и не повторяется.
+
+Локальная проверка без реального Telegram: юнит-тесты webhook покрывают
+неверный/отсутствующий секрет, дубли, невалидные ссылки и сбой базы. Живая
+интеграция с Telegram требует временного публичного HTTPS — туннель в проекте
+не поднимается.
 
 Живость проверяется через `GET /api/health/detail`: он отдаёт время последнего
 прохода диспетчера и помечает статус `degraded`, если тиков давно не было.

@@ -10,6 +10,7 @@ import { UserPlus } from 'lucide-react'
 import { Button, Field, Modal, Select, Skeleton, TextInput } from '@/components/ui'
 import { NotificationsSection } from './NotificationsSection'
 import { SessionsSection } from './SessionsSection'
+import { TelegramSection } from './TelegramSection'
 import { Initial, SettingsRow, SettingsSection, Switch } from './ui'
 
 interface SettingsPageProps {
@@ -246,6 +247,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
   const sections = useMemo(() => [
     { id: 'profile', label: 'Профиль' },
     { id: 'notifications', label: 'Уведомления' },
+    { id: 'telegram', label: 'Telegram' },
     { id: 'appearance', label: 'Внешний вид' },
     { id: 'security', label: 'Безопасность' },
     { id: 'sessions', label: 'Сессии' },
@@ -297,6 +299,8 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
           </SettingsSection>
 
           <NotificationsSection />
+
+          <TelegramSection />
 
           <SettingsSection id="appearance" title="Внешний вид" description="Хранится в этом браузере.">
             <SettingsRow label="Компактный режим" description="Плотнее строки и отступы, больше задач на экране." htmlFor="compact-mode">

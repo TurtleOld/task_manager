@@ -304,6 +304,29 @@ WEBPUSH_ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+# --- Telegram ---
+#
+# The family shares one bot; its token and an optional external proxy are
+# configured on the server via .env. The token is a secret and is never sent
+# to the client. TELEGRAM_PROXY_URL is the administrator's own HTTP(S) or
+# SOCKS5 proxy; when set, every Telegram request goes through it with no
+# direct fallback. Use `socks5h://` (not `socks5://`) to resolve Telegram's
+# hostname through the SOCKS5 proxy.
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+# Public bot username for the deep link (`https://t.me/<username>?start=<code>`).
+# Optional: when empty, the backend resolves it once via getMe.
+TELEGRAM_BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "")
+TELEGRAM_PROXY_URL = os.getenv("TELEGRAM_PROXY_URL", "")
+# How long a one-time linking code stays valid.
+TELEGRAM_LINK_TTL_SECONDS = int(os.getenv("TELEGRAM_LINK_TTL_SECONDS", "900"))
+# Public HTTPS URL Telegram posts updates to, registered via `manage.py
+# set_telegram_webhook`. The proxy is only needed for outbound requests; the
+# inbound webhook arrives through the reverse proxy (Traefik).
+TELEGRAM_WEBHOOK_URL = os.getenv("TELEGRAM_WEBHOOK_URL", "")
+# Secret Telegram sends in `X-Telegram-Bot-Api-Secret-Token`. Empty means the
+# webhook endpoint fails closed. Never logged or returned to the client.
+TELEGRAM_WEBHOOK_SECRET = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
+
 # --- Notification dispatcher ---
 #
 # Poll intervals for `manage.py run_dispatcher`. The database is the queue;

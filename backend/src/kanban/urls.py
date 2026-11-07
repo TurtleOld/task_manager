@@ -24,6 +24,9 @@ from .views import (
     SessionDetailView,
     SessionListView,
     SiteSettingsView,
+    TelegramLinkView,
+    TelegramTestMessageView,
+    TelegramWebhookView,
     TerminateSessionsView,
     UserAdminViewSet,
     VapidPublicKeyView,
@@ -61,6 +64,13 @@ urlpatterns = [
         VapidPublicKeyView.as_view(),
         name="notification-vapid-key",
     ),
+    path("notifications/telegram/", TelegramLinkView.as_view(), name="telegram-link"),
+    path(
+        "notifications/telegram/test/",
+        TelegramTestMessageView.as_view(),
+        name="telegram-test",
+    ),
+    path("telegram/webhook/", TelegramWebhookView.as_view(), name="telegram-webhook"),
     path("search/", SearchView.as_view(), name="search"),
     path("settings/site/", SiteSettingsView.as_view(), name="site-settings"),
 ]

@@ -14,6 +14,9 @@ import type {
   PushDevice,
   PushTestResponse,
   VapidKeyResponse,
+  TelegramStatus,
+  TelegramLinkResponse,
+  TelegramTestResponse,
   SiteSettings,
   MyTodayResponse,
   ArchiveResponse,
@@ -522,6 +525,31 @@ export const api = {
   },
   getVapidKey: async (): Promise<VapidKeyResponse> => {
     const res = await fetch(`${V1}/notifications/vapid-key/`, { headers: jsonHeaders() })
+    return json(res)
+  },
+  getTelegramStatus: async (): Promise<TelegramStatus> => {
+    const res = await fetch(`${V1}/notifications/telegram/`, { headers: jsonHeaders() })
+    return json(res)
+  },
+  createTelegramLink: async (): Promise<TelegramLinkResponse> => {
+    const res = await fetch(`${V1}/notifications/telegram/`, {
+      method: 'POST',
+      headers: jsonHeaders(),
+    })
+    return json(res)
+  },
+  unlinkTelegram: async (): Promise<void> => {
+    const res = await fetch(`${V1}/notifications/telegram/`, {
+      method: 'DELETE',
+      headers: jsonHeaders(),
+    })
+    return ok(res)
+  },
+  testTelegramMessage: async (): Promise<TelegramTestResponse> => {
+    const res = await fetch(`${V1}/notifications/telegram/test/`, {
+      method: 'POST',
+      headers: jsonHeaders(),
+    })
     return json(res)
   },
 

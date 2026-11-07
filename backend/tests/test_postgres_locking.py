@@ -37,12 +37,15 @@ from kanban.models import (
     PushDevice,
     RecurrenceFrequency,
     RecurrenceRule,
+    TelegramAccount,
+    TelegramLink,
     UserSession,
 )
 from kanban.notifications import create_notification_event
 from kanban.push_delivery import deliverable_devices, send_push_to_user
 from kanban.reminders import skip_reminders_for_completed_card
 from kanban.tasks import generate_recurring_cards
+from kanban.telegram import TelegramLinkError, confirm_link, unlink_personal_chat
 from tests.auth_helpers import client_for, make_push_device, make_session
 
 User = get_user_model()
@@ -418,6 +421,92 @@ def test_recurrence_generation_skips_a_rearmed_rule_that_has_a_successor(card) -
     assert Card.objects.filter(parent_recurrence=rule).count() == 1
     rule.refresh_from_db()
     assert rule.next_due is None
+
+
+# ---------------------------------------------------------------------------
+# Telegram linking: one-time code confirmed once under concurrent workers
+# ---------------------------------------------------------------------------
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_confirm_link_binds_once(regular_user) -> None:
+    """Two confirmations of the same code must produce exactly one binding.
+
+    `select_for_update` serializes the check-then-write: the loser observes
+    `used_at` already set and raises instead of writing a second account.
+    """
+
+    link = TelegramLink.objects.create(
+        code="concurrent-1",
+        user=regular_user,
+        expires_at=timezone.now() + timedelta(minutes=5),
+    )
+    results: dict[int, str] = {}
+    barrier = threading.Barrier(2)
+
+    def confirm(chat_id: int) -> None:
+        try:
+            barrier.wait(timeout=10)
+            confirm_link(code=link.code, chat_id=chat_id)
+            results[chat_id] = "ok"
+        except TelegramLinkError as exc:
+            results[chat_id] = exc.reason
+        finally:
+            connection.close()
+
+    worker = threading.Thread(target=confirm, args=(111,))
+    worker.start()
+    try:
+        confirm(222)
+    finally:
+        worker.join(timeout=10)
+
+    assert sorted(results.values()) == ["already_used", "ok"]
+    assert TelegramAccount.objects.filter(user=regular_user).count() == 1
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_unlink_and_confirm_race_never_restores_binding(regular_user) -> None:
+    """unlink voids pending codes under the same row lock confirm takes, so a
+    racing confirmation cannot recreate the binding after the unlink commits."""
+
+    link = TelegramLink.objects.create(
+        code="race-unlink",
+        user=regular_user,
+        expires_at=timezone.now() + timedelta(minutes=5),
+    )
+    results: dict[str, str] = {}
+    barrier = threading.Barrier(2)
+
+    def do_confirm() -> None:
+        try:
+            barrier.wait(timeout=10)
+            confirm_link(code=link.code, chat_id=111)
+            results["confirm"] = "ok"
+        except TelegramLinkError as exc:
+            results["confirm"] = exc.reason
+        finally:
+            connection.close()
+
+    def do_unlink() -> None:
+        try:
+            barrier.wait(timeout=10)
+            unlink_personal_chat(regular_user)
+            results["unlink"] = "ok"
+        finally:
+            connection.close()
+
+    confirm_thread = threading.Thread(target=do_confirm)
+    unlink_thread = threading.Thread(target=do_unlink)
+    confirm_thread.start()
+    unlink_thread.start()
+    confirm_thread.join(timeout=10)
+    unlink_thread.join(timeout=10)
+
+    assert results["unlink"] == "ok"
+    assert not TelegramAccount.objects.filter(user=regular_user).exists()
 
 
 # ---------------------------------------------------------------------------

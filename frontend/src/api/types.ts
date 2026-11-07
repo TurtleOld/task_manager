@@ -354,6 +354,23 @@ export interface PushTestResponse {
   detail: string
 }
 
+export interface TelegramStatus {
+  configured: boolean
+  linked: boolean
+  confirmed_at: string | null
+}
+
+export interface TelegramLinkResponse {
+  link: string
+  code: string
+  expires_at: string
+}
+
+export interface TelegramTestResponse {
+  delivered: boolean
+  detail: string
+}
+
 export interface NotificationPreference {
   id: number
   board: number | null

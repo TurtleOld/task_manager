@@ -25,6 +25,7 @@ from .notifications import (
 )
 from .search import SearchView
 from .site_settings import SiteSettingsView
+from .telegram import TelegramLinkView, TelegramTestMessageView, TelegramWebhookView
 from .users import IsAdminUser, UserAdminViewSet
 
 __all__ = [
@@ -51,5 +52,8 @@ __all__ = [
     "TerminateSessionsView",
     "SearchView",
     "SiteSettingsView",
+    "TelegramLinkView",
+    "TelegramTestMessageView",
+    "TelegramWebhookView",
     "UserAdminViewSet",
 ]
