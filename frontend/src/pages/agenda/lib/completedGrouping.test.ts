@@ -33,6 +33,7 @@ function makeCard(overrides: Partial<AgendaCard>): AgendaCard {
     deadline: null,
     priority: 0,
     assignee: null,
+    created_by: null,
     completed_at: null,
     completed_by: null,
     has_subtasks: false,

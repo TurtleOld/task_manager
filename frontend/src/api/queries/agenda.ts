@@ -3,21 +3,17 @@ import { api } from '../client'
 import type { AgendaCard, AgendaResponse, AgendaUser, Card, FamilyTodayResponse } from '../types'
 import { queryKeys } from './keys'
 
-function hasUserName(user: AgendaUser | null): boolean {
-  return user != null && Boolean(user.full_name || user.username)
+function preserveUserName(previous: AgendaUser | null, next: AgendaUser | null): AgendaUser | null {
+  return next && previous?.id === next.id && !(next.full_name || next.username) ? previous : next
 }
 
-/**
- * Полный сериализатор задачи (вебсокет, ответы мутаций) отдаёт исполнителя
- * только id-ом. При подмене задачи в кэше агенды сохраняем имена, которые уже
- * пришли с `/agenda/`, чтобы аватар не деградировал до инициала «?».
- */
 function withPreservedUsers(current: AgendaCard | undefined, next: AgendaCard): AgendaCard {
   if (!current) return next
   return {
     ...next,
-    assignee: hasUserName(next.assignee) ? next.assignee : current.assignee,
-    completed_by: hasUserName(next.completed_by) ? next.completed_by : current.completed_by,
+    assignee: preserveUserName(current.assignee, next.assignee),
+    completed_by: preserveUserName(current.completed_by, next.completed_by),
+    created_by: preserveUserName(current.created_by, next.created_by),
   }
 }
 
@@ -29,7 +25,12 @@ export function toAgendaCard(card: Card): AgendaCard {
     deadline: card.deadline,
     priority: card.priority,
     priority_label: card.priority_label,
-    assignee: card.assignee != null ? { id: card.assignee, username: '', full_name: null } : null,
+    assignee: card.assignee_detail ?? (
+      card.assignee != null ? { id: card.assignee, username: '', full_name: null } : null
+    ),
+    created_by: card.created_by_detail ?? (
+      card.created_by != null ? { id: card.created_by, username: '', full_name: null } : null
+    ),
     completed_at: card.completed_at ?? null,
     completed_by:
       card.completed_by != null ? { id: card.completed_by, username: '', full_name: null } : null,
@@ -57,6 +58,7 @@ export function makeAgendaPlaceholderCard(params: {
     list: params.list,
     deadline: params.deadline,
     priority: 0,
+    created_by: null,
     assignee: params.assignee != null ? { id: params.assignee.id, username: '', full_name: params.assignee.name } : null,
     completed_at: null,
     completed_by: null,

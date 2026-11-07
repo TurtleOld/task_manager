@@ -14,6 +14,41 @@ from kanban.models import Card, ChecklistItem, Column, NotificationProfile
 User = get_user_model()
 
 
+@pytest.mark.django_db()
+@pytest.mark.parametrize("completed", [False, True])
+def test_agenda_distinguishes_creator_from_assignee(
+    auth_client, regular_user, admin_user, column, completed
+):
+    card = Card.objects.create(
+        column=column,
+        title="Передать показания",
+        created_by=regular_user,
+        assignee=admin_user,
+        completed_at=timezone.now() if completed else None,
+    )
+
+    url = "/api/v1/agenda/completed/" if completed else "/api/v1/agenda/"
+    response = auth_client.get(url)
+
+    assert response.status_code == 200
+    item = next(item for item in response.data["cards"] if item["id"] == card.id)
+    assert item["created_by"]["id"] == regular_user.id
+    assert item["assignee"]["id"] == admin_user.id
+
+
+@pytest.mark.django_db()
+def test_card_response_preserves_actual_creator(auth_client, regular_user, admin_user, board):
+    response = auth_client.post(
+        "/api/v1/cards/",
+        {"board": board.id, "title": "Передать показания", "created_by": admin_user.id},
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert response.data["created_by"] == regular_user.id
+    assert response.data["created_by_detail"]["id"] == regular_user.id
+
+
 # ---------------------------------------------------------------------------
 # compute_agenda_boundaries — pure function, no DB/HTTP involved
 # ---------------------------------------------------------------------------

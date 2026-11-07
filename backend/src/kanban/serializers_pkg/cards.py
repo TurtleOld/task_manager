@@ -317,6 +317,7 @@ class CardSerializer(serializers.ModelSerializer[Card]):
     recurrence = serializers.SerializerMethodField()
     assignee_detail = AgendaUserSerializer(source="assignee", read_only=True)
     completed_by_detail = AgendaUserSerializer(source="completed_by", read_only=True)
+    created_by_detail = AgendaUserSerializer(source="created_by", read_only=True)
 
     class Meta:
         model = Card
@@ -326,6 +327,8 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "assignee",
             "assignee_detail",
             "title",
+            "created_by",
+            "created_by_detail",
             "description",
             "deadline",
             "priority",
@@ -363,6 +366,8 @@ class CardSerializer(serializers.ModelSerializer[Card]):
             "completed_by",
             "assignee_detail",
             "completed_by_detail",
+            "created_by",
+            "created_by_detail",
         ]
 
     def get_fields(self) -> dict[str, serializers.Field]:

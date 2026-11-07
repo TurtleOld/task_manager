@@ -58,6 +58,7 @@ from ..serializers import (
 User = get_user_model()
 
 CARD_PREFETCH_RELATED = (
+    "created_by",
     "labels",
     "checklist_items",
     "subtasks__labels",

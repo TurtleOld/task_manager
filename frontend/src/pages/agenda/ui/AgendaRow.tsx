@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import { Link } from 'react-router-dom'
 import { Checkbox } from '@radix-ui/react-checkbox'
-import { Calendar, Check, GitBranch, ListChecks, Repeat } from 'lucide-react'
+import { Calendar, Check, GitBranch, ListChecks, Repeat, UserRound } from 'lucide-react'
 import type { AgendaBoundaries, AgendaCard, Board } from '../../../api/types'
 import { priorityToLabel, priorityToTone } from '../../../shared/lib/priority'
 import { formatDeadlineShort } from '../lib/formatDeadline'
@@ -55,7 +55,9 @@ export function AgendaRow({
   const hasPriority = card.priority !== 0 && card.priority != null
   const deadlineTone = group === 'overdue' ? 'text-danger' : group === 'today' ? 'text-primary' : 'text-text-muted'
   const assignee = card.assignee
-  const assigneeInitial = assignee ? (assignee.full_name || assignee.username || '?')[0]?.toUpperCase() : null
+  const assigneeName = assignee?.full_name || assignee?.username || 'Без имени'
+  const creator = card.created_by
+  const creatorName = creator?.full_name || creator?.username || 'Без имени'
   const completerName =
     completed && card.completed_by ? card.completed_by.full_name || card.completed_by.username : null
   const checklistPercent = card.checklist_total > 0 ? Math.floor((card.checklist_completed / card.checklist_total) * 100) : 0
@@ -140,20 +142,33 @@ export function AgendaRow({
           <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-body-sm text-text-muted${completed ? ' opacity-70' : ''}`}>
             {listMeta ? <ListLabel board={listMeta} /> : null}
 
-            {completed && completerName ? (
-              <span>
-                Выполнил(а) {completerName}{card.completed_at ? `, ${formatCompletedTime(card.completed_at)}` : ''}
-              </span>
-            ) : (
-              <DeadlinePicker
-                boundaries={boundaries}
-                busy={deadlineBusy}
-                deadline={card.deadline}
-                displayText={card.deadline ? formatDeadlineShort(card.deadline, boundaries) : undefined}
-                onCommit={(deadline) => onDeadlineCommit(card, deadline)}
-                className={cn(deadlineTone, '-mx-1.5 h-6 px-1.5 relative before:absolute before:-inset-2 before:content-[""] lg:before:content-none')}
-              />
-            )}
+            <span className="inline-flex min-w-0 max-w-full items-center gap-3">
+              {completed && completerName ? (
+                <span>
+                  Выполнил(а) {completerName}{card.completed_at ? `, ${formatCompletedTime(card.completed_at)}` : ''}
+                </span>
+              ) : (
+                <DeadlinePicker
+                  boundaries={boundaries}
+                  busy={deadlineBusy}
+                  deadline={card.deadline}
+                  displayText={card.deadline ? formatDeadlineShort(card.deadline, boundaries) : undefined}
+                  onCommit={(deadline) => onDeadlineCommit(card, deadline)}
+                  className={cn(deadlineTone, '-mx-1.5 h-6 px-1.5 relative before:absolute before:-inset-2 before:content-[""] lg:before:content-none')}
+                />
+              )}
+
+              {assignee ? (
+                <span
+                  className="inline-flex min-w-0 max-w-40 items-center gap-1"
+                  title={`Исполнитель: ${assigneeName}`}
+                  aria-label={`Исполнитель: ${assigneeName}`}
+                >
+                  <UserRound className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{assigneeName}</span>
+                </span>
+              ) : null}
+            </span>
 
             {card.is_recurring ? (
               <span className="inline-flex items-center gap-1 text-info">
@@ -185,13 +200,13 @@ export function AgendaRow({
           </div>
         </div>
 
-        {assignee ? (
+        {creator ? (
           <span
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-caption font-bold text-primary"
-            title={assignee.full_name || assignee.username}
-            aria-label={`Исполнитель: ${assignee.full_name || assignee.username}`}
+            title={`Создатель: ${creatorName}`}
+            aria-label={`Создатель: ${creatorName}`}
           >
-            {assigneeInitial}
+            {creatorName[0]?.toUpperCase()}
           </span>
         ) : null}
       </div>
