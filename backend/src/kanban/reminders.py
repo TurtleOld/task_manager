@@ -4,6 +4,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from .models import (
@@ -14,6 +15,7 @@ from .models import (
     NotificationProfile,
     PersonalDeliveryChannel,
     PushDevice,
+    TelegramAccount,
 )
 
 
@@ -33,50 +35,99 @@ def preferences_enabled_for_event_type(
     channel: str,
     event_type: str,
 ) -> bool:
-    """Resolve one channel's preference without requiring a NotificationEvent.
+    """Whether `event_type` is enabled for this person.
 
-    A board-scoped preference wins over a global one, and no preference at
-    all means enabled.
+    Board scope beats global scope. Within a scope a row for the exact channel
+    wins, otherwise the person's existing row for any channel applies, so
+    switching Push → Telegram does not re-enable what they turned off. No
+    preference at all means enabled.
     """
 
-    qs = NotificationPreference.objects.filter(
-        user_id=user_id,
-        channel=channel,
-        event_type=event_type,
-    )
+    def decide(rows: QuerySet[NotificationPreference]) -> bool | None:
+        if not rows.exists():
+            return None
+        exact = rows.filter(channel=channel).first()
+        if exact is not None:
+            return exact.enabled
+        return rows.first().enabled
+
+    rows = NotificationPreference.objects.filter(user_id=user_id, event_type=event_type)
     if board_id:
-        board_qs = qs.filter(board_id=board_id)
-        if board_qs.exists():
-            return bool(board_qs.filter(enabled=True).exists())
-    global_qs = qs.filter(board__isnull=True)
-    if global_qs.exists():
-        return bool(global_qs.filter(enabled=True).exists())
-    return True
+        decided = decide(rows.filter(board_id=board_id))
+        if decided is not None:
+            return decided
+    decided = decide(rows.filter(board__isnull=True))
+    return True if decided is None else decided
 
 
 def reminder_channel_availability(
     *, user_id: int, board_id: int | None, event_type: str
 ) -> dict[str, ChannelAvailability]:
-    def push_availability() -> ChannelAvailability:
-        profile = NotificationProfile.objects.filter(user_id=user_id).first()
-        if profile and profile.delivery_channel == PersonalDeliveryChannel.DISABLED:
-            return ChannelAvailability(False, EXTERNAL_DELIVERY_OFF)
-        if not preferences_enabled_for_event_type(
-            user_id=user_id,
-            board_id=board_id,
-            channel=NotificationChannel.PUSH.value,
-            event_type=event_type,
-        ):
-            return ChannelAvailability(False, "Push отключён в настройках уведомлений")
-        # Any one active device with a live session is enough. With a single
-        # channel, "available" means "the person has at least one such device".
-        if not PushDevice.objects.filter(user_id=user_id, active=True).live().exists():
-            return ChannelAvailability(False, "Нет подключённых устройств")
-        return ChannelAvailability(True, "")
+    """Availability of each delivery channel for a person.
+
+    Exactly the chosen personal channel is available (when it has a
+    destination); the other channel reports an empty reason, meaning "not the
+    chosen channel" rather than an error.
+    """
+
+    profile = NotificationProfile.objects.filter(user_id=user_id).first()
+    chosen = profile.delivery_channel if profile else PersonalDeliveryChannel.PUSH
+
+    if chosen == PersonalDeliveryChannel.DISABLED:
+        return {
+            NotificationChannel.PUSH.value: ChannelAvailability(False, EXTERNAL_DELIVERY_OFF),
+            NotificationChannel.TELEGRAM.value: ChannelAvailability(False, EXTERNAL_DELIVERY_OFF),
+        }
+
+    if chosen == PersonalDeliveryChannel.TELEGRAM:
+        return {
+            NotificationChannel.PUSH.value: ChannelAvailability(False, ""),
+            NotificationChannel.TELEGRAM.value: telegram_availability(
+                user_id=user_id,
+                board_id=board_id,
+                event_type=event_type,
+            ),
+        }
 
     return {
-        NotificationChannel.PUSH.value: push_availability(),
+        NotificationChannel.PUSH.value: push_availability(
+            user_id=user_id,
+            board_id=board_id,
+            event_type=event_type,
+        ),
+        NotificationChannel.TELEGRAM.value: ChannelAvailability(False, ""),
     }
+
+
+def push_availability(
+    *, user_id: int, board_id: int | None, event_type: str
+) -> ChannelAvailability:
+    if not preferences_enabled_for_event_type(
+        user_id=user_id,
+        board_id=board_id,
+        channel=NotificationChannel.PUSH.value,
+        event_type=event_type,
+    ):
+        return ChannelAvailability(False, "Push отключён в настройках уведомлений")
+    # Any one active device with a live session is enough.
+    if not PushDevice.objects.filter(user_id=user_id, active=True).live().exists():
+        return ChannelAvailability(False, "Нет подключённых устройств")
+    return ChannelAvailability(True, "")
+
+
+def telegram_availability(
+    *, user_id: int, board_id: int | None, event_type: str
+) -> ChannelAvailability:
+    if not preferences_enabled_for_event_type(
+        user_id=user_id,
+        board_id=board_id,
+        channel=NotificationChannel.TELEGRAM.value,
+        event_type=event_type,
+    ):
+        return ChannelAvailability(False, "Telegram отключён в настройках уведомлений")
+    if not TelegramAccount.objects.filter(user_id=user_id).exists():
+        return ChannelAvailability(False, "Telegram не подключён")
+    return ChannelAvailability(True, "")
 
 
 def resolve_delivery_channel(
@@ -160,7 +211,7 @@ def upsert_and_schedule_reminder(
     channel = resolve_delivery_channel(reminder=reminder, availability=availability)
     if not channel:
         reason = next(
-            (item.reason for item in availability.values() if not item.available),
+            (item.reason for item in availability.values() if not item.available and item.reason),
             "Канал доставки недоступен",
         )
         reminder.status = CardDeadlineReminder.Status.INVALID_CHANNEL

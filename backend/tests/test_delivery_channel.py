@@ -83,7 +83,7 @@ def test_member_reads_and_switches_own_channel(auth_client, regular_user) -> Non
 
 @pytest.mark.django_db()
 def test_unknown_channel_is_rejected(auth_client) -> None:
-    response = auth_client.patch(PROFILE_URL, {"delivery_channel": "telegram"}, format="json")
+    response = auth_client.patch(PROFILE_URL, {"delivery_channel": "carrier_pigeon"}, format="json")
 
     assert response.status_code == 400
 

@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { BellRing, RefreshCw, Send, Smartphone } from 'lucide-react'
 import { api } from '../../api/client'
-import type { NotificationProfile, PushDevice, PushTestResponse } from '../../api/types'
+import type {
+  NotificationProfile,
+  PushDevice,
+  PushTestResponse,
+  TelegramStatus,
+} from '../../api/types'
 import {
   disableCurrentDevice,
   enableNotifications,
@@ -11,8 +16,8 @@ import {
   hasActiveSubscription,
   resubscribe,
 } from '../../lib/pushManager'
-import { Button, Skeleton } from '@/components/ui'
-import { SettingsRow, SettingsSection, StatusDot, Switch } from './ui'
+import { Button, Select, Skeleton } from '@/components/ui'
+import { SettingsRow, SettingsSection, StatusDot } from './ui'
 
 function formatDate(value: string | null): string {
   if (!value) return '—'
@@ -21,7 +26,7 @@ function formatDate(value: string | null): string {
   return date.toLocaleString('ru-RU')
 }
 
-export function NotificationsSection() {
+export function NotificationsSection({ telegramStatus }: { telegramStatus: TelegramStatus | null }) {
   const [devices, setDevices] = useState<PushDevice[]>([])
   const [profile, setProfile] = useState<NotificationProfile | null>(null)
   const [channelSaving, setChannelSaving] = useState(false)
@@ -60,6 +65,17 @@ export function NotificationsSection() {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  // Unlink falls back to Push server-side, so a link-status change must
+  // re-read the profile to keep the channel selector in sync.
+  const linkedRef = useRef<boolean | null>(null)
+  useEffect(() => {
+    const linked = telegramStatus?.linked ?? false
+    if (linkedRef.current !== null && linkedRef.current !== linked) {
+      void refresh()
+    }
+    linkedRef.current = linked
+  }, [telegramStatus?.linked, refresh])
 
   const onEnable = async () => {
     setEnabling(true)
@@ -119,16 +135,17 @@ export function NotificationsSection() {
     }
   }
 
-  const onToggleChannel = async (checked: boolean) => {
+  const onChangeChannel = async (value: string) => {
     if (!profile || channelSaving) return
+    const next = value as NotificationProfile['delivery_channel']
+    if (next === profile.delivery_channel) return
     setChannelSaving(true)
     setError('')
-    const next = checked ? 'push' : 'disabled'
     const previous = profile
     setProfile({ ...profile, delivery_channel: next })
     try {
       setProfile(await api.updateNotificationProfile({ delivery_channel: next }))
-      toast.success(checked ? 'Внешние уведомления включены' : 'Внешние уведомления выключены')
+      toast.success('Канал доставки обновлён')
     } catch (e) {
       setProfile(previous)
       setError((e as Error).message)
@@ -140,7 +157,10 @@ export function NotificationsSection() {
 
   const permission = getNotificationPermission()
 
-  const pushOn = profile?.delivery_channel !== 'disabled'
+  const channel = profile?.delivery_channel ?? 'push'
+  const pushOn = channel === 'push'
+  const telegramOn = channel === 'telegram'
+  const telegramLinked = telegramStatus?.linked ?? false
 
   return (
     <SettingsSection
@@ -149,21 +169,29 @@ export function NotificationsSection() {
       description="Приходят на телефон и часы, даже когда вкладка закрыта."
     >
       <SettingsRow
-        label="Внешние уведомления"
+        label="Канал доставки"
         description={
-          pushOn
-            ? 'События и напоминания доставляются на все ваши устройства. Выключение действует сразу везде; уже начавшаяся отправка может дойти и после выключения.'
-            : 'Внешняя доставка выключена — события и напоминания остаются только во Входящих. Подписки устройств сохраняются, включение вернёт их без повторной рассылки старого.'
+          telegramOn
+            ? 'События и напоминания приходят в ваш личный чат Telegram. Смена канала отменяет ожидающую отправку прежнего; уже начавшаяся может дойти и после смены.'
+            : pushOn
+              ? 'События и напоминания доставляются на все ваши устройства. Выключение действует сразу везде; уже начавшаяся отправка может дойти и после выключения.'
+              : 'Внешняя доставка выключена — события и напоминания остаются только во Входящих. Подписки устройств сохраняются, включение вернёт их без повторной рассылки старого.'
         }
         htmlFor="delivery-channel"
       >
-        <Switch
+        <Select
           id="delivery-channel"
-          checked={pushOn}
-          onChange={(checked) => void onToggleChannel(checked)}
-          label="Внешние уведомления"
+          value={channel}
+          onChange={(e) => void onChangeChannel(e.target.value)}
           disabled={profile === null || channelSaving}
-        />
+          className="sm:w-52"
+        >
+          <option value="push">Push</option>
+          <option value="telegram" disabled={!telegramLinked}>
+            Telegram{telegramLinked ? '' : ' (подключите)'}
+          </option>
+          <option value="disabled">Выключено</option>
+        </Select>
       </SettingsRow>
 
       {pushOn && devices.length === 0 && !loading ? (

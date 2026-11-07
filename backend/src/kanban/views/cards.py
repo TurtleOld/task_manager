@@ -722,10 +722,11 @@ class CardViewSet(viewsets.ModelViewSet[Card]):
                 {
                     "reminders": CardDeadlineReminderSerializer(reminders, many=True).data,
                     "channels": {
-                        "push": {
-                            "available": availability["push"].available,
-                            "reason": availability["push"].reason,
-                        },
+                        channel: {
+                            "available": item.available,
+                            "reason": item.reason,
+                        }
+                        for channel, item in availability.items()
                     },
                     "deadline": card.deadline,
                 }

@@ -13,8 +13,13 @@ function formatDate(value: string | null): string {
   return date.toLocaleString('ru-RU')
 }
 
-export function TelegramSection() {
-  const [status, setStatus] = useState<TelegramStatus | null>(null)
+export function TelegramSection({
+  status,
+  onStatusChange,
+}: {
+  status: TelegramStatus | null
+  onStatusChange: (status: TelegramStatus) => void
+}) {
   const [loading, setLoading] = useState(true)
   const [link, setLink] = useState<TelegramLinkResponse | null>(null)
   const [linking, setLinking] = useState(false)
@@ -35,13 +40,13 @@ export function TelegramSection() {
   const refresh = useCallback(async () => {
     setError('')
     try {
-      setStatus(await api.getTelegramStatus())
+      onStatusChange(await api.getTelegramStatus())
     } catch (e) {
       setError((e as Error).message)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [onStatusChange])
 
   useEffect(() => {
     void refresh()
@@ -67,7 +72,7 @@ export function TelegramSection() {
         }
         try {
           const current = await api.getTelegramStatus()
-          setStatus(current)
+          onStatusChange(current)
           if (current.linked) {
             stopPolling()
             setLink(null)
@@ -134,12 +139,19 @@ export function TelegramSection() {
           <SettingsRow
             label="Личный чат"
             description={
-              <span>
-                <StatusDot tone="success">подключено</StatusDot>{' '}
-                <span className="text-text-muted">
-                  с {formatDate(status?.confirmed_at ?? null)}
+              status?.last_error ? (
+                <span>
+                  <StatusDot tone="danger">недоступен</StatusDot>{' '}
+                  <span className="text-text-muted">{status.last_error}</span>
                 </span>
-              </span>
+              ) : (
+                <span>
+                  <StatusDot tone="success">подключено</StatusDot>{' '}
+                  <span className="text-text-muted">
+                    с {formatDate(status?.confirmed_at ?? null)}
+                  </span>
+                </span>
+              )
             }
           >
             <Button type="button" variant="ghost" size="sm" onClick={() => void onUnlink()} className="hover:text-danger">

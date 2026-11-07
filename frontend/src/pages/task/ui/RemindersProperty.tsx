@@ -82,7 +82,9 @@ export function RemindersProperty({ cardId }: RemindersPropertyProps) {
   const reminders = query.data?.reminders ?? []
   const channels = query.data?.channels
   const pushAvailable = channels?.push?.available ?? false
-  const pushReason = channels?.push?.reason ?? ''
+  const telegramAvailable = channels?.telegram?.available ?? false
+  const canDeliver = pushAvailable || telegramAvailable
+  const channelReason = channels?.telegram?.reason || channels?.push?.reason || ''
   const hasFailure = reminders.some((reminder) => reminder.enabled && FAILED_STATUSES.has(reminder.status))
   const active = reminders.filter((reminder) => reminder.enabled)
 
@@ -138,11 +140,11 @@ export function RemindersProperty({ cardId }: RemindersPropertyProps) {
         </PropertyButton>
       </PopoverTrigger>
       <PopoverContent align="start" className={`${propertyPopoverClass} w-80 p-3`}>
-        {!pushAvailable ? (
+        {!canDeliver ? (
           <div className="space-y-1.5 p-1 text-body-sm text-text-muted">
             <p className="font-medium text-text">Некуда отправлять</p>
-            <p>Подключите устройство, чтобы получать напоминания.</p>
-            {pushReason ? <p>{pushReason}</p> : null}
+            <p>Подключите устройство или Telegram, чтобы получать напоминания.</p>
+            {channelReason ? <p>{channelReason}</p> : null}
             <Link to="/settings" className="inline-block text-primary underline-offset-4 hover:underline">
               Включить уведомления в настройках
             </Link>

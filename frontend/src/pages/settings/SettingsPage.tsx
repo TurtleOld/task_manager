@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { LANGUAGE_KEY, loadLanguagePreference } from '../../app/auth'
 import { applyAppFontSize, applyCompactMode, DEFAULT_FONT_SIZE_PX, loadAppFontSize, loadCompactMode, MAX_FONT_SIZE_PX, MIN_FONT_SIZE_PX } from '../../app/preferences'
 import { api } from '../../api/client'
-import type { AdminUser, AuthUser, NotificationProfile, UserRole } from '../../api/types'
+import type { AdminUser, AuthUser, NotificationProfile, TelegramStatus, UserRole } from '../../api/types'
 import { roleLabels } from '../../shared/lib/permissions'
 import { TIMEZONE_OPTIONS, ensureProfileTimeZoneInitialized, getDeviceTimeZone, resolveTimeZone } from '../../shared/lib/timezone'
 import { UserPlus } from 'lucide-react'
@@ -41,6 +41,7 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
   const [passwordSaving, setPasswordSaving] = useState(false)
   const [notificationProfile, setNotificationProfile] = useState<NotificationProfile | null>(null)
   const [notificationError, setNotificationError] = useState('')
+  const [telegramStatus, setTelegramStatus] = useState<TelegramStatus | null>(null)
   const [overdueInterval, setOverdueInterval] = useState<number>(30)
   const [overdueIntervalSaving, setOverdueIntervalSaving] = useState(false)
   const deviceTimeZone = useMemo(() => getDeviceTimeZone(), [])
@@ -300,9 +301,9 @@ export function SettingsPage({ user, onUserUpdate, onLogout }: SettingsPageProps
             </div>
           </SettingsSection>
 
-          <NotificationsSection />
+          <NotificationsSection telegramStatus={telegramStatus} />
 
-          <TelegramSection />
+          <TelegramSection status={telegramStatus} onStatusChange={setTelegramStatus} />
 
           {user.is_admin ? <FamilyChatSection /> : null}
 

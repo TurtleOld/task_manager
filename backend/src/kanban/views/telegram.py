@@ -4,12 +4,20 @@ import hmac
 from typing import Any
 
 from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..models import FamilyTelegramChat, TelegramAccount
+from ..models import (
+    FamilyTelegramChat,
+    NotificationProfile,
+    PersonalDeliveryChannel,
+    TelegramAccount,
+)
+from ..reminders import reschedule_invalid_channel_reminders
 from ..telegram import (
     TelegramError,
     TelegramLinkError,
@@ -41,6 +49,7 @@ class TelegramLinkView(APIView):
                 "configured": telegram_configured(),
                 "linked": account is not None,
                 "confirmed_at": account.confirmed_at if account else None,
+                "last_error": account.last_error if account else "",
             }
         )
 
@@ -55,7 +64,14 @@ class TelegramLinkView(APIView):
         return Response(data, status=status.HTTP_201_CREATED)
 
     def delete(self, request: Request) -> Response:
-        unlink_personal_chat(request.user)
+        with transaction.atomic():
+            unlink_personal_chat(request.user)
+            profile = NotificationProfile.objects.filter(user=request.user).first()
+            if profile and profile.delivery_channel == PersonalDeliveryChannel.TELEGRAM:
+                profile.delivery_channel = PersonalDeliveryChannel.PUSH
+                profile.delivery_channel_changed_at = timezone.now()
+                profile.save(update_fields=["delivery_channel", "delivery_channel_changed_at"])
+                reschedule_invalid_channel_reminders(user_id=request.user.pk)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
