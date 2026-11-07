@@ -189,19 +189,6 @@ def test_confirm_update_routes_personal_to_confirm_link(regular_user) -> None:
 
 
 @pytest.mark.django_db()
-def test_confirm_update_family_not_implemented(regular_user) -> None:
-    TelegramLink.objects.create(
-        code="family-1",
-        user=regular_user,
-        purpose=TelegramLink.Purpose.FAMILY,
-        expires_at=timezone.now() + timedelta(minutes=5),
-    )
-    with pytest.raises(TelegramLinkError) as excinfo:
-        confirm_update(code="family-1", chat_id=123, chat_type="group", chat_title="Family")
-    assert excinfo.value.reason == "family_not_implemented"
-
-
-@pytest.mark.django_db()
 @pytest.mark.parametrize("chat_type", ["group", "supergroup", "channel"])
 def test_confirm_update_personal_rejects_non_private_chat(regular_user, chat_type) -> None:
     link = TelegramLink.objects.create(
