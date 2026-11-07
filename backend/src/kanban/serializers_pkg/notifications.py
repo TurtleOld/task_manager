@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.utils import timezone
 from rest_framework import serializers
 
 from ..models import (
@@ -11,17 +12,21 @@ from ..models import (
     NotificationInboxEntry,
     NotificationPreference,
     NotificationProfile,
+    PersonalDeliveryChannel,
     PushDevice,
 )
 from ..webpush import is_allowed_push_endpoint
 
 
 class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProfile]):
+    delivery_channel = serializers.ChoiceField(choices=PersonalDeliveryChannel.choices)
+
     class Meta:
         model = NotificationProfile
         fields = [
             "timezone",
             "timezone_configured",
+            "delivery_channel",
         ]
         read_only_fields = ["timezone_configured"]
 
@@ -36,6 +41,11 @@ class NotificationProfileSerializer(serializers.ModelSerializer[NotificationProf
             instance.timezone = str(tz).strip() or "UTC"
             instance.timezone_configured = True
             update_fields.extend(["timezone", "timezone_configured"])
+        channel = validated_data.get("delivery_channel")
+        if channel is not None and channel != instance.delivery_channel:
+            instance.delivery_channel = channel
+            instance.delivery_channel_changed_at = timezone.now()
+            update_fields.extend(["delivery_channel", "delivery_channel_changed_at"])
         if update_fields:
             instance.save(update_fields=update_fields)
         return instance

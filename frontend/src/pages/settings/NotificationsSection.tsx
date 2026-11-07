@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { BellRing, RefreshCw, Send, Smartphone } from 'lucide-react'
 import { api } from '../../api/client'
-import type { PushDevice, PushTestResponse } from '../../api/types'
+import type { NotificationProfile, PushDevice, PushTestResponse } from '../../api/types'
 import {
   disableCurrentDevice,
   enableNotifications,
@@ -12,7 +12,7 @@ import {
   resubscribe,
 } from '../../lib/pushManager'
 import { Button, Skeleton } from '@/components/ui'
-import { SettingsRow, SettingsSection, StatusDot } from './ui'
+import { SettingsRow, SettingsSection, StatusDot, Switch } from './ui'
 
 function formatDate(value: string | null): string {
   if (!value) return '—'
@@ -23,6 +23,8 @@ function formatDate(value: string | null): string {
 
 export function NotificationsSection() {
   const [devices, setDevices] = useState<PushDevice[]>([])
+  const [profile, setProfile] = useState<NotificationProfile | null>(null)
+  const [channelSaving, setChannelSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [enabled, setEnabled] = useState(false)
   const [enabling, setEnabling] = useState(false)
@@ -34,12 +36,14 @@ export function NotificationsSection() {
   const refresh = useCallback(async () => {
     setError('')
     try {
-      const [nextDevices, active] = await Promise.all([
+      const [nextDevices, nextProfile, active] = await Promise.all([
         api.listPushDevices(),
+        api.getNotificationProfile(),
         hasActiveSubscription(),
       ])
       const savedId = getSavedDeviceId()
       setDevices(nextDevices)
+      setProfile(nextProfile)
       // The button must reflect the server, not just the local browser: a
       // device disabled elsewhere stays subscribed locally but no longer
       // receives anything, so the browser must be allowed to re-register.
@@ -115,7 +119,28 @@ export function NotificationsSection() {
     }
   }
 
+  const onToggleChannel = async (checked: boolean) => {
+    if (!profile || channelSaving) return
+    setChannelSaving(true)
+    setError('')
+    const next = checked ? 'push' : 'disabled'
+    const previous = profile
+    setProfile({ ...profile, delivery_channel: next })
+    try {
+      setProfile(await api.updateNotificationProfile({ delivery_channel: next }))
+      toast.success(checked ? 'Внешние уведомления включены' : 'Внешние уведомления выключены')
+    } catch (e) {
+      setProfile(previous)
+      setError((e as Error).message)
+      toast.error('Не удалось изменить канал доставки')
+    } finally {
+      setChannelSaving(false)
+    }
+  }
+
   const permission = getNotificationPermission()
+
+  const pushOn = profile?.delivery_channel !== 'disabled'
 
   return (
     <SettingsSection
@@ -123,6 +148,28 @@ export function NotificationsSection() {
       title="Уведомления"
       description="Приходят на телефон и часы, даже когда вкладка закрыта."
     >
+      <SettingsRow
+        label="Внешние уведомления"
+        description={
+          pushOn
+            ? 'События и напоминания доставляются на все ваши устройства. Выключение действует сразу везде; уже начавшаяся отправка может дойти и после выключения.'
+            : 'Внешняя доставка выключена — события и напоминания остаются только во Входящих. Подписки устройств сохраняются, включение вернёт их без повторной рассылки старого.'
+        }
+        htmlFor="delivery-channel"
+      >
+        <Switch
+          id="delivery-channel"
+          checked={pushOn}
+          onChange={(checked) => void onToggleChannel(checked)}
+          label="Внешние уведомления"
+          disabled={profile === null || channelSaving}
+        />
+      </SettingsRow>
+
+      {pushOn && devices.length === 0 && !loading ? (
+        <SettingsRow label="Устройства для доставки" description="Подключённых устройств нет — включите уведомления в этом браузере ниже, иначе доставлять некуда." />
+      ) : null}
+
       <SettingsRow
         label="Этот браузер"
         description={
