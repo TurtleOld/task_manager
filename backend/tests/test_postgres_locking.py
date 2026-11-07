@@ -39,6 +39,7 @@ from kanban.models import (
     RecurrenceFrequency,
     RecurrenceRule,
     TelegramAccount,
+    TelegramDeliveryTarget,
     TelegramLink,
     UserSession,
 )
@@ -47,9 +48,11 @@ from kanban.push_delivery import deliverable_devices, send_push_to_user
 from kanban.reminders import skip_reminders_for_completed_card
 from kanban.tasks import generate_recurring_cards
 from kanban.telegram import (
+    TelegramChatLostError,
     TelegramLinkError,
     confirm_family_link,
     confirm_link,
+    unlink_family_chat,
     unlink_personal_chat,
 )
 from tests.auth_helpers import client_for, make_push_device, make_session
@@ -715,3 +718,96 @@ def test_telegram_switch_after_the_claim_still_cancels_the_send(
 
     assert sent == []
     assert not NotificationDelivery.objects.filter(event=event, user=other).exists()
+
+
+# ---------------------------------------------------------------------------
+# Family chat access loss racing a reconnection (ticket 05)
+# ---------------------------------------------------------------------------
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_chat_lost_error_preserves_reconnected_chat(
+    board, regular_user, admin_user, monkeypatch
+) -> None:
+    """A stale access-loss error must not delete a group reconnected meanwhile.
+
+    The send starts against binding A; while it is in flight the admin connects
+    a different group B in the same row. The error handler must observe the
+    binding's `confirmed_at` version and leave B and its recipients untouched.
+    """
+
+    FamilyTelegramChat.objects.create(pk=1, chat_id=-100200, title="A")
+    TelegramAccount.objects.create(user=regular_user, chat_id=777)
+    profile = NotificationProfile.objects.create(user=regular_user)
+    profile.delivery_channel = PersonalDeliveryChannel.TELEGRAM
+    profile.delivery_channel_changed_at = timezone.now() - timedelta(hours=2)
+    profile.telegram_target = TelegramDeliveryTarget.FAMILY
+    profile.save(
+        update_fields=["delivery_channel", "delivery_channel_changed_at", "telegram_target"]
+    )
+    event = create_notification_event(
+        event_type=NotificationEventType.CARD_CREATED,
+        actor=regular_user,
+        board=board,
+        summary="Создана задача",
+    )
+
+    barrier = threading.Barrier(2)
+    connected = threading.Event()
+
+    def send_blocking(*, chat_id: int, text: str) -> dict:
+        barrier.wait(timeout=10)
+        connected.wait(timeout=10)
+        raise TelegramChatLostError("Telegram: Forbidden: bot was kicked", status=403)
+
+    monkeypatch.setattr("kanban.dispatcher.send_message", send_blocking)
+
+    def connect_b() -> None:
+        barrier.wait(timeout=10)
+        FamilyTelegramChat.objects.filter(pk=1).update(
+            chat_id=-100300, title="B", confirmed_at=timezone.now()
+        )
+        connection.close()
+        connected.set()
+
+    worker = threading.Thread(target=connect_b)
+    worker.start()
+    try:
+        dispatcher._deliver_event_to_family_chat(event, [regular_user.id])
+    finally:
+        worker.join(timeout=10)
+
+    survived = FamilyTelegramChat.objects.get(pk=1)
+    assert survived.chat_id == -100300
+    profile.refresh_from_db()
+    assert profile.telegram_target == TelegramDeliveryTarget.FAMILY
+    assert profile.telegram_target_reason == ""
+
+
+@requires_postgres
+@pytest.mark.django_db(transaction=True)
+def test_unlink_family_chat_revokes_and_rehomes_atomically(admin_user, regular_user) -> None:
+    """Disconnect must revoke codes, delete the chat and re-home recipients in one
+    transaction, so a crash cannot leave a family target with no connected chat."""
+
+    FamilyTelegramChat.objects.create(pk=1, chat_id=-100200, title="")
+    link = TelegramLink.objects.create(
+        code="fam-revoke",
+        user=admin_user,
+        purpose=TelegramLink.Purpose.FAMILY,
+        expires_at=timezone.now() + timedelta(minutes=5),
+    )
+    profile = NotificationProfile.objects.create(user=regular_user)
+    profile.delivery_channel = PersonalDeliveryChannel.TELEGRAM
+    profile.telegram_target = TelegramDeliveryTarget.FAMILY
+    profile.save(update_fields=["delivery_channel", "telegram_target"])
+
+    unlink_family_chat(reason="Семейный чат отключён администратором")
+
+    assert not FamilyTelegramChat.objects.exists()
+    link.refresh_from_db()
+    assert link.used_at is not None
+    profile.refresh_from_db()
+    assert profile.telegram_target == TelegramDeliveryTarget.PERSONAL
+    assert profile.telegram_target_reason == "Семейный чат отключён администратором"

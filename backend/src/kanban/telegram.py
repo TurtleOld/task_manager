@@ -24,6 +24,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import FamilyTelegramChat, TelegramAccount, TelegramLink
+from .reminders import switch_family_recipients_to_personal
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,15 @@ class TelegramError(RuntimeError):
     @property
     def retryable(self) -> bool:
         return self.status is None or self.status == 429 or self.status >= 500
+
+
+class TelegramChatLostError(TelegramError):
+    """Telegram confirmed the bot permanently lost access to the target chat.
+
+    Unlike other permanent rejections (e.g. a too-long message), this means the
+    bot was kicked, the chat was deleted, or access was otherwise revoked, so
+    the caller re-homes the recipients instead of just recording the failure.
+    """
 
 
 class TelegramNotConfiguredError(TelegramError):
@@ -123,9 +133,24 @@ def _request(method: str, payload: dict[str, Any], *, timeout: int = 30) -> Any:
 
     if not data.get("ok"):
         description = str(data.get("description", "unknown error"))
-        logger.warning("telegram_api_error description=%s", description)
+        error_code = data.get("error_code")
+        logger.warning("telegram_api_error code=%s description=%s", error_code, description)
+        if _is_chat_access_loss(error_code, description):
+            raise TelegramChatLostError(f"Telegram: {description}", status=response.status_code)
         raise TelegramError(f"Telegram: {description}", status=response.status_code)
     return data.get("result", {})
+
+
+def _is_chat_access_loss(error_code: int | None, description: str) -> bool:
+    """Whether a Telegram error means the bot permanently lost the chat."""
+    lowered = description.lower()
+    if error_code == 400 and "chat not found" in lowered:
+        return True
+    if error_code == 403:
+        for marker in ("bot was kicked", "bot is not a member", "kicked from"):
+            if marker in lowered:
+                return True
+    return False
 
 
 def get_me() -> dict[str, Any]:
@@ -270,44 +295,72 @@ def confirm_update(
 def confirm_family_link(*, code: str, chat_id: int, chat_type: str, chat_title: str) -> None:
     """Connect the family chat from an admin's one-time `startgroup` code.
 
-    Admin rights are re-checked here, at completion: a code issued while the
-    user was an admin must not connect the chat after the role was taken away.
-    The chat must be a group, and the bot must be able to post there — the
-    probe message doubles as the visible confirmation in the chat. On success
-    the single FamilyTelegramChat row is replaced, so two groups are never
-    connected at once.
+    Permanent rejections (unknown, used, expired, wrong purpose, not an admin,
+    not a group) are checked before any network call, so they ack without a
+    probe. The probe is the visible confirmation in the chat and doubles as the
+    "bot can post here" check; a transient send failure propagates as
+    TelegramError so the webhook retries instead of consuming the code. Only
+    after the probe succeeds are the code and the chat row written, in one
+    transaction that re-checks the code was not revoked by a concurrent
+    disconnect and that the initiator is still an admin. The single row (pk=1)
+    is replaced, so two groups are never connected at once.
     """
-    with transaction.atomic():
-        link = TelegramLink.objects.select_for_update().filter(code=code).first()
-        if link is None:
-            raise TelegramLinkError("unknown_code")
-        if link.used_at is not None:
-            raise TelegramLinkError("already_used")
-        if timezone.now() > link.expires_at:
-            raise TelegramLinkError("expired")
-        if link.purpose != TelegramLink.Purpose.FAMILY:
-            raise TelegramLinkError("wrong_purpose")
-        if not link.user.is_staff:
-            raise TelegramLinkError("not_admin")
-        if chat_type not in GROUP_CHAT_TYPES:
-            raise TelegramLinkError("not_a_group")
-        link.used_at = timezone.now()
-        link.save(update_fields=["used_at"])
+    link = TelegramLink.objects.filter(code=code).first()
+    if link is None:
+        raise TelegramLinkError("unknown_code")
+    if link.used_at is not None:
+        raise TelegramLinkError("already_used")
+    if timezone.now() > link.expires_at:
+        raise TelegramLinkError("expired")
+    if link.purpose != TelegramLink.Purpose.FAMILY:
+        raise TelegramLinkError("wrong_purpose")
+    if not link.user.is_staff:
+        raise TelegramLinkError("not_admin")
+    if chat_type not in GROUP_CHAT_TYPES:
+        raise TelegramLinkError("not_a_group")
 
-    try:
-        send_message(chat_id=chat_id, text=FAMILY_CHAT_CONFIRMED_TEXT)
-    except TelegramError as exc:
-        raise TelegramLinkError("send_failed") from exc
-    FamilyTelegramChat.objects.update_or_create(
-        pk=1,
-        defaults={
-            "chat_id": chat_id,
-            # Telegram allows group titles longer than the model column.
-            "title": chat_title[:200],
-            "confirmed_at": timezone.now(),
-        },
-    )
+    send_message(chat_id=chat_id, text=FAMILY_CHAT_CONFIRMED_TEXT)
+
+    with transaction.atomic():
+        locked = TelegramLink.objects.select_for_update().filter(pk=link.pk).first()
+        if locked is None or locked.used_at is not None:
+            raise TelegramLinkError("already_used")
+        if not locked.user.is_staff:
+            raise TelegramLinkError("not_admin")
+        locked.used_at = timezone.now()
+        locked.save(update_fields=["used_at"])
+        FamilyTelegramChat.objects.update_or_create(
+            pk=1,
+            defaults={
+                "chat_id": chat_id,
+                "title": chat_title[:200],
+                "confirmed_at": timezone.now(),
+            },
+        )
     logger.info("family_chat_confirmed chat_id=%s by_user=%s", chat_id, link.user_id)
+
+
+def unlink_family_chat(*, reason: str) -> None:
+    """Disconnect the family chat, void pending family codes, and re-home group
+    recipients to their personal chat, atomically.
+
+    Pending family codes are marked used under the same row lock
+    `confirm_family_link` takes at its final write, so an in-flight confirmation
+    and this disconnect serialize: whichever commits second cannot restore the
+    binding. Personal codes are left untouched. Group recipients are switched to
+    their personal chat with `reason` surfaced in settings.
+    """
+    now = timezone.now()
+    with transaction.atomic():
+        pending = TelegramLink.objects.select_for_update().filter(
+            purpose=TelegramLink.Purpose.FAMILY,
+            used_at__isnull=True,
+        )
+        for link in pending:
+            link.used_at = now
+            link.save(update_fields=["used_at"])
+        FamilyTelegramChat.objects.filter(pk=1).delete()
+        switch_family_recipients_to_personal(reason=reason)
 
 
 def unlink_personal_chat(user: Any) -> None:

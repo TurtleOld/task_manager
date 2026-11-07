@@ -352,6 +352,17 @@ class PersonalDeliveryChannel(models.TextChoices):
     DISABLED = "disabled", "Выключено"
 
 
+class TelegramDeliveryTarget(models.TextChoices):
+    """Which chat receives shared events when the chosen channel is Telegram.
+
+    Personal reminders always go to the personal chat regardless of this
+    choice; the target only decides where shared (family) events land.
+    """
+
+    PERSONAL = "personal", "Личный чат"
+    FAMILY = "family", "Семейный чат"
+
+
 class NotificationEventType(models.TextChoices):
     BOARD_CREATED = "board.created", "Board created"
     BOARD_UPDATED = "board.updated", "Board updated"
@@ -429,6 +440,19 @@ class NotificationProfile(models.Model):
     # time, so this timestamp is what makes the switch durable: events created
     # before it belong to the previous choice and must never be sent after it.
     delivery_channel_changed_at = models.DateTimeField(null=True, blank=True)
+    # Which Telegram chat receives shared events. Personal reminders ignore it.
+    telegram_target = models.CharField(
+        max_length=20,
+        choices=TelegramDeliveryTarget.choices,
+        default=TelegramDeliveryTarget.PERSONAL,
+    )
+    # Set on every change of `telegram_target`; cancels a pending delivery for
+    # events created before the switch, the same way `delivery_channel_changed_at`
+    # does for the channel itself.
+    telegram_target_changed_at = models.DateTimeField(null=True, blank=True)
+    # Why the target was forced back to personal (admin disabled the chat or the
+    # bot lost access). Empty when the person chose the target themselves.
+    telegram_target_reason = models.CharField(max_length=200, blank=True, default="")
 
     class Meta:
         ordering = ["id"]
@@ -733,7 +757,18 @@ class NotificationDelivery(models.Model):
     dedupe_key = models.CharField(max_length=200, null=True, blank=True, unique=True)
 
     event = models.ForeignKey(NotificationEvent, on_delete=models.CASCADE)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+    family_chat = models.ForeignKey(
+        "FamilyTelegramChat",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
     channel = models.CharField(max_length=20, choices=NotificationChannel.choices)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUEUED)
     error = models.TextField(blank=True, default="")
@@ -741,9 +776,19 @@ class NotificationDelivery(models.Model):
 
     class Meta:
         ordering = ["-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(user__isnull=False, family_chat__isnull=True)
+                    | models.Q(user__isnull=True, family_chat__isnull=False)
+                ),
+                name="notificationdelivery_one_recipient",
+            ),
+        ]
         indexes = [
             models.Index(fields=["status"]),
             models.Index(fields=["user", "channel"]),
+            models.Index(fields=["family_chat", "channel"]),
         ]
 
     def __str__(self) -> str:  # pragma: no cover

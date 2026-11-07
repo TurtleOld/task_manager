@@ -260,6 +260,8 @@ export interface NotificationProfile {
   timezone: string
   timezone_configured: boolean
   delivery_channel: 'push' | 'telegram' | 'disabled'
+  telegram_target: 'personal' | 'family'
+  telegram_target_reason: string
 }
 
 export interface NotificationInboxItem {

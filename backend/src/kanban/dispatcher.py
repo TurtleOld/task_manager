@@ -36,6 +36,7 @@ from .models import (
     CardDeadlineReminder,
     CardDeadlineReminderDelivery,
     DispatcherHeartbeat,
+    FamilyTelegramChat,
     NotificationChannel,
     NotificationDelivery,
     NotificationEvent,
@@ -44,6 +45,7 @@ from .models import (
     NotificationProfile,
     PersonalDeliveryChannel,
     TelegramAccount,
+    TelegramDeliveryTarget,
     UserSession,
 )
 from .notifications import is_pending_card_update_window
@@ -54,7 +56,12 @@ from .reminders import (
     reminder_channel_availability,
     resolve_delivery_channel,
 )
-from .telegram import TelegramError, send_message
+from .telegram import (
+    TelegramChatLostError,
+    TelegramError,
+    send_message,
+    unlink_family_chat,
+)
 from .webpush import PushDeliveryError
 
 User = get_user_model()
@@ -453,6 +460,8 @@ def _deliver_event_to_user(event: NotificationEvent, user_id: int) -> None:
         return
 
     if chosen == PersonalDeliveryChannel.TELEGRAM:
+        if profile and profile.telegram_target == TelegramDeliveryTarget.FAMILY:
+            return
         _deliver_event_to_telegram(event, user_id)
         return
 
@@ -544,6 +553,14 @@ def _deliver_event_to_telegram(event: NotificationEvent, user_id: int) -> None:
     if account is None:
         return
 
+    profile = NotificationProfile.objects.filter(user_id=user_id).first()
+    if (
+        profile
+        and profile.telegram_target_changed_at
+        and event.created_at <= profile.telegram_target_changed_at
+    ):
+        return
+
     channel = NotificationChannel.TELEGRAM.value
     dedupe_key = f"event:{event.id}:{user_id}:{channel}"
     delivery = NotificationDelivery.objects.filter(dedupe_key=dedupe_key).first()
@@ -594,6 +611,122 @@ def _deliver_event_to_telegram(event: NotificationEvent, user_id: int) -> None:
     if account.last_error:
         account.last_error = ""
         account.save(update_fields=["last_error"])
+
+
+def _wants_family_delivery(event: NotificationEvent, user_id: int) -> bool:
+    """Whether `user_id` should receive `event` through the family chat now.
+
+    Only a Telegram user who chose the family chat, still passes their personal
+    telegram filter for this event, and has not switched channel or target since
+    the event was created qualifies. Group membership in Telegram itself is
+    irrelevant: the person must be an addressed recipient in the app.
+    """
+
+    profile = NotificationProfile.objects.filter(user_id=user_id).first()
+    if profile is None:
+        return False
+    if profile.delivery_channel != PersonalDeliveryChannel.TELEGRAM:
+        return False
+    if profile.telegram_target != TelegramDeliveryTarget.FAMILY:
+        return False
+    if (
+        profile.delivery_channel_changed_at
+        and event.created_at <= profile.delivery_channel_changed_at
+    ):
+        return False
+    if (
+        profile.telegram_target_changed_at
+        and event.created_at <= profile.telegram_target_changed_at
+    ):
+        return False
+    return preferences_enabled_for_event_type(
+        user_id=user_id,
+        board_id=event.board_id,
+        channel=NotificationChannel.TELEGRAM.value,
+        event_type=event.event_type,
+    )
+
+
+def _deliver_event_to_family_chat(event: NotificationEvent, recipient_ids: list[int]) -> None:
+    """Send one event to the connected family chat, once, for all group recipients.
+
+    Deduped by (event, chat), not by user: when several people chose the family
+    chat the event still goes out once. A transient error raises so the event is
+    retried with the chat still the target; a confirmed access loss re-homes the
+    group recipients to their personal chat only if the binding has not changed
+    since the send started.
+    """
+
+    chat = FamilyTelegramChat.objects.filter(pk=1).first()
+    if chat is None:
+        return
+
+    if not any(_wants_family_delivery(event, uid) for uid in recipient_ids):
+        return
+
+    channel = NotificationChannel.TELEGRAM.value
+    dedupe_key = f"event:{event.id}:family:{chat.chat_id}"
+    delivery = NotificationDelivery.objects.filter(dedupe_key=dedupe_key).first()
+    if delivery and delivery.status == NotificationDelivery.Status.SENT:
+        return
+
+    subject = str(Truncator(_event_title(event)).chars(120))
+    text = f"{subject}\n\n{_event_body(event)}"[:4096]
+
+    is_new = delivery is None
+    if is_new:
+        delivery = NotificationDelivery(
+            event=event,
+            family_chat=chat,
+            channel=channel,
+            dedupe_key=dedupe_key,
+        )
+    confirmed_at = chat.confirmed_at
+    try:
+        send_message(chat_id=chat.chat_id, text=text)
+    except TelegramChatLostError as exc:
+        delivery.status = NotificationDelivery.Status.FAILED
+        delivery.error = str(exc)[:500]
+        if is_new:
+            delivery.save()
+        else:
+            delivery.save(update_fields=["status", "error"])
+        _rehome_on_chat_lost(confirmed_at)
+        return
+    except TelegramError as exc:
+        delivery.status = NotificationDelivery.Status.FAILED
+        delivery.error = str(exc)[:500]
+        if is_new:
+            delivery.save()
+        else:
+            delivery.save(update_fields=["status", "error"])
+        if exc.retryable:
+            raise
+        return
+
+    delivery.status = NotificationDelivery.Status.SENT
+    delivery.sent_at = timezone.now()
+    delivery.error = ""
+    if is_new:
+        delivery.save()
+    else:
+        delivery.save(update_fields=["status", "sent_at", "error"])
+
+
+def _rehome_on_chat_lost(confirmed_at: Any) -> None:
+    """Re-home group recipients after Telegram confirmed the bot lost the chat.
+
+    The send started against a specific binding; by the time Telegram's error
+    returned, the admin may have connected a different group in the same row.
+    The binding's `confirmed_at` is its version, so this only disconnects and
+    re-homes if the row still holds the binding the error was about.
+    """
+
+    with transaction.atomic():
+        chat = FamilyTelegramChat.objects.select_for_update().filter(pk=1).first()
+        if chat is None or chat.confirmed_at != confirmed_at:
+            return
+        unlink_family_chat(reason="Бот потерял доступ к семейному чату")
 
 
 def process_outbox_events(*, now=None, limit: int | None = None) -> int:
@@ -654,6 +787,14 @@ def process_outbox_events(*, now=None, limit: int | None = None) -> int:
                     _deliver_event_to_user(event, user_id)
                 except Exception as exc:  # noqa: BLE001
                     retry_error = retry_error or exc
+
+            # Group delivery runs after the per-person loop: a recipient's error
+            # must not delay the shared family message, and its dedupe key keeps
+            # the retry a no-op for whoever already got their delivery.
+            try:
+                _deliver_event_to_family_chat(event, recipient_ids)
+            except Exception as exc:  # noqa: BLE001
+                retry_error = retry_error or exc
 
         if retry_error is not None:
             event.dispatch_attempts += 1
