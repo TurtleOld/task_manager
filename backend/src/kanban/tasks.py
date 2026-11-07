@@ -207,6 +207,7 @@ def _generate_recurring_card_for_rule(*, rule_id: int, now: datetime) -> None:
             column=card.column,
             parent=card.parent,
             assignee=card.assignee,
+            created_by_id=card.created_by_id,
             title=card.title,
             description=card.description,
             deadline=copy_deadline if card.deadline else None,

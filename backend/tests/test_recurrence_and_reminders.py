@@ -19,6 +19,36 @@ from tests.auth_helpers import make_push_device
 
 
 @pytest.mark.django_db()
+def test_recurring_successor_keeps_creator_in_agenda(
+    column, regular_user, admin_user, auth_client
+) -> None:
+    now = timezone.now()
+    source = Card.objects.create(
+        column=column,
+        title="Передать показания",
+        created_by=regular_user,
+        assignee=admin_user,
+        deadline=now - timedelta(minutes=1),
+        completed_at=now,
+    )
+    rule = RecurrenceRule.objects.create(
+        card=source,
+        freq=RecurrenceFrequency.DAILY,
+        interval=1,
+        next_due=now - timedelta(minutes=1),
+    )
+
+    generate_recurring_cards()
+
+    generated = Card.objects.get(parent_recurrence=rule)
+    assert generated.created_by_id == regular_user.id
+    assert generated.assignee_id == admin_user.id
+    response = auth_client.get("/api/v1/agenda/")
+    item = next(item for item in response.data["cards"] if item["id"] == generated.id)
+    assert item["created_by"]["id"] == regular_user.id
+
+
+@pytest.mark.django_db()
 def test_generated_recurring_card_receives_recurrence_and_source_stops(column) -> None:
     now = timezone.now()
     card = Card.objects.create(
